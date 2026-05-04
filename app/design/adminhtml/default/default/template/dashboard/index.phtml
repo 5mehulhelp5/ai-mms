@@ -529,6 +529,36 @@ if ($_loggedInEmail) {
 
         $_rows = $_read->fetchAll($_sql, array($_loggedInEmail));
 
+        // Layer in admin-driven enrolments from course_run_enrolments —
+        // these don't have an order behind them but should still show
+        // in the learner's My Classes view as "Confirmed" classes.
+        // De-duped against $_rows so a learner who both ordered AND was
+        // admin-assigned to the same course doesn't get a duplicate card.
+        try {
+            $_adminEnrolRows = $_read->fetchAll(
+                "SELECT cre.product_id, p.sku, pn.value AS item_name,
+                        'complete' AS order_state,
+                        pn.value AS product_name,
+                        sd.value AS start_date,
+                        ed.value AS end_date
+                 FROM " . $_resource->getTableName('course_run_enrolments') . " cre
+                 JOIN {$_prodTable} p ON p.entity_id = cre.product_id
+                 LEFT JOIN {$_eav_vc} pn ON pn.entity_id = cre.product_id AND pn.attribute_id = {$_nameAttrId} AND pn.store_id = 0
+                 LEFT JOIN {$_eav_dt} sd ON sd.entity_id = cre.product_id AND sd.attribute_id = {$_startAttrId} AND sd.store_id = 0
+                 LEFT JOIN {$_eav_dt} ed ON ed.entity_id = cre.product_id AND ed.attribute_id = {$_endAttrId} AND ed.store_id = 0
+                 WHERE LOWER(cre.learner_email) = ?",
+                array($_loggedInEmail)
+            );
+            $_existingPids = array();
+            foreach ($_rows as $_exr) $_existingPids[(int)$_exr['product_id']] = true;
+            foreach ($_adminEnrolRows as $_aer) {
+                if (!isset($_existingPids[(int)$_aer['product_id']])) {
+                    $_rows[] = $_aer;
+                    $_existingPids[(int)$_aer['product_id']] = true;
+                }
+            }
+        } catch (Exception $e) {}
+
         // Resolve real course dates from "Course Date" custom-option dropdown titles
         // for the learner view too. news_from_date on many courses is either empty
         // or stale (2014-era); the authoritative schedule lives in Course Date options.
@@ -8644,6 +8674,779 @@ window.atmRecomputeKpis = function() {
 </tr></tbody></table>
 </div><!-- end dash-panel-assigntrainer -->
 
+<?php /* ===== PANEL: Assign Learners (Admin only) ===== */ ?>
+<?php
+// Data prep — only runs when this panel is the active sub-view.
+$_alActive = ($activeRole === 'admin') && (Mage::app()->getRequest()->getParam('panel') === 'assign_learner');
+$_alKpi = array('upcoming' => 0, 'ongoing' => 0, 'completed' => 0, 'trainees' => 0, 'no_trainee' => 0);
+$_alRows = array();
+$_alCourseTitles = array();
+if ($_alActive) {
+    try {
+        // Reuse the Assign Trainer scope: SG website, active, named.
+        $_alProducts = $read->fetchAll(
+            "SELECT e.entity_id, e.sku, v.value AS name,
+                    (SELECT d.value FROM catalog_product_entity_datetime d WHERE d.entity_id=e.entity_id AND d.attribute_id={$startAid} ORDER BY d.store_id LIMIT 1) AS news_from_date,
+                    (SELECT d.value FROM catalog_product_entity_datetime d WHERE d.entity_id=e.entity_id AND d.attribute_id={$endAid}   ORDER BY d.store_id LIMIT 1) AS news_to_date
+             FROM catalog_product_entity e
+             INNER JOIN catalog_product_website pw
+                ON pw.product_id=e.entity_id AND pw.website_id=1
+             INNER JOIN catalog_product_entity_varchar v
+                ON v.entity_id=e.entity_id AND v.attribute_id=71 AND v.store_id=0
+             INNER JOIN catalog_product_entity_int s
+                ON s.entity_id=e.entity_id AND s.attribute_id={$statusAid} AND s.store_id=0 AND s.value=1
+             WHERE v.value IS NOT NULL AND v.value <> ''
+             ORDER BY IFNULL((SELECT d.value FROM catalog_product_entity_datetime d WHERE d.entity_id=e.entity_id AND d.attribute_id={$startAid} ORDER BY d.store_id LIMIT 1), '9999-12-31') ASC,
+                      e.entity_id ASC
+             LIMIT 2000"
+        );
+
+        // Latest course_runs row per product (override dates if present).
+        $_alRunByPid = array();
+        try {
+            $_alRunRows = $read->fetchAll(
+                "SELECT cr.product_id, cr.run_id, cr.course_start_date, cr.course_end_date
+                 FROM course_runs cr
+                 JOIN (
+                     SELECT product_id, MAX(run_id) AS max_run FROM course_runs GROUP BY product_id
+                 ) latest ON latest.product_id=cr.product_id AND latest.max_run=cr.run_id"
+            );
+            foreach ($_alRunRows as $_rn) $_alRunByPid[(int)$_rn['product_id']] = $_rn;
+        } catch (Exception $e) {}
+
+        // Aggregate enrolment counts per product (distinct learner emails
+        // across non-canceled orders) — Singapore website only. The
+        // INNER JOIN on core_store filters by website_id=1, mirroring
+        // the SG-scope already applied to the catalog list above so the
+        // KPI numbers reflect SG enrolments rather than the global pool.
+        $_alEnrol = array();
+        try {
+            $_alEnrolRows = $read->fetchAll(
+                "SELECT oi.product_id, COUNT(DISTINCT LOWER(o.customer_email)) AS c
+                 FROM sales_flat_order o
+                 JOIN sales_flat_order_item oi ON oi.order_id=o.entity_id
+                 JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id=1
+                 WHERE o.state NOT IN ('canceled') AND o.customer_email IS NOT NULL
+                 GROUP BY oi.product_id"
+            );
+            foreach ($_alEnrolRows as $_er) $_alEnrol[(int)$_er['product_id']] = (int)$_er['c'];
+        } catch (Exception $e) {}
+
+        // Bulk-load "Course Date" custom-option titles per product. Many
+        // catalog products leave news_from_date empty and store the real
+        // schedule as drop-down options like "14 Mar 2026 (Sat)" — the
+        // Learner My Classes view already parses these, mirror it here
+        // so the Assign Learners table doesn't show "—" for products
+        // that genuinely do have a published date.
+        $_alCdByPid = array();
+        try {
+            $_alCdRows = $read->fetchAll(
+                "SELECT o.product_id, ott.title
+                 FROM catalog_product_option o
+                 JOIN catalog_product_option_title ot ON ot.option_id=o.option_id AND ot.store_id=0
+                 JOIN catalog_product_option_type_value ov ON ov.option_id=o.option_id
+                 JOIN catalog_product_option_type_title ott ON ott.option_type_id=ov.option_type_id AND ott.store_id=0
+                 WHERE ot.title='Course Date' OR ot.title LIKE '%Date%'"
+            );
+            foreach ($_alCdRows as $_cd) $_alCdByPid[(int)$_cd['product_id']][] = $_cd['title'];
+        } catch (Exception $e) {}
+
+        $_alToday = strtotime(date('Y-m-d'));
+        foreach ($_alProducts as $_p) {
+            $_pid = (int) $_p['entity_id'];
+            $_run = isset($_alRunByPid[$_pid]) ? $_alRunByPid[$_pid] : null;
+
+            $_sd = 0; $_ed = 0;
+            if ($_run && !empty($_run['course_start_date'])) $_sd = strtotime($_run['course_start_date']);
+            elseif ($_p['news_from_date'])                   $_sd = strtotime($_p['news_from_date']);
+            if ($_run && !empty($_run['course_end_date']))   $_ed = strtotime($_run['course_end_date']);
+            elseif ($_p['news_to_date'])                     $_ed = strtotime($_p['news_to_date']);
+
+            // Course Date fallback — only when neither course_runs nor
+            // news_from_date provided a date. Pick the soonest future
+            // date if any exist; otherwise the latest past date so the
+            // tab classifier still buckets it correctly.
+            if (!$_sd && isset($_alCdByPid[$_pid])) {
+                $_bestFuture = null; $_bestFutureEnd = 0;
+                $_bestPast   = null; $_bestPastEnd   = 0;
+                foreach ($_alCdByPid[$_pid] as $_title) {
+                    if (preg_match('#(\d{1,2})(?:/(\d{1,2}))?\s+([A-Za-z]{3,})\s+(\d{4})#', $_title, $_dm)) {
+                        $_stTs = strtotime($_dm[1] . ' ' . $_dm[3] . ' ' . $_dm[4]);
+                        $_enTs = !empty($_dm[2]) ? strtotime($_dm[2] . ' ' . $_dm[3] . ' ' . $_dm[4]) : $_stTs;
+                        if (!$_stTs) continue;
+                        if ($_stTs >= $_alToday) {
+                            if ($_bestFuture === null || $_stTs < $_bestFuture) { $_bestFuture = $_stTs; $_bestFutureEnd = $_enTs; }
+                        } else {
+                            if ($_bestPast === null || $_stTs > $_bestPast)     { $_bestPast   = $_stTs; $_bestPastEnd   = $_enTs; }
+                        }
+                    }
+                }
+                if ($_bestFuture !== null)   { $_sd = $_bestFuture; $_ed = $_bestFutureEnd; }
+                elseif ($_bestPast !== null) { $_sd = $_bestPast;   $_ed = $_bestPastEnd; }
+            }
+
+            $_tab = '';
+            if ($_sd && $_ed && $_sd <= $_alToday && $_ed >= $_alToday) $_tab = 'ongoing';
+            elseif ($_ed && $_ed < $_alToday)                           $_tab = 'completed';
+            elseif ($_sd && $_sd < $_alToday && !$_ed)                  $_tab = 'completed';
+            else                                                        $_tab = 'upcoming';
+
+            // Run ID — same pattern as Assign Trainer.
+            if ($_run) {
+                $_runId = 'SG-' . str_pad((string)(99999 + (int)$_run['run_id']), 6, '0', STR_PAD_LEFT);
+            } elseif (isset($_lmcRunMap[$_pid])) {
+                $_runId = $_lmcRunMap[$_pid];
+            } elseif (isset($_devRankMap[$_pid])) {
+                $_runId = $_devPrefix . '-' . (100000 + (int)$_devRankMap[$_pid]);
+            } else {
+                $_runId = (string) (1000000 + $_pid);
+            }
+
+            $_traineeCount = isset($_alEnrol[$_pid]) ? (int)$_alEnrol[$_pid] : 0;
+
+            $_alRows[] = array(
+                'pid'        => $_pid,
+                'sku'        => $_p['sku'],
+                'title'      => $_p['name'] ?: '(No Name)',
+                'run_id'     => $_runId,
+                'start_date' => $_sd ? date('d/m/Y', $_sd) : '—',
+                'start_iso'  => $_sd ? date('Y-m-d', $_sd) : '',
+                'tab'        => $_tab,
+                'trainees'   => $_traineeCount,
+            );
+            $_alCourseTitles[$_p['name']] = true;
+
+            if ($_tab === 'upcoming')  $_alKpi['upcoming']++;
+            if ($_tab === 'ongoing')   $_alKpi['ongoing']++;
+            if ($_tab === 'completed') $_alKpi['completed']++;
+            if ($_tab === 'upcoming') {
+                if ($_traineeCount === 0) $_alKpi['no_trainee']++;
+            }
+        }
+        ksort($_alCourseTitles);
+        $_alCourseTitles = array_keys($_alCourseTitles);
+
+        // Sort rows by effective start date ascending (soonest first),
+        // empty dates last. The earlier SQL ORDER BY only sees
+        // news_from_date — it can't know about course_runs / Course
+        // Date custom-option fallbacks that fill in dates per row in
+        // PHP, so without this re-sort the table looks scrambled.
+        usort($_alRows, function ($a, $b) {
+            $aEmpty = $a['start_iso'] === '';
+            $bEmpty = $b['start_iso'] === '';
+            if ($aEmpty !== $bEmpty) return $aEmpty ? 1 : -1;
+            if ($a['start_iso'] !== $b['start_iso']) return strcmp($a['start_iso'], $b['start_iso']);
+            return $a['pid'] - $b['pid'];
+        });
+
+        // Distinct trainee count per tab bucket. The Sum-of-counts
+        // approach inflated the KPI because a learner enrolled in 5
+        // upcoming courses got counted 5×. We instead query distinct
+        // emails over the union of products in each bucket so the
+        // tile reads "people enrolled in upcoming classes", not
+        // "enrolment seats filled".
+        $_alPidsByTab = array('upcoming' => array(), 'ongoing' => array(), 'completed' => array());
+        $_alNoTraineeByTab = array('upcoming' => 0, 'ongoing' => 0, 'completed' => 0);
+        foreach ($_alRows as $_r) {
+            $_alPidsByTab[$_r['tab']][] = (int)$_r['pid'];
+            if ((int)$_r['trainees'] === 0) $_alNoTraineeByTab[$_r['tab']]++;
+        }
+        $_alDistinctByTab = array('upcoming' => 0, 'ongoing' => 0, 'completed' => 0);
+        foreach ($_alPidsByTab as $_tabName => $_pidsT) {
+            if (empty($_pidsT)) continue;
+            try {
+                $_pidsList = implode(',', $_pidsT);
+                $_alDistinctByTab[$_tabName] = (int) $read->fetchOne(
+                    "SELECT COUNT(DISTINCT LOWER(o.customer_email))
+                     FROM sales_flat_order o
+                     JOIN sales_flat_order_item oi ON oi.order_id=o.entity_id
+                     JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id=1
+                     WHERE o.state NOT IN ('canceled')
+                       AND o.customer_email IS NOT NULL
+                       AND oi.product_id IN ({$_pidsList})"
+                );
+            } catch (Exception $e) {}
+        }
+        $_alKpi['trainees'] = $_alDistinctByTab['upcoming'];
+    } catch (Exception $e) {}
+}
+if (!isset($_alDistinctByTab))   $_alDistinctByTab   = array('upcoming' => 0, 'ongoing' => 0, 'completed' => 0);
+if (!isset($_alNoTraineeByTab))  $_alNoTraineeByTab  = array('upcoming' => 0, 'ongoing' => 0, 'completed' => 0);
+?>
+<div id="dash-panel-assignlearner" style="display:none;">
+<style>
+/* Assign Learners — mirrors Assign Trainer styles (al- prefix). */
+.al-wrap{max-width:1400px;margin:0 auto;padding:24px 28px;color:#e2e8f0}
+.al-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px}
+.al-title{font-size:28px;font-weight:700;color:#fff;margin:0}
+.al-back-link{color:#fff;font-size:14px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.al-back-link:hover{color:#93c5fd}
+.al-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:22px}
+.al-kpi{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:32px 24px;text-align:center}
+.al-kpi-num{font-size:48px;font-weight:700;line-height:1;margin-bottom:10px;margin-top:0;height:auto}
+.al-kpi-num.al-num-up{color:#3b82f6}
+.al-kpi-num.al-num-trainees{color:#22c55e}
+.al-kpi-num.al-num-empty{color:#ef4444}
+.al-kpi-lbl{font-size:14px;color:#94a3b8;font-weight:500}
+.al-tabs{display:inline-flex;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:4px;margin-bottom:18px;gap:2px}
+button.al-tab,button.al-tab:hover,button.al-tab:focus{padding:9px 22px !important;background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:14px !important;font-weight:600 !important;cursor:pointer !important;border-radius:7px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.al-tab:hover{color:#cbd5e1 !important}
+button.al-tab.active,button.al-tab.active:hover,button.al-tab.active:focus{background:#2563eb !important;color:#fff !important}
+.al-search-row{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:18px;margin-bottom:18px;display:flex;gap:12px}
+.al-search-input{flex:1;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:11px 14px;color:#e2e8f0;font-size:14px;outline:none}
+.al-search-input:focus{border-color:#3b82f6}
+button.al-search-btn,button.al-search-btn:hover,button.al-search-btn:focus{padding:11px 28px !important;background:#22d3ee !important;background-image:none !important;color:#0f172a !important;font-weight:700 !important;font-size:14px !important;border:none !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;line-height:normal !important}
+.al-table-wrap{background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;margin-bottom:18px}
+table.al-table{width:100%;border-collapse:collapse;color:#e2e8f0}
+.al-table thead th{background:#0f172a;color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:14px 16px;text-align:left;border-bottom:1px solid #334155}
+.al-table tbody td{padding:16px;border-bottom:1px solid #283548;font-size:13px;color:#cbd5e1;vertical-align:middle}
+.al-table tbody tr:last-child td{border-bottom:none}
+.al-table tbody tr:hover{background:rgba(30,58,99,.25)}
+.al-run-id{color:#22d3ee;font-weight:600}
+.al-badge{display:inline-block;padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;border:1px solid}
+.al-badge-enrolled{background:rgba(34,197,94,.15);color:#86efac;border-color:rgba(34,197,94,.3)}
+.al-badge-empty{background:rgba(100,116,139,.18);color:#94a3b8;border-color:rgba(100,116,139,.3)}
+.al-th-action,.al-td-action{text-align:right;white-space:nowrap}
+button.al-action-btn,button.al-action-btn:hover,button.al-action-btn:focus{padding:8px 18px !important;background:rgba(59,130,246,.18) !important;background-image:none !important;color:#93c5fd !important;border:1px solid rgba(59,130,246,.4) !important;border-radius:6px !important;font-size:12px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;line-height:1 !important}
+button.al-action-btn:hover{opacity:.85}
+.al-empty{padding:48px 20px;text-align:center;color:#64748b;font-size:14px}
+.al-pager{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;color:#94a3b8;font-size:13px}
+.al-pager-ctrls{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.al-pg-ell{padding:0 4px;color:#64748b;font-size:13px;user-select:none}
+button.al-pg-btn,button.al-pg-btn:hover,button.al-pg-btn:focus{padding:6px 12px !important;background:#0f172a !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #334155 !important;border-radius:6px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;min-width:34px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
+button.al-pg-btn:hover{background:#1e293b !important}
+button.al-pg-btn.active,button.al-pg-btn.active:hover{background:#2563eb !important;border-color:#2563eb !important;color:#fff !important}
+button.al-pg-btn.disabled,button.al-pg-btn.disabled:hover{opacity:.45;cursor:not-allowed !important;background:#0f172a !important}
+@media(max-width:900px){.al-kpis{grid-template-columns:1fr}}
+</style>
+<div class="al-wrap">
+    <div class="al-header">
+        <h1 class="al-title">Assign Learners</h1>
+        <a class="al-back-link" href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') ?>">Back to Dashboard</a>
+    </div>
+
+    <div class="al-kpis">
+        <div class="al-kpi"><div class="al-kpi-num al-num-up" id="al-kpi-classes"><?php echo number_format($_alKpi['upcoming']) ?></div><div class="al-kpi-lbl" id="al-kpi-classes-lbl">Upcoming Classes</div></div>
+        <div class="al-kpi"><div class="al-kpi-num al-num-trainees" id="al-kpi-trainees"><?php echo number_format($_alKpi['trainees']) ?></div><div class="al-kpi-lbl">No. of Trainees</div></div>
+        <div class="al-kpi"><div class="al-kpi-num al-num-empty" id="al-kpi-empty"><?php echo number_format($_alKpi['no_trainee']) ?></div><div class="al-kpi-lbl">Classes with No Trainee</div></div>
+    </div>
+
+    <div class="al-tabs">
+        <button type="button" class="al-tab active" data-tab="upcoming" onclick="alSetTab(this)">Upcoming</button>
+        <button type="button" class="al-tab" data-tab="ongoing" onclick="alSetTab(this)">Ongoing</button>
+        <button type="button" class="al-tab" data-tab="completed" onclick="alSetTab(this)">Completed</button>
+    </div>
+
+    <div class="al-search-row">
+        <input type="text" id="al-search" class="al-search-input" placeholder="Search by course title, code or run ID..." oninput="alRender()" />
+        <button type="button" class="al-search-btn" onclick="alRender()">Search</button>
+    </div>
+
+    <div class="al-table-wrap">
+        <table class="al-table">
+            <thead><tr>
+                <th>Start Date</th>
+                <th>Course Run ID</th>
+                <th>Course Title</th>
+                <th>Trainees</th>
+                <th class="al-th-action">Action</th>
+            </tr></thead>
+            <tbody id="al-tbody">
+                <?php foreach ($_alRows as $_r): ?>
+                <tr data-tab="<?php echo $_r['tab'] ?>" data-title="<?php echo strtolower(htmlspecialchars($_r['title'])) ?>" data-sku="<?php echo strtolower(htmlspecialchars($_r['sku'])) ?>" data-run="<?php echo strtolower(htmlspecialchars($_r['run_id'])) ?>" data-pid="<?php echo (int)$_r['pid'] ?>" data-trainees="<?php echo (int)$_r['trainees'] ?>">
+                    <td><?php echo $_r['start_date'] ?></td>
+                    <td><span class="al-run-id"><?php echo htmlspecialchars($_r['run_id']) ?></span></td>
+                    <td><?php echo htmlspecialchars($_r['title']) ?></td>
+                    <td><?php if ($_r['trainees'] > 0): ?><span class="al-badge al-badge-enrolled"><?php echo (int)$_r['trainees'] ?> enrolled</span><?php else: ?><span class="al-badge al-badge-empty">No trainees</span><?php endif; ?></td>
+                    <td class="al-td-action">
+                        <button type="button" class="al-action-btn" onclick="almOpen(this)">Add / Edit Learners</button>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <div id="al-no-results" class="al-empty" style="display:none;">No classes match your filters.</div>
+        <div class="al-pager">
+            <div id="al-pager-info" class="al-pager-info"></div>
+            <div id="al-pager-ctrls" class="al-pager-ctrls"></div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+window._alTab = 'upcoming';
+window._alPage = 1;
+window._alPerPage = 10;
+// Server-precomputed per-tab KPI numbers — distinct learner count and
+// "no trainee" class count for each bucket. JS reads these on tab
+// switch so we don't double-count multi-enrolment learners on the
+// client side.
+window._alKpiByTab = {
+    upcoming:  { trainees: <?php echo (int)$_alDistinctByTab['upcoming']  ?>, noTrainee: <?php echo (int)$_alNoTraineeByTab['upcoming']  ?> },
+    ongoing:   { trainees: <?php echo (int)$_alDistinctByTab['ongoing']   ?>, noTrainee: <?php echo (int)$_alNoTraineeByTab['ongoing']   ?> },
+    completed: { trainees: <?php echo (int)$_alDistinctByTab['completed'] ?>, noTrainee: <?php echo (int)$_alNoTraineeByTab['completed'] ?> }
+};
+
+window.alSetTab = function(btn) {
+    var tabs = document.querySelectorAll('.al-tab');
+    for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+    btn.classList.add('active');
+    window._alTab = btn.getAttribute('data-tab');
+    window._alPage = 1;
+    alRender();
+};
+
+window.alRender = function() {
+    var rows = document.querySelectorAll('#al-tbody tr');
+    var q = (document.getElementById('al-search')||{value:''}).value.toLowerCase().trim();
+    var matched = [];
+    // Class count comes from a row walk so it tracks DOM mutations
+    // (e.g. a future inline editor that adds/removes rows). Trainees +
+    // no-trainee come from server-precomputed per-tab numbers since
+    // distinct learner counting can't be done on the client without
+    // emails — see _alKpiByTab.
+    var kpiClasses = 0;
+    for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var inTab = r.getAttribute('data-tab') === window._alTab;
+        if (inTab) kpiClasses++;
+        var match = inTab;
+        if (match && q) {
+            var hay = (r.getAttribute('data-title')||'') + ' ' + (r.getAttribute('data-sku')||'') + ' ' + (r.getAttribute('data-run')||'');
+            if (hay.indexOf(q) === -1) match = false;
+        }
+        r.style.display = 'none';
+        if (match) matched.push(r);
+    }
+    var kpiBucket = window._alKpiByTab[window._alTab] || { trainees: 0, noTrainee: 0 };
+    var kpiTrainees  = kpiBucket.trainees;
+    var kpiNoTrainee = kpiBucket.noTrainee;
+    // Update KPI tiles + first-tile label so it reads
+    // "Upcoming/Ongoing/Completed Classes" depending on the active tab.
+    var fmt = function(n){ return n.toLocaleString(); };
+    var lblMap = { upcoming: 'Upcoming Classes', ongoing: 'Ongoing Classes', completed: 'Completed Classes' };
+    var elClasses  = document.getElementById('al-kpi-classes');
+    var elTrainees = document.getElementById('al-kpi-trainees');
+    var elEmpty    = document.getElementById('al-kpi-empty');
+    var elLbl      = document.getElementById('al-kpi-classes-lbl');
+    if (elClasses)  elClasses.textContent  = fmt(kpiClasses);
+    if (elTrainees) elTrainees.textContent = fmt(kpiTrainees);
+    if (elEmpty)    elEmpty.textContent    = fmt(kpiNoTrainee);
+    if (elLbl)      elLbl.textContent      = lblMap[window._alTab] || 'Classes';
+    var perPage = window._alPerPage;
+    var total = matched.length;
+    var pages = Math.max(1, Math.ceil(total / perPage));
+    if (window._alPage > pages) window._alPage = pages;
+    if (window._alPage < 1) window._alPage = 1;
+    var startIdx = (window._alPage - 1) * perPage;
+    var endIdx = Math.min(startIdx + perPage, total);
+    for (var j = startIdx; j < endIdx; j++) matched[j].style.display = '';
+
+    var info = document.getElementById('al-pager-info');
+    if (info) info.textContent = total === 0 ? '' : 'Showing ' + (startIdx + 1) + '–' + endIdx + ' of ' + total + ' classes';
+
+    var ne = document.getElementById('al-no-results');
+    if (ne) ne.style.display = total === 0 ? '' : 'none';
+
+    var c = document.getElementById('al-pager-ctrls');
+    if (c && total > 0) {
+        c.innerHTML = '';
+        var cur = window._alPage;
+        var addBtn = function(label, page, isActive, isDisabled) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'al-pg-btn' + (isActive ? ' active' : '') + (isDisabled ? ' disabled' : '');
+            b.textContent = label;
+            if (!isDisabled && page) b.onclick = function() { window._alPage = page; alRender(); };
+            c.appendChild(b);
+        };
+        var addEll = function() {
+            var s = document.createElement('span');
+            s.className = 'al-pg-ell';
+            s.textContent = '…';
+            c.appendChild(s);
+        };
+        var nums = [];
+        if (pages <= 10) {
+            for (var p1 = 1; p1 <= pages; p1++) nums.push(p1);
+        } else {
+            nums.push(1);
+            for (var p2 = cur - 2; p2 <= cur + 2; p2++) {
+                if (p2 > 1 && p2 < pages) nums.push(p2);
+            }
+            nums.push(pages);
+            var dedup = [];
+            for (var di = 0; di < nums.length; di++) {
+                if (di === 0 || nums[di] !== nums[di - 1]) dedup.push(nums[di]);
+            }
+            nums = dedup;
+        }
+        addBtn('Prev', cur - 1, false, cur <= 1);
+        var prev = 0;
+        for (var k = 0; k < nums.length; k++) {
+            var n = nums[k];
+            if (prev && n - prev > 1) addEll();
+            addBtn(String(n), n, n === cur, false);
+            prev = n;
+        }
+        addBtn('Next', cur + 1, false, cur >= pages);
+    } else if (c) {
+        c.innerHTML = '';
+    }
+};
+(function(){ if (document.getElementById('al-tbody')) alRender(); })();
+
+// ===== Inline learner editor (alm-) =====
+window._almState = { pid: 0, list: [], mode: 'add', selectMode: 'select', selectEmail: '', selectName: '' };
+
+window.almOpen = function(btn) {
+    var tr = btn.closest('tr');
+    if (!tr) return;
+    var almRow = document.getElementById('alm-row');
+    if (!almRow) return;
+
+    // Toggle: if already directly under this row, collapse it.
+    if (almRow.parentNode && almRow.previousElementSibling === tr) {
+        almClose();
+        return;
+    }
+    if (almRow.parentNode) almRow.parentNode.removeChild(almRow);
+    tr.parentNode.insertBefore(almRow, tr.nextSibling);
+    almRow.style.display = '';
+
+    window._almState.pid = parseInt(tr.getAttribute('data-pid'), 10) || 0;
+    window._almState.list = [];
+    window._almState.mode = 'add';
+    window._almState.selectMode = 'select';
+    window._almState.selectEmail = '';
+    window._almState.selectName = '';
+    window._almOpenerBtn = btn;
+    btn.textContent = 'Close';
+    btn.classList.add('al-action-close');
+
+    almRender();
+    almLoadCurrent();
+};
+
+window.almClose = function() {
+    var almRow = document.getElementById('alm-row');
+    if (almRow && almRow.parentNode) almRow.parentNode.removeChild(almRow);
+    if (almRow) almRow.style.display = 'none';
+    if (window._almOpenerBtn) {
+        window._almOpenerBtn.textContent = 'Add / Edit Learners';
+        window._almOpenerBtn.classList.remove('al-action-close');
+        window._almOpenerBtn = null;
+    }
+};
+
+window.almSetTab = function(mode) {
+    window._almState.mode = mode;
+    almRender();
+};
+
+window.almSetSelectMode = function(mode) {
+    window._almState.selectMode = mode;
+    window._almState.selectEmail = '';
+    window._almState.selectName = '';
+    almRender();
+};
+
+window.almRender = function() {
+    var st = window._almState;
+    document.getElementById('alm-count').textContent = st.list.length;
+    document.getElementById('alm-tab-add').classList.toggle('active', st.mode === 'add');
+    document.getElementById('alm-tab-view').classList.toggle('active', st.mode === 'view');
+    document.getElementById('alm-panel-add').style.display  = st.mode === 'add'  ? '' : 'none';
+    document.getElementById('alm-panel-view').style.display = st.mode === 'view' ? '' : 'none';
+
+    document.getElementById('alm-mode-select').classList.toggle('active', st.selectMode === 'select');
+    document.getElementById('alm-mode-manual').classList.toggle('active', st.selectMode === 'manual');
+    document.getElementById('alm-input-select-wrap').style.display = st.selectMode === 'select' ? '' : 'none';
+    document.getElementById('alm-input-manual-wrap').style.display = st.selectMode === 'manual' ? '' : 'none';
+
+    var box = document.getElementById('alm-current-list');
+    box.innerHTML = '';
+    if (st.list.length === 0) {
+        var empty = document.createElement('div');
+        empty.className = 'alm-empty';
+        empty.textContent = '— No learners enrolled yet —';
+        box.appendChild(empty);
+    } else {
+        for (var i = 0; i < st.list.length; i++) {
+            var t = st.list[i];
+            var row = document.createElement('div');
+            row.className = 'alm-trainer-row';
+            var info = document.createElement('div');
+            var n = document.createElement('span'); n.className = 'alm-trainer-name'; n.textContent = t.name;
+            info.appendChild(n);
+            if (t.email && t.email !== t.name) {
+                var em = document.createElement('span');
+                em.className = 'alm-trainer-email';
+                em.textContent = ' (' + t.email + ')';
+                info.appendChild(em);
+            }
+            row.appendChild(info);
+            // Order-sourced rows can't be removed from this panel.
+            if (t.source === 'order') {
+                var lock = document.createElement('span');
+                lock.className = 'alm-trainer-locked';
+                lock.textContent = 'from order';
+                row.appendChild(lock);
+            } else {
+                var rm = document.createElement('button');
+                rm.type = 'button';
+                rm.className = 'alm-trainer-remove';
+                rm.textContent = '× Remove';
+                (function(em){ rm.onclick = function(){ almRemove(em); }; })(t.email);
+                row.appendChild(rm);
+            }
+            box.appendChild(row);
+        }
+    }
+};
+
+window.almLoadCurrent = function() {
+    var pid = window._almState.pid;
+    if (!pid) return;
+    var fd = new FormData(); fd.append('product_id', String(pid));
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/loadLearners') ?>?product_id=' + pid, { credentials: 'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+          if (j && j.success) { window._almState.list = j.learners || []; almRender(); almSyncRow(0); }
+      })
+      .catch(function(){});
+};
+
+window.almAdd = function() {
+    var st = window._almState;
+    var email = '', name = '';
+    if (st.selectMode === 'select') {
+        email = (st.selectEmail || '').toLowerCase().trim();
+        name  = st.selectName || '';
+        if (!email) { alert('Pick a learner from the list first.'); return; }
+    } else {
+        email = (document.getElementById('alm-input-manual').value || '').toLowerCase().trim();
+        if (!email || email.indexOf('@') === -1) { alert('Enter a valid email.'); return; }
+    }
+    var fd = new FormData();
+    fd.append('product_id', String(st.pid));
+    fd.append('learner_email', email);
+    fd.append('learner_name',  name);
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/addLearner') ?>', {
+        method: 'POST', body: fd, credentials: 'same-origin'
+    }).then(function(r){ return r.json(); }).then(function(j){
+        if (j && j.success) {
+            // Insert into local list if not already there.
+            var exists = false;
+            for (var i = 0; i < st.list.length; i++) if (st.list[i].email === j.email) exists = true;
+            if (!exists) st.list.push({ email: j.email, name: j.name, source: 'manual', enrol_id: 0 });
+            st.selectMode = 'select'; st.selectEmail = ''; st.selectName = '';
+            document.getElementById('alm-input-manual').value = '';
+            document.getElementById('alm-input-select').value = '';
+            almRender();
+            almSyncRow(exists ? 0 : 1);
+        } else {
+            alert((j && j.message) || 'Could not add learner.');
+        }
+    }).catch(function(err){ alert('Network error: ' + err); });
+};
+
+window.almRemove = function(email) {
+    var st = window._almState;
+    if (!confirm('Remove ' + email + '?')) return;
+    var fd = new FormData();
+    fd.append('product_id', String(st.pid));
+    fd.append('learner_email', email);
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/removeLearner') ?>', {
+        method: 'POST', body: fd, credentials: 'same-origin'
+    }).then(function(r){ return r.json(); }).then(function(j){
+        if (j && j.success) {
+            var removed = 0;
+            for (var i = st.list.length - 1; i >= 0; i--) {
+                if (st.list[i].email === email && st.list[i].source !== 'order') { st.list.splice(i, 1); removed = 1; }
+            }
+            almRender();
+            almSyncRow(-removed);
+        } else {
+            alert((j && j.message) || 'Could not remove learner.');
+        }
+    }).catch(function(err){ alert('Network error: ' + err); });
+};
+
+// Patch the originating row's Trainees badge from current list length,
+// and recompute the KPI tiles. delta = +1 when a learner was just
+// added, -1 when removed, 0 on initial load. The trainees tile is a
+// distinct-people count that we can't recompute precisely on the
+// client (we'd need every email globally) so we shift it optimistically
+// — over-counts if the added learner already had another upcoming
+// enrolment, under-counts on remove if they're still elsewhere; the
+// drift resets on the next page load when the server recomputes.
+window.almSyncRow = function(delta) {
+    var st = window._almState;
+    var rows = document.querySelectorAll('#al-tbody tr[data-pid="' + st.pid + '"]');
+    for (var r = 0; r < rows.length; r++) {
+        rows[r].setAttribute('data-trainees', String(st.list.length));
+        var traineesTd = rows[r].children[3];
+        if (traineesTd) {
+            traineesTd.innerHTML = '';
+            var b = document.createElement('span');
+            if (st.list.length > 0) {
+                b.className = 'al-badge al-badge-enrolled';
+                b.textContent = st.list.length + ' enrolled';
+            } else {
+                b.className = 'al-badge al-badge-empty';
+                b.textContent = 'No trainees';
+            }
+            traineesTd.appendChild(b);
+        }
+    }
+    // Recompute "Classes with No Trainee" from current rows in the active tab.
+    var rowsAll = document.querySelectorAll('#al-tbody tr[data-tab]');
+    var noT = 0;
+    for (var i = 0; i < rowsAll.length; i++) {
+        if (rowsAll[i].getAttribute('data-tab') !== window._alTab) continue;
+        if ((parseInt(rowsAll[i].getAttribute('data-trainees'), 10) || 0) === 0) noT++;
+    }
+    var elE = document.getElementById('al-kpi-empty');
+    if (elE) elE.textContent = noT.toLocaleString();
+
+    // Bump per-tab trainees count on add/remove.
+    if (typeof delta === 'number' && delta !== 0 && window._alKpiByTab) {
+        var tab = window._alTab;
+        var rowTab = (rows[0] && rows[0].getAttribute('data-tab')) || tab;
+        if (window._alKpiByTab[rowTab]) {
+            window._alKpiByTab[rowTab].trainees = Math.max(0, (window._alKpiByTab[rowTab].trainees || 0) + delta);
+            if (rowTab === tab) {
+                var elT = document.getElementById('al-kpi-trainees');
+                if (elT) elT.textContent = window._alKpiByTab[rowTab].trainees.toLocaleString();
+            }
+        }
+    }
+};
+
+// Autocomplete for the Select-from-list dropdown. Debounced fetch to
+// the searchLearners endpoint, populates a <select> with up to 30 matches.
+var _almSearchTimer = null;
+window.almOnSearchInput = function(input) {
+    if (_almSearchTimer) clearTimeout(_almSearchTimer);
+    var q = (input.value || '').trim();
+    if (q.length < 2) {
+        document.getElementById('alm-results').innerHTML = '';
+        return;
+    }
+    _almSearchTimer = setTimeout(function() {
+        fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/searchLearners') ?>?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+          .then(function(r){ return r.json(); })
+          .then(function(j){
+              var box = document.getElementById('alm-results');
+              box.innerHTML = '';
+              if (!j || !j.success || !j.learners.length) {
+                  var n = document.createElement('div');
+                  n.className = 'alm-result-empty';
+                  n.textContent = 'No matches';
+                  box.appendChild(n);
+                  return;
+              }
+              for (var i = 0; i < j.learners.length; i++) {
+                  var l = j.learners[i];
+                  var d = document.createElement('div');
+                  d.className = 'alm-result-row';
+                  d.textContent = l.name + '  (' + l.email + ')';
+                  (function(email, name){
+                      d.onclick = function() {
+                          window._almState.selectEmail = email;
+                          window._almState.selectName  = name;
+                          input.value = name + ' (' + email + ')';
+                          box.innerHTML = '';
+                      };
+                  })(l.email, l.name);
+                  box.appendChild(d);
+              }
+          })
+          .catch(function(){});
+    }, 200);
+};
+</script>
+
+<?php /* Inline learner editor — kept hidden, JS moves it under the
+        clicked row exactly like the Assign Trainer pattern. */ ?>
+<style>
+.alm-row td{padding:0 !important;background:#0f172a;border-bottom:1px solid #334155 !important}
+.alm-inline{padding:24px 28px;color:#e2e8f0}
+.alm-tabs{border-bottom:1px solid #334155;display:flex;gap:24px;margin-bottom:22px;padding-bottom:0}
+button.alm-tab,button.alm-tab:hover,button.alm-tab:focus{padding:10px 0 12px !important;background:transparent !important;background-image:none !important;border:none !important;border-bottom:2px solid transparent !important;color:#94a3b8 !important;font-size:14px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:1 !important;height:auto !important;border-radius:0 !important}
+button.alm-tab:hover{color:#cbd5e1 !important}
+button.alm-tab.active,button.alm-tab.active:hover{color:#3b82f6 !important;border-bottom-color:#3b82f6 !important}
+.alm-mode-row{display:flex;gap:10px;margin-bottom:18px}
+button.alm-mode-btn,button.alm-mode-btn:hover,button.alm-mode-btn:focus{padding:9px 18px !important;background:#0f172a !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #334155 !important;border-radius:6px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;line-height:normal !important}
+button.alm-mode-btn.active,button.alm-mode-btn.active:hover{background:#2563eb !important;border-color:#2563eb !important;color:#fff !important}
+.alm-field-label{font-size:14px;font-weight:600;color:#fff;display:block;margin-bottom:8px}
+.alm-field-label .req{color:#ef4444;margin-left:3px}
+.alm-input{width:100%;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:11px 14px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box}
+.alm-input:focus{border-color:#3b82f6}
+/* Browser autofill paints the input pale blue with light text — kill
+   that on the dark theme so what the user typed stays readable. */
+.alm-input:-webkit-autofill,
+.alm-input:-webkit-autofill:hover,
+.alm-input:-webkit-autofill:focus,
+.alm-input:-webkit-autofill:active{
+    -webkit-box-shadow:0 0 0 1000px #1e293b inset !important;
+    -webkit-text-fill-color:#e2e8f0 !important;
+    caret-color:#e2e8f0;
+    transition:background-color 5000s ease-in-out 0s;
+}
+.alm-results{margin-top:6px;background:#1e293b;border:1px solid #334155;border-radius:8px;max-height:240px;overflow-y:auto;display:none}
+.alm-results:not(:empty){display:block}
+.alm-result-row{padding:9px 14px;font-size:13px;color:#e2e8f0;cursor:pointer;border-bottom:1px solid #283548}
+.alm-result-row:last-child{border-bottom:none}
+.alm-result-row:hover{background:rgba(59,130,246,.12);color:#fff}
+.alm-result-empty{padding:14px;color:#64748b;font-size:13px}
+.alm-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+button.alm-btn-primary,button.alm-btn-primary:hover,button.alm-btn-primary:focus{padding:11px 26px !important;background:#22d3ee !important;background-image:none !important;color:#0f172a !important;font-weight:700 !important;font-size:14px !important;border:none !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;line-height:normal !important}
+.alm-trainer-row{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.alm-trainer-row:last-child{margin-bottom:0}
+.alm-trainer-name{font-size:14px;font-weight:600;color:#fff}
+.alm-trainer-email{font-size:13px;color:#94a3b8;font-weight:400}
+.alm-trainer-locked{font-size:11px;color:#64748b;font-style:italic;text-transform:uppercase;letter-spacing:.5px}
+button.alm-trainer-remove,button.alm-trainer-remove:hover,button.alm-trainer-remove:focus{padding:4px 8px !important;background:transparent !important;background-image:none !important;border:none !important;color:#f87171 !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;height:auto !important;line-height:normal !important}
+button.alm-trainer-remove:hover{color:#ef4444 !important}
+.alm-empty{padding:14px;color:#64748b;font-size:14px;font-style:italic;text-align:center}
+button.al-action-close,button.al-action-close:hover,button.al-action-close:focus{background:rgba(100,116,139,.18) !important;color:#cbd5e1 !important;border-color:rgba(100,116,139,.4) !important}
+</style>
+<table style="display:none"><tbody><tr id="alm-row" class="alm-row" style="display:none">
+    <td colspan="5">
+        <div class="alm-inline">
+            <div class="alm-tabs">
+                <button type="button" id="alm-tab-add" class="alm-tab active" onclick="almSetTab('add')">Add Learner</button>
+                <button type="button" id="alm-tab-view" class="alm-tab" onclick="almSetTab('view')">View / Remove Learners (<span id="alm-count">0</span>)</button>
+            </div>
+
+            <div id="alm-panel-add">
+                <div class="alm-mode-row">
+                    <button type="button" id="alm-mode-select" class="alm-mode-btn active" onclick="almSetSelectMode('select')">Select from list</button>
+                    <button type="button" id="alm-mode-manual" class="alm-mode-btn" onclick="almSetSelectMode('manual')">Enter manually</button>
+                </div>
+                <label class="alm-field-label">Learner<span class="req">*</span></label>
+                <div id="alm-input-select-wrap">
+                    <input id="alm-input-select" type="text" class="alm-input" placeholder="— Search learner by name or email —" oninput="almOnSearchInput(this)" />
+                    <div id="alm-results" class="alm-results"></div>
+                </div>
+                <div id="alm-input-manual-wrap" style="display:none">
+                    <input id="alm-input-manual" type="email" class="alm-input" placeholder="learner@example.com" />
+                </div>
+                <div class="alm-foot">
+                    <button type="button" class="alm-btn-primary" onclick="almAdd()">Add Learner</button>
+                </div>
+            </div>
+
+            <div id="alm-panel-view" style="display:none">
+                <div id="alm-current-list"></div>
+            </div>
+        </div>
+    </td>
+</tr></tbody></table>
+</div><!-- end dash-panel-assignlearner -->
+
 
 <?php /* ===== Role switcher JS ===== */ ?>
 <script type="text/javascript">
@@ -8730,8 +9533,8 @@ window.atmRecomputeKpis = function() {
     function showAdminSubPanel(name, filter) {
         var r = role;
         if (r !== 'Admin' && r !== 'Super Admin' && r !== 'Marketing') return;
-        var panelMap = { admin: 'dash-panel-admin', trainers: 'dash-panel-trainers', companysetting: 'dash-panel-companysetting', createclass: 'dash-panel-createclass', assigntrainer: 'dash-panel-assigntrainer', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-createclass','dash-panel-assigntrainer'];
+        var panelMap = { admin: 'dash-panel-admin', trainers: 'dash-panel-trainers', companysetting: 'dash-panel-companysetting', createclass: 'dash-panel-createclass', assigntrainer: 'dash-panel-assigntrainer', assignlearner: 'dash-panel-assignlearner', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-createclass','dash-panel-assigntrainer','dash-panel-assignlearner'];
         for (var i=0; i<all.length; i++) { var el = document.getElementById(all[i]); if (el) el.style.display = 'none'; }
         var t = document.getElementById(panelMap[name] || panelMap.dashboard);
         if (t) t.style.display = '';
@@ -8799,6 +9602,11 @@ window.atmRecomputeKpis = function() {
         if ((qsPanel === 'assign_trainer' || qsPanel === 'assigntrainer' || hash === '#assign-trainer')
             && (role === 'Admin' || role === 'Super Admin')) {
             showAdminSubPanel('assigntrainer');
+            return;
+        }
+        if ((qsPanel === 'assign_learner' || qsPanel === 'assignlearner' || hash === '#assign-learner')
+            && (role === 'Admin' || role === 'Super Admin')) {
+            showAdminSubPanel('assignlearner');
             return;
         }
         if (qsFilter && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {

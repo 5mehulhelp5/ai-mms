@@ -848,6 +848,196 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         $this->getResponse()->setBody(Mage::helper('core')->jsonEncode($result));
     }
 
+    /**
+     * List learners attached to a product. Union of sales_flat_order
+     * customers (historical purchases) and course_run_enrolments rows
+     * (admin-driven enrolments via the Assign Learners panel).
+     */
+    public function loadLearnersAction()
+    {
+        $result = array('success' => false, 'learners' => array());
+        try {
+            $productId = (int) $this->getRequest()->getParam('product_id');
+            if (!$productId) throw new Exception('product_id required');
+
+            $resource = Mage::getSingleton('core/resource');
+            $read     = $resource->getConnection('core_read');
+
+            // Order-based learners (paid + processing only — pending /
+            // payment_review aren't real attendees).
+            $orderRows = $read->fetchAll(
+                "SELECT DISTINCT
+                        LOWER(o.customer_email) AS email,
+                        COALESCE(NULLIF(TRIM(CONCAT(IFNULL(o.customer_firstname,''),' ',IFNULL(o.customer_lastname,''))),''), o.customer_email) AS name
+                 FROM sales_flat_order o
+                 JOIN sales_flat_order_item oi ON oi.order_id=o.entity_id
+                 JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id=1
+                 WHERE oi.product_id = ?
+                   AND o.state IN ('complete','processing')
+                   AND o.customer_email IS NOT NULL
+                 ORDER BY name",
+                array($productId)
+            );
+            $byEmail = array();
+            foreach ($orderRows as $r) {
+                $byEmail[$r['email']] = array(
+                    'email'     => $r['email'],
+                    'name'      => $r['name'],
+                    'source'    => 'order',
+                    'enrol_id'  => 0,
+                );
+            }
+
+            // Admin-driven enrolments — survive even if no order exists.
+            $enrolRows = $read->fetchAll(
+                "SELECT enrolment_id, learner_email, learner_name
+                 FROM " . $resource->getTableName('course_run_enrolments') . "
+                 WHERE product_id = ?",
+                array($productId)
+            );
+            foreach ($enrolRows as $r) {
+                $email = strtolower((string) $r['learner_email']);
+                $byEmail[$email] = array(
+                    'email'    => $email,
+                    'name'     => $r['learner_name'] ?: $email,
+                    'source'   => 'manual',
+                    'enrol_id' => (int) $r['enrolment_id'],
+                );
+            }
+            $result['learners'] = array_values($byEmail);
+            $result['success']  = true;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+        $this->getResponse()->setBody(Mage::helper('core')->jsonEncode($result));
+    }
+
+    /**
+     * Add an admin-driven learner enrolment. INSERT IGNORE on the
+     * (product, run, email) unique key, so re-adding the same learner
+     * is a no-op rather than an error.
+     */
+    public function addLearnerAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $req = $this->getRequest();
+            $productId = (int) $req->getParam('product_id');
+            $email     = strtolower(trim((string) $req->getParam('learner_email')));
+            $name      = trim((string) $req->getParam('learner_name'));
+            if (!$productId) throw new Exception('product_id required');
+            if ($email === '' || strpos($email, '@') === false) throw new Exception('Valid learner email required');
+
+            $resource = Mage::getSingleton('core/resource');
+            $read     = $resource->getConnection('core_read');
+            $write    = $resource->getConnection('core_write');
+            $tbl      = $resource->getTableName('course_run_enrolments');
+
+            // Resolve the latest run for the product so the enrolment
+            // attaches to the upcoming class instance, not the product
+            // generally — keeps per-run counting honest.
+            $runId = $read->fetchOne(
+                "SELECT MAX(run_id) FROM " . $resource->getTableName('course_runs') . " WHERE product_id=?",
+                array($productId)
+            );
+            $runId = $runId ? (int) $runId : null;
+
+            // Auto-fill name from existing customer record if blank.
+            if ($name === '') {
+                $name = (string) $read->fetchOne(
+                    "SELECT COALESCE(NULLIF(TRIM(CONCAT(IFNULL(o.customer_firstname,''),' ',IFNULL(o.customer_lastname,''))),''), o.customer_email)
+                     FROM sales_flat_order o
+                     WHERE LOWER(o.customer_email)=? ORDER BY o.entity_id DESC LIMIT 1",
+                    array($email)
+                );
+                if ($name === '') $name = $email;
+            }
+
+            $write->query(
+                "INSERT IGNORE INTO {$tbl} (product_id, run_id, learner_email, learner_name) VALUES (?, ?, ?, ?)",
+                array($productId, $runId, $email, $name)
+            );
+            $result['success'] = true;
+            $result['email']   = $email;
+            $result['name']    = $name;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+        $this->getResponse()->setBody(Mage::helper('core')->jsonEncode($result));
+    }
+
+    /**
+     * Remove an admin-driven enrolment. Order-sourced learners can't be
+     * removed from this panel — those represent paid orders and need to
+     * be canceled via the orders flow.
+     */
+    public function removeLearnerAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $req = $this->getRequest();
+            $productId = (int) $req->getParam('product_id');
+            $email     = strtolower(trim((string) $req->getParam('learner_email')));
+            if (!$productId || $email === '') throw new Exception('product_id + learner_email required');
+
+            $resource = Mage::getSingleton('core/resource');
+            $write    = $resource->getConnection('core_write');
+            $tbl      = $resource->getTableName('course_run_enrolments');
+            $write->delete($tbl, array('product_id=?' => $productId, 'learner_email=?' => $email));
+            $result['success'] = true;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+        $this->getResponse()->setBody(Mage::helper('core')->jsonEncode($result));
+    }
+
+    /**
+     * Autocomplete for the "Select from list" trainer dropdown — returns
+     * up to 30 customers whose email or name contains the query string.
+     * Read-only, draws from sales_flat_order to bias toward customers
+     * who have placed orders before.
+     */
+    public function searchLearnersAction()
+    {
+        $result = array('success' => false, 'learners' => array());
+        try {
+            $q = strtolower(trim((string) $this->getRequest()->getParam('q')));
+            if (mb_strlen($q) < 2) {
+                $result['success'] = true;
+                $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+                $this->getResponse()->setBody(Mage::helper('core')->jsonEncode($result));
+                return;
+            }
+            $resource = Mage::getSingleton('core/resource');
+            $read     = $resource->getConnection('core_read');
+            $like = '%' . $q . '%';
+            $rows = $read->fetchAll(
+                "SELECT DISTINCT
+                        LOWER(o.customer_email) AS email,
+                        COALESCE(NULLIF(TRIM(CONCAT(IFNULL(o.customer_firstname,''),' ',IFNULL(o.customer_lastname,''))),''), o.customer_email) AS name
+                 FROM sales_flat_order o
+                 JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id=1
+                 WHERE o.customer_email IS NOT NULL
+                   AND (LOWER(o.customer_email) LIKE ?
+                        OR LOWER(CONCAT(IFNULL(o.customer_firstname,''),' ',IFNULL(o.customer_lastname,''))) LIKE ?)
+                 ORDER BY name
+                 LIMIT 30",
+                array($like, $like)
+            );
+            $result['learners'] = $rows;
+            $result['success']  = true;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+        $this->getResponse()->setBody(Mage::helper('core')->jsonEncode($result));
+    }
+
     protected function _isAllowed()
     {
         // Course / class / enrolment / attendance management. Trainers
