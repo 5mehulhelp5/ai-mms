@@ -556,6 +556,150 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $this->_redirectUrl($dashboardUrl);
         }
     }
+    /**
+     * Create New Class — backs the admin Create New Class form.
+     *
+     * Writes a course_runs row capturing every field the admin entered
+     * (venue, mode, vacancy, registration window, course dates, trainer
+     * option_id) so the trainer's "My Assigned Classes" card can show
+     * exactly what was submitted instead of the underlying product
+     * attributes. Also appends the trainer to the product's `trainers`
+     * EAV multiselect so the existing trainer-match filter in the
+     * dashboard continues to surface the class.
+     *
+     * POST: course_sku, trainer_option_id, start_date (YYYY-MM-DD),
+     *       end_date, reg_open_date, reg_close_date, venue_block,
+     *       venue_street, venue_building, venue_floor, venue_unit,
+     *       postal_code, room, wheelchair (Yes/No), mode_of_training
+     *       (1-4), admin_email, vacancy (A/L/F)
+     * Returns JSON { success, product_id?, run_id?, message? }
+     */
+    public function createNewClassAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $req = $this->getRequest();
+            $sku       = trim((string) $req->getParam('course_sku'));
+            $trainerOp = (int)         $req->getParam('trainer_option_id');
+            $startDate = trim((string) $req->getParam('start_date'));
+            $endDate   = trim((string) $req->getParam('end_date'));
+            $regOpen   = trim((string) $req->getParam('reg_open_date'));
+            $regClose  = trim((string) $req->getParam('reg_close_date'));
+            if ($sku === '') throw new Exception('course_sku is required');
+
+            $resource = Mage::getSingleton('core/resource');
+            $read     = $resource->getConnection('core_read');
+            $write    = $resource->getConnection('core_write');
+            $eavTx    = $resource->getTableName('catalog_product_entity_text');
+            $eavDt    = $resource->getTableName('catalog_product_entity_datetime');
+
+            // Look up the product by SKU
+            $productId = (int) $read->fetchOne(
+                "SELECT entity_id FROM " . $resource->getTableName('catalog_product_entity') . " WHERE sku = ? LIMIT 1",
+                array($sku)
+            );
+            if (!$productId) throw new Exception('No course found with SKU "' . $sku . '"');
+            $result['product_id'] = $productId;
+
+            // Persist all the form fields to course_runs.
+            $runRow = array(
+                'product_id'        => $productId,
+                'course_sku'        => $sku,
+                'trainer_option_id' => $trainerOp > 0 ? $trainerOp : null,
+                'reg_open_date'     => preg_match('/^\d{4}-\d{2}-\d{2}$/', $regOpen)   ? $regOpen   : null,
+                'reg_close_date'    => preg_match('/^\d{4}-\d{2}-\d{2}$/', $regClose)  ? $regClose  : null,
+                'course_start_date' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate) ? $startDate : null,
+                'course_end_date'   => preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate)   ? $endDate   : null,
+                'venue_block'       => trim((string) $req->getParam('venue_block')),
+                'venue_street'      => trim((string) $req->getParam('venue_street')),
+                'venue_building'    => trim((string) $req->getParam('venue_building')),
+                'venue_floor'       => trim((string) $req->getParam('venue_floor')),
+                'venue_unit'        => trim((string) $req->getParam('venue_unit')),
+                'postal_code'       => trim((string) $req->getParam('postal_code')),
+                'room'              => trim((string) $req->getParam('room')),
+                'wheelchair'        => strtolower(trim((string) $req->getParam('wheelchair'))) === 'yes' ? 1 : 0,
+                'mode_of_training'  => (int) $req->getParam('mode_of_training') ?: 1,
+                'admin_email'       => trim((string) $req->getParam('admin_email')),
+                'vacancy'           => substr(strtoupper(trim((string) $req->getParam('vacancy'))), 0, 1) ?: 'A',
+            );
+            $write->insert($resource->getTableName('course_runs'), $runRow);
+            $result['run_id'] = (int) $write->lastInsertId();
+
+            // Append the trainer option_id to the `trainers` multiselect.
+            // Stored as a comma-separated string in catalog_product_entity_text
+            // for attribute_id = trainers attribute. Append, dedupe, save.
+            if ($trainerOp > 0) {
+                $trainersAttrId = (int) $read->fetchOne(
+                    "SELECT attribute_id FROM eav_attribute WHERE attribute_code='trainers' AND entity_type_id=4"
+                );
+                if (!$trainersAttrId) throw new Exception('Trainers attribute not configured');
+                $existing = (string) $read->fetchOne(
+                    "SELECT value FROM {$eavTx} WHERE entity_id=? AND attribute_id=? AND store_id=0 LIMIT 1",
+                    array($productId, $trainersAttrId)
+                );
+                $opts = $existing !== '' ? array_filter(array_map('intval', explode(',', $existing))) : array();
+                if (!in_array($trainerOp, $opts, true)) {
+                    $opts[] = $trainerOp;
+                    $newCsv = implode(',', $opts);
+                    if ($existing !== '') {
+                        $write->update($eavTx,
+                            array('value' => $newCsv),
+                            array('entity_id = ?' => $productId, 'attribute_id = ?' => $trainersAttrId, 'store_id = ?' => 0)
+                        );
+                    } else {
+                        $write->insert($eavTx, array(
+                            'entity_type_id' => 4,
+                            'attribute_id'   => $trainersAttrId,
+                            'store_id'       => 0,
+                            'entity_id'      => $productId,
+                            'value'          => $newCsv,
+                        ));
+                    }
+                    $result['trainer_added'] = true;
+                } else {
+                    $result['trainer_added'] = false; // already assigned
+                }
+            }
+
+            // Update news_from_date / news_to_date — these power the
+            // dashboard's Ongoing/Upcoming/Completed bucketing and the
+            // Course Dates shown on the trainer's class card.
+            $writeDate = function ($attrCode, $date) use ($read, $write, $eavDt, $productId) {
+                if ($date === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) return;
+                $aid = (int) $read->fetchOne(
+                    "SELECT attribute_id FROM eav_attribute WHERE attribute_code=? AND entity_type_id=4",
+                    array($attrCode)
+                );
+                if (!$aid) return;
+                $existing = $read->fetchOne(
+                    "SELECT value_id FROM {$eavDt} WHERE entity_id=? AND attribute_id=? AND store_id=0 LIMIT 1",
+                    array($productId, $aid)
+                );
+                if ($existing) {
+                    $write->update($eavDt, array('value' => $date . ' 00:00:00'),
+                        array('value_id = ?' => $existing));
+                } else {
+                    $write->insert($eavDt, array(
+                        'entity_type_id' => 4,
+                        'attribute_id'   => $aid,
+                        'store_id'       => 0,
+                        'entity_id'      => $productId,
+                        'value'          => $date . ' 00:00:00',
+                    ));
+                }
+            };
+            $writeDate('news_from_date', $startDate);
+            $writeDate('news_to_date',   $endDate);
+
+            $result['success'] = true;
+            $result['message'] = 'Class scheduled. The assigned trainer can now see it under "My Assigned Classes".';
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
     protected function _sendJson(array $data)
     {
         $this->getResponse()

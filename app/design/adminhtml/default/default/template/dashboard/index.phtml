@@ -641,6 +641,121 @@ if ($_loggedInEmail) {
         );
     }
 
+    // Course-runs expansion: each row in course_runs is one scheduled
+    // class instance (admin-created via Create New Class). The trainer
+    // view needs one card per row — admin scheduling course X three
+    // times with the same trainer should produce three distinct cards
+    // with their own dates and Run IDs.
+    //
+    // Strategy: for each existing $_learnerCourses entry, look up all
+    // matching course_runs rows. If any exist, REPLACE that single
+    // entry with N entries (one per run), each carrying the run's
+    // start/end dates plus a unique 'run_id' override. If no rows
+    // exist, leave the legacy order-based entry untouched.
+    //
+    // For trainer role, also additionally include any course_runs
+    // rows targeted at the logged-in trainer that aren't already in
+    // $_learnerCourses (e.g. a class scheduled before any learner
+    // enrolled in it).
+    try {
+        $_lcProductIds = array_unique(array_map(function ($c) { return (int)$c['id']; }, $_learnerCourses));
+        $_runsByPid = array();
+        if (!empty($_lcProductIds)) {
+            $_runRows = $read->fetchAll(
+                "SELECT * FROM course_runs WHERE product_id IN (" . implode(',', $_lcProductIds) . ") ORDER BY run_id ASC"
+            );
+            foreach ($_runRows as $_rr) {
+                $_runsByPid[(int)$_rr['product_id']][] = $_rr;
+            }
+        }
+        if (!empty($_runsByPid)) {
+            $_expanded = array();
+            foreach ($_learnerCourses as $_lc) {
+                $_pid = (int)$_lc['id'];
+                if (!isset($_runsByPid[$_pid])) {
+                    $_expanded[] = $_lc;
+                    continue;
+                }
+                foreach ($_runsByPid[$_pid] as $_run) {
+                    $_card = $_lc;
+                    if (!empty($_run['course_start_date'])) $_card['start_date'] = date('j M Y', strtotime($_run['course_start_date']));
+                    if (!empty($_run['course_end_date']))   $_card['end_date']   = date('j M Y', strtotime($_run['course_end_date']));
+                    $_card['run_id']    = 'SG-' . str_pad((string)(99999 + (int)$_run['run_id']), 6, '0', STR_PAD_LEFT);
+                    $_card['venue']     = trim(implode(' ', array_filter(array($_run['venue_block'], $_run['venue_street'], $_run['venue_building']))));
+                    $_card['room']      = $_run['room'];
+                    $_card['postal']    = $_run['postal_code'];
+                    $_card['vacancy']   = $_run['vacancy'];
+                    $_card['mode']      = (int)$_run['mode_of_training'];
+                    $_card['scheduled'] = true;
+                    $_card['cr_run_id'] = (int)$_run['run_id'];
+                    $_card['detail_url']= Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $_pid, '_query' => array('run' => (int)$_run['run_id'])));
+                    $_expanded[] = $_card;
+                }
+            }
+            $_learnerCourses = $_expanded;
+        }
+
+        // Trainer-only: pull in course_runs that target this trainer
+        // but whose source product isn't yet in $_learnerCourses.
+        if ($activeRole === 'trainer' && !empty($_optMatches)) {
+            $_lcSeenRunIds = array();
+            foreach ($_learnerCourses as $_lc) {
+                if (isset($_lc['cr_run_id'])) $_lcSeenRunIds[(int)$_lc['cr_run_id']] = true;
+            }
+            $_optList = implode(',', array_map('intval', $_optMatches));
+            $_extraRuns = $read->fetchAll(
+                "SELECT cr.*, p.sku,
+                        (SELECT v.value FROM " . $_resource->getTableName('catalog_product_entity_varchar') . " v
+                         WHERE v.entity_id=cr.product_id AND v.attribute_id=71 ORDER BY v.store_id LIMIT 1) AS course_name
+                 FROM course_runs cr
+                 JOIN " . $_resource->getTableName('catalog_product_entity') . " p ON p.entity_id=cr.product_id
+                 WHERE cr.trainer_option_id IN ({$_optList})
+                 ORDER BY cr.run_id ASC"
+            );
+            foreach ($_extraRuns as $_run) {
+                if (isset($_lcSeenRunIds[(int)$_run['run_id']])) continue;
+                $_pid = (int)$_run['product_id'];
+                $_imgUrl = '';
+                try {
+                    $_p = Mage::getModel('catalog/product')->load($_pid);
+                    $_courseImgUrl = trim((string) $_p->getData('course_image_url'));
+                    if ($_courseImgUrl !== '') $_imgUrl = $_courseImgUrl;
+                    elseif ($_p->getImage() && $_p->getImage() !== 'no_selection') {
+                        $_imgUrl = (string) Mage::helper('catalog/image')->init($_p, 'image')->resize(400, 250);
+                    }
+                    $_dur = (float)$_p->getData('duration');
+                    $_typ = $_p->getAttributeText('software') ?: '';
+                } catch (Exception $e) { $_dur = 0; $_typ = ''; }
+                $_today  = strtotime(date('Y-m-d'));
+                $_st     = $_run['course_start_date'] ? strtotime($_run['course_start_date']) : 0;
+                $_en     = $_run['course_end_date']   ? strtotime($_run['course_end_date'])   : 0;
+                $_tStat  = ($_st && $_st > $_today) ? 'upcoming' : (($_en && $_en < $_today) ? 'past' : 'current');
+                $_learnerCourses[] = array(
+                    'id'          => $_pid,
+                    'name'        => $_run['course_name'] ?: $_run['sku'],
+                    'sku'         => $_run['sku'],
+                    'start_date'  => $_st ? date('j M Y', $_st) : '—',
+                    'end_date'    => $_en ? date('j M Y', $_en) : '—',
+                    'status'      => 'Confirmed',
+                    'time_status' => $_tStat,
+                    'image'       => $_imgUrl,
+                    'order_state' => 'complete',
+                    'detail_url'  => Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $_pid, '_query' => array('run' => (int)$_run['run_id']))),
+                    'duration'    => $_dur,
+                    'course_type' => $_typ,
+                    'run_id'      => 'SG-' . str_pad((string)(99999 + (int)$_run['run_id']), 6, '0', STR_PAD_LEFT),
+                    'venue'       => trim(implode(' ', array_filter(array($_run['venue_block'], $_run['venue_street'], $_run['venue_building'])))),
+                    'room'        => $_run['room'],
+                    'postal'      => $_run['postal_code'],
+                    'vacancy'     => $_run['vacancy'],
+                    'mode'        => (int)$_run['mode_of_training'],
+                    'scheduled'   => true,
+                    'cr_run_id'   => (int)$_run['run_id'],
+                );
+            }
+        }
+    } catch (Exception $e) {}
+
     // Query billing history for this learner (one row per order item)
     $_billSql = "SELECT o.increment_id, o.created_at, o.grand_total, o.status, o.state,
                         oi.name as item_name, oi.sku as item_sku, oi.product_type,
@@ -1126,7 +1241,6 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
         </div>
 
         <div id="dashAdvFilters" class="dash-adv-filters">
-            <div><div class="dash-adv-label">Course Ref Code</div><input type="text" id="fRefCode" class="dash-adv-input" placeholder="e.g. TGS-2024..." oninput="dashFilter()" /></div>
             <div><div class="dash-adv-label">Class Type</div>
                 <select id="fType" class="dash-adv-select" onchange="dashFilter()">
                     <option value="">All Types</option>
@@ -1148,7 +1262,7 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
         <div class="dash-table-wrap">
             <table class="dash-table">
                 <thead><tr>
-                    <th>Course Run ID</th><th>Course Title</th><th>Course Ref Code</th>
+                    <th>Course Run ID</th><th>Course Title</th>
                     <th>Class Type</th><th>Start Date</th><th>End Date</th>
                     <th>Class Status</th><th>Learners</th>
                     <th>Trainer</th>
@@ -1178,7 +1292,6 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
                 <tr data-title="<?php echo strtolower($ttl) ?>" data-ref="<?php echo strtolower($rcode) ?>" data-type="<?php echo htmlspecialchars($tlbl) ?>" data-status="<?php echo $slbl ?>" data-start="<?php echo $sraw ?>" data-end="<?php echo $eraw ?>">
                     <td class="run-id"><?php echo (int)$row['run_id'] ?></td>
                     <td><a href="#" class="dash-course-link" onclick="event.preventDefault();var p=window._dashPage||1;window.location.href='<?php echo $viewUrl ?>from_page/'+p+'/';"><?php echo $ttl ?></a> <a href="<?php echo $eurl ?>" title="Edit in Magento" style="color:#64748b;text-decoration:none;margin-left:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a></td>
-                    <td><?php echo $rcode ?></td>
                     <td><span class="dash-badge <?php echo $tcls ?>"><?php echo htmlspecialchars($tlbl) ?></span></td>
                     <td><?php echo $sFmt ?></td>
                     <td><?php echo $eFmt ?></td>
@@ -3818,7 +3931,6 @@ if (isset($_lmcRunMap[$_lcdCourseId])) {
     $_courseRunId = str_pad($_lcdCourseId * 4321 % 9999999, 7, '0', STR_PAD_LEFT);
 }
 $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
-$_courseRefCode = 'TGS-' . (2024000000 + $_lcdCourseId * 17);
 ?>
 <!-- Course Menu drawer (slides in from the left) -->
 <div class="lcd-drawer-backdrop" id="lcd-drawer-backdrop" onclick="lcdCloseDrawer()"></div>
@@ -3832,7 +3944,6 @@ $_courseRefCode = 'TGS-' . (2024000000 + $_lcdCourseId * 17);
     <div class="lcd-drawer-body">
         <h3 class="lcd-drawer-section-title">Course Details</h3>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Ref Code</span><span class="lcd-detail-value"><?php echo $_courseRefCode ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Funding Validity</span><span class="lcd-detail-value" style="color:#22c55e">21 Apr 2026 (Valid)</span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Digital Attendance ID</span><span class="lcd-detail-value"><?php echo $_digitalAttId ?></span></div>
@@ -3893,7 +4004,6 @@ $_courseRefCode = 'TGS-' . (2024000000 + $_lcdCourseId * 17);
     <div class="lcd-sidebar-details">
         <h3 style="font-size:16px;font-weight:700;color:#fff;margin:0 0 12px;">Course Details</h3>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Ref Code</span><span class="lcd-detail-value"><?php echo $_courseRefCode ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Funding Validity</span><span class="lcd-detail-value" style="color:#22c55e">21 Apr 2026 (Valid)</span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Digital Attendance ID</span><span class="lcd-detail-value"><?php echo $_digitalAttId ?></span></div>
@@ -4554,7 +4664,6 @@ $_courseRefCode = 'TGS-' . (2024000000 + $_lcdCourseId * 17);
                             <a href="#" onclick="return false;" style="flex:1;display:block;background:#2563eb;color:#fff !important;text-decoration:none !important;padding:10px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;cursor:default;">Open Link</a>
                             <button type="button" onclick="navigator.clipboard.writeText('<?php echo $_certUrl ?>')" style="background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:10px 16px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;">Copy</button>
                         </div>
-                        <div style="color:#94a3b8;font-size:12px;margin-top:14px;">Course Ref: <strong style="color:#fff;"><?php echo $_courseRefCode ?></strong></div>
                     </div>
                 </div>
                 <!-- TRAQOM Survey -->
@@ -4778,7 +4887,6 @@ $_courseRefCode = 'TGS-' . (2024000000 + $_lcdCourseId * 17);
                             <a href="#" onclick="return false;" style="flex:1;display:block;background:#2563eb;color:#fff !important;text-decoration:none !important;padding:10px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;cursor:default;">Open Link</a>
                             <button type="button" onclick="navigator.clipboard.writeText('<?php echo $_certUrl ?>')" style="background:#334155 !important;background-image:none !important;color:#e2e8f0 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:10px 16px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;">Copy</button>
                         </div>
-                        <div style="color:#94a3b8;font-size:12px;margin-top:14px;">Course Ref: <strong style="color:#fff;"><?php echo $_courseRefCode ?></strong></div>
                     </div>
                 </div>
                 <!-- TRAQOM Survey -->
@@ -5012,24 +5120,26 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
                 </div>
                 <?php
                 $_cId = (int)$_c['id'];
-                if (isset($_lmcRunMap[$_cId])) {
+                // Prefer the per-class Run ID set by the course_runs
+                // expansion (each scheduled class has its own unique
+                // SG-2xxxxx ID continuing from course_runs.run_id).
+                // Fall back to the registry / dev rank lookups for
+                // legacy entries built only from order history.
+                if (!empty($_c['run_id'])) {
+                    $_cRunId = $_c['run_id'];
+                } elseif (isset($_lmcRunMap[$_cId])) {
                     $_cRunId = $_lmcRunMap[$_cId];
                 } elseif (isset($_devRankMap[$_cId])) {
                     $_cRunId = $_devPrefix . '-' . (100000 + (int)$_devRankMap[$_cId]);
                 } else {
                     $_cRunId = '—';
                 }
-                $_cRefCode = 'TGS-' . (2024000000 + $_cId * 17);
                 ?>
                 <div class="lmc-card-body">
                     <div class="lmc-card-title"><?php echo htmlspecialchars($_c['name']) ?></div>
                     <div class="lmc-card-row">
                         <span class="lmc-card-label">Course Code</span>
                         <span class="lmc-card-value"><?php echo $_c['sku'] ? htmlspecialchars($_c['sku']) : '—' ?></span>
-                    </div>
-                    <div class="lmc-card-row">
-                        <span class="lmc-card-label">Course Ref Code</span>
-                        <span class="lmc-card-value"><?php echo $_cRefCode ?></span>
                     </div>
                     <div class="lmc-card-row">
                         <span class="lmc-card-label">Course Run ID</span>
@@ -5126,7 +5236,6 @@ function lmcSetView(view, btn) {
             <thead>
                 <tr>
                     <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Course Title</th>
-                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Course Ref Code</th>
                     <th style="text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Type</th>
                     <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Invoice No.</th>
                     <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;">Enrollment ID</th>
@@ -5137,12 +5246,11 @@ function lmcSetView(view, btn) {
             </thead>
             <tbody>
                 <?php if (empty($_billingHistory)): ?>
-                <tr><td colspan="8" style="padding:40px;text-align:center;color:#64748b;">No billing records found</td></tr>
+                <tr><td colspan="7" style="padding:40px;text-align:center;color:#64748b;">No billing records found</td></tr>
                 <?php else: ?>
                 <?php foreach ($_billingHistory as $_bill): ?>
                 <tr style="border-bottom:1px solid #1a2535;">
                     <td style="padding:10px 16px;color:#cbd5e1;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?php echo htmlspecialchars($_bill['course_title']) ?></td>
-                    <td style="padding:10px 16px;color:#94a3b8;"><?php echo htmlspecialchars($_bill['ref_code']) ?></td>
                     <td style="padding:10px 16px;text-align:center;color:#94a3b8;"><?php echo $_bill['type'] ?></td>
                     <td style="padding:10px 16px;color:#94a3b8;"><?php echo htmlspecialchars($_bill['invoice_no']) ?></td>
                     <td style="padding:10px 16px;color:#64748b;font-size:11.5px;font-family:monospace;"><?php echo $_bill['enrollment_id'] ?></td>
@@ -7429,6 +7537,45 @@ window.csSaveSection = function(section) {
 </div><!-- end dash-panel-companysetting -->
 
 <?php /* ===== PANEL: Create New Class (Admin only) ===== */ ?>
+<?php
+// Data prep is gated behind ?panel=create_class so we don't pay the
+// course-catalog + trainer-EAV query cost on every dashboard request.
+// The panel <div> still gets rendered (just empty dropdowns) so the
+// JS panel switcher has a target — but the heavy queries only fire
+// when this is the page the user actually asked for.
+$_cncActive = ($activeRole === 'admin')
+    && (Mage::app()->getRequest()->getParam('panel') === 'create_class');
+$_cncTrainers = array();
+$_cncCourses = array();
+if ($_cncActive) {
+    try {
+        $_cncTrAttrId = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='trainers' AND entity_type_id=4");
+        if ($_cncTrAttrId) {
+            $_cncTrainers = $read->fetchPairs(
+                "SELECT eaov.option_id, eaov.value
+                 FROM eav_attribute_option eao
+                 JOIN eav_attribute_option_value eaov ON eao.option_id=eaov.option_id AND eaov.store_id=0
+                 WHERE eao.attribute_id=?
+                 ORDER BY eaov.value",
+                array($_cncTrAttrId)
+            );
+        }
+        // Available-courses dropdown. INNER JOIN drops the ~26% of catalog
+        // rows that have no name attribute (those would render as
+        // "SKU — (no name)" anyway and are useless to pick from). LIMIT
+        // 500 keeps the DOM <option> count manageable; the catalog has
+        // 1,475 products total but only a few hundred are real classes.
+        $_cncCourses = $read->fetchAll(
+            "SELECT e.entity_id, e.sku, v.value AS name
+             FROM catalog_product_entity e
+             JOIN catalog_product_entity_varchar v
+               ON v.entity_id=e.entity_id AND v.attribute_id=71 AND v.store_id=0
+             WHERE v.value IS NOT NULL AND v.value <> ''
+             ORDER BY e.sku ASC LIMIT 500"
+        );
+    } catch (Exception $e) {}
+}
+?>
 <div id="dash-panel-createclass" style="display:none;">
 <style>
 .cnc-wrap{max-width:1100px;margin:0 auto;padding:24px 28px;color:#e2e8f0}
@@ -7447,6 +7594,22 @@ window.csSaveSection = function(section) {
 .cnc-input,.cnc-select{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:11px 14px;color:#e2e8f0;font-size:14px;font-family:inherit;box-sizing:border-box;outline:none}
 .cnc-input:focus,.cnc-select:focus{border-color:#60a5fa}
 .cnc-input::placeholder{color:#64748b}
+.cnc-input[type="date"]{cursor:pointer}
+.cnc-input[type="date"]::-webkit-calendar-picker-indicator{width:18px;height:18px;cursor:pointer;opacity:.7;filter:invert(1) brightness(1.2);margin-left:8px;padding:0}
+.cnc-input[type="date"]::-webkit-calendar-picker-indicator:hover{opacity:1}
+/* Browser autofill override — Chrome/Edge force a light-blue background
+   that hides typed text on this dark theme. Lock the inset box-shadow
+   to our field background and force the text-fill colour to keep typed
+   values readable when the browser drops in saved credentials. */
+.cnc-input:-webkit-autofill,
+.cnc-input:-webkit-autofill:hover,
+.cnc-input:-webkit-autofill:focus,
+.cnc-input:-webkit-autofill:active{
+    -webkit-box-shadow:0 0 0 1000px #0f172a inset !important;
+    -webkit-text-fill-color:#e2e8f0 !important;
+    caret-color:#e2e8f0;
+    transition:background-color 5000s ease-in-out 0s;
+}
 .cnc-help{font-size:12px;color:#94a3b8;margin-top:6px}
 .cnc-divider{border:none;border-top:1px solid #334155;margin:24px 0}
 .cnc-optional-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:22px 24px;margin-bottom:18px}
@@ -7483,19 +7646,9 @@ button.cnc-btn-primary:hover{background:#3b82f6 !important;border-color:#3b82f6 
                     <label class="cnc-label" for="cnc-course-select">Or Select from Available Courses</label>
                     <select id="cnc-course-select" class="cnc-select" onchange="cncPickCourse(this)">
                         <option value="">Select a course...</option>
-                        <?php
-                        try {
-                            $_cncRead = Mage::getSingleton('core/resource')->getConnection('core_read');
-                            $_cncCourses = $_cncRead->fetchAll(
-                                "SELECT e.entity_id, e.sku, v.value AS name
-                                 FROM catalog_product_entity e
-                                 LEFT JOIN catalog_product_entity_varchar v ON v.entity_id=e.entity_id AND v.attribute_id=71 AND v.store_id=0
-                                 ORDER BY e.sku ASC LIMIT 1000"
-                            );
-                            foreach ($_cncCourses as $_cnc):
-                        ?>
-                        <option value="<?php echo htmlspecialchars($_cnc['sku']) ?>"><?php echo htmlspecialchars($_cnc['sku']) ?> — <?php echo htmlspecialchars($_cnc['name'] ?: '(no name)') ?></option>
-                        <?php endforeach; } catch (Exception $e) {} ?>
+                        <?php foreach ($_cncCourses as $_cnc): ?>
+                        <option value="<?php echo htmlspecialchars($_cnc['sku']) ?>"><?php echo htmlspecialchars($_cnc['sku']) ?> — <?php echo htmlspecialchars($_cnc['name']) ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
             </div>
@@ -7629,15 +7782,16 @@ button.cnc-btn-primary:hover{background:#3b82f6 !important;border-color:#3b82f6 
             <h2 class="cnc-subtitle" style="margin-top:0;">Trainer</h2>
             <div class="cnc-card">
                 <h3 class="cnc-card-title">Assign Existing Trainer</h3>
-                <div style="background:rgba(37,99,235,.12);border:1px solid rgba(96,165,250,.35);border-radius:10px;padding:14px 18px;margin-bottom:18px;color:#cbd5e1;font-size:13px;line-height:1.6;">
-                    <div style="font-weight:700;color:#93c5fd;margin-bottom:4px;">Existing Trainer Assignment</div>
-                    Enter the Trainer ID Number to assign an existing trainer to this course. The system will automatically retrieve trainer details from the existing trainer database.
-                </div>
                 <div class="cnc-row">
                     <div class="cnc-field cnc-field-full">
-                        <label class="cnc-label" for="cnc-trainer-id"><span class="cnc-req">*</span> Trainer ID Number</label>
-                        <input type="text" id="cnc-trainer-id" class="cnc-input" placeholder="S1234567A" />
-                        <div class="cnc-help">This refers to the trainer's ID number.</div>
+                        <label class="cnc-label" for="cnc-trainer-id"><span class="cnc-req">*</span> Trainer</label>
+                        <select id="cnc-trainer-id" class="cnc-select">
+                            <option value="">Select a trainer...</option>
+                            <?php foreach ($_cncTrainers as $_oid => $_tname): ?>
+                            <option value="<?php echo (int)$_oid ?>"><?php echo htmlspecialchars($_tname) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="cnc-help">Pick from <?php echo count($_cncTrainers) ?> registered trainer<?php echo count($_cncTrainers) === 1 ? '' : 's' ?>.</div>
                     </div>
                 </div>
             </div>
@@ -7666,7 +7820,57 @@ window.cncToggleTrainer = function(cb) {
 };
 window.cncSubmit = function(ev) {
     ev.preventDefault();
-    alert('Course Run created (stub).\n\nReference: ' + (document.getElementById('cnc-ref').value || '') + '\nStart: ' + (document.getElementById('cnc-start').value || '') + '\nEnd: ' + (document.getElementById('cnc-end').value || ''));
+    var sku       = (document.getElementById('cnc-ref')||{value:''}).value.trim();
+    var startDate = (document.getElementById('cnc-start')||{value:''}).value;
+    var endDate   = (document.getElementById('cnc-end')||{value:''}).value;
+    var trainerOp = '';
+    var optChecked = (document.getElementById('cnc-opt-trainer')||{checked:false}).checked;
+    if (optChecked) {
+        trainerOp = (document.getElementById('cnc-trainer-id')||{value:''}).value;
+        if (!trainerOp) { alert('Please pick a trainer or untick "Assign Trainer".'); return false; }
+    }
+    if (!sku) { alert('Please fill in the Course Reference Number first.'); return false; }
+
+    function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+    var fd = new FormData();
+    fd.append('course_sku',        sku);
+    fd.append('trainer_option_id', trainerOp);
+    fd.append('start_date',        startDate);
+    fd.append('end_date',          endDate);
+    fd.append('reg_open_date',     val('cnc-reg-open'));
+    fd.append('reg_close_date',    val('cnc-reg-close'));
+    fd.append('venue_block',       val('cnc-venue-block'));
+    fd.append('venue_street',      val('cnc-venue-street'));
+    fd.append('venue_building',    val('cnc-venue-building'));
+    fd.append('venue_floor',       val('cnc-floor'));
+    fd.append('venue_unit',        val('cnc-unit'));
+    fd.append('postal_code',       val('cnc-postal'));
+    fd.append('room',              val('cnc-room'));
+    fd.append('wheelchair',        val('cnc-wheelchair'));
+    fd.append('mode_of_training',  val('cnc-mode'));
+    fd.append('admin_email',       val('cnc-admin-email'));
+    fd.append('vacancy',           val('cnc-vacancy'));
+
+    var btn = ev.target.querySelector('.cnc-btn-primary');
+    if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
+
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/createNewClass') ?>', {
+        method:'POST', body: fd, credentials:'same-origin'
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+        if (data && data.success) {
+            alert(data.message || 'Class created.');
+            window.location.href = '<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') ?>';
+        } else {
+            alert('Could not create class: ' + (data && data.message ? data.message : 'unknown error'));
+            if (btn) { btn.disabled = false; btn.textContent = 'Create Class'; }
+        }
+    })
+    .catch(function(err){
+        alert('Network error: ' + err);
+        if (btn) { btn.disabled = false; btn.textContent = 'Create Class'; }
+    });
     return false;
 };
 </script>
@@ -7865,7 +8069,6 @@ button.at-pg-btn.disabled,button.at-pg-btn.disabled:hover{opacity:.45;cursor:not
                 <th>Start Date</th>
                 <th>Course Run ID</th>
                 <th>Course Title</th>
-                <th>Course Ref Code</th>
                 <th>Class Status</th>
                 <th>Trainer</th>
             </tr></thead>
@@ -7875,7 +8078,6 @@ button.at-pg-btn.disabled,button.at-pg-btn.disabled:hover{opacity:.45;cursor:not
                     <td><?php echo $_r['start_date'] ?></td>
                     <td><span class="at-run-id"><?php echo htmlspecialchars($_r['run_id']) ?></span></td>
                     <td><?php echo htmlspecialchars($_r['title']) ?></td>
-                    <td><?php echo htmlspecialchars($_r['sku']) ?></td>
                     <td><span class="at-badge <?php echo $_r['status_cls'] ?>"><?php echo $_r['status'] ?></span></td>
                     <td><?php if (empty($_r['trainers'])): ?><span class="at-trainer-empty">— No trainer —</span><?php else: foreach ($_r['trainers'] as $_tn): ?><span class="at-trainer-pill"><?php echo htmlspecialchars($_tn) ?></span><?php endforeach; endif; ?></td>
                 </tr>
@@ -8168,7 +8370,7 @@ window.dashToggleAdv = function() {
     if (el) { if (_dashAdvOpen) el.classList.add('is-open'); else el.classList.remove('is-open'); }
 };
 window.dashClearFilters = function() {
-    ['dashSearch','fRefCode','fType','fStatus','fDateFrom','fDateTo'].forEach(function(id){
+    ['dashSearch','fType','fStatus','fDateFrom','fDateTo'].forEach(function(id){
         var el=document.getElementById(id); if(el) el.value='';
     });
     dashFilter();
@@ -8180,7 +8382,6 @@ window._dashMatchedRows = [];
 window.dashFilter = function(resetPage) {
     if (resetPage !== false) window._dashPage = 1;
     var q    = (document.getElementById('dashSearch')||{value:''}).value.toLowerCase().trim();
-    var ref  = (document.getElementById('fRefCode') ||{value:''}).value.toLowerCase().trim();
     var type = (document.getElementById('fType')    ||{value:''}).value.toLowerCase().trim();
     var stat = (document.getElementById('fStatus')  ||{value:''}).value.toLowerCase().trim();
     var df   = (document.getElementById('fDateFrom')||{value:''}).value;
@@ -8193,7 +8394,6 @@ window.dashFilter = function(resetPage) {
         var r=rows[i], match=true;
         var rt=(r.getAttribute('data-title')||''), rr=(r.getAttribute('data-ref')||'');
         if (q    && rt.indexOf(q)===-1 && rr.indexOf(q)===-1) match=false;
-        if (ref  && rr.indexOf(ref)===-1) match=false;
         if (type && (r.getAttribute('data-type')||'').toLowerCase()!==type) match=false;
         if (stat && (r.getAttribute('data-status')||'').toLowerCase()!==stat) match=false;
         var rs=r.getAttribute('data-start')||'';
