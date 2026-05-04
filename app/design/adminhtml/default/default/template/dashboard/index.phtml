@@ -8714,20 +8714,29 @@ if ($_alActive) {
             foreach ($_alRunRows as $_rn) $_alRunByPid[(int)$_rn['product_id']] = $_rn;
         } catch (Exception $e) {}
 
-        // Aggregate enrolment counts per product (distinct learner emails
-        // across non-canceled orders) — Singapore website only. The
-        // INNER JOIN on core_store filters by website_id=1, mirroring
-        // the SG-scope already applied to the catalog list above so the
-        // KPI numbers reflect SG enrolments rather than the global pool.
+        // Aggregate enrolment counts per product. UNION two sources so
+        // admin-driven enrolments via the Assign Learners panel persist
+        // across page reloads:
+        //   1. sales_flat_order — paying customers (SG website only).
+        //   2. course_run_enrolments — admins clicking "Add Learner".
+        // Distinct count over the union de-dupes a learner who both
+        // ordered AND was admin-assigned to the same course.
         $_alEnrol = array();
         try {
             $_alEnrolRows = $read->fetchAll(
-                "SELECT oi.product_id, COUNT(DISTINCT LOWER(o.customer_email)) AS c
-                 FROM sales_flat_order o
-                 JOIN sales_flat_order_item oi ON oi.order_id=o.entity_id
-                 JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id=1
-                 WHERE o.state NOT IN ('canceled') AND o.customer_email IS NOT NULL
-                 GROUP BY oi.product_id"
+                "SELECT u.product_id, COUNT(DISTINCT u.email) AS c
+                 FROM (
+                     SELECT oi.product_id, LOWER(o.customer_email) AS email
+                     FROM sales_flat_order o
+                     JOIN sales_flat_order_item oi ON oi.order_id=o.entity_id
+                     JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id=1
+                     WHERE o.state NOT IN ('canceled') AND o.customer_email IS NOT NULL
+                     UNION
+                     SELECT product_id, LOWER(learner_email) AS email
+                     FROM course_run_enrolments
+                     WHERE learner_email IS NOT NULL AND learner_email <> ''
+                 ) u
+                 GROUP BY u.product_id"
             );
             foreach ($_alEnrolRows as $_er) $_alEnrol[(int)$_er['product_id']] = (int)$_er['c'];
         } catch (Exception $e) {}
@@ -8856,14 +8865,23 @@ if ($_alActive) {
             if (empty($_pidsT)) continue;
             try {
                 $_pidsList = implode(',', $_pidsT);
+                // Distinct over UNION of order-based + admin-driven
+                // enrolments — same shape as the per-product query.
                 $_alDistinctByTab[$_tabName] = (int) $read->fetchOne(
-                    "SELECT COUNT(DISTINCT LOWER(o.customer_email))
-                     FROM sales_flat_order o
-                     JOIN sales_flat_order_item oi ON oi.order_id=o.entity_id
-                     JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id=1
-                     WHERE o.state NOT IN ('canceled')
-                       AND o.customer_email IS NOT NULL
-                       AND oi.product_id IN ({$_pidsList})"
+                    "SELECT COUNT(DISTINCT u.email) FROM (
+                         SELECT LOWER(o.customer_email) AS email
+                         FROM sales_flat_order o
+                         JOIN sales_flat_order_item oi ON oi.order_id=o.entity_id
+                         JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id=1
+                         WHERE o.state NOT IN ('canceled')
+                           AND o.customer_email IS NOT NULL
+                           AND oi.product_id IN ({$_pidsList})
+                         UNION
+                         SELECT LOWER(learner_email) AS email
+                         FROM course_run_enrolments
+                         WHERE learner_email IS NOT NULL AND learner_email <> ''
+                           AND product_id IN ({$_pidsList})
+                     ) u"
                 );
             } catch (Exception $e) {}
         }
@@ -8948,6 +8966,7 @@ button.al-pg-btn.disabled,button.al-pg-btn.disabled:hover{opacity:.45;cursor:not
                 <th>Start Date</th>
                 <th>Course Run ID</th>
                 <th>Course Title</th>
+                <th>Course Code</th>
                 <th>Trainees</th>
                 <th class="al-th-action">Action</th>
             </tr></thead>
@@ -8957,6 +8976,7 @@ button.al-pg-btn.disabled,button.al-pg-btn.disabled:hover{opacity:.45;cursor:not
                     <td><?php echo $_r['start_date'] ?></td>
                     <td><span class="al-run-id"><?php echo htmlspecialchars($_r['run_id']) ?></span></td>
                     <td><?php echo htmlspecialchars($_r['title']) ?></td>
+                    <td><?php echo htmlspecialchars($_r['sku']) ?></td>
                     <td><?php if ($_r['trainees'] > 0): ?><span class="al-badge al-badge-enrolled"><?php echo (int)$_r['trainees'] ?> enrolled</span><?php else: ?><span class="al-badge al-badge-empty">No trainees</span><?php endif; ?></td>
                     <td class="al-td-action">
                         <button type="button" class="al-action-btn" onclick="almOpen(this)">Add / Edit Learners</button>
@@ -9286,7 +9306,8 @@ window.almSyncRow = function(delta) {
     var rows = document.querySelectorAll('#al-tbody tr[data-pid="' + st.pid + '"]');
     for (var r = 0; r < rows.length; r++) {
         rows[r].setAttribute('data-trainees', String(st.list.length));
-        var traineesTd = rows[r].children[3];
+        // Columns: 0=Start, 1=Run ID, 2=Title, 3=Code, 4=Trainees, 5=Action
+        var traineesTd = rows[r].children[4];
         if (traineesTd) {
             traineesTd.innerHTML = '';
             var b = document.createElement('span');
@@ -9414,7 +9435,7 @@ button.alm-trainer-remove:hover{color:#ef4444 !important}
 button.al-action-close,button.al-action-close:hover,button.al-action-close:focus{background:rgba(100,116,139,.18) !important;color:#cbd5e1 !important;border-color:rgba(100,116,139,.4) !important}
 </style>
 <table style="display:none"><tbody><tr id="alm-row" class="alm-row" style="display:none">
-    <td colspan="5">
+    <td colspan="6">
         <div class="alm-inline">
             <div class="alm-tabs">
                 <button type="button" id="alm-tab-add" class="alm-tab active" onclick="almSetTab('add')">Add Learner</button>
@@ -9446,6 +9467,732 @@ button.al-action-close,button.al-action-close:hover,button.al-action-close:focus
     </td>
 </tr></tbody></table>
 </div><!-- end dash-panel-assignlearner -->
+
+<?php /* ===== PANEL: Enroll Learners (Admin only) ===== */ ?>
+<?php
+$_elActive = ($activeRole === 'admin') && (Mage::app()->getRequest()->getParam('panel') === 'enroll_learner');
+$_elCourses = array();
+$_elRunsByPid = array();
+if ($_elActive) {
+    try {
+        // Build the rank map from EVERY product on the SG website
+        // (no status / name filter), ordered by entity_id ASC. Matches
+        // the developer dashboard's Run ID convention exactly so a
+        // course's SG-100xxx Run ID is identical wherever it appears.
+        $_elRankByPid = array();
+        try {
+            $_allSgPids = $read->fetchCol(
+                "SELECT DISTINCT product_id FROM catalog_product_website WHERE website_id=1 ORDER BY product_id ASC"
+            );
+            foreach ($_allSgPids as $_idx => $_pid) {
+                $_elRankByPid[(int)$_pid] = (int)$_idx;
+            }
+        } catch (Exception $e) {}
+
+        // Visible courses — SG website, active, named. Each option's
+        // Run ID is looked up from the rank map above (so ranks may be
+        // non-contiguous in the dropdown when intermediate products
+        // are inactive, but each ID still matches dev dashboard).
+        $_elCoursesRaw = $read->fetchAll(
+            "SELECT e.entity_id, e.sku, v.value AS name
+             FROM catalog_product_entity e
+             INNER JOIN catalog_product_website pw ON pw.product_id=e.entity_id AND pw.website_id=1
+             INNER JOIN catalog_product_entity_varchar v ON v.entity_id=e.entity_id AND v.attribute_id=71 AND v.store_id=0 AND v.value <> ''
+             INNER JOIN catalog_product_entity_int s ON s.entity_id=e.entity_id AND s.attribute_id={$statusAid} AND s.store_id=0 AND s.value=1
+             ORDER BY e.entity_id ASC LIMIT 5000"
+        );
+        // Courses dropdown sorted alphabetically for usability.
+        $_elCourses = $_elCoursesRaw;
+        usort($_elCourses, function ($a, $b) {
+            return strcasecmp($a['name'], $b['name']);
+        });
+        // All course_runs grouped by product so the "Course Run" dropdown
+        // narrows after the admin picks a course. We also keep the flat
+        // list ($_elAllRuns) for the initial dropdown render so admins
+        // see something useful before they've picked a course.
+        $_elAllRuns = $read->fetchAll(
+            "SELECT cr.run_id, cr.product_id, cr.course_start_date, cr.course_end_date,
+                    e.sku, v.value AS name
+             FROM course_runs cr
+             JOIN catalog_product_entity e ON e.entity_id=cr.product_id
+             LEFT JOIN catalog_product_entity_varchar v ON v.entity_id=cr.product_id AND v.attribute_id=71 AND v.store_id=0
+             ORDER BY cr.run_id ASC"
+        );
+        foreach ($_elAllRuns as $_rn) {
+            $_elRunsByPid[(int)$_rn['product_id']][] = $_rn;
+        }
+
+        // Course Date custom-option titles per product as fallback runs.
+        // Most catalog products don't have an explicit course_runs row
+        // yet — their schedule lives as <option> rows like "14 Mar 2026
+        // (Sat)" on a "Course Date" custom option. The Enroll panel
+        // surfaces those as synthetic runs so admins can still pick a
+        // session even before someone runs Create New Class.
+        $_elCdByPid = array();
+        try {
+            $_elCdRows = $read->fetchAll(
+                "SELECT o.product_id, ott.title
+                 FROM catalog_product_option o
+                 JOIN catalog_product_option_title ot ON ot.option_id=o.option_id AND ot.store_id=0
+                 JOIN catalog_product_option_type_value ov ON ov.option_id=o.option_id
+                 JOIN catalog_product_option_type_title ott ON ott.option_type_id=ov.option_type_id AND ott.store_id=0
+                 WHERE ot.title='Course Date' OR ot.title LIKE '%Date%'"
+            );
+            foreach ($_elCdRows as $_cd) {
+                $_elCdByPid[(int)$_cd['product_id']][] = $_cd['title'];
+            }
+        } catch (Exception $e) {}
+
+        // Build a flat sorted list of EVERY upcoming session across the
+        // catalog so admins can pick a run without having to first pick
+        // the course. Combines real course_runs rows + synthetic Course
+        // Date entries, parses dates, drops past ones, sorts ascending.
+        $_elFlatRuns = array();
+        $_elNowTs = strtotime(date('Y-m-d'));
+        // Course name lookup for nice labels.
+        $_elNameByPid = array();
+        foreach ($_elCourses as $_c) {
+            $_elNameByPid[(int)$_c['entity_id']] = array('sku' => $_c['sku'], 'name' => $_c['name']);
+        }
+        // Real course_runs first.
+        foreach ($_elAllRuns as $_rn) {
+            $_pid = (int)$_rn['product_id'];
+            $_st  = $_rn['course_start_date'] ? strtotime($_rn['course_start_date']) : 0;
+            if ($_st && $_st < $_elNowTs) continue; // past
+            $_lbl = 'SG-' . str_pad((string)(99999 + (int)$_rn['run_id']), 6, '0', STR_PAD_LEFT);
+            if (!empty($_rn['course_start_date'])) {
+                $_lbl .= '  (' . $_rn['course_start_date'] . ')';
+            }
+            if (!empty($_rn['name'])) {
+                $_nm = strlen($_rn['name']) > 50 ? substr($_rn['name'], 0, 47) . '...' : $_rn['name'];
+                $_lbl .= '  —  ' . $_nm;
+            }
+            $_elFlatRuns[] = array(
+                'value'  => (string)$_rn['run_id'],
+                'pid'    => $_pid,
+                'sortTs' => $_st ?: PHP_INT_MAX,
+                'label'  => $_lbl,
+            );
+        }
+        // Synthetic Course Date sessions.
+        foreach ($_elCdByPid as $_pid => $_titles) {
+            $_meta = isset($_elNameByPid[$_pid]) ? $_elNameByPid[$_pid] : null;
+            if (!$_meta) continue; // skip products outside the SG-active scope
+            $_courseLabel = $_meta['sku'] . ' — ' . (strlen($_meta['name']) > 50 ? substr($_meta['name'], 0, 47) . '...' : $_meta['name']);
+            $_seenTitles = array();
+            foreach ($_titles as $_t) {
+                if (isset($_seenTitles[$_t])) continue;
+                $_seenTitles[$_t] = 1;
+                if (preg_match('#(\d{1,2})(?:/(\d{1,2}))?\s+([A-Za-z]{3,})\s+(\d{4})#', $_t, $_dm)) {
+                    $_st = strtotime($_dm[1] . ' ' . $_dm[3] . ' ' . $_dm[4]);
+                    if ($_st && $_st >= $_elNowTs) {
+                        $_elFlatRuns[] = array(
+                            'value'  => 'cd:' . $_t,
+                            'pid'    => $_pid,
+                            'sortTs' => $_st,
+                            'label'  => $_courseLabel . '  —  ' . $_t,
+                        );
+                    }
+                }
+            }
+        }
+        usort($_elFlatRuns, function ($a, $b) {
+            if ($a['sortTs'] !== $b['sortTs']) return $a['sortTs'] - $b['sortTs'];
+            return strcmp($a['label'], $b['label']);
+        });
+    } catch (Exception $e) {}
+}
+if (!isset($_elCdByPid)) $_elCdByPid = array();
+?>
+<div id="dash-panel-enrolllearner" style="display:none;">
+<style>
+.el-wrap{max-width:1400px;margin:0 auto;padding:24px 28px;color:#e2e8f0}
+.el-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px}
+.el-title{font-size:28px;font-weight:700;color:#fff;margin:0}
+.el-back-link{color:#fff;font-size:14px;font-weight:600;text-decoration:none}
+.el-back-link:hover{color:#93c5fd}
+.el-card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:22px 24px;margin-bottom:20px}
+.el-card-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 18px}
+.el-row{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.el-row-stack{display:flex;flex-direction:column;gap:14px}
+.el-field-label{font-size:14px;font-weight:600;color:#fff;display:block;margin-bottom:8px}
+.el-field-label .req{color:#ef4444;margin-left:3px}
+.el-input,select.el-input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:11px 14px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box}
+.el-input:focus{border-color:#3b82f6}
+.el-input:-webkit-autofill,.el-input:-webkit-autofill:hover,.el-input:-webkit-autofill:focus{
+    -webkit-box-shadow:0 0 0 1000px #0f172a inset !important;
+    -webkit-text-fill-color:#e2e8f0 !important;
+    caret-color:#e2e8f0;
+    transition:background-color 5000s ease-in-out 0s;
+}
+.el-helper{font-size:12px;color:#64748b;margin-top:6px}
+.el-or{font-size:13px;font-weight:600;color:#94a3b8;margin:14px 0 8px}
+.el-split{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.el-section-title{font-size:18px;font-weight:700;color:#fff;margin:0 0 14px}
+.el-search-wrap{position:relative}
+.el-search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#64748b;pointer-events:none;z-index:1}
+input.el-search-input,input.el-search-input:focus{padding-left:44px !important}
+.el-results{margin-top:6px;background:#0f172a;border:1px solid #334155;border-radius:8px;max-height:240px;overflow-y:auto}
+.el-results:empty{display:none}
+.el-result-row{padding:9px 14px;font-size:13px;color:#e2e8f0;cursor:pointer;border-bottom:1px solid #1e293b}
+.el-result-row:last-child{border-bottom:none}
+.el-result-row:hover{background:rgba(59,130,246,.12);color:#fff}
+.el-result-empty{padding:14px;color:#64748b;font-size:13px}
+.el-cant-find{margin-top:18px;padding:24px 18px;border:1px dashed #334155;border-radius:10px;text-align:center;color:#cbd5e1;font-size:14px}
+.el-cant-find-q{display:block;margin-bottom:12px}
+a.el-add-profile,a.el-add-profile:hover,a.el-add-profile:focus,a.el-add-profile:active,
+button.el-add-profile,button.el-add-profile:hover,button.el-add-profile:focus{display:inline-block;padding:11px 22px !important;background:#22d3ee !important;background-image:none !important;color:#0f172a !important;font-weight:700 !important;font-size:14px !important;border:none !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;line-height:normal !important;text-decoration:none !important}
+a.el-add-profile:hover{background:#0ea5e9 !important;color:#0f172a !important;text-decoration:none !important}
+.el-empty-state{padding:36px 16px;text-align:center;color:#64748b;font-size:14px;font-style:italic}
+.el-trainer-row{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.el-trainer-row:last-child{margin-bottom:0}
+.el-trainer-name{font-size:14px;font-weight:600;color:#fff}
+.el-trainer-email{font-size:13px;color:#94a3b8;margin-left:8px;font-weight:400}
+.el-trainer-locked{font-size:11px;color:#64748b;font-style:italic;text-transform:uppercase;letter-spacing:.5px}
+button.el-trainer-remove,button.el-trainer-remove:hover,button.el-trainer-remove:focus{padding:4px 8px !important;background:transparent !important;background-image:none !important;border:none !important;color:#f87171 !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;height:auto !important;line-height:normal !important}
+button.el-trainer-remove:hover{color:#ef4444 !important}
+.el-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.el-card-head .el-card-title{margin:0}
+button.el-back-search,button.el-back-search:hover,button.el-back-search:focus{padding:6px 0 !important;background:transparent !important;background-image:none !important;border:none !important;color:#cbd5e1 !important;font-size:14px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;line-height:normal !important}
+button.el-back-search:hover{color:#fff !important}
+.el-subhead{font-size:16px;font-weight:700;color:#fff;margin:22px 0 14px}
+.el-check{display:flex;align-items:center;gap:8px;color:#cbd5e1;font-size:14px;cursor:pointer;user-select:none}
+.el-check input[type="checkbox"]{width:16px;height:16px;cursor:pointer;accent-color:#3b82f6}
+.el-preview{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:18px 22px;color:#cbd5e1;font-family:'Cascadia Code','Menlo','Consolas',monospace;font-size:13px;line-height:1.5;margin:0;white-space:pre;overflow-x:auto}
+.el-foot{display:flex;justify-content:flex-end;gap:12px;margin-top:6px}
+button.el-btn-ghost,button.el-btn-ghost:hover,button.el-btn-ghost:focus{padding:11px 22px !important;background:transparent !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #334155 !important;border-radius:8px !important;font-size:14px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;line-height:normal !important}
+button.el-btn-ghost:hover{background:#1e293b !important}
+button.el-btn-primary,button.el-btn-primary:hover,button.el-btn-primary:focus{padding:11px 22px !important;background:#2563eb !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:8px !important;font-size:14px !important;font-weight:700 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;line-height:normal !important}
+button.el-btn-primary:hover{background:#1d4ed8 !important}
+@media(max-width:900px){.el-row,.el-split{grid-template-columns:1fr}}
+</style>
+<div class="el-wrap">
+    <div class="el-header">
+        <h1 class="el-title">Enroll Learners</h1>
+        <a class="el-back-link" href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') ?>">Back to Dashboard</a>
+    </div>
+
+    <div class="el-card">
+        <h3 class="el-card-title">Course Information</h3>
+        <div class="el-row">
+            <div>
+                <label class="el-field-label">Course Code<span class="req">*</span></label>
+                <input id="el-course-code" type="text" class="el-input" placeholder="Enter course code (e.g., C432)" />
+                <div class="el-helper">Enter the course code manually or select from available courses below</div>
+                <div class="el-or">Or Select from Available Courses</div>
+                <select id="el-course-select" class="el-input" onchange="elPickCourse(this.value)">
+                    <option value="">Select a course...</option>
+                    <?php foreach ($_elCourses as $_c): ?>
+                    <option value="<?php echo (int)$_c['entity_id'] ?>" data-sku="<?php echo htmlspecialchars($_c['sku']) ?>">
+                        <?php echo htmlspecialchars($_c['sku']) ?> — <?php echo htmlspecialchars($_c['name']) ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div>
+                <label class="el-field-label">Course Run ID<span class="req">*</span></label>
+                <input id="el-run-id" type="text" class="el-input" placeholder="Enter course run ID (e.g., SG-100001)" />
+                <div class="el-helper">Enter the course run ID manually or select from available runs below</div>
+                <div class="el-or">Or Select from Available Course Runs</div>
+                <select id="el-run-select" class="el-input" onchange="elPickRun(this.value)">
+                    <option value="">Select a course run...</option>
+                    <?php
+                    // Render every SG-active course as a run, ordered by
+                    // ascending Run ID (rank). Run ID = SG-100000 + rank,
+                    // matching the developer dashboard's convention.
+                    if (isset($_elCoursesRaw)) {
+                        foreach ($_elCoursesRaw as $_c) {
+                            $_pid  = (int)$_c['entity_id'];
+                            $_rank = isset($_elRankByPid[$_pid]) ? $_elRankByPid[$_pid] : 0;
+                            $_runId = 'SG-' . str_pad((string)(100000 + $_rank), 6, '0', STR_PAD_LEFT);
+                            $_lbl = $_runId . '  —  '
+                                  . (strlen($_c['name']) > 70 ? substr($_c['name'], 0, 67) . '...' : $_c['name']);
+                            echo '<option value="rank:' . $_rank . '" data-pid="' . $_pid . '" data-runid="' . htmlspecialchars($_runId) . '">'
+                               . htmlspecialchars($_lbl) . '</option>';
+                        }
+                    }
+                    ?>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div id="el-search-mode" class="el-split">
+        <div class="el-card">
+            <h3 class="el-section-title">Add Learners to Class</h3>
+            <div class="el-search-wrap">
+                <svg class="el-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input id="el-search" type="text" class="el-input el-search-input" placeholder="Search existing learners by name or email..." oninput="elOnSearchInput(this)" style="padding-left:44px !important;" />
+            </div>
+            <div id="el-results" class="el-results"></div>
+            <div class="el-cant-find">
+                <span class="el-cant-find-q">Can't find a learner?</span>
+                <button type="button" class="el-add-profile" onclick="elShowAddProfile()">+ Add New Learner Profile</button>
+            </div>
+        </div>
+
+        <div class="el-card">
+            <h3 class="el-section-title">Currently Enrolled (<span id="el-count">0</span>)</h3>
+            <div id="el-current-list">
+                <div class="el-empty-state">Select a course to see enrolled learners.</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="el-add-profile-mode" style="display:none">
+        <div class="el-card">
+            <div class="el-card-head">
+                <h3 class="el-card-title">Trainee Information</h3>
+                <button type="button" class="el-back-search" onclick="elHideAddProfile()">&larr; Back to Search</button>
+            </div>
+            <div class="el-row">
+                <div>
+                    <label class="el-field-label">Trainee ID Type<span class="req">*</span></label>
+                    <select id="el-np-id-type" class="el-input">
+                        <option value="NRIC">NRIC</option>
+                        <option value="FIN">FIN</option>
+                        <option value="OTHERS">Others</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="el-field-label">Trainee ID<span class="req">*</span></label>
+                    <input id="el-np-id" type="text" class="el-input" placeholder="e.g., S7020587D" />
+                </div>
+            </div>
+
+            <h4 class="el-subhead">Trainee Particulars</h4>
+            <div class="el-row-stack">
+                <div>
+                    <label class="el-field-label">Trainee Full Name<span class="req">*</span></label>
+                    <input id="el-np-name" type="text" class="el-input" placeholder="e.g., Aileen Chong" />
+                </div>
+                <div>
+                    <label class="el-field-label">Trainee Date of Birth<span class="req">*</span></label>
+                    <input id="el-np-dob" type="text" class="el-input" placeholder="DD/MM/YYYY" />
+                </div>
+                <div>
+                    <label class="el-field-label">Trainee Email Address<span class="req">*</span></label>
+                    <input id="el-np-email" type="email" class="el-input" placeholder="e.g., test@test.com" />
+                </div>
+            </div>
+            <div class="el-row" style="margin-top:14px">
+                <div>
+                    <label class="el-field-label">Country Code<span class="req">*</span></label>
+                    <input id="el-np-cc" type="text" class="el-input" value="+65" />
+                </div>
+                <div>
+                    <label class="el-field-label">Phone Number<span class="req">*</span></label>
+                    <input id="el-np-phone" type="tel" class="el-input" placeholder="98765432" />
+                </div>
+            </div>
+        </div>
+
+        <div class="el-card">
+            <h3 class="el-card-title">Sponsorship and Employer Information</h3>
+            <label class="el-check"><input type="checkbox" id="el-np-spec-enrol" /> Specify Trainee Date of Enrolment?</label>
+            <div id="el-np-enrol-wrap" style="display:none;margin:8px 0 14px">
+                <input id="el-np-enrol-date" type="text" class="el-input" placeholder="DD/MM/YYYY" />
+            </div>
+            <label class="el-field-label" style="margin-top:14px">Trainee Sponsorship Type<span class="req">*</span></label>
+            <select id="el-np-sponsor" class="el-input">
+                <option value="INDIVIDUAL">INDIVIDUAL</option>
+                <option value="EMPLOYER">EMPLOYER</option>
+            </select>
+            <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px">
+                <label class="el-check"><input type="checkbox" id="el-np-spec-uen" onchange="elToggleNp('uen')" /> Specify Employer UEN?</label>
+                <div id="el-np-uen-wrap" style="display:none"><input id="el-np-uen" type="text" class="el-input" placeholder="Employer UEN" /></div>
+                <label class="el-check"><input type="checkbox" id="el-np-spec-empname" onchange="elToggleNp('empname')" /> Specify Employer Full Name?</label>
+                <div id="el-np-empname-wrap" style="display:none"><input id="el-np-empname" type="text" class="el-input" placeholder="Employer name" /></div>
+                <label class="el-check"><input type="checkbox" id="el-np-spec-empemail" onchange="elToggleNp('empemail')" /> Specify Employer Email Address?</label>
+                <div id="el-np-empemail-wrap" style="display:none"><input id="el-np-empemail" type="email" class="el-input" placeholder="employer@example.com" /></div>
+            </div>
+        </div>
+
+        <div class="el-foot">
+            <button type="button" class="el-btn-ghost" onclick="elHideAddProfile()">Cancel</button>
+            <button type="button" class="el-btn-primary" onclick="elSaveNewLearner()">Save &amp; Enrol</button>
+        </div>
+    </div>
+
+    <div class="el-card">
+        <h3 class="el-card-title">Training Partner Information</h3>
+        <div class="el-row">
+            <div>
+                <label class="el-field-label">Training Partner UEN<span class="req">*</span></label>
+                <input id="el-tp-uen" type="text" class="el-input" value="201200696W" oninput="elUpdatePreview()" />
+            </div>
+            <div>
+                <label class="el-field-label">Training Partner Code<span class="req">*</span></label>
+                <input id="el-tp-code" type="text" class="el-input" value="201200696W-01" oninput="elUpdatePreview()" />
+                <div class="el-helper">Code for the training partner conducting the course for which the trainee is enrolled</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="el-card">
+        <h3 class="el-card-title">Preview Request Body</h3>
+        <pre id="el-preview" class="el-preview"></pre>
+    </div>
+
+    <div class="el-foot">
+        <button type="button" class="el-btn-ghost" onclick="elClearForm()">Clear Form</button>
+        <button type="button" class="el-btn-primary" onclick="elCreateEnrolment()">Create Enrolment</button>
+    </div>
+</div>
+
+<script type="text/javascript">
+window._elState = { pid: 0, sku: '', runId: '', list: [] };
+window._elRunsByPid = <?php echo json_encode($_elRunsByPid) ?>;
+window._elCdByPid   = <?php echo json_encode($_elCdByPid) ?>;
+
+window.elPickCourse = function(pid) {
+    pid = parseInt(pid, 10) || 0;
+    var sel = document.getElementById('el-course-select');
+    var opt = sel.options[sel.selectedIndex];
+    var sku = opt ? opt.getAttribute('data-sku') : '';
+    window._elState.pid = pid;
+    window._elState.sku = sku || '';
+    document.getElementById('el-course-code').value = sku || '';
+
+    // Repopulate runs dropdown for this product. Two sources are
+    // merged so admins always see something to pick:
+    //   1. Real course_runs rows  → "SG-100001 (2026-05-07)"
+    //   2. Course Date custom-options → the title verbatim, prefixed
+    //      "cd:" in the value so save logic can tell them apart later.
+    var runSel = document.getElementById('el-run-select');
+    runSel.innerHTML = '<option value="">Select a course run...</option>';
+    var runs = window._elRunsByPid[pid] || [];
+    for (var i = 0; i < runs.length; i++) {
+        var r = runs[i];
+        var label = 'SG-' + String(99999 + parseInt(r.run_id, 10)).padStart(6, '0');
+        if (r.course_start_date) label += '  (' + r.course_start_date + (r.course_end_date && r.course_end_date !== r.course_start_date ? ' → ' + r.course_end_date : '') + ')';
+        var o = document.createElement('option');
+        o.value = String(r.run_id);
+        o.textContent = label;
+        runSel.appendChild(o);
+    }
+    var cdTitles = window._elCdByPid[pid] || [];
+    if (cdTitles.length) {
+        // Visual divider so the synthetic entries are distinguishable.
+        var divider = document.createElement('option');
+        divider.disabled = true;
+        divider.textContent = runs.length ? '── Course Date sessions ──' : '── Available sessions ──';
+        runSel.appendChild(divider);
+        for (var k = 0; k < cdTitles.length; k++) {
+            var t = cdTitles[k];
+            var op = document.createElement('option');
+            op.value = 'cd:' + t;
+            op.textContent = t;
+            runSel.appendChild(op);
+        }
+    }
+    window._elState.runId = '';
+    document.getElementById('el-run-id').value = '';
+    elLoadCurrent();
+    elUpdatePreview();
+};
+
+window.elPickRun = function(runId) {
+    window._elState.runId = runId || '';
+    var runSel = document.getElementById('el-run-select');
+    var opt = runSel.options[runSel.selectedIndex];
+    if (runId) {
+        if (runId.indexOf('rank:') === 0) {
+            // Catalog-rank-based Run ID. The pre-computed display value
+            // is on data-runid; surface it directly.
+            document.getElementById('el-run-id').value = opt ? (opt.getAttribute('data-runid') || '') : '';
+        } else if (runId.indexOf('cd:') === 0) {
+            // Synthetic Course Date entry — surface the title verbatim.
+            document.getElementById('el-run-id').value = runId.substring(3);
+        } else {
+            document.getElementById('el-run-id').value = 'SG-' + String(99999 + parseInt(runId, 10)).padStart(6, '0');
+        }
+        // Auto-select the matching course so Currently Enrolled + JSON
+        // preview sync to the chosen session's product. State is updated
+        // manually instead of calling elPickCourse() so the user's run
+        // selection isn't clobbered by the runs dropdown rebuild.
+        var pidFromOpt = opt ? parseInt(opt.getAttribute('data-pid'), 10) : 0;
+        if (pidFromOpt && pidFromOpt !== window._elState.pid) {
+            document.getElementById('el-course-select').value = String(pidFromOpt);
+            var courseSel = document.getElementById('el-course-select');
+            var copt = courseSel.options[courseSel.selectedIndex];
+            window._elState.pid = pidFromOpt;
+            window._elState.sku = copt ? (copt.getAttribute('data-sku') || '') : '';
+            document.getElementById('el-course-code').value = window._elState.sku;
+        }
+    }
+    elLoadCurrent();
+    elUpdatePreview();
+};
+
+window.elLoadCurrent = function() {
+    var pid = window._elState.pid;
+    var box = document.getElementById('el-current-list');
+    var countEl = document.getElementById('el-count');
+    if (!pid) {
+        box.innerHTML = '<div class="el-empty-state">Select a course to see enrolled learners.</div>';
+        countEl.textContent = '0';
+        return;
+    }
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/loadLearners') ?>?product_id=' + pid, { credentials: 'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+          if (j && j.success) {
+              window._elState.list = j.learners || [];
+              elRenderCurrent();
+          }
+      });
+};
+
+window.elRenderCurrent = function() {
+    var box = document.getElementById('el-current-list');
+    var countEl = document.getElementById('el-count');
+    var list = window._elState.list;
+    countEl.textContent = String(list.length);
+    elUpdatePreview();
+    box.innerHTML = '';
+    if (list.length === 0) {
+        var em = document.createElement('div');
+        em.className = 'el-empty-state';
+        em.textContent = '— No learners enrolled yet —';
+        box.appendChild(em);
+        return;
+    }
+    for (var i = 0; i < list.length; i++) {
+        var t = list[i];
+        var row = document.createElement('div');
+        row.className = 'el-trainer-row';
+        var info = document.createElement('div');
+        var n = document.createElement('span'); n.className = 'el-trainer-name'; n.textContent = t.name;
+        info.appendChild(n);
+        if (t.email && t.email !== t.name) {
+            var em2 = document.createElement('span');
+            em2.className = 'el-trainer-email';
+            em2.textContent = ' (' + t.email + ')';
+            info.appendChild(em2);
+        }
+        row.appendChild(info);
+        if (t.source === 'order') {
+            var lock = document.createElement('span');
+            lock.className = 'el-trainer-locked';
+            lock.textContent = 'from order';
+            row.appendChild(lock);
+        } else {
+            var rm = document.createElement('button');
+            rm.type = 'button';
+            rm.className = 'el-trainer-remove';
+            rm.textContent = '× Remove';
+            (function(em){ rm.onclick = function(){ elRemove(em); }; })(t.email);
+            row.appendChild(rm);
+        }
+        box.appendChild(row);
+    }
+};
+
+var _elSearchTimer = null;
+window.elOnSearchInput = function(input) {
+    if (!window._elState.pid) {
+        document.getElementById('el-results').innerHTML = '<div class="el-result-empty">Pick a course first.</div>';
+        return;
+    }
+    if (_elSearchTimer) clearTimeout(_elSearchTimer);
+    var q = (input.value || '').trim();
+    if (q.length < 2) { document.getElementById('el-results').innerHTML = ''; return; }
+    _elSearchTimer = setTimeout(function() {
+        fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/searchLearners') ?>?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+          .then(function(r){ return r.json(); })
+          .then(function(j){
+              var box = document.getElementById('el-results');
+              box.innerHTML = '';
+              if (!j || !j.success || !j.learners.length) {
+                  var n = document.createElement('div');
+                  n.className = 'el-result-empty';
+                  n.textContent = 'No matches';
+                  box.appendChild(n);
+                  return;
+              }
+              for (var i = 0; i < j.learners.length; i++) {
+                  var l = j.learners[i];
+                  var d = document.createElement('div');
+                  d.className = 'el-result-row';
+                  d.textContent = l.name + '  (' + l.email + ')';
+                  (function(email, name){
+                      d.onclick = function() { elEnrol(email, name); };
+                  })(l.email, l.name);
+                  box.appendChild(d);
+              }
+          });
+    }, 200);
+};
+
+window.elEnrol = function(email, name) {
+    var st = window._elState;
+    if (!st.pid) { alert('Pick a course first.'); return; }
+    var fd = new FormData();
+    fd.append('product_id', String(st.pid));
+    fd.append('learner_email', email);
+    fd.append('learner_name',  name);
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/addLearner') ?>', {
+        method: 'POST', body: fd, credentials: 'same-origin'
+    }).then(function(r){ return r.json(); }).then(function(j){
+        if (j && j.success) {
+            // Refresh the enrolled list + clear the search box.
+            document.getElementById('el-search').value = '';
+            document.getElementById('el-results').innerHTML = '';
+            elLoadCurrent();
+        } else {
+            alert((j && j.message) || 'Could not enrol learner.');
+        }
+    });
+};
+
+window.elRemove = function(email) {
+    var st = window._elState;
+    if (!confirm('Remove ' + email + '?')) return;
+    var fd = new FormData();
+    fd.append('product_id', String(st.pid));
+    fd.append('learner_email', email);
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/removeLearner') ?>', {
+        method: 'POST', body: fd, credentials: 'same-origin'
+    }).then(function(r){ return r.json(); }).then(function(j){
+        if (j && j.success) elLoadCurrent();
+        else alert((j && j.message) || 'Could not remove learner.');
+    });
+};
+
+// Build the SSG-format enrolment payload from the current form state
+// and the most-recently-added learner. Re-rendered live on any input.
+window.elBuildPayload = function() {
+    var courseCode = (document.getElementById('el-course-code').value || '').trim();
+    var runId      = (document.getElementById('el-run-id').value || '').trim();
+    var uen        = (document.getElementById('el-tp-uen').value || '').trim();
+    var tpCode     = (document.getElementById('el-tp-code').value || '').trim();
+    var list       = window._elState.list || [];
+    var trainee    = list.length ? list[list.length - 1] : null; // last enrolled
+    var today      = new Date();
+    var iso        = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    return {
+        enrolment: {
+            trainingPartner: { code: tpCode, uen: uen },
+            course:          { referenceNumber: courseCode, run: { id: runId } },
+            trainee: {
+                id: '',
+                idType:        { type: 'NRIC' },
+                fullName:      trainee ? trainee.name  : '',
+                dateOfBirth:   '',
+                emailAddress:  trainee ? trainee.email : '',
+                contactNumber: { countryCode: '+65', phoneNumber: '' },
+                enrolmentDate: iso,
+                sponsorshipType: 'INDIVIDUAL',
+                fees:          { discountAmount: 0, collectionStatus: 'Pending Payment' }
+            }
+        }
+    };
+};
+
+window.elUpdatePreview = function() {
+    var pre = document.getElementById('el-preview');
+    if (pre) pre.textContent = JSON.stringify(window.elBuildPayload(), null, 2);
+};
+
+window.elClearForm = function() {
+    if (!confirm('Clear all fields?')) return;
+    document.getElementById('el-course-code').value = '';
+    document.getElementById('el-run-id').value = '';
+    document.getElementById('el-course-select').value = '';
+    document.getElementById('el-run-select').innerHTML = '<option value="">Select a course run...</option>';
+    document.getElementById('el-search').value = '';
+    document.getElementById('el-results').innerHTML = '';
+    window._elState = { pid: 0, sku: '', runId: '', list: [] };
+    elRenderCurrent();
+    elUpdatePreview();
+};
+
+window.elCreateEnrolment = function() {
+    var st = window._elState;
+    if (!st.pid)            { alert('Pick a course first.'); return; }
+    if (st.list.length === 0) { alert('Add at least one learner before creating the enrolment.'); return; }
+    // Each learner add already persists to course_run_enrolments — this
+    // button confirms the batch is committed and reloads the panel so
+    // the form returns to a clean, empty state for the next enrolment.
+    alert('Enrolment created. ' + st.list.length + ' learner(s) attached to this class.');
+    window.location.href = '<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'enroll_learner'))) ?>';
+};
+
+// Toggle between the search/enrolled view and the new-learner-profile form.
+window.elShowAddProfile = function() {
+    document.getElementById('el-search-mode').style.display = 'none';
+    document.getElementById('el-add-profile-mode').style.display = '';
+};
+window.elHideAddProfile = function() {
+    document.getElementById('el-add-profile-mode').style.display = 'none';
+    document.getElementById('el-search-mode').style.display = '';
+};
+
+// "Specify ___" checkboxes reveal their input only when ticked.
+window.elToggleNp = function(key) {
+    var wrap = document.getElementById('el-np-' + key + '-wrap');
+    var cb   = document.getElementById('el-np-spec-' + key);
+    if (wrap && cb) wrap.style.display = cb.checked ? '' : 'none';
+};
+(function() {
+    var spec = document.getElementById('el-np-spec-enrol');
+    if (spec) spec.addEventListener('change', function(){
+        document.getElementById('el-np-enrol-wrap').style.display = spec.checked ? '' : 'none';
+    });
+})();
+
+// Save the new learner: persist to course_run_enrolments via the
+// existing addLearner endpoint, then return to search view. Other
+// fields (NRIC, DOB, phone, employer info) populate the JSON preview
+// but aren't persisted yet — the local schema only stores email + name.
+window.elSaveNewLearner = function() {
+    var st = window._elState;
+    if (!st.pid) { alert('Pick a course first.'); return; }
+    var name  = (document.getElementById('el-np-name').value || '').trim();
+    var email = (document.getElementById('el-np-email').value || '').trim().toLowerCase();
+    if (!name)  { alert('Enter the trainee\'s full name.'); return; }
+    if (!email || email.indexOf('@') === -1) { alert('Enter a valid email.'); return; }
+
+    var fd = new FormData();
+    fd.append('product_id', String(st.pid));
+    fd.append('learner_email', email);
+    fd.append('learner_name',  name);
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/addLearner') ?>', {
+        method: 'POST', body: fd, credentials: 'same-origin'
+    }).then(function(r){ return r.json(); }).then(function(j){
+        if (j && j.success) {
+            // Stash extended fields on state so the JSON preview shows them.
+            window._elState.lastNewProfile = {
+                idType: document.getElementById('el-np-id-type').value,
+                id:     document.getElementById('el-np-id').value,
+                dob:    document.getElementById('el-np-dob').value,
+                cc:     document.getElementById('el-np-cc').value || '+65',
+                phone:  document.getElementById('el-np-phone').value
+            };
+            // Reset form fields, return to search, refresh enrolled list.
+            ['el-np-id','el-np-name','el-np-dob','el-np-email','el-np-phone'].forEach(function(id){
+                var e = document.getElementById(id); if (e) e.value = '';
+            });
+            elHideAddProfile();
+            elLoadCurrent();
+        } else {
+            alert((j && j.message) || 'Could not save learner.');
+        }
+    });
+};
+
+// Bind preview updates to text inputs that aren't already wired.
+(function() {
+    var ids = ['el-course-code','el-run-id'];
+    for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        if (el) el.addEventListener('input', elUpdatePreview);
+    }
+    elUpdatePreview();
+})();
+</script>
+</div><!-- end dash-panel-enrolllearner -->
 
 
 <?php /* ===== Role switcher JS ===== */ ?>
@@ -9533,8 +10280,8 @@ button.al-action-close,button.al-action-close:hover,button.al-action-close:focus
     function showAdminSubPanel(name, filter) {
         var r = role;
         if (r !== 'Admin' && r !== 'Super Admin' && r !== 'Marketing') return;
-        var panelMap = { admin: 'dash-panel-admin', trainers: 'dash-panel-trainers', companysetting: 'dash-panel-companysetting', createclass: 'dash-panel-createclass', assigntrainer: 'dash-panel-assigntrainer', assignlearner: 'dash-panel-assignlearner', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-createclass','dash-panel-assigntrainer','dash-panel-assignlearner'];
+        var panelMap = { admin: 'dash-panel-admin', trainers: 'dash-panel-trainers', companysetting: 'dash-panel-companysetting', createclass: 'dash-panel-createclass', assigntrainer: 'dash-panel-assigntrainer', assignlearner: 'dash-panel-assignlearner', enrolllearner: 'dash-panel-enrolllearner', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-createclass','dash-panel-assigntrainer','dash-panel-assignlearner','dash-panel-enrolllearner'];
         for (var i=0; i<all.length; i++) { var el = document.getElementById(all[i]); if (el) el.style.display = 'none'; }
         var t = document.getElementById(panelMap[name] || panelMap.dashboard);
         if (t) t.style.display = '';
@@ -9607,6 +10354,11 @@ button.al-action-close,button.al-action-close:hover,button.al-action-close:focus
         if ((qsPanel === 'assign_learner' || qsPanel === 'assignlearner' || hash === '#assign-learner')
             && (role === 'Admin' || role === 'Super Admin')) {
             showAdminSubPanel('assignlearner');
+            return;
+        }
+        if ((qsPanel === 'enroll_learner' || qsPanel === 'enrolllearner' || hash === '#enroll-learner')
+            && (role === 'Admin' || role === 'Super Admin')) {
+            showAdminSubPanel('enrolllearner');
             return;
         }
         if (qsFilter && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
