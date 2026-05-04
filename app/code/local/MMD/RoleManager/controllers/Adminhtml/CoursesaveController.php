@@ -712,6 +712,142 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         return true;
     }
 
+    /**
+     * Replace a product's trainer multiselect with the given list.
+     * Posted from the Assign Trainer panel modal.
+     *
+     * Inputs:
+     *   product_id           — int, required
+     *   trainer_option_ids   — comma-separated existing option_ids
+     *   new_trainer_names    — pipe-separated free-text names that
+     *                          should be created as new options first
+     *
+     * Final stored value: CSV of all option_ids on the catalog_product_entity_text
+     * row for attribute_id of `trainers` (entity_type=4), store_id=0.
+     */
+    public function saveTrainersAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $req = $this->getRequest();
+            $productId = (int) $req->getParam('product_id');
+            if (!$productId) throw new Exception('product_id required');
+
+            $resource = Mage::getSingleton('core/resource');
+            $read     = $resource->getConnection('core_read');
+            $write    = $resource->getConnection('core_write');
+
+            // Resolve trainers attribute_id (cached lookup not necessary,
+            // this action runs at human speed).
+            $attrId = (int) $read->fetchOne(
+                "SELECT attribute_id FROM " . $resource->getTableName('eav_attribute')
+              . " WHERE attribute_code='trainers' AND entity_type_id=4"
+            );
+            if (!$attrId) throw new Exception('trainers attribute not found');
+
+            $oidsRaw = (string) $req->getParam('trainer_option_ids');
+            $oids = array();
+            foreach (explode(',', $oidsRaw) as $v) {
+                $v = (int) trim($v);
+                if ($v > 0) $oids[$v] = $v;
+            }
+
+            // Create option rows for any free-text names from the
+            // "Enter manually" mode, then merge into $oids.
+            $newRaw = (string) $req->getParam('new_trainer_names');
+            $optionTbl   = $resource->getTableName('eav_attribute_option');
+            $optionValTbl= $resource->getTableName('eav_attribute_option_value');
+            if (trim($newRaw) !== '') {
+                foreach (explode('|', $newRaw) as $rawName) {
+                    $name = trim($rawName);
+                    if ($name === '') continue;
+                    if (mb_strlen($name) > 200) $name = mb_substr($name, 0, 200);
+                    // Reuse existing option if a row already exists with the
+                    // same label at the default store, so manual entries
+                    // don't create duplicates.
+                    $existing = (int) $read->fetchOne(
+                        "SELECT v.option_id FROM {$optionValTbl} v
+                          JOIN {$optionTbl} o ON o.option_id=v.option_id
+                          WHERE o.attribute_id=? AND v.store_id=0 AND v.value=? LIMIT 1",
+                        array($attrId, $name)
+                    );
+                    if ($existing > 0) {
+                        $oids[$existing] = $existing;
+                        continue;
+                    }
+                    $write->insert($optionTbl, array(
+                        'attribute_id' => $attrId,
+                        'sort_order'   => 0,
+                    ));
+                    $newOid = (int) $write->lastInsertId();
+                    $write->insert($optionValTbl, array(
+                        'option_id' => $newOid,
+                        'store_id'  => 0,
+                        'value'     => $name,
+                    ));
+                    $oids[$newOid] = $newOid;
+                }
+            }
+
+            // Persist as CSV on the catalog_product_entity_text row at
+            // store_id=0. Even when the final list is empty, keep the
+            // row (with value='') so the trainer dashboard knows the
+            // admin explicitly cleared assignments — without that flag
+            // it would fall back to trainerprofile-bio matching and
+            // re-show the course to a trainer who was just removed.
+            $textTbl = $resource->getTableName('catalog_product_entity_text');
+            $csv = implode(',', array_values($oids));
+            $existingRowId = (int) $read->fetchOne(
+                "SELECT value_id FROM {$textTbl} WHERE entity_id=? AND attribute_id=? AND store_id=0",
+                array($productId, $attrId)
+            );
+            if ($existingRowId) {
+                $write->update($textTbl, array('value' => $csv), array('value_id=?' => $existingRowId));
+            } else {
+                $write->insert($textTbl, array(
+                    'entity_type_id' => 4,
+                    'attribute_id'   => $attrId,
+                    'store_id'       => 0,
+                    'entity_id'      => $productId,
+                    'value'          => $csv,
+                ));
+            }
+
+            // course_runs cascade: any scheduled run for this product
+            // whose trainer was just removed gets its trainer_option_id
+            // nulled — keeps the schedule but unassigns the trainer so
+            // it stops showing on their My Assigned Classes.
+            try {
+                $runsTbl = $resource->getTableName('course_runs');
+                if (empty($oids)) {
+                    $write->update($runsTbl, array('trainer_option_id' => null), array('product_id=?' => $productId));
+                } else {
+                    $write->update(
+                        $runsTbl,
+                        array('trainer_option_id' => null),
+                        array(
+                            'product_id=?'                  => $productId,
+                            'trainer_option_id NOT IN (?)'  => array_values($oids),
+                        )
+                    );
+                }
+            } catch (Exception $e) {}
+
+            // Bust catalog block / flat caches so the next page render
+            // sees the new value.
+            try { Mage::app()->getCacheInstance()->cleanType('block_html'); } catch (Exception $e) {}
+
+            $result['success']   = true;
+            $result['option_ids']= array_values($oids);
+            $result['message']   = 'Trainers updated.';
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+        $this->getResponse()->setBody(Mage::helper('core')->jsonEncode($result));
+    }
+
     protected function _isAllowed()
     {
         // Course / class / enrolment / attendance management. Trainers

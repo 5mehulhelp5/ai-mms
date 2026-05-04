@@ -423,13 +423,17 @@ if ($_loggedInEmail) {
                     $_params[] = $_mid;
                 }
             }
-            // Also match courses where trainerprofile HTML names the user explicitly.
-            // trainerprofile follows the "<strong>Name:</strong>" convention set by
-            // CoursesaveController — matching any occurrence of the raw fullname is
-            // unsafe because it hits bios that merely mention the trainer in prose
-            // (and, worse, hits longer names that start with this one).
+            // Trainerprofile HTML fallback. Only considered when NO
+            // multiselect row exists for the product yet (`tm.value_id
+            // IS NULL`). Once an admin saves the trainers multiselect —
+            // even to clear it — the multiselect becomes the source of
+            // truth and we stop falling back to bio text. Without that
+            // gate, removing a trainer from the multiselect via the
+            // Assign Trainer modal would leave them stuck on their My
+            // Assigned Classes view because their name still appears in
+            // <strong>Name:</strong> in the course bio.
             if ($_tpAttrId && $_fullName !== '') {
-                $_conditions[] = "(tp.value LIKE ? OR tp.value LIKE ? OR tp.value LIKE ?)";
+                $_conditions[] = "(tm.value_id IS NULL AND (tp.value LIKE ? OR tp.value LIKE ? OR tp.value LIKE ?))";
                 $_params[] = '%<strong>' . $_fullName . ':%';
                 $_params[] = '%<strong>' . $_fullName . '</strong>%';
                 $_params[] = '%<strong>Dr ' . $_fullName . ':%';
@@ -755,6 +759,36 @@ if ($_loggedInEmail) {
             }
         }
     } catch (Exception $e) {}
+
+    // Re-classify each card's time_status from its displayed dates and
+    // recount the three KPIs so they match the cards 1:1. Without this,
+    // run-expansion (one product → N runs) and trainer-extra runs would
+    // produce more cards than $_rows-based counters reported, leaving
+    // the KPI tiles out of sync with the grid below.
+    $_learnerCurrent = 0; $_learnerUpcoming = 0; $_learnerPast = 0;
+    $_kpiToday = strtotime(date('Y-m-d'));
+    foreach ($_learnerCourses as &$_lcRef) {
+        $_lcSt = (!empty($_lcRef['start_date']) && $_lcRef['start_date'] !== '—') ? strtotime($_lcRef['start_date']) : 0;
+        $_lcEn = (!empty($_lcRef['end_date'])   && $_lcRef['end_date']   !== '—') ? strtotime($_lcRef['end_date'])   : 0;
+        if ($_lcSt && $_lcEn && $_lcSt <= $_kpiToday && $_lcEn >= $_kpiToday) {
+            $_lcRef['time_status'] = 'current';
+            $_learnerCurrent++;
+        } elseif ($_lcSt && $_lcSt > $_kpiToday) {
+            $_lcRef['time_status'] = 'upcoming';
+            $_learnerUpcoming++;
+        } elseif ($_lcEn && $_lcEn < $_kpiToday) {
+            $_lcRef['time_status'] = 'past';
+            $_learnerPast++;
+        } else {
+            // No usable date pair: keep prior classification but ensure
+            // it lands in some bucket so card count = sum of KPIs.
+            $_lcExisting = isset($_lcRef['time_status']) ? $_lcRef['time_status'] : '';
+            if ($_lcExisting === 'current')      $_learnerCurrent++;
+            elseif ($_lcExisting === 'past')     $_learnerPast++;
+            else { $_lcRef['time_status'] = 'upcoming'; $_learnerUpcoming++; }
+        }
+    }
+    unset($_lcRef);
 
     // Query billing history for this learner (one row per order item)
     $_billSql = "SELECT o.increment_id, o.created_at, o.grand_total, o.status, o.state,
@@ -7982,15 +8016,22 @@ if ($_atActive) {
             // <strong>Name:</strong>… and it covers ~250 more SG courses
             // than the multiselect alone.
             $_tnames = array();
+            $_toids  = array();
             if ($_run && (int)$_run['trainer_option_id'] > 0) {
                 $_tOpt = (int)$_run['trainer_option_id'];
-                if (isset($_atTrainerOpts[$_tOpt])) $_tnames[] = $_atTrainerOpts[$_tOpt];
+                if (isset($_atTrainerOpts[$_tOpt])) {
+                    $_tnames[] = $_atTrainerOpts[$_tOpt];
+                    $_toids[]  = $_tOpt;
+                }
             } else {
                 $_tcsv = trim((string) $_p['trainers_csv']);
                 if ($_tcsv !== '') {
                     foreach (explode(',', $_tcsv) as $_oid) {
                         $_oid = (int) trim($_oid);
-                        if ($_oid && isset($_atTrainerOpts[$_oid])) $_tnames[] = $_atTrainerOpts[$_oid];
+                        if ($_oid && isset($_atTrainerOpts[$_oid])) {
+                            $_tnames[] = $_atTrainerOpts[$_oid];
+                            $_toids[]  = $_oid;
+                        }
                     }
                 }
             }
@@ -8031,6 +8072,7 @@ if ($_atActive) {
                 'status'     => $_lbl,
                 'status_cls' => $_cls,
                 'trainers'   => $_tnames,
+                'trainer_oids' => $_toids,
             );
             $_atCourseTitles[$_p['name']] = true;
             if ($_tab === 'upcoming') $_atKpi['upcoming']++;
@@ -8089,6 +8131,40 @@ table.at-table{width:100%;border-collapse:collapse;color:#e2e8f0}
 .at-badge-cancelled{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
 .at-trainer-pill{display:inline-block;padding:3px 10px;border-radius:5px;background:rgba(59,130,246,.18);color:#93c5fd;border:1px solid rgba(59,130,246,.3);font-size:12px;font-weight:500;margin-right:4px;margin-bottom:2px}
 .at-trainer-empty{color:#64748b;font-style:italic}
+.at-th-action,.at-td-action{text-align:right;white-space:nowrap}
+button.at-action-btn,button.at-action-btn:hover,button.at-action-btn:focus{display:inline-block;padding:7px 14px !important;border-radius:6px !important;font-size:12px !important;font-weight:600 !important;text-decoration:none;border:1px solid !important;cursor:pointer !important;line-height:1 !important;transition:opacity .15s;background-image:none !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important}
+button.at-action-btn:hover{opacity:.85}
+button.at-action-edit,button.at-action-edit:hover,button.at-action-edit:focus{background:rgba(59,130,246,.15) !important;color:#93c5fd !important;border-color:rgba(59,130,246,.4) !important}
+button.at-action-assign,button.at-action-assign:hover,button.at-action-assign:focus{background:rgba(34,197,94,.15) !important;color:#86efac !important;border-color:rgba(34,197,94,.4) !important}
+
+/* Trainer inline editor (expands inside the table under the clicked row) */
+.atm-row td{padding:0 !important;background:#0f172a;border-bottom:1px solid #334155 !important}
+.atm-inline{padding:24px 28px;color:#e2e8f0}
+.atm-head{display:none}
+.atm-section{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px 18px;margin-bottom:18px}
+.atm-section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.atm-section-title{font-size:14px;font-weight:700;color:#fff;margin:0}
+.atm-remove-all{background:transparent;border:none;color:#f87171;font-size:13px;font-weight:600;cursor:pointer;padding:4px 0}
+.atm-remove-all:hover{color:#ef4444;text-decoration:underline}
+.atm-trainer-row{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.atm-trainer-row:last-child{margin-bottom:0}
+.atm-trainer-name{font-size:14px;font-weight:600;color:#fff}
+.atm-trainer-email{font-size:13px;color:#94a3b8;margin-left:8px;font-weight:400}
+.atm-trainer-remove{background:transparent;border:none;color:#f87171;font-size:13px;font-weight:600;cursor:pointer;padding:4px 8px;display:flex;align-items:center;gap:4px}
+.atm-trainer-remove:hover{color:#ef4444}
+.atm-add-title{font-size:14px;font-weight:700;color:#fff;margin:0 0 12px}
+.atm-mode-row{display:flex;gap:10px;margin-bottom:14px}
+button.atm-mode-btn,button.atm-mode-btn:hover,button.atm-mode-btn:focus{padding:9px 18px !important;background:#0f172a !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #334155 !important;border-radius:6px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;line-height:normal !important}
+button.atm-mode-btn.active,button.atm-mode-btn.active:hover{background:#2563eb !important;border-color:#2563eb !important;color:#fff !important}
+.atm-field-label{font-size:14px;font-weight:600;color:#fff;display:block;margin-bottom:8px}
+.atm-field-label .req{color:#ef4444;margin-left:3px}
+.atm-input,select.atm-input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:11px 14px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box}
+.atm-input:focus{border-color:#3b82f6}
+.atm-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+button.atm-btn,button.atm-btn:hover,button.atm-btn:focus{padding:10px 18px !important;border-radius:8px !important;font-size:13px !important;font-weight:700 !important;cursor:pointer !important;border:1px solid transparent !important;background-image:none !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;line-height:normal !important}
+button.atm-btn-primary,button.atm-btn-primary:hover{background:#22d3ee !important;color:#0f172a !important}
+button.atm-btn-primary[disabled]{opacity:.5;cursor:not-allowed !important}
+button.atm-btn-ghost,button.atm-btn-ghost:hover{background:transparent !important;color:#94a3b8 !important;border-color:#334155 !important}
 .at-empty{padding:48px 20px;text-align:center;color:#64748b;font-size:14px}
 .at-pager{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;color:#94a3b8;font-size:13px}
 .at-pager-info{}
@@ -8150,15 +8226,29 @@ button.at-pg-btn.disabled,button.at-pg-btn.disabled:hover{opacity:.45;cursor:not
                 <th>Course Title</th>
                 <th>Class Status</th>
                 <th>Trainer</th>
+                <th class="at-th-action">Action</th>
             </tr></thead>
             <tbody id="at-tbody">
                 <?php foreach ($_atRows as $_r): ?>
-                <tr data-tab="<?php echo $_r['tab'] ?>" data-title="<?php echo strtolower(htmlspecialchars($_r['title'])) ?>" data-sku="<?php echo strtolower(htmlspecialchars($_r['sku'])) ?>" data-run="<?php echo strtolower(htmlspecialchars($_r['run_id'])) ?>" data-trainers="<?php echo strtolower(htmlspecialchars(implode('|', $_r['trainers']))) ?>" data-trainers-empty="<?php echo empty($_r['trainers']) ? '1' : '0' ?>" data-course="<?php echo htmlspecialchars($_r['title']) ?>">
+                <?php
+                $_oidPairs = array();
+                foreach ($_r['trainer_oids'] as $_i => $_oid) {
+                    $_oidPairs[] = (int)$_oid . ':' . (isset($_r['trainers'][$_i]) ? $_r['trainers'][$_i] : '');
+                }
+                ?>
+                <tr data-tab="<?php echo $_r['tab'] ?>" data-title="<?php echo strtolower(htmlspecialchars($_r['title'])) ?>" data-sku="<?php echo strtolower(htmlspecialchars($_r['sku'])) ?>" data-run="<?php echo strtolower(htmlspecialchars($_r['run_id'])) ?>" data-trainers="<?php echo strtolower(htmlspecialchars(implode('|', $_r['trainers']))) ?>" data-trainers-empty="<?php echo empty($_r['trainers']) ? '1' : '0' ?>" data-course="<?php echo htmlspecialchars($_r['title']) ?>" data-pid="<?php echo (int)$_r['pid'] ?>" data-runid="<?php echo htmlspecialchars($_r['run_id']) ?>" data-oids="<?php echo htmlspecialchars(implode(',', array_map('intval', $_r['trainer_oids']))) ?>" data-tnames="<?php echo htmlspecialchars(implode('|', $_r['trainers'])) ?>">
                     <td><?php echo $_r['start_date'] ?></td>
                     <td><span class="at-run-id"><?php echo htmlspecialchars($_r['run_id']) ?></span></td>
                     <td><?php echo htmlspecialchars($_r['title']) ?></td>
                     <td><span class="at-badge <?php echo $_r['status_cls'] ?>"><?php echo $_r['status'] ?></span></td>
                     <td><?php if (empty($_r['trainers'])): ?><span class="at-trainer-empty">— No trainer —</span><?php else: foreach ($_r['trainers'] as $_tn): ?><span class="at-trainer-pill"><?php echo htmlspecialchars($_tn) ?></span><?php endforeach; endif; ?></td>
+                    <td class="at-td-action">
+                        <?php if (empty($_r['trainers'])): ?>
+                            <button type="button" class="at-action-btn at-action-assign" onclick="atOpenTrainerModal(this)">Assign Trainer</button>
+                        <?php else: ?>
+                            <button type="button" class="at-action-btn at-action-edit" onclick="atOpenTrainerModal(this)">Edit Trainer</button>
+                        <?php endif; ?>
+                    </td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -8275,7 +8365,283 @@ window.atRender = function() {
     }
 };
 (function(){ if (document.getElementById('at-tbody')) atRender(); })();
+
+// ===== Trainer inline editor =====
+// Expansion <tr> is moved beneath whichever row is clicked. State lives
+// in window._atmState; rendering uses ids inside the expansion fragment.
+window._atmState = { pid: 0, runId: '', courseTitle: '', list: [], mode: 'select' };
+
+window.atOpenTrainerModal = function(btn) {
+    var tr = btn.closest('tr');
+    if (!tr) return;
+    var pid = parseInt(tr.getAttribute('data-pid'), 10) || 0;
+    var oidsCsv = tr.getAttribute('data-oids') || '';
+    var namesPipe = tr.getAttribute('data-tnames') || '';
+    var oids = oidsCsv ? oidsCsv.split(',').map(function(x){ return parseInt(x,10); }).filter(function(x){ return x>0; }) : [];
+    var names = namesPipe ? namesPipe.split('|') : [];
+    var list = [];
+    for (var i = 0; i < oids.length; i++) {
+        list.push({ oid: oids[i], name: names[i] || ('#' + oids[i]) });
+    }
+    if (oids.length === 0 && names.length) {
+        for (var j = 0; j < names.length; j++) list.push({ oid: 0, name: names[j] });
+    }
+    window._atmState = {
+        pid: pid,
+        runId: tr.getAttribute('data-runid') || '',
+        courseTitle: tr.getAttribute('data-course') || '',
+        list: list,
+        mode: 'select'
+    };
+
+    var atmRow = document.getElementById('atm-row');
+    if (!atmRow) return;
+    // Toggle: if already attached directly under this row, collapse instead.
+    if (atmRow.parentNode && atmRow.previousElementSibling === tr) {
+        atmRow.parentNode.removeChild(atmRow);
+        atmRow.style.display = 'none';
+        return;
+    }
+    if (atmRow.parentNode) atmRow.parentNode.removeChild(atmRow);
+    tr.parentNode.insertBefore(atmRow, tr.nextSibling);
+    atmRow.style.display = '';
+    atmRender();
+};
+
+window.atmClose = function() {
+    var atmRow = document.getElementById('atm-row');
+    if (atmRow && atmRow.parentNode) atmRow.parentNode.removeChild(atmRow);
+    if (atmRow) atmRow.style.display = 'none';
+};
+
+window.atmRender = function() {
+    var st = window._atmState;
+    document.getElementById('atm-count').textContent = st.list.length;
+
+    // Currently-assigned list
+    var box = document.getElementById('atm-current-list');
+    box.innerHTML = '';
+    if (st.list.length === 0) {
+        var empty = document.createElement('div');
+        empty.className = 'at-trainer-empty';
+        empty.style.padding = '8px 4px';
+        empty.textContent = '— No trainers assigned —';
+        box.appendChild(empty);
+    } else {
+        for (var i = 0; i < st.list.length; i++) {
+            var t = st.list[i];
+            var row = document.createElement('div');
+            row.className = 'atm-trainer-row';
+            var nameSpan = document.createElement('div');
+            var n = document.createElement('span');
+            n.className = 'atm-trainer-name';
+            n.textContent = t.name;
+            nameSpan.appendChild(n);
+            row.appendChild(nameSpan);
+            var rm = document.createElement('button');
+            rm.type = 'button';
+            rm.className = 'atm-trainer-remove';
+            rm.textContent = '× Remove';
+            (function(idx){ rm.onclick = function(){ window._atmState.list.splice(idx, 1); atmRender(); }; })(i);
+            row.appendChild(rm);
+            box.appendChild(row);
+        }
+    }
+
+    // Mode toggle
+    document.getElementById('atm-mode-select').classList.toggle('active', st.mode === 'select');
+    document.getElementById('atm-mode-manual').classList.toggle('active', st.mode === 'manual');
+    document.getElementById('atm-input-select').style.display = st.mode === 'select' ? '' : 'none';
+    document.getElementById('atm-input-manual').style.display = st.mode === 'manual' ? '' : 'none';
+};
+
+window.atmSetMode = function(mode) {
+    window._atmState.mode = mode;
+    atmRender();
+};
+
+window.atmRemoveAll = function() {
+    if (!confirm('Remove all assigned trainers?')) return;
+    window._atmState.list = [];
+    atmRender();
+};
+
+window.atmAdd = function() {
+    var st = window._atmState;
+    if (st.mode === 'select') {
+        var sel = document.getElementById('atm-input-select');
+        var oid = parseInt(sel.value, 10) || 0;
+        if (!oid) { alert('Pick a trainer first.'); return; }
+        for (var i = 0; i < st.list.length; i++) {
+            if (st.list[i].oid === oid) { alert('Already assigned.'); return; }
+        }
+        var name = sel.options[sel.selectedIndex].text;
+        st.list.push({ oid: oid, name: name });
+        sel.value = '';
+    } else {
+        var inp = document.getElementById('atm-input-manual');
+        var v = (inp.value || '').trim();
+        if (v.length < 2) { alert('Enter a trainer name.'); return; }
+        st.list.push({ oid: 0, name: v });
+        inp.value = '';
+    }
+    atmRender();
+};
+
+window.atmSave = function() {
+    var st = window._atmState;
+    if (!st.pid) { alert('No course selected.'); return; }
+    var btn = document.getElementById('atm-save-btn');
+    btn.disabled = true; btn.textContent = 'Saving...';
+    var fd = new FormData();
+    fd.append('product_id', String(st.pid));
+    var oids = st.list.filter(function(t){ return t.oid > 0; }).map(function(t){ return t.oid; });
+    var names = st.list.filter(function(t){ return t.oid <= 0; }).map(function(t){ return t.name; });
+    fd.append('trainer_option_ids', oids.join(','));
+    fd.append('new_trainer_names', names.join('|'));
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/saveTrainers') ?>', {
+        method: 'POST', body: fd, credentials: 'same-origin'
+    }).then(function(r){ return r.json(); }).then(function(j){
+        if (j && j.success) {
+            // Update the originating row in place using the canonical
+            // option_ids the server saved (covers the case where manual
+            // names were converted into new options server-side), then
+            // recompute KPIs from the current DOM state.
+            atmApplyToRow(st.pid, j.option_ids || oids, st.list);
+            atmRecomputeKpis();
+            atmClose();
+        } else {
+            alert((j && j.message) || 'Save failed.');
+            btn.disabled = false; btn.textContent = 'Save';
+        }
+    }).catch(function(err){
+        alert('Network error: ' + err);
+        btn.disabled = false; btn.textContent = 'Save';
+    });
+};
+
+// Patch the touched row's data attributes + trainer cell so the table
+// reflects the new state without a full reload. List = [{oid,name}…].
+window.atmApplyToRow = function(pid, finalOids, list) {
+    var rows = document.querySelectorAll('#at-tbody tr[data-pid="' + pid + '"]');
+    if (!rows.length) return;
+    var nameLookup = {};
+    for (var i = 0; i < list.length; i++) nameLookup[list[i].oid] = list[i].name;
+    var resolvedNames = [];
+    for (var k = 0; k < finalOids.length; k++) {
+        var oid = parseInt(finalOids[k], 10);
+        if (nameLookup[oid]) resolvedNames.push(nameLookup[oid]);
+        else if (nameLookup[0])   { resolvedNames.push(nameLookup[0]); delete nameLookup[0]; }
+        else                       resolvedNames.push('#' + oid);
+    }
+    var oidsCsv  = finalOids.map(function(x){ return parseInt(x,10); }).filter(function(x){ return x>0; }).join(',');
+    var namesPipe = resolvedNames.join('|');
+    var isEmpty  = resolvedNames.length === 0 ? '1' : '0';
+
+    for (var r = 0; r < rows.length; r++) {
+        var row = rows[r];
+        row.setAttribute('data-oids', oidsCsv);
+        row.setAttribute('data-tnames', namesPipe);
+        row.setAttribute('data-trainers', namesPipe.toLowerCase());
+        row.setAttribute('data-trainers-empty', isEmpty);
+        // Trainer cell is the 5th <td> (Start, Run ID, Title, Status, Trainer, Action).
+        var td = row.children[4];
+        if (td) {
+            td.innerHTML = '';
+            if (resolvedNames.length === 0) {
+                var em = document.createElement('span');
+                em.className = 'at-trainer-empty';
+                em.textContent = '— No trainer —';
+                td.appendChild(em);
+            } else {
+                for (var n = 0; n < resolvedNames.length; n++) {
+                    var pill = document.createElement('span');
+                    pill.className = 'at-trainer-pill';
+                    pill.textContent = resolvedNames[n];
+                    td.appendChild(pill);
+                }
+            }
+        }
+        // Action cell (6th <td>) — flip between Edit/Assign Trainer.
+        var act = row.children[5];
+        if (act) {
+            var btn = act.querySelector('button.at-action-btn');
+            if (btn) {
+                btn.classList.remove('at-action-edit', 'at-action-assign');
+                if (resolvedNames.length === 0) {
+                    btn.classList.add('at-action-assign');
+                    btn.textContent = 'Assign Trainer';
+                } else {
+                    btn.classList.add('at-action-edit');
+                    btn.textContent = 'Edit Trainer';
+                }
+            }
+        }
+    }
+};
+
+// Recompute the three KPI numbers from the table's current state. Same
+// rules as the PHP-side counters: Upcoming = rows with data-tab="upcoming";
+// Trainers Assigned / Missing Trainers split that subset by data-trainers-empty.
+window.atmRecomputeKpis = function() {
+    var rows = document.querySelectorAll('#at-tbody tr[data-tab]');
+    var up = 0, assigned = 0, missing = 0;
+    for (var i = 0; i < rows.length; i++) {
+        if (rows[i].getAttribute('data-tab') !== 'upcoming') continue;
+        up++;
+        if (rows[i].getAttribute('data-trainers-empty') === '1') missing++;
+        else                                                     assigned++;
+    }
+    var el = document.querySelector('.at-kpi-num.at-num-up');
+    if (el) el.textContent = up.toLocaleString();
+    el = document.querySelector('.at-kpi-num.at-num-assigned');
+    if (el) el.textContent = assigned.toLocaleString();
+    el = document.querySelector('.at-kpi-num.at-num-missing');
+    if (el) el.textContent = missing.toLocaleString();
+    // Refresh visible row set + counter so a row that just got a trainer
+    // doesn't linger on a "no trainer" filter, etc.
+    if (typeof atRender === 'function') atRender();
+};
 </script>
+
+<?php /* Trainer inline editor — kept hidden in a stub table; JS moves
+        this <tr> directly under whichever row's action button is
+        clicked, so it appears as in-row expansion. */ ?>
+<table style="display:none"><tbody><tr id="atm-row" class="atm-row" style="display:none">
+    <td colspan="6">
+        <div class="atm-inline">
+            <div class="atm-section">
+                <div class="atm-section-head">
+                    <h4 class="atm-section-title">Currently Assigned (<span id="atm-count">0</span>)</h4>
+                    <button type="button" class="atm-remove-all" onclick="atmRemoveAll()">Remove All</button>
+                </div>
+                <div id="atm-current-list"></div>
+            </div>
+            <div>
+                <h4 class="atm-add-title">Add New Trainer</h4>
+                <div class="atm-mode-row">
+                    <button type="button" id="atm-mode-select" class="atm-mode-btn active" onclick="atmSetMode('select')">Select from list</button>
+                    <button type="button" id="atm-mode-manual" class="atm-mode-btn" onclick="atmSetMode('manual')">Enter manually</button>
+                </div>
+                <label class="atm-field-label">Trainer<span class="req">*</span></label>
+                <select id="atm-input-select" class="atm-input">
+                    <option value="">— Search trainer by name or email —</option>
+                    <?php foreach ($_atTrainerOpts as $_oid => $_tname): ?>
+                    <option value="<?php echo (int)$_oid ?>"><?php echo htmlspecialchars($_tname) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <input id="atm-input-manual" type="text" class="atm-input" style="display:none;" placeholder="Trainer name" />
+                <div class="atm-foot">
+                    <button type="button" class="atm-btn atm-btn-primary" onclick="atmAdd()">Add Trainer</button>
+                </div>
+            </div>
+            <div class="atm-foot" style="border-top:1px solid #1e293b;padding-top:14px;margin-top:18px">
+                <button type="button" class="atm-btn atm-btn-ghost" onclick="atmClose()">Cancel</button>
+                <button type="button" id="atm-save-btn" class="atm-btn atm-btn-primary" onclick="atmSave()">Save</button>
+            </div>
+        </div>
+    </td>
+</tr></tbody></table>
 </div><!-- end dash-panel-assigntrainer -->
 
 
