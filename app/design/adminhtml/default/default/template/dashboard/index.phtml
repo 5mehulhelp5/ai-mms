@@ -54,17 +54,27 @@ $startAid  = isset($attrMap['news_from_date']) ? $attrMap['news_from_date'] : 0;
 $endAid    = isset($attrMap['news_to_date'])   ? $attrMap['news_to_date']   : 0;
 $statusAid = isset($attrMap['status'])         ? $attrMap['status']         : 96;
 
+// Country scope from the logged-in admin (admin.<cc>@…). Default SG.
+// Applied as an INNER JOIN on catalog_product_website to every query
+// below so the master list, KPI counts, and learner / trainer
+// roll-ups all reflect the admin's country.
+$_adminWid     = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
+$_adminWidJoin = " INNER JOIN catalog_product_website pwx ON pwx.product_id=p.entity_id AND pwx.website_id={$_adminWid} ";
+
 $ongoingCount = ($startAid && $endAid) ? (int)$read->fetchOne("
     SELECT COUNT(DISTINCT p.entity_id) FROM catalog_product_entity p
+    {$_adminWidJoin}
     JOIN catalog_product_entity_datetime d1 ON p.entity_id=d1.entity_id AND d1.attribute_id={$startAid} AND d1.store_id=0 AND d1.value<='{$today}'
     JOIN catalog_product_entity_datetime d2 ON p.entity_id=d2.entity_id AND d2.attribute_id={$endAid}   AND d2.store_id=0 AND d2.value>='{$today}'
 ") : 0;
 $upcomingCount = $startAid ? (int)$read->fetchOne("
     SELECT COUNT(DISTINCT p.entity_id) FROM catalog_product_entity p
+    {$_adminWidJoin}
     JOIN catalog_product_entity_datetime d1 ON p.entity_id=d1.entity_id AND d1.attribute_id={$startAid} AND d1.store_id=0 AND d1.value>'{$today}'
 ") : 0;
 $completedCount = $endAid ? (int)$read->fetchOne("
     SELECT COUNT(DISTINCT p.entity_id) FROM catalog_product_entity p
+    {$_adminWidJoin}
     JOIN catalog_product_entity_datetime d2 ON p.entity_id=d2.entity_id AND d2.attribute_id={$endAid} AND d2.store_id=0 AND d2.value<'{$today}'
 ") : 0;
 
@@ -107,11 +117,14 @@ $courseRows = $read->fetchAll("
     SELECT p.entity_id AS run_id, p.sku AS ref_code, vname.value AS course_title,
            {$cT} {$cS} {$cE} vstatus.value AS status_val, COALESCE(lc.cnt,0) AS learners
     FROM catalog_product_entity p
+    {$_adminWidJoin}
     LEFT JOIN catalog_product_entity_varchar vname  ON p.entity_id=vname.entity_id  AND vname.attribute_id={$nameAid}   AND vname.store_id=0
     {$sT} {$sS} {$sE}
     LEFT JOIN catalog_product_entity_int vstatus ON p.entity_id=vstatus.entity_id AND vstatus.attribute_id={$statusAid} AND vstatus.store_id=0
     LEFT JOIN (SELECT oi.product_id, COUNT(DISTINCT oi.order_id) AS cnt
-               FROM sales_flat_order_item oi INNER JOIN sales_flat_order o ON oi.order_id=o.entity_id AND o.state NOT IN ('canceled','holded')
+               FROM sales_flat_order_item oi
+               INNER JOIN sales_flat_order o ON oi.order_id=o.entity_id AND o.state NOT IN ('canceled','holded')
+               INNER JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id={$_adminWid}
                GROUP BY oi.product_id) lc ON p.entity_id=lc.product_id
     {$_dashFilterWhere}
     ORDER BY dstart.value DESC, p.entity_id DESC LIMIT 300
@@ -126,6 +139,7 @@ if ($_dashFilter !== '' && $startAid && $endAid) {
     $_dashFilterTotal = (int) $read->fetchOne("
         SELECT COUNT(DISTINCT p.entity_id)
         FROM catalog_product_entity p
+        {$_adminWidJoin}
         {$sS} {$sE}
         {$_dashFilterWhere}
     ");
@@ -135,8 +149,10 @@ if ($_dashFilter !== '' && $startAid && $endAid) {
                    COALESCE((SELECT COUNT(DISTINCT oi.order_id)
                              FROM sales_flat_order_item oi
                              INNER JOIN sales_flat_order o ON oi.order_id=o.entity_id
+                             INNER JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id={$_adminWid}
                              WHERE oi.product_id=p.entity_id AND o.state NOT IN ('canceled','holded')),0) AS cnt
             FROM catalog_product_entity p
+            {$_adminWidJoin}
             {$sS} {$sE}
             {$_dashFilterWhere}
         ) lc
@@ -145,6 +161,7 @@ if ($_dashFilter !== '' && $startAid && $endAid) {
         $_dashFilterConfirmed = (int) $read->fetchOne("
             SELECT COUNT(DISTINCT p.entity_id)
             FROM catalog_product_entity p
+            {$_adminWidJoin}
             {$sS} {$sE}
             LEFT JOIN catalog_product_entity_int vstatus ON p.entity_id=vstatus.entity_id AND vstatus.attribute_id={$statusAid} AND vstatus.store_id=0
             {$_dashFilterWhere} AND vstatus.value = 1
@@ -714,7 +731,7 @@ if ($_loggedInEmail) {
                     $_card = $_lc;
                     if (!empty($_run['course_start_date'])) $_card['start_date'] = date('j M Y', strtotime($_run['course_start_date']));
                     if (!empty($_run['course_end_date']))   $_card['end_date']   = date('j M Y', strtotime($_run['course_end_date']));
-                    $_card['run_id']    = 'SG-' . str_pad((string)(99999 + (int)$_run['run_id']), 6, '0', STR_PAD_LEFT);
+                    $_card['run_id']    = Mage::helper('mmd_rolemanager')->formatRunId($_pid, $_run['run_id']);
                     $_card['venue']     = trim(implode(' ', array_filter(array($_run['venue_block'], $_run['venue_street'], $_run['venue_building']))));
                     $_card['room']      = $_run['room'];
                     $_card['postal']    = $_run['postal_code'];
@@ -777,7 +794,7 @@ if ($_loggedInEmail) {
                     'detail_url'  => Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $_pid, '_query' => array('run' => (int)$_run['run_id']))),
                     'duration'    => $_dur,
                     'course_type' => $_typ,
-                    'run_id'      => 'SG-' . str_pad((string)(99999 + (int)$_run['run_id']), 6, '0', STR_PAD_LEFT),
+                    'run_id'      => Mage::helper('mmd_rolemanager')->formatRunId($_pid, $_run['run_id']),
                     'venue'       => trim(implode(' ', array_filter(array($_run['venue_block'], $_run['venue_street'], $_run['venue_building'])))),
                     'room'        => $_run['room'],
                     'postal'      => $_run['postal_code'],
@@ -7612,6 +7629,72 @@ $_cncActive = ($activeRole === 'admin')
 $_cncTrainers = array();
 $_cncCourses = array();
 if ($_cncActive) {
+    // Country scope from the logged-in admin (admin.<cc>@…). Default SG.
+    $_cncWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
+    $_cncCC  = Mage::helper('mmd_rolemanager')->getActiveCountryCode();
+
+    // Per-country venue field labels + placeholders. The seven inputs
+    // (block/street/building/floor/unit/postal/room) keep the same IDs
+    // so the JS save logic is untouched; only the labels in front
+    // change to match each market's address convention. SG is the
+    // default and matches the original form.
+    $_cncVenue = array(
+        'SG' => array(
+            'block'    => array('label' => 'Block',         'ph' => 'BLK 170', 'required' => false),
+            'street'   => array('label' => 'Street',        'ph' => 'Upper Bukit Timah Road'),
+            'building' => array('label' => 'Building',      'ph' => 'Bukit Timah Shopping Centre'),
+            'floor'    => array('label' => 'Floor',         'ph' => '#05',          'required' => true),
+            'unit'     => array('label' => 'Unit',          'ph' => '27',           'required' => true),
+            'postal'   => array('label' => 'Postal Code',   'ph' => '588179',       'required' => true),
+            'room'     => array('label' => 'Room',          'ph' => 'Lab 3',        'required' => true),
+        ),
+        'MY' => array(
+            'block'    => array('label' => 'City',          'ph' => 'Kuala Lumpur'),
+            'street'   => array('label' => 'Address Line 1','ph' => 'No 7-1 Jalan Damai Niaga'),
+            'building' => array('label' => 'Address Line 2','ph' => 'Taman Alam Damai, Cheras'),
+            'floor'    => array('label' => 'State',         'ph' => 'Selangor',      'required' => true),
+            'unit'     => array('label' => 'Unit',          'ph' => '7-1',           'required' => true),
+            'postal'   => array('label' => 'Postcode',      'ph' => '56000',         'required' => true),
+            'room'     => array('label' => 'Room',          'ph' => 'Training Room A','required' => true),
+        ),
+        'GH' => array(
+            'block'    => array('label' => 'House Number',  'ph' => 'GA-123-4567'),
+            'street'   => array('label' => 'Street',        'ph' => 'Independence Avenue'),
+            'building' => array('label' => 'Locality',      'ph' => 'Osu, Accra'),
+            'floor'    => array('label' => 'Region',        'ph' => 'Greater Accra', 'required' => true),
+            'unit'     => array('label' => 'Unit',          'ph' => 'Suite 4',       'required' => true),
+            'postal'   => array('label' => 'GhanaPost GPS', 'ph' => 'GA-123-4567',   'required' => true),
+            'room'     => array('label' => 'Room',          'ph' => 'Hall 1',        'required' => true),
+        ),
+        'NG' => array(
+            'block'    => array('label' => 'House Number',  'ph' => '12'),
+            'street'   => array('label' => 'Street',        'ph' => 'Adeola Odeku Street'),
+            'building' => array('label' => 'Area',          'ph' => 'Victoria Island, Lagos'),
+            'floor'    => array('label' => 'State',         'ph' => 'Lagos',         'required' => true),
+            'unit'     => array('label' => 'Unit',          'ph' => 'Suite 3B',      'required' => true),
+            'postal'   => array('label' => 'Postcode',      'ph' => '101241',        'required' => true),
+            'room'     => array('label' => 'Room',          'ph' => 'Conference 2',  'required' => true),
+        ),
+        'BT' => array(
+            'block'    => array('label' => 'Building',      'ph' => 'Norzin Lam Building'),
+            'street'   => array('label' => 'Locality',      'ph' => 'Norzin Lam'),
+            'building' => array('label' => 'Dzongkhag',     'ph' => 'Thimphu'),
+            'floor'    => array('label' => 'Floor',         'ph' => '3rd Floor',     'required' => true),
+            'unit'     => array('label' => 'Unit',          'ph' => 'Suite 12',      'required' => true),
+            'postal'   => array('label' => 'Postal Code',   'ph' => '11001',         'required' => true),
+            'room'     => array('label' => 'Room',          'ph' => 'Training Hall', 'required' => true),
+        ),
+        'IN' => array(
+            'block'    => array('label' => 'Flat / House',  'ph' => '4B'),
+            'street'   => array('label' => 'Building / Street','ph' => 'Hiranandani Gardens, Powai'),
+            'building' => array('label' => 'Area / Locality','ph' => 'Bandra West'),
+            'floor'    => array('label' => 'State',         'ph' => 'Maharashtra',   'required' => true),
+            'unit'     => array('label' => 'Unit',          'ph' => '4B',            'required' => true),
+            'postal'   => array('label' => 'PIN Code',      'ph' => '400050',        'required' => true),
+            'room'     => array('label' => 'Room',          'ph' => 'Training Room', 'required' => true),
+        ),
+    );
+    $_cncV = isset($_cncVenue[$_cncCC]) ? $_cncVenue[$_cncCC] : $_cncVenue['SG'];
     try {
         $_cncTrAttrId = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='trainers' AND entity_type_id=4");
         if ($_cncTrAttrId) {
@@ -7624,18 +7707,20 @@ if ($_cncActive) {
                 array($_cncTrAttrId)
             );
         }
-        // Available-courses dropdown. INNER JOIN drops the ~26% of catalog
-        // rows that have no name attribute (those would render as
-        // "SKU — (no name)" anyway and are useless to pick from). LIMIT
-        // 500 keeps the DOM <option> count manageable; the catalog has
-        // 1,475 products total but only a few hundred are real classes.
+        // Available-courses dropdown — every named product on the
+        // admin's country website. INNER JOIN catalog_product_website
+        // scopes the list to the logged-in admin's market (SG / MY /
+        // GH / NG / BT / IN). LIMIT 5000 covers any market's full
+        // catalog (largest is SG at ~1,300).
         $_cncCourses = $read->fetchAll(
             "SELECT e.entity_id, e.sku, v.value AS name
              FROM catalog_product_entity e
-             JOIN catalog_product_entity_varchar v
+             INNER JOIN catalog_product_website pw
+               ON pw.product_id=e.entity_id AND pw.website_id={$_cncWid}
+             INNER JOIN catalog_product_entity_varchar v
                ON v.entity_id=e.entity_id AND v.attribute_id=71 AND v.store_id=0
              WHERE v.value IS NOT NULL AND v.value <> ''
-             ORDER BY e.sku ASC LIMIT 500"
+             ORDER BY e.sku ASC LIMIT 5000"
         );
     } catch (Exception $e) {}
 }
@@ -7675,6 +7760,12 @@ if ($_cncActive) {
     transition:background-color 5000s ease-in-out 0s;
 }
 .cnc-help{font-size:12px;color:#94a3b8;margin-top:6px}
+.cnc-trainer-wrap{position:relative}
+.cnc-trainer-list{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#1e293b;border:1px solid #334155;border-radius:8px;max-height:260px;overflow-y:auto;z-index:30;box-shadow:0 12px 28px rgba(0,0,0,.45)}
+.cnc-trainer-row{padding:9px 14px;font-size:14px;color:#e2e8f0;cursor:pointer;border-bottom:1px solid #283548}
+.cnc-trainer-row:last-child{border-bottom:none}
+.cnc-trainer-row:hover{background:rgba(59,130,246,.18);color:#fff}
+.cnc-trainer-empty{padding:14px;color:#64748b;font-size:13px;font-style:italic}
 .cnc-divider{border:none;border-top:1px solid #334155;margin:24px 0}
 .cnc-optional-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:22px 24px;margin-bottom:18px}
 .cnc-optional-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0}
@@ -7748,21 +7839,30 @@ button.cnc-btn-primary:hover{background:#3b82f6 !important;border-color:#3b82f6 
             </div>
         </div>
 
-        <!-- Venue Information -->
+        <!-- Venue Information — labels adapt to the admin's country -->
+        <?php
+        $_cncVenueRender = isset($_cncV) ? $_cncV : array(
+            'block'=>array('label'=>'Block','ph'=>''),'street'=>array('label'=>'Street','ph'=>''),
+            'building'=>array('label'=>'Building','ph'=>''),'floor'=>array('label'=>'Floor','ph'=>'','required'=>true),
+            'unit'=>array('label'=>'Unit','ph'=>'','required'=>true),'postal'=>array('label'=>'Postal Code','ph'=>'','required'=>true),
+            'room'=>array('label'=>'Room','ph'=>'','required'=>true),
+        );
+        $_cncReqStar = function($cfg) { return !empty($cfg['required']) ? '<span class="cnc-req">*</span> ' : ''; };
+        ?>
         <div class="cnc-card">
             <h3 class="cnc-card-title">Venue Information</h3>
             <div class="cnc-row-3">
                 <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-venue-block">Venue Block</label>
-                    <input type="text" id="cnc-venue-block" class="cnc-input" />
+                    <label class="cnc-label" for="cnc-venue-block"><?php echo $_cncReqStar($_cncVenueRender['block']) . htmlspecialchars($_cncVenueRender['block']['label']) ?></label>
+                    <input type="text" id="cnc-venue-block" class="cnc-input" value="<?php echo htmlspecialchars($_cncVenueRender['block']['ph']) ?>" placeholder="<?php echo htmlspecialchars($_cncVenueRender['block']['ph']) ?>" <?php echo !empty($_cncVenueRender['block']['required']) ? 'required' : '' ?> />
                 </div>
                 <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-venue-street">Venue Street</label>
-                    <input type="text" id="cnc-venue-street" class="cnc-input" />
+                    <label class="cnc-label" for="cnc-venue-street"><?php echo $_cncReqStar($_cncVenueRender['street']) . htmlspecialchars($_cncVenueRender['street']['label']) ?></label>
+                    <input type="text" id="cnc-venue-street" class="cnc-input" value="<?php echo htmlspecialchars($_cncVenueRender['street']['ph']) ?>" placeholder="<?php echo htmlspecialchars($_cncVenueRender['street']['ph']) ?>" <?php echo !empty($_cncVenueRender['street']['required']) ? 'required' : '' ?> />
                 </div>
                 <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-venue-building">Venue Building</label>
-                    <input type="text" id="cnc-venue-building" class="cnc-input" />
+                    <label class="cnc-label" for="cnc-venue-building"><?php echo $_cncReqStar($_cncVenueRender['building']) . htmlspecialchars($_cncVenueRender['building']['label']) ?></label>
+                    <input type="text" id="cnc-venue-building" class="cnc-input" value="<?php echo htmlspecialchars($_cncVenueRender['building']['ph']) ?>" placeholder="<?php echo htmlspecialchars($_cncVenueRender['building']['ph']) ?>" <?php echo !empty($_cncVenueRender['building']['required']) ? 'required' : '' ?> />
                 </div>
             </div>
             <div class="cnc-row">
@@ -7776,20 +7876,20 @@ button.cnc-btn-primary:hover{background:#3b82f6 !important;border-color:#3b82f6 
             </div>
             <div class="cnc-row-4">
                 <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-floor"><span class="cnc-req">*</span> Floor</label>
-                    <input type="text" id="cnc-floor" class="cnc-input" required />
+                    <label class="cnc-label" for="cnc-floor"><?php echo $_cncReqStar($_cncVenueRender['floor']) . htmlspecialchars($_cncVenueRender['floor']['label']) ?></label>
+                    <input type="text" id="cnc-floor" class="cnc-input" value="<?php echo htmlspecialchars($_cncVenueRender['floor']['ph']) ?>" placeholder="<?php echo htmlspecialchars($_cncVenueRender['floor']['ph']) ?>" <?php echo !empty($_cncVenueRender['floor']['required']) ? 'required' : '' ?> />
                 </div>
                 <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-unit"><span class="cnc-req">*</span> Unit</label>
-                    <input type="text" id="cnc-unit" class="cnc-input" required />
+                    <label class="cnc-label" for="cnc-unit"><?php echo $_cncReqStar($_cncVenueRender['unit']) . htmlspecialchars($_cncVenueRender['unit']['label']) ?></label>
+                    <input type="text" id="cnc-unit" class="cnc-input" value="<?php echo htmlspecialchars($_cncVenueRender['unit']['ph']) ?>" placeholder="<?php echo htmlspecialchars($_cncVenueRender['unit']['ph']) ?>" <?php echo !empty($_cncVenueRender['unit']['required']) ? 'required' : '' ?> />
                 </div>
                 <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-postal"><span class="cnc-req">*</span> Postal Code</label>
-                    <input type="text" id="cnc-postal" class="cnc-input" required />
+                    <label class="cnc-label" for="cnc-postal"><?php echo $_cncReqStar($_cncVenueRender['postal']) . htmlspecialchars($_cncVenueRender['postal']['label']) ?></label>
+                    <input type="text" id="cnc-postal" class="cnc-input" value="<?php echo htmlspecialchars($_cncVenueRender['postal']['ph']) ?>" placeholder="<?php echo htmlspecialchars($_cncVenueRender['postal']['ph']) ?>" <?php echo !empty($_cncVenueRender['postal']['required']) ? 'required' : '' ?> />
                 </div>
                 <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-room"><span class="cnc-req">*</span> Room</label>
-                    <input type="text" id="cnc-room" class="cnc-input" required />
+                    <label class="cnc-label" for="cnc-room"><?php echo $_cncReqStar($_cncVenueRender['room']) . htmlspecialchars($_cncVenueRender['room']['label']) ?></label>
+                    <input type="text" id="cnc-room" class="cnc-input" value="<?php echo htmlspecialchars($_cncVenueRender['room']['ph']) ?>" placeholder="<?php echo htmlspecialchars($_cncVenueRender['room']['ph']) ?>" <?php echo !empty($_cncVenueRender['room']['required']) ? 'required' : '' ?> />
                 </div>
             </div>
         </div>
@@ -7848,14 +7948,82 @@ button.cnc-btn-primary:hover{background:#3b82f6 !important;border-color:#3b82f6 
                 <h3 class="cnc-card-title">Assign Existing Trainer</h3>
                 <div class="cnc-row">
                     <div class="cnc-field cnc-field-full">
-                        <label class="cnc-label" for="cnc-trainer-id"><span class="cnc-req">*</span> Trainer</label>
-                        <select id="cnc-trainer-id" class="cnc-select">
-                            <option value="">Select a trainer...</option>
-                            <?php foreach ($_cncTrainers as $_oid => $_tname): ?>
-                            <option value="<?php echo (int)$_oid ?>"><?php echo htmlspecialchars($_tname) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <div class="cnc-help">Pick from <?php echo count($_cncTrainers) ?> registered trainer<?php echo count($_cncTrainers) === 1 ? '' : 's' ?>.</div>
+                        <label class="cnc-label" for="cnc-trainer-search"><span class="cnc-req">*</span> Trainer</label>
+                        <?php
+                        // Pre-select the option whose name matches the
+                        // logged-in admin's full name. Lets country-admin
+                        // testers self-assign and immediately see the
+                        // class on their own View As: Trainer view.
+                        $_cncSelfUser  = Mage::getSingleton('admin/session')->getUser();
+                        $_cncSelfName  = $_cncSelfUser ? trim($_cncSelfUser->getFirstname() . ' ' . $_cncSelfUser->getLastname()) : '';
+                        $_cncSelfOid   = 0;
+                        if ($_cncSelfName !== '') {
+                            foreach ($_cncTrainers as $_oid => $_tname) {
+                                if (strcasecmp(trim($_tname), $_cncSelfName) === 0) { $_cncSelfOid = (int)$_oid; break; }
+                            }
+                        }
+                        ?>
+                        <div class="cnc-trainer-wrap">
+                            <input type="text" id="cnc-trainer-search" class="cnc-input" placeholder="Select trainer..." autocomplete="off"
+                                   oninput="cncFilterTrainers(this)" onfocus="cncFilterTrainers(this)" />
+                            <div id="cnc-trainer-list" class="cnc-trainer-list" style="display:none"></div>
+                            <input type="hidden" id="cnc-trainer-id" value="" />
+                        </div>
+                        <div class="cnc-help">
+                            Type to search through <?php echo count($_cncTrainers) ?> registered trainer<?php echo count($_cncTrainers) === 1 ? '' : 's' ?>.
+                        </div>
+                        <script type="text/javascript">
+                        // Trainer options served as a flat array. The
+                        // autocomplete filters this list as the admin
+                        // types and writes the picked option_id into
+                        // the hidden #cnc-trainer-id input that the
+                        // form submission already reads.
+                        window._cncTrainerOpts = <?php echo json_encode(array_map(function ($oid, $name) {
+                            return array('id' => (int) $oid, 'name' => $name);
+                        }, array_keys($_cncTrainers), array_values($_cncTrainers))) ?>;
+                        window.cncFilterTrainers = function(inp) {
+                            var q = (inp.value || '').toLowerCase().trim();
+                            // Drop "(you)" suffix when matching so the
+                            // pre-selected label stays valid as a query.
+                            var qClean = q.replace(/\s*\(you\)\s*$/, '');
+                            var box = document.getElementById('cnc-trainer-list');
+                            box.innerHTML = '';
+                            var matches = [];
+                            for (var i = 0; i < window._cncTrainerOpts.length; i++) {
+                                var o = window._cncTrainerOpts[i];
+                                if (qClean === '' || o.name.toLowerCase().indexOf(qClean) !== -1) matches.push(o);
+                                if (matches.length >= 50) break;
+                            }
+                            if (matches.length === 0) {
+                                var n = document.createElement('div');
+                                n.className = 'cnc-trainer-empty';
+                                n.textContent = 'No matching trainers';
+                                box.appendChild(n);
+                            } else {
+                                for (var k = 0; k < matches.length; k++) {
+                                    var m = matches[k];
+                                    var d = document.createElement('div');
+                                    d.className = 'cnc-trainer-row';
+                                    d.textContent = m.name;
+                                    (function(id, name){
+                                        d.onclick = function() {
+                                            inp.value = name;
+                                            document.getElementById('cnc-trainer-id').value = String(id);
+                                            box.style.display = 'none';
+                                        };
+                                    })(m.id, m.name);
+                                    box.appendChild(d);
+                                }
+                            }
+                            box.style.display = '';
+                        };
+                        // Hide list when clicking outside.
+                        document.addEventListener('click', function(e){
+                            var w = document.querySelector('.cnc-trainer-wrap');
+                            var box = document.getElementById('cnc-trainer-list');
+                            if (w && box && !w.contains(e.target)) box.style.display = 'none';
+                        });
+                        </script>
                     </div>
                 </div>
             </div>
@@ -7950,6 +8118,9 @@ $_atRows = array();
 $_atTrainerOpts = array();
 $_atCourseTitles = array();
 if ($_atActive) {
+    // Country scope from the logged-in admin's email (admin.<cc>@…).
+    // Defaults to Singapore for accounts that don't match the pattern.
+    $_atWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
     try {
         $_atTrainersAttrId = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='trainers' AND entity_type_id=4");
         // Trainer option_id → name (for dropdown + per-row resolution)
@@ -7985,7 +8156,7 @@ if ($_atActive) {
                     (SELECT tp.value FROM catalog_product_entity_text tp WHERE tp.entity_id=e.entity_id AND tp.attribute_id=153 AND tp.value IS NOT NULL AND tp.value <> '' ORDER BY tp.store_id LIMIT 1) AS trainer_profile_html
              FROM catalog_product_entity e
              INNER JOIN catalog_product_website pw
-                ON pw.product_id=e.entity_id AND pw.website_id=1
+                ON pw.product_id=e.entity_id AND pw.website_id={$_atWid}
              INNER JOIN catalog_product_entity_varchar v
                 ON v.entity_id=e.entity_id AND v.attribute_id=71 AND v.store_id=0
              INNER JOIN catalog_product_entity_int s
@@ -8079,10 +8250,11 @@ if ($_atActive) {
                 }
             }
 
-            // Run ID — course_runs SG-100000 series if scheduled, else
-            // legacy SG-{100000+rank} for the unscheduled product entry.
+            // Run ID — country prefix follows the product's website
+            // (SG-/MY-/GH-/NG-/BUT-/IND-). Scheduled runs use course_runs
+            // numbering, unscheduled fall back to catalog-rank.
             if ($_run) {
-                $_runId = 'SG-' . str_pad((string)(99999 + (int)$_run['run_id']), 6, '0', STR_PAD_LEFT);
+                $_runId = Mage::helper('mmd_rolemanager')->formatRunId($_pid, $_run['run_id']);
             } elseif (isset($_lmcRunMap[$_pid])) {
                 $_runId = $_lmcRunMap[$_pid];
             } elseif (isset($_devRankMap[$_pid])) {
@@ -8682,15 +8854,17 @@ $_alKpi = array('upcoming' => 0, 'ongoing' => 0, 'completed' => 0, 'trainees' =>
 $_alRows = array();
 $_alCourseTitles = array();
 if ($_alActive) {
+    // Country scope from the logged-in admin (admin.<cc>@…).
+    $_alWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
     try {
-        // Reuse the Assign Trainer scope: SG website, active, named.
+        // Country-scoped catalog: active + named on the admin's website.
         $_alProducts = $read->fetchAll(
             "SELECT e.entity_id, e.sku, v.value AS name,
                     (SELECT d.value FROM catalog_product_entity_datetime d WHERE d.entity_id=e.entity_id AND d.attribute_id={$startAid} ORDER BY d.store_id LIMIT 1) AS news_from_date,
                     (SELECT d.value FROM catalog_product_entity_datetime d WHERE d.entity_id=e.entity_id AND d.attribute_id={$endAid}   ORDER BY d.store_id LIMIT 1) AS news_to_date
              FROM catalog_product_entity e
              INNER JOIN catalog_product_website pw
-                ON pw.product_id=e.entity_id AND pw.website_id=1
+                ON pw.product_id=e.entity_id AND pw.website_id={$_alWid}
              INNER JOIN catalog_product_entity_varchar v
                 ON v.entity_id=e.entity_id AND v.attribute_id=71 AND v.store_id=0
              INNER JOIN catalog_product_entity_int s
@@ -8729,7 +8903,7 @@ if ($_alActive) {
                      SELECT oi.product_id, LOWER(o.customer_email) AS email
                      FROM sales_flat_order o
                      JOIN sales_flat_order_item oi ON oi.order_id=o.entity_id
-                     JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id=1
+                     JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id={$_alWid}
                      WHERE o.state NOT IN ('canceled') AND o.customer_email IS NOT NULL
                      UNION
                      SELECT product_id, LOWER(learner_email) AS email
@@ -8802,7 +8976,7 @@ if ($_alActive) {
 
             // Run ID — same pattern as Assign Trainer.
             if ($_run) {
-                $_runId = 'SG-' . str_pad((string)(99999 + (int)$_run['run_id']), 6, '0', STR_PAD_LEFT);
+                $_runId = Mage::helper('mmd_rolemanager')->formatRunId($_pid, $_run['run_id']);
             } elseif (isset($_lmcRunMap[$_pid])) {
                 $_runId = $_lmcRunMap[$_pid];
             } elseif (isset($_devRankMap[$_pid])) {
@@ -8872,7 +9046,7 @@ if ($_alActive) {
                          SELECT LOWER(o.customer_email) AS email
                          FROM sales_flat_order o
                          JOIN sales_flat_order_item oi ON oi.order_id=o.entity_id
-                         JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id=1
+                         JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id={$_alWid}
                          WHERE o.state NOT IN ('canceled')
                            AND o.customer_email IS NOT NULL
                            AND oi.product_id IN ({$_pidsList})
@@ -9474,29 +9648,29 @@ $_elActive = ($activeRole === 'admin') && (Mage::app()->getRequest()->getParam('
 $_elCourses = array();
 $_elRunsByPid = array();
 if ($_elActive) {
+    // Country scope from the logged-in admin (admin.<cc>@…). Default SG.
+    $_elWid    = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
+    $_elPrefix = Mage::helper('mmd_rolemanager')->getActiveCountryRunPrefix();
     try {
-        // Build the rank map from EVERY product on the SG website
+        // Build the rank map from EVERY product on the admin's website
         // (no status / name filter), ordered by entity_id ASC. Matches
-        // the developer dashboard's Run ID convention exactly so a
-        // course's SG-100xxx Run ID is identical wherever it appears.
+        // the developer dashboard's Run ID convention exactly.
         $_elRankByPid = array();
         try {
             $_allSgPids = $read->fetchCol(
-                "SELECT DISTINCT product_id FROM catalog_product_website WHERE website_id=1 ORDER BY product_id ASC"
+                "SELECT DISTINCT product_id FROM catalog_product_website WHERE website_id={$_elWid} ORDER BY product_id ASC"
             );
             foreach ($_allSgPids as $_idx => $_pid) {
                 $_elRankByPid[(int)$_pid] = (int)$_idx;
             }
         } catch (Exception $e) {}
 
-        // Visible courses — SG website, active, named. Each option's
-        // Run ID is looked up from the rank map above (so ranks may be
-        // non-contiguous in the dropdown when intermediate products
-        // are inactive, but each ID still matches dev dashboard).
+        // Visible courses — admin's country website, active, named.
+        // Each option's Run ID is looked up from the rank map above.
         $_elCoursesRaw = $read->fetchAll(
             "SELECT e.entity_id, e.sku, v.value AS name
              FROM catalog_product_entity e
-             INNER JOIN catalog_product_website pw ON pw.product_id=e.entity_id AND pw.website_id=1
+             INNER JOIN catalog_product_website pw ON pw.product_id=e.entity_id AND pw.website_id={$_elWid}
              INNER JOIN catalog_product_entity_varchar v ON v.entity_id=e.entity_id AND v.attribute_id=71 AND v.store_id=0 AND v.value <> ''
              INNER JOIN catalog_product_entity_int s ON s.entity_id=e.entity_id AND s.attribute_id={$statusAid} AND s.store_id=0 AND s.value=1
              ORDER BY e.entity_id ASC LIMIT 5000"
@@ -9559,7 +9733,7 @@ if ($_elActive) {
             $_pid = (int)$_rn['product_id'];
             $_st  = $_rn['course_start_date'] ? strtotime($_rn['course_start_date']) : 0;
             if ($_st && $_st < $_elNowTs) continue; // past
-            $_lbl = 'SG-' . str_pad((string)(99999 + (int)$_rn['run_id']), 6, '0', STR_PAD_LEFT);
+            $_lbl = $_elPrefix . '-' . str_pad((string)(99999 + (int)$_rn['run_id']), 6, '0', STR_PAD_LEFT);
             if (!empty($_rn['course_start_date'])) {
                 $_lbl .= '  (' . $_rn['course_start_date'] . ')';
             }
@@ -9703,7 +9877,7 @@ button.el-btn-primary:hover{background:#1d4ed8 !important}
                         foreach ($_elCoursesRaw as $_c) {
                             $_pid  = (int)$_c['entity_id'];
                             $_rank = isset($_elRankByPid[$_pid]) ? $_elRankByPid[$_pid] : 0;
-                            $_runId = 'SG-' . str_pad((string)(100000 + $_rank), 6, '0', STR_PAD_LEFT);
+                            $_runId = $_elPrefix . '-' . str_pad((string)(100000 + $_rank), 6, '0', STR_PAD_LEFT);
                             $_lbl = $_runId . '  —  '
                                   . (strlen($_c['name']) > 70 ? substr($_c['name'], 0, 67) . '...' : $_c['name']);
                             echo '<option value="rank:' . $_rank . '" data-pid="' . $_pid . '" data-runid="' . htmlspecialchars($_runId) . '">'
@@ -9823,6 +9997,7 @@ button.el-btn-primary:hover{background:#1d4ed8 !important}
 window._elState = { pid: 0, sku: '', runId: '', list: [] };
 window._elRunsByPid = <?php echo json_encode($_elRunsByPid) ?>;
 window._elCdByPid   = <?php echo json_encode($_elCdByPid) ?>;
+window._elPrefix    = <?php echo json_encode(isset($_elPrefix) ? $_elPrefix : 'SG') ?>;
 
 window.elPickCourse = function(pid) {
     pid = parseInt(pid, 10) || 0;
@@ -9852,7 +10027,7 @@ window.elPickCourse = function(pid) {
     var runs = window._elRunsByPid[pid] || [];
     for (var i = 0; i < runs.length; i++) {
         var r = runs[i];
-        var label = 'SG-' + String(99999 + parseInt(r.run_id, 10)).padStart(6, '0');
+        var label = window._elPrefix + '-' + String(99999 + parseInt(r.run_id, 10)).padStart(6, '0');
         if (r.course_start_date) label += '  (' + r.course_start_date + (r.course_end_date && r.course_end_date !== r.course_start_date ? ' → ' + r.course_end_date : '') + ')';
         var o = document.createElement('option');
         o.value = String(r.run_id);
@@ -9893,7 +10068,7 @@ window.elPickRun = function(runId) {
             // Synthetic Course Date entry — surface the title verbatim.
             document.getElementById('el-run-id').value = runId.substring(3);
         } else {
-            document.getElementById('el-run-id').value = 'SG-' + String(99999 + parseInt(runId, 10)).padStart(6, '0');
+            document.getElementById('el-run-id').value = window._elPrefix + '-' + String(99999 + parseInt(runId, 10)).padStart(6, '0');
         }
         // Auto-select the matching course so Currently Enrolled + JSON
         // preview sync to the chosen session's product. State is updated

@@ -87,6 +87,125 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         return $code ? $code : self::ROLE_ADMIN;
     }
 
+    /**
+     * Country / website scope of the logged-in admin.
+     *
+     * Detection convention: if the admin's email starts with
+     * "admin.<cc>@" (e.g. admin.my@example.com, admin.gh@example.com)
+     * we treat <cc> as the country code. Falls back to Singapore for
+     * any account that doesn't match — keeps existing real admins
+     * (angch@…, alisha.go.sihua@…, etc.) on the SG default they're
+     * already used to.
+     *
+     * Used by the Assign Trainer / Assign Learner / Enroll Learner /
+     * Create New Class panels so each market's admin sees their own
+     * catalog instead of the global SG-only view.
+     */
+    public function getActiveCountryCode()
+    {
+        $user = Mage::getSingleton('admin/session')->getUser();
+        if (!$user) return 'SG';
+        $email = strtolower((string) $user->getEmail());
+        if (preg_match('/^admin\.([a-z]{2})@/', $email, $m)) {
+            $cc = strtoupper($m[1]);
+            $valid = array('SG', 'MY', 'GH', 'NG', 'BT', 'IN');
+            if (in_array($cc, $valid, true)) return $cc;
+        }
+        return 'SG';
+    }
+
+    public function getActiveWebsiteId()
+    {
+        $map = array('SG' => 1, 'MY' => 2, 'GH' => 3, 'NG' => 4, 'BT' => 5, 'IN' => 6);
+        $cc  = $this->getActiveCountryCode();
+        return isset($map[$cc]) ? $map[$cc] : 1;
+    }
+
+    public function getActiveCountryName()
+    {
+        $names = array('SG' => 'Singapore', 'MY' => 'Malaysia', 'GH' => 'Ghana', 'NG' => 'Nigeria', 'BT' => 'Bhutan', 'IN' => 'India');
+        $cc    = $this->getActiveCountryCode();
+        return isset($names[$cc]) ? $names[$cc] : 'Singapore';
+    }
+
+    public function getActiveCountryRunPrefix()
+    {
+        $prefix = array('SG' => 'SG', 'MY' => 'MY', 'GH' => 'GH', 'NG' => 'NG', 'BT' => 'BT', 'IN' => 'IN');
+        $cc     = $this->getActiveCountryCode();
+        return isset($prefix[$cc]) ? $prefix[$cc] : 'SG';
+    }
+
+    /**
+     * Country prefix for a product based on its primary website.
+     * Drives the Run ID prefix (SG-100000, MY-100000, GH-100000…) so a
+     * class created on the Malaysia catalog displays MY- on the trainer
+     * card regardless of who's viewing it. Cached per request.
+     */
+    public function getRunIdPrefixForProduct($productId)
+    {
+        static $cache = array();
+        $productId = (int) $productId;
+        if (!$productId) return 'SG';
+        if (isset($cache[$productId])) return $cache[$productId];
+        try {
+            $wid = (int) Mage::getSingleton('core/resource')->getConnection('core_read')->fetchOne(
+                "SELECT website_id FROM catalog_product_website WHERE product_id=? ORDER BY website_id LIMIT 1",
+                array($productId)
+            );
+            $widPrefix = $this->_getWebsiteIdToPrefixMap();
+            $cache[$productId] = isset($widPrefix[$wid]) ? $widPrefix[$wid] : 'SG';
+        } catch (Exception $e) {
+            $cache[$productId] = 'SG';
+        }
+        return $cache[$productId];
+    }
+
+    /**
+     * Per-country Run ID. Numbering resets per country, so the first
+     * Malaysia class is MY-100000, first Ghana is GH-100000, etc. The
+     * rank is computed by ordering course_runs.run_id ascending and
+     * counting how many earlier runs share the same country website.
+     * Built once per request and cached.
+     */
+    public function formatRunId($productId, $runId)
+    {
+        $productId = (int) $productId;
+        $runId     = (int) $runId;
+        $prefix    = $this->getRunIdPrefixForProduct($productId);
+        $rank      = $this->_getPerCountryRunRank($runId);
+        return $prefix . '-' . str_pad((string)(100000 + $rank), 6, '0', STR_PAD_LEFT);
+    }
+
+    protected function _getWebsiteIdToPrefixMap()
+    {
+        return array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'IN', 7 => 'INF');
+    }
+
+    protected function _getPerCountryRunRank($runId)
+    {
+        static $rankByRunId = null;
+        if ($rankByRunId === null) {
+            $rankByRunId = array();
+            try {
+                $rows = Mage::getSingleton('core/resource')->getConnection('core_read')->fetchAll(
+                    "SELECT cr.run_id, MIN(pw.website_id) AS wid
+                     FROM course_runs cr
+                     LEFT JOIN catalog_product_website pw ON pw.product_id = cr.product_id
+                     GROUP BY cr.run_id
+                     ORDER BY cr.run_id ASC"
+                );
+                $perCountry = array();
+                foreach ($rows as $r) {
+                    $wid = (int) $r['wid'];
+                    if (!isset($perCountry[$wid])) $perCountry[$wid] = 0;
+                    $rankByRunId[(int) $r['run_id']] = $perCountry[$wid];
+                    $perCountry[$wid]++;
+                }
+            } catch (Exception $e) {}
+        }
+        return isset($rankByRunId[$runId]) ? $rankByRunId[$runId] : 0;
+    }
+
     public function getUserRoles()
     {
         $session = Mage::getSingleton('admin/session');
