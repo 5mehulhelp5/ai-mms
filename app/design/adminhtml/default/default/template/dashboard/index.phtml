@@ -9854,6 +9854,15 @@ window.elPickCourse = function(pid) {
     window._elState.sku = sku || '';
     document.getElementById('el-course-code').value = sku || '';
 
+    // Clear any stale "Pick a course first" message and re-run the
+    // search if the input already has a query.
+    var searchInput = document.getElementById('el-search');
+    if (pid && searchInput) {
+        var resultsBox = document.getElementById('el-results');
+        if (resultsBox) resultsBox.innerHTML = '';
+        if ((searchInput.value || '').trim().length >= 2) elOnSearchInput(searchInput);
+    }
+
     // Repopulate runs dropdown for this product. Two sources are
     // merged so admins always see something to pick:
     //   1. Real course_runs rows  → "SG-100001 (2026-05-07)"
@@ -9919,6 +9928,14 @@ window.elPickRun = function(runId) {
             window._elState.pid = pidFromOpt;
             window._elState.sku = copt ? (copt.getAttribute('data-sku') || '') : '';
             document.getElementById('el-course-code').value = window._elState.sku;
+        }
+        // Clear stale "Pick a course first" message + re-run any
+        // pending search now that pid is set.
+        var searchInput = document.getElementById('el-search');
+        if (window._elState.pid && searchInput) {
+            var resultsBox = document.getElementById('el-results');
+            if (resultsBox) resultsBox.innerHTML = '';
+            if ((searchInput.value || '').trim().length >= 2) elOnSearchInput(searchInput);
         }
     }
     elLoadCurrent();
@@ -10182,13 +10199,86 @@ window.elSaveNewLearner = function() {
     });
 };
 
-// Bind preview updates to text inputs that aren't already wired.
+// Manual Course Code / Run ID typing — match against the dropdown
+// options and treat as a pick when the input is an exact match. Also
+// clears the picked course if the input is empty.
 (function() {
-    var ids = ['el-course-code','el-run-id'];
-    for (var i = 0; i < ids.length; i++) {
-        var el = document.getElementById(ids[i]);
-        if (el) el.addEventListener('input', elUpdatePreview);
+    // Build SKU → pid + Run ID → pid lookups from the rendered options.
+    var skuMap = {}, runMap = {};
+    var courseSel = document.getElementById('el-course-select');
+    if (courseSel) {
+        for (var i = 0; i < courseSel.options.length; i++) {
+            var o = courseSel.options[i];
+            var sku = (o.getAttribute('data-sku') || '').trim().toUpperCase();
+            if (sku) skuMap[sku] = parseInt(o.value, 10) || 0;
+        }
     }
+    var runSel = document.getElementById('el-run-select');
+    if (runSel) {
+        for (var j = 0; j < runSel.options.length; j++) {
+            var ro = runSel.options[j];
+            var rid = (ro.getAttribute('data-runid') || '').trim().toUpperCase();
+            if (rid) runMap[rid] = { value: ro.value, pid: parseInt(ro.getAttribute('data-pid'), 10) || 0 };
+        }
+    }
+
+    var codeInput  = document.getElementById('el-course-code');
+    var runInput   = document.getElementById('el-run-id');
+
+    function applyManualCode() {
+        var key = (codeInput.value || '').trim().toUpperCase();
+        if (!key) {
+            window._elState.pid = 0;
+            window._elState.sku = '';
+            if (courseSel) courseSel.value = '';
+            elLoadCurrent();
+            elUpdatePreview();
+            return;
+        }
+        if (skuMap[key]) {
+            var pid = skuMap[key];
+            if (pid !== window._elState.pid) {
+                window._elState.pid = pid;
+                window._elState.sku = key;
+                if (courseSel) courseSel.value = String(pid);
+                elLoadCurrent();
+                var search = document.getElementById('el-search');
+                if (search && (search.value || '').trim().length >= 2) elOnSearchInput(search);
+            }
+        }
+        elUpdatePreview();
+    }
+    function applyManualRun() {
+        var key = (runInput.value || '').trim().toUpperCase();
+        if (!key) {
+            window._elState.runId = '';
+            if (runSel) runSel.value = '';
+            elUpdatePreview();
+            return;
+        }
+        if (runMap[key]) {
+            var hit = runMap[key];
+            window._elState.runId = hit.value;
+            if (runSel) runSel.value = hit.value;
+            // If course wasn't already set, infer it from the run.
+            if (hit.pid && hit.pid !== window._elState.pid) {
+                window._elState.pid = hit.pid;
+                if (courseSel) {
+                    courseSel.value = String(hit.pid);
+                    var copt = courseSel.options[courseSel.selectedIndex];
+                    window._elState.sku = copt ? (copt.getAttribute('data-sku') || '') : '';
+                    if (codeInput && !codeInput.value) codeInput.value = window._elState.sku;
+                }
+                elLoadCurrent();
+                var search = document.getElementById('el-search');
+                if (search && (search.value || '').trim().length >= 2) elOnSearchInput(search);
+            }
+        }
+        elUpdatePreview();
+    }
+
+    if (codeInput) codeInput.addEventListener('input', applyManualCode);
+    if (runInput)  runInput.addEventListener('input',  applyManualRun);
     elUpdatePreview();
 })();
 </script>
