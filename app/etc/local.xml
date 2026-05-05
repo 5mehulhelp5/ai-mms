@@ -42,7 +42,7 @@
                 <connection>
                     <host><![CDATA[db_mysql]]></host>
                     <username><![CDATA[magento]]></username>
-                    <password><![CDATA[change_me]]></password>
+                    <password><![CDATA[magento123]]></password>
                     <dbname><![CDATA[courses_backupDB]]></dbname>
                     <initStatements><![CDATA[SET NAMES utf8]]></initStatements>
                     <model><![CDATA[mysql4]]></model>
@@ -53,6 +53,15 @@
             </default_setup>
         </resources>
         <session_save><![CDATA[files]]></session_save>
+        <mmd_marketing>
+            <api>
+                <anthropic_key><![CDATA[]]></anthropic_key>
+                <anthropic_model><![CDATA[claude-sonnet-4-6]]></anthropic_model>
+                <mailerlite_key><![CDATA[]]></mailerlite_key>
+                <from_name><![CDATA[Tertiary Infotech Academy]]></from_name>
+                <from_email><![CDATA[noreply@tertiaryinfotech.com]]></from_email>
+            </api>
+        </mmd_marketing>
     </global>
     <admin>
         <routers>

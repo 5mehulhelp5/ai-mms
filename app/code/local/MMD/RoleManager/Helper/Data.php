@@ -176,6 +176,39 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         return $prefix . '-' . str_pad((string)(100000 + $rank), 6, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Marketing newsletter API config (Anthropic + MailerLite).
+     * Read from <mmd_marketing><api> in app/etc/local.xml. Empty values
+     * flip the controller into stub mode so the UI works end-to-end
+     * without real keys.
+     */
+    public function getMarketingApiConfig()
+    {
+        $node = Mage::getConfig()->getNode('global/mmd_marketing/api');
+        $get = function ($key) use ($node) {
+            return $node && $node->$key ? trim((string) $node->$key) : '';
+        };
+        return array(
+            'anthropic_key'   => $get('anthropic_key'),
+            'anthropic_model' => $get('anthropic_model') ?: 'claude-sonnet-4-6',
+            'mailerlite_key'  => $get('mailerlite_key'),
+            'from_name'       => $get('from_name')  ?: 'Tertiary Infotech Academy',
+            'from_email'      => $get('from_email') ?: 'noreply@tertiaryinfotech.com',
+        );
+    }
+
+    public function hasAnthropicKey()
+    {
+        $cfg = $this->getMarketingApiConfig();
+        return $cfg['anthropic_key'] !== '';
+    }
+
+    public function hasMailerLiteKey()
+    {
+        $cfg = $this->getMarketingApiConfig();
+        return $cfg['mailerlite_key'] !== '';
+    }
+
     protected function _getWebsiteIdToPrefixMap()
     {
         return array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'IN', 7 => 'INF');

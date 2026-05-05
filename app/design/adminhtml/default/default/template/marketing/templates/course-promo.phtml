@@ -1,0 +1,319 @@
+<?php
+/**
+ * Email template — Standard Tertiary Infotech Academy newsletter.
+ *
+ * Layout sections (rendered top-to-bottom):
+ *   1. Coloured header band  — italic course title + class date
+ *   2. Hero panel            — uses the first uploaded reference image
+ *                              when present, otherwise a coloured
+ *                              gradient. Subsidy pills + knockout
+ *                              headline overlay/underlay depending on
+ *                              the hero variant.
+ *   3. Yellow tagline strip  — body_block_1 highlighted
+ *   4. Two-column body       — "What you'll learn" cards (numbered or
+ *                              checkmark style) on the left, pricing
+ *                              table + QR code on the right
+ *   5. CTA band              — "Elevate Your..." line + REGISTER pill
+ *   6. Class-date repeat     — banner reinforcing the date
+ *   7. Footer                — social icons, contact block, copyright,
+ *                              unsubscribe / preferences, ATO/PEI tag
+ *
+ * The colour scheme + hero arrangement + card style are picked from
+ * `$vars['design']` (computed from a seed by the controller). Each
+ * Send-to-AI re-rolls the seed so the design varies every generation.
+ *
+ * Expected $vars keys:
+ *   subject, preview_text, title, body_block_1..3,
+ *   country, country_code, from_name, from_email,
+ *   cta_label, cta_url,
+ *   courses     — [{entity_id, sku, name, start_date, end_date, price, url}],
+ *   subsidies   — [{label, color}] (per-country pill list),
+ *   images      — [{media_type, data, name}] (uploaded reference images),
+ *   design      — {seed, palette:{primary,dark,accent,yellow,sub}, hero:0|1, cards:0|1}
+ */
+
+$v = function ($k, $default = '') use ($vars) { return isset($vars[$k]) ? $vars[$k] : $default; };
+
+$design  = $v('design', array());
+$palette = isset($design['palette']) ? $design['palette'] : array(
+    'primary' => '#d4276e', 'dark' => '#7c1741', 'accent' => '#2bc4d4',
+    'yellow' => '#ffc83d', 'sub' => '#e63946',
+);
+$heroStyle = isset($design['hero'])  ? (int) $design['hero']  : 0;
+$cardStyle = isset($design['cards']) ? (int) $design['cards'] : 0;
+
+$courses     = $v('courses', array());
+$first       = !empty($courses) ? $courses[0] : null;
+$courseTitle = $first && !empty($first['name']) ? $first['name'] : $v('title', 'Newsletter');
+
+$courseDates = '';
+if ($first) {
+    $startTs = !empty($first['start_date']) ? strtotime($first['start_date']) : 0;
+    $endTs   = !empty($first['end_date'])   ? strtotime($first['end_date'])   : $startTs;
+    if ($startTs && $endTs) {
+        if (date('Y-m-d', $startTs) === date('Y-m-d', $endTs)) {
+            $courseDates = date('j M Y', $startTs);
+        } elseif (date('Y-m', $startTs) === date('Y-m', $endTs)) {
+            $courseDates = date('j', $startTs) . ' &ndash; ' . date('j M Y', $endTs);
+        } else {
+            $courseDates = date('j M Y', $startTs) . ' &ndash; ' . date('j M Y', $endTs);
+        }
+    }
+}
+
+$tagline = trim((string) $v('body_block_1'));
+
+$bullets = array();
+foreach (preg_split('/\R+/', (string) $v('body_block_2')) as $ln) {
+    $ln = trim(preg_replace('/^[-*\x{2022}]\s*/u', '', $ln));
+    if ($ln !== '') $bullets[] = $ln;
+}
+$bullets = array_slice($bullets, 0, 4);
+
+$pricing = array();
+foreach (preg_split('/\R+/', (string) $v('body_block_3')) as $ln) {
+    if (strpos($ln, '|') === false) continue;
+    list($lbl, $pr) = array_map('trim', explode('|', $ln, 2));
+    if ($lbl !== '' && $pr !== '') $pricing[] = array('label' => $lbl, 'price' => $pr);
+}
+$pricing = array_slice($pricing, 0, 4);
+
+$subsidies = $v('subsidies', array());
+$ctaUrl    = $v('cta_url') ?: 'https://www.tertiarycourses.com.sg/';
+$qrUrl     = 'https://quickchart.io/qr?text=' . urlencode($ctaUrl) . '&size=200&margin=2';
+
+// First reference image (if any) becomes the hero photo. Embedded as a
+// data: URI which works in iframe srcdoc previews; for production sends
+// MailerLite will need hosted URLs.
+$images   = $v('images', array());
+$heroImg  = '';
+if (!empty($images) && !empty($images[0]['data']) && !empty($images[0]['media_type'])) {
+    $heroImg = 'data:' . $images[0]['media_type'] . ';base64,' . $images[0]['data'];
+}
+
+// Numbered card colours rotate through palette tones so the cards feel
+// connected to the rest of the design.
+$cardColors = array($palette['accent'], $palette['sub'], $palette['primary'], $palette['yellow']);
+?><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="x-apple-disable-message-reformatting">
+<title><?php echo htmlspecialchars($v('subject')) ?></title>
+</head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Helvetica,Arial,sans-serif;color:#1a1a1a;">
+<div style="display:none;max-height:0;overflow:hidden;color:transparent;"><?php echo htmlspecialchars($v('preview_text')) ?></div>
+
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f3f4f6;">
+<tr><td align="center" style="padding:20px 12px;">
+
+  <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.06);">
+
+    <!-- 1. Header band -->
+    <tr><td style="background:<?php echo $palette['primary'] ?>;padding:18px 24px;text-align:center;color:#ffffff;">
+      <div style="font-size:22px;font-weight:700;line-height:1.25;font-style:italic;">
+        <?php echo htmlspecialchars($courseTitle) ?>
+      </div>
+      <?php if ($courseDates): ?>
+      <div style="margin-top:4px;font-size:14px;font-style:italic;opacity:.95;">
+        Class Date: <?php echo $courseDates /* already escaped */ ?>
+      </div>
+      <?php endif; ?>
+    </td></tr>
+
+    <!-- 2a. Hero image (uploaded photo) -->
+    <?php if ($heroImg): ?>
+    <tr><td style="padding:0;line-height:0;background:<?php echo $palette['primary'] ?>;">
+      <img src="<?php echo htmlspecialchars($heroImg) ?>" alt="" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;">
+    </td></tr>
+    <?php endif; ?>
+
+    <!-- 2b. Hero panel: subsidy pills + knockout headline -->
+    <?php if ($heroStyle === 0): ?>
+    <tr><td style="background:<?php echo $palette['primary'] ?>;background-image:linear-gradient(135deg,<?php echo $palette['primary'] ?> 0%,<?php echo $palette['dark'] ?> 100%);padding:32px 24px 36px;text-align:center;color:#ffffff;">
+      <?php if (!empty($subsidies)): ?>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto 22px;">
+        <tr>
+        <?php foreach ($subsidies as $s): ?>
+          <td style="padding:0 4px;">
+            <span style="display:inline-block;background:<?php echo htmlspecialchars($s['color']) ?>;color:#ffffff;font-size:11px;font-weight:700;padding:6px 12px;border-radius:14px;letter-spacing:.4px;text-transform:uppercase;">
+              <?php echo htmlspecialchars($s['label']) ?>
+            </span>
+          </td>
+        <?php endforeach; ?>
+        </tr>
+      </table>
+      <?php endif; ?>
+      <h1 style="margin:0;font-size:30px;line-height:1.1;font-weight:900;letter-spacing:.5px;text-transform:uppercase;color:#ffffff;text-shadow:2px 2px 0 <?php echo $palette['dark'] ?>;">
+        <?php echo htmlspecialchars(strtoupper($courseTitle)) ?>
+      </h1>
+    </td></tr>
+    <?php else: /* hero variant 1 — headline first, then yellow pill band */ ?>
+    <tr><td style="background:<?php echo $palette['dark'] ?>;padding:30px 24px 24px;text-align:center;color:#ffffff;">
+      <h1 style="margin:0;font-size:30px;line-height:1.1;font-weight:900;letter-spacing:.5px;text-transform:uppercase;color:#ffffff;">
+        <?php echo htmlspecialchars(strtoupper($courseTitle)) ?>
+      </h1>
+    </td></tr>
+    <?php if (!empty($subsidies)): ?>
+    <tr><td style="background:<?php echo $palette['yellow'] ?>;padding:14px 24px;text-align:center;">
+      <?php foreach ($subsidies as $i => $s): ?>
+        <span style="display:inline-block;margin:0 4px;background:<?php echo htmlspecialchars($s['color']) ?>;color:#ffffff;font-size:11px;font-weight:700;padding:6px 12px;border-radius:14px;letter-spacing:.4px;text-transform:uppercase;"><?php echo htmlspecialchars($s['label']) ?></span>
+      <?php endforeach; ?>
+    </td></tr>
+    <?php endif; ?>
+    <?php endif; ?>
+
+    <!-- 3. Yellow tagline strip (suppressed if hero variant 1 already shows pills on yellow) -->
+    <?php if ($tagline !== '' && !($heroStyle === 1 && !empty($subsidies))): ?>
+    <tr><td style="background:<?php echo $palette['yellow'] ?>;padding:14px 24px;text-align:center;color:#1a1a1a;font-size:14px;font-weight:700;line-height:1.5;letter-spacing:.3px;text-transform:uppercase;">
+      <?php echo nl2br(htmlspecialchars($tagline)) ?>
+    </td></tr>
+    <?php elseif ($tagline !== ''): ?>
+    <tr><td style="background:#ffffff;padding:18px 24px 6px;text-align:center;color:#1a1a1a;font-size:15px;font-weight:700;line-height:1.4;font-style:italic;">
+      <?php echo nl2br(htmlspecialchars($tagline)) ?>
+    </td></tr>
+    <?php endif; ?>
+
+    <!-- 4. Two-column body: What you'll learn + Pricing/QR -->
+    <tr><td style="padding:26px 24px;background:#ffffff;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+      <tr>
+        <td valign="top" width="55%" style="padding-right:14px;">
+          <h2 style="margin:0 0 14px;font-size:18px;font-weight:900;color:<?php echo $palette['dark'] ?>;text-transform:uppercase;letter-spacing:.4px;">
+            What You'll Learn:
+          </h2>
+          <?php if (!empty($bullets)): foreach ($bullets as $i => $b): ?>
+            <?php if ($cardStyle === 0): /* numbered colored squares */ ?>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 10px;">
+              <tr>
+                <td width="34" valign="top" style="padding-top:2px;">
+                  <span style="display:inline-block;width:28px;height:28px;background:<?php echo $cardColors[$i % 4] ?>;color:#ffffff;text-align:center;line-height:28px;font-weight:900;border-radius:6px;font-size:14px;">
+                    <?php echo $i + 1 ?>
+                  </span>
+                </td>
+                <td valign="middle" style="padding-left:8px;">
+                  <div style="background:#fef3c7;padding:10px 12px;border-radius:6px;font-size:13px;line-height:1.45;color:#1a1a1a;font-weight:600;">
+                    <?php echo htmlspecialchars($b) ?>
+                  </div>
+                </td>
+              </tr>
+            </table>
+            <?php else: /* checkmark cards on accent border */ ?>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 10px;">
+              <tr>
+                <td width="30" valign="top" style="padding-top:2px;">
+                  <span style="display:inline-block;width:24px;height:24px;background:<?php echo $palette['accent'] ?>;color:#ffffff;text-align:center;line-height:24px;font-weight:900;border-radius:50%;font-size:13px;">&#10003;</span>
+                </td>
+                <td valign="middle" style="padding-left:8px;">
+                  <div style="background:#ffffff;border:1px solid <?php echo $palette['accent'] ?>;border-left:4px solid <?php echo $palette['accent'] ?>;padding:10px 12px;border-radius:4px;font-size:13px;line-height:1.45;color:#1a1a1a;font-weight:600;">
+                    <?php echo htmlspecialchars($b) ?>
+                  </div>
+                </td>
+              </tr>
+            </table>
+            <?php endif; ?>
+          <?php endforeach; else: ?>
+          <p style="margin:0;color:#6b7280;font-size:13px;font-style:italic;line-height:1.5;">
+            Bullet points appear here. List 2&ndash;4 takeaways in the brief
+            (one per line) and they'll show up as cards.
+          </p>
+          <?php endif; ?>
+        </td>
+
+        <td valign="top" width="45%" style="padding-left:14px;border-left:1px solid #e5e7eb;">
+          <?php if (!empty($pricing)): ?>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 14px;border-collapse:collapse;">
+            <tr>
+              <?php foreach ($pricing as $row): ?>
+              <td style="background:<?php echo $palette['yellow'] ?>;padding:8px 6px;text-align:center;font-size:10px;font-weight:700;color:#1a1a1a;border:1px solid rgba(0,0,0,.08);line-height:1.3;text-transform:uppercase;letter-spacing:.2px;">
+                <?php echo htmlspecialchars($row['label']) ?>
+              </td>
+              <?php endforeach; ?>
+            </tr>
+            <tr>
+              <?php foreach ($pricing as $row): ?>
+              <td style="background:#ffffff;padding:14px 6px;text-align:center;font-size:16px;font-weight:900;color:<?php echo $palette['dark'] ?>;border:1px solid #e5e7eb;">
+                <?php echo htmlspecialchars($row['price']) ?>
+              </td>
+              <?php endforeach; ?>
+            </tr>
+          </table>
+          <?php endif; ?>
+
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+            <tr><td align="center" style="padding-top:6px;">
+              <a href="<?php echo htmlspecialchars($ctaUrl) ?>" style="text-decoration:none;display:inline-block;">
+                <img src="<?php echo htmlspecialchars($qrUrl) ?>" alt="Scan to register" width="150" height="150" style="display:block;border:0;outline:none;text-decoration:none;background:#ffffff;border:6px solid #ffffff;border-radius:6px;">
+              </a>
+              <div style="margin-top:6px;font-size:11px;color:<?php echo $palette['dark'] ?>;letter-spacing:.5px;text-transform:uppercase;font-weight:700;">
+                Scan to register
+              </div>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+      </table>
+    </td></tr>
+
+    <!-- 5. CTA band -->
+    <tr><td style="background:<?php echo $palette['accent'] ?>;padding:22px 24px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+      <tr>
+        <td valign="middle" style="color:#ffffff;font-size:18px;font-weight:700;font-style:italic;line-height:1.3;">
+          Elevate Your Leadership Skills<br>With Us Today!
+        </td>
+        <td valign="middle" align="right" width="160">
+          <a href="<?php echo htmlspecialchars($ctaUrl) ?>" style="display:inline-block;background:<?php echo $palette['yellow'] ?>;color:#1a1a1a;text-decoration:none;font-size:14px;font-weight:900;padding:13px 32px;border-radius:26px;letter-spacing:.6px;">
+            <?php echo htmlspecialchars($v('cta_label') ?: 'REGISTER') ?>
+          </a>
+        </td>
+      </tr>
+      </table>
+    </td></tr>
+
+    <!-- 6. Class-date repeat banner -->
+    <?php if ($courseDates): ?>
+    <tr><td style="background:<?php echo $palette['accent'] ?>;padding:14px 24px;border-top:1px solid rgba(255,255,255,.4);text-align:left;color:#ffffff;font-size:14px;font-weight:700;font-style:italic;">
+      Class Date: <?php echo $courseDates ?>
+    </td></tr>
+    <?php endif; ?>
+
+    <!-- 7. Footer -->
+    <tr><td style="padding:24px 24px 8px;text-align:center;background:#ffffff;color:#374151;font-size:12px;line-height:1.6;">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto 14px;">
+      <tr>
+        <td style="padding:0 6px;"><a href="https://facebook.com/" style="display:inline-block;width:32px;height:32px;background:#1877f2;color:#ffffff;text-align:center;line-height:32px;font-size:15px;font-weight:900;text-decoration:none;border-radius:4px;">f</a></td>
+        <td style="padding:0 6px;"><a href="https://linkedin.com/" style="display:inline-block;width:32px;height:32px;background:#0a66c2;color:#ffffff;text-align:center;line-height:32px;font-size:13px;font-weight:900;text-decoration:none;border-radius:4px;">in</a></td>
+        <td style="padding:0 6px;"><a href="https://youtube.com/" style="display:inline-block;width:32px;height:32px;background:#ff0000;color:#ffffff;text-align:center;line-height:32px;font-size:13px;font-weight:900;text-decoration:none;border-radius:4px;">&#9658;</a></td>
+      </tr>
+      </table>
+      <div style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:6px;">
+        <?php echo htmlspecialchars($v('from_name')) ?>
+      </div>
+      <div>&#128231; <a href="mailto:<?php echo htmlspecialchars($v('from_email')) ?>" style="color:#374151;text-decoration:none;"><?php echo htmlspecialchars($v('from_email') ?: 'enquiry@tertiaryinfotech.com') ?></a></div>
+      <div>&#9742; +65 6100 0613</div>
+      <div>&#128205; 12 Woodlands Square, #07-85/86/87, Woods Square Tower 1, Singapore 737715</div>
+    </td></tr>
+
+    <tr><td style="padding:14px 24px 6px;text-align:center;color:#6b7280;font-size:11px;font-style:italic;">
+      Copyright &copy; <?php echo date('Y') ?> <?php echo htmlspecialchars($v('from_name')) ?>. All rights reserved.
+    </td></tr>
+
+    <tr><td style="padding:0 24px 16px;text-align:center;color:#6b7280;font-size:11px;line-height:1.5;">
+      You received this email due to your previous attendance or inquiry about our courses.<br>
+      To stop receiving our newsletters, click 'Unsubscribe'.<br>
+      <a href="{$unsubscribe}" style="color:#374151;text-decoration:underline;">Unsubscribe</a>
+      &nbsp;|&nbsp;
+      <a href="{$update_profile}" style="color:#374151;text-decoration:underline;">Update Preferences</a>
+    </td></tr>
+
+    <tr><td style="padding:14px 24px;border-top:1px solid #e5e7eb;text-align:center;color:#6b7280;font-size:11px;background:#ffffff;">
+      Tertiary Infotech Academy is SSG ATO, PEI and EduTech Service Provider.
+    </td></tr>
+
+  </table>
+</td></tr>
+</table>
+</body>
+</html>

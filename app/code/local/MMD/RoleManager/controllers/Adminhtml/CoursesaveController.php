@@ -862,21 +862,23 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
 
             $resource = Mage::getSingleton('core/resource');
             $read     = $resource->getConnection('core_read');
+            $wid      = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
 
             // Order-based learners (paid + processing only — pending /
-            // payment_review aren't real attendees).
+            // payment_review aren't real attendees), scoped to the
+            // logged-in admin's country website.
             $orderRows = $read->fetchAll(
                 "SELECT DISTINCT
                         LOWER(o.customer_email) AS email,
                         COALESCE(NULLIF(TRIM(CONCAT(IFNULL(o.customer_firstname,''),' ',IFNULL(o.customer_lastname,''))),''), o.customer_email) AS name
                  FROM sales_flat_order o
                  JOIN sales_flat_order_item oi ON oi.order_id=o.entity_id
-                 JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id=1
+                 JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id=?
                  WHERE oi.product_id = ?
                    AND o.state IN ('complete','processing')
                    AND o.customer_email IS NOT NULL
                  ORDER BY name",
-                array($productId)
+                array($wid, $productId)
             );
             $byEmail = array();
             foreach ($orderRows as $r) {
@@ -1015,19 +1017,20 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             }
             $resource = Mage::getSingleton('core/resource');
             $read     = $resource->getConnection('core_read');
+            $wid      = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
             $like = '%' . $q . '%';
             $rows = $read->fetchAll(
                 "SELECT DISTINCT
                         LOWER(o.customer_email) AS email,
                         COALESCE(NULLIF(TRIM(CONCAT(IFNULL(o.customer_firstname,''),' ',IFNULL(o.customer_lastname,''))),''), o.customer_email) AS name
                  FROM sales_flat_order o
-                 JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id=1
+                 JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id=?
                  WHERE o.customer_email IS NOT NULL
                    AND (LOWER(o.customer_email) LIKE ?
                         OR LOWER(CONCAT(IFNULL(o.customer_firstname,''),' ',IFNULL(o.customer_lastname,''))) LIKE ?)
                  ORDER BY name
                  LIMIT 30",
-                array($like, $like)
+                array($wid, $like, $like)
             );
             $result['learners'] = $rows;
             $result['success']  = true;

@@ -1455,7 +1455,11 @@ $_devIbf = 0; $_devUnfunded = 0;
 $_devCourses = array();
 $_devPageSize = 12;
 $_devCurPage = max(1, (int) Mage::app()->getRequest()->getParam('dev_page', 1));
-$_devCountry = Mage::app()->getRequest()->getParam('dev_country', 'Singapore');
+// Default the dev-dashboard country tab to the logged-in admin's
+// country (admin.my → Malaysia, admin.gh → Ghana, etc.). Falls back to
+// Singapore for accounts that don't match the admin.<cc>@ pattern.
+$_devCountryDefault = Mage::helper('mmd_rolemanager')->getActiveCountryName();
+$_devCountry        = Mage::app()->getRequest()->getParam('dev_country', $_devCountryDefault);
 $_devFilterType = (string) Mage::app()->getRequest()->getParam('dev_type', '');
 $_devFilterQuery = trim((string) Mage::app()->getRequest()->getParam('dev_q', ''));
 // Courseware filter:
@@ -8113,17 +8117,28 @@ window.cncSubmit = function(ev) {
 // Data prep — only runs when this panel is the active sub-view, otherwise
 // the page pays for ~3 extra queries on every dashboard load.
 $_atActive = ($activeRole === 'admin') && (Mage::app()->getRequest()->getParam('panel') === 'assign_trainer');
-$_atKpi = array('upcoming' => 0, 'ongoing' => 0, 'completed' => 0, 'assigned' => 0, 'missing' => 0);
+$_atKpi = array(
+    'upcoming' => 0, 'ongoing' => 0, 'completed' => 0,
+    'assigned' => 0, 'missing' => 0,
+    'assigned_upcoming'  => 0, 'missing_upcoming'  => 0,
+    'assigned_ongoing'   => 0, 'missing_ongoing'   => 0,
+    'assigned_completed' => 0, 'missing_completed' => 0,
+);
 $_atRows = array();
 $_atTrainerOpts = array();
 $_atCourseTitles = array();
 if ($_atActive) {
     // Country scope from the logged-in admin's email (admin.<cc>@…).
     // Defaults to Singapore for accounts that don't match the pattern.
-    $_atWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
+    $_atWid       = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
+    $_atCountry   = Mage::helper('mmd_rolemanager')->getActiveCountryName();
+    $_atSelfLabel = $_atCountry . ' Admin'; // e.g. "Malaysia Admin"
+    $_atTrainerOptsScoped = array();
     try {
         $_atTrainersAttrId = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE attribute_code='trainers' AND entity_type_id=4");
-        // Trainer option_id → name (for dropdown + per-row resolution)
+        // Trainer option_id → name. Full list is used by the inline
+        // editor (admin can pick any trainer to assign). The filter
+        // dropdown below uses a country-scoped subset built later.
         if ($_atTrainersAttrId) {
             $_atTrainerOpts = $read->fetchPairs(
                 "SELECT eaov.option_id, eaov.value
@@ -8133,6 +8148,43 @@ if ($_atActive) {
                  ORDER BY eaov.value",
                 array($_atTrainersAttrId)
             );
+
+            // Country-scoped trainer subset — anyone whose option_id
+            // appears in the trainers multiselect of any product on
+            // this country's catalog OR in any course_runs row whose
+            // product is on this country's catalog. Plus the matching
+            // "<Country> Admin" option, always included so admins can
+            // filter to their own self-assigned classes.
+            $_atScopedOids = array();
+            try {
+                $rows = $read->fetchAll(
+                    "SELECT t.value FROM catalog_product_entity_text t
+                     JOIN catalog_product_website pw ON pw.product_id = t.entity_id AND pw.website_id = ?
+                     WHERE t.attribute_id = ? AND t.value <> ''",
+                    array($_atWid, $_atTrainersAttrId)
+                );
+                foreach ($rows as $r) {
+                    foreach (explode(',', $r['value']) as $_oid) {
+                        $_oid = (int) trim($_oid);
+                        if ($_oid) $_atScopedOids[$_oid] = true;
+                    }
+                }
+                $crOids = $read->fetchCol(
+                    "SELECT DISTINCT cr.trainer_option_id FROM course_runs cr
+                     JOIN catalog_product_website pw ON pw.product_id = cr.product_id AND pw.website_id = ?
+                     WHERE cr.trainer_option_id IS NOT NULL",
+                    array($_atWid)
+                );
+                foreach ($crOids as $_oid) $_atScopedOids[(int)$_oid] = true;
+                foreach ($_atTrainerOpts as $_oid => $_name) {
+                    if (strcasecmp(trim($_name), $_atSelfLabel) === 0) {
+                        $_atScopedOids[(int)$_oid] = true;
+                    }
+                }
+                foreach ($_atTrainerOpts as $_oid => $_name) {
+                    if (isset($_atScopedOids[(int)$_oid])) $_atTrainerOptsScoped[(int)$_oid] = $_name;
+                }
+            } catch (Exception $e) {}
         }
         // Source the list from the catalog. Each catalog product is one
         // row — that's the universe of courses admins can assign
@@ -8180,17 +8232,56 @@ if ($_atActive) {
             foreach ($_atRunRows as $_rn) $_atRunByPid[(int)$_rn['product_id']] = $_rn;
         } catch (Exception $e) {}
 
+        // Bulk-load Course Date custom-option titles per product so the
+        // bucket logic below can fall back to them when news_from_date
+        // is empty. Same approach Assign Learner uses — keeps the two
+        // panels' KPIs consistent.
+        $_atCdByPid = array();
+        try {
+            foreach ($read->fetchAll(
+                "SELECT o.product_id, ott.title
+                 FROM catalog_product_option o
+                 JOIN catalog_product_option_title ot ON ot.option_id=o.option_id AND ot.store_id=0
+                 JOIN catalog_product_option_type_value ov ON ov.option_id=o.option_id
+                 JOIN catalog_product_option_type_title ott ON ott.option_type_id=ov.option_type_id AND ott.store_id=0
+                 WHERE ot.title='Course Date' OR ot.title LIKE '%Date%'"
+            ) as $_cd) {
+                $_atCdByPid[(int)$_cd['product_id']][] = $_cd['title'];
+            }
+        } catch (Exception $e) {}
+
         $_atToday = strtotime(date('Y-m-d'));
         foreach ($_atProducts as $_p) {
             $_pid = (int) $_p['entity_id'];
             $_run = isset($_atRunByPid[$_pid]) ? $_atRunByPid[$_pid] : null;
 
-            // Dates: course_runs wins, else fall back to product attrs.
+            // Dates: course_runs wins, else news_from/to_date, else
+            // parse from Course Date custom-options (the canonical
+            // source many catalog products actually use).
             $_sd = 0; $_ed = 0;
             if ($_run && !empty($_run['course_start_date'])) $_sd = strtotime($_run['course_start_date']);
             elseif ($_p['news_from_date'])                   $_sd = strtotime($_p['news_from_date']);
             if ($_run && !empty($_run['course_end_date']))   $_ed = strtotime($_run['course_end_date']);
             elseif ($_p['news_to_date'])                     $_ed = strtotime($_p['news_to_date']);
+
+            if (!$_sd && isset($_atCdByPid[$_pid])) {
+                $_bestFuture = null; $_bestFutureEnd = 0;
+                $_bestPast   = null; $_bestPastEnd   = 0;
+                foreach ($_atCdByPid[$_pid] as $_title) {
+                    if (preg_match('#(\d{1,2})(?:/(\d{1,2}))?\s+([A-Za-z]{3,})\s+(\d{4})#', $_title, $_dm)) {
+                        $_stTs = strtotime($_dm[1] . ' ' . $_dm[3] . ' ' . $_dm[4]);
+                        $_enTs = !empty($_dm[2]) ? strtotime($_dm[2] . ' ' . $_dm[3] . ' ' . $_dm[4]) : $_stTs;
+                        if (!$_stTs) continue;
+                        if ($_stTs >= $_atToday) {
+                            if ($_bestFuture === null || $_stTs < $_bestFuture) { $_bestFuture = $_stTs; $_bestFutureEnd = $_enTs; }
+                        } else {
+                            if ($_bestPast === null || $_stTs > $_bestPast)     { $_bestPast   = $_stTs; $_bestPastEnd   = $_enTs; }
+                        }
+                    }
+                }
+                if ($_bestFuture !== null)   { $_sd = $_bestFuture; $_ed = $_bestFutureEnd; }
+                elseif ($_bestPast !== null) { $_sd = $_bestPast;   $_ed = $_bestPastEnd; }
+            }
 
             $_sv = (int) $_p['status_val'];
             // Bucket by date.
@@ -8280,6 +8371,15 @@ if ($_atActive) {
             if ($_tab === 'upcoming') $_atKpi['upcoming']++;
             if ($_tab === 'ongoing')  $_atKpi['ongoing']++;
             if ($_tab === 'completed')$_atKpi['completed']++;
+            // Per-tab assigned / missing so the KPI tiles can swap on
+            // tab click without a page reload.
+            $_kpiKey = 'assigned_' . $_tab;
+            $_kpiKey2 = 'missing_' . $_tab;
+            if (!isset($_atKpi[$_kpiKey]))  $_atKpi[$_kpiKey] = 0;
+            if (!isset($_atKpi[$_kpiKey2])) $_atKpi[$_kpiKey2] = 0;
+            if (!empty($_tnames)) $_atKpi[$_kpiKey]++;
+            else                  $_atKpi[$_kpiKey2]++;
+            // Backwards-compat aliases used by the initial render.
             if ($_tab === 'upcoming') {
                 if (!empty($_tnames)) $_atKpi['assigned']++;
                 else                  $_atKpi['missing']++;
@@ -8288,6 +8388,10 @@ if ($_atActive) {
         ksort($_atCourseTitles);
         $_atCourseTitles = array_keys($_atCourseTitles);
     } catch (Exception $e) {}
+    foreach (array('upcoming','ongoing','completed') as $_tk) {
+        if (!isset($_atKpi['assigned_' . $_tk])) $_atKpi['assigned_' . $_tk] = 0;
+        if (!isset($_atKpi['missing_' . $_tk]))  $_atKpi['missing_' . $_tk]  = 0;
+    }
 }
 ?>
 <div id="dash-panel-assigntrainer" style="display:none;">
@@ -8385,9 +8489,9 @@ button.at-pg-btn.disabled,button.at-pg-btn.disabled:hover{opacity:.45;cursor:not
     </div>
 
     <div class="at-kpis">
-        <div class="at-kpi"><div class="at-kpi-num at-num-up"><?php echo number_format($_atKpi['upcoming']) ?></div><div class="at-kpi-lbl">Upcoming Classes</div></div>
-        <div class="at-kpi"><div class="at-kpi-num at-num-assigned"><?php echo number_format($_atKpi['assigned']) ?></div><div class="at-kpi-lbl">Trainers Assigned</div></div>
-        <div class="at-kpi"><div class="at-kpi-num at-num-missing"><?php echo number_format($_atKpi['missing']) ?></div><div class="at-kpi-lbl">Missing Trainers</div></div>
+        <div class="at-kpi"><div class="at-kpi-num at-num-up" id="at-kpi-classes"><?php echo number_format($_atKpi['upcoming']) ?></div><div class="at-kpi-lbl" id="at-kpi-classes-lbl">Upcoming Classes</div></div>
+        <div class="at-kpi"><div class="at-kpi-num at-num-assigned" id="at-kpi-assigned"><?php echo number_format($_atKpi['assigned']) ?></div><div class="at-kpi-lbl">Trainers Assigned</div></div>
+        <div class="at-kpi"><div class="at-kpi-num at-num-missing" id="at-kpi-missing"><?php echo number_format($_atKpi['missing']) ?></div><div class="at-kpi-lbl">Missing Trainers</div></div>
     </div>
 
     <div class="at-tabs">
@@ -8404,9 +8508,16 @@ button.at-pg-btn.disabled,button.at-pg-btn.disabled:hover{opacity:.45;cursor:not
     <div class="at-filters-row">
         <label class="at-checkbox-wrap"><input type="checkbox" id="at-no-trainer" onchange="atRender()" /> Show only classes with no trainer</label>
         <span class="at-filter-label">Filter by trainer:</span>
+        <?php
+        // Filter dropdown shows only trainers that already teach on
+        // this country's catalog (or course_runs). Falls back to the
+        // full list if the scoped subset is empty (fresh DB / no
+        // assignments yet) so the dropdown is never blank.
+        $_atFilterOpts = !empty($_atTrainerOptsScoped) ? $_atTrainerOptsScoped : $_atTrainerOpts;
+        ?>
         <select id="at-filter-trainer" class="at-select" onchange="atRender()">
             <option value="">All trainers</option>
-            <?php foreach ($_atTrainerOpts as $_oid => $_tname): ?>
+            <?php foreach ($_atFilterOpts as $_oid => $_tname): ?>
             <option value="<?php echo htmlspecialchars($_tname) ?>"><?php echo htmlspecialchars($_tname) ?></option>
             <?php endforeach; ?>
         </select>
@@ -8466,6 +8577,14 @@ button.at-pg-btn.disabled,button.at-pg-btn.disabled:hover{opacity:.45;cursor:not
 window._atTab = 'upcoming';
 window._atPage = 1;
 window._atPerPage = 10;
+// Server-precomputed per-tab KPI numbers. JS reads these on tab
+// switch so the three tiles flip to that bucket's totals (and the
+// first tile re-labels Upcoming/Ongoing/Completed Classes).
+window._atKpiByTab = {
+    upcoming:  { count: <?php echo (int)$_atKpi['upcoming']  ?>, assigned: <?php echo (int)$_atKpi['assigned_upcoming']  ?>, missing: <?php echo (int)$_atKpi['missing_upcoming']  ?> },
+    ongoing:   { count: <?php echo (int)$_atKpi['ongoing']   ?>, assigned: <?php echo (int)$_atKpi['assigned_ongoing']   ?>, missing: <?php echo (int)$_atKpi['missing_ongoing']   ?> },
+    completed: { count: <?php echo (int)$_atKpi['completed'] ?>, assigned: <?php echo (int)$_atKpi['assigned_completed'] ?>, missing: <?php echo (int)$_atKpi['missing_completed'] ?> }
+};
 
 window.atSetTab = function(btn) {
     var tabs = document.querySelectorAll('.at-tab');
@@ -8473,6 +8592,17 @@ window.atSetTab = function(btn) {
     btn.classList.add('active');
     window._atTab = btn.getAttribute('data-tab');
     window._atPage = 1;
+    // Swap the KPI tile values + first label to match the active tab.
+    var bucket = window._atKpiByTab[window._atTab] || { count:0, assigned:0, missing:0 };
+    var lblMap = { upcoming: 'Upcoming Classes', ongoing: 'Ongoing Classes', completed: 'Completed Classes' };
+    var elC  = document.getElementById('at-kpi-classes');
+    var elA  = document.getElementById('at-kpi-assigned');
+    var elM  = document.getElementById('at-kpi-missing');
+    var elL  = document.getElementById('at-kpi-classes-lbl');
+    if (elC) elC.textContent = bucket.count.toLocaleString();
+    if (elA) elA.textContent = bucket.assigned.toLocaleString();
+    if (elM) elM.textContent = bucket.missing.toLocaleString();
+    if (elL) elL.textContent = lblMap[window._atTab] || 'Classes';
     atRender();
 };
 
@@ -9651,6 +9781,56 @@ if ($_elActive) {
     // Country scope from the logged-in admin (admin.<cc>@…). Default SG.
     $_elWid    = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
     $_elPrefix = Mage::helper('mmd_rolemanager')->getActiveCountryRunPrefix();
+    $_elCC     = Mage::helper('mmd_rolemanager')->getActiveCountryCode();
+
+    // Per-country defaults for the Add New Learner Profile form. Each
+    // market uses its own ID format, calling code, and example name so
+    // testers / admins see input cues that look right in context.
+    $_elNpDefaults = array(
+        'SG' => array(
+            'idTypes' => array('NRIC' => 'NRIC', 'FIN' => 'FIN', 'OTHERS' => 'Others'),
+            'idPh'    => 'e.g., S7020587D',
+            'namePh'  => 'e.g., Aileen Chong',
+            'cc'      => '+65',
+            'phonePh' => '98765432',
+        ),
+        'MY' => array(
+            'idTypes' => array('IC' => 'IC (NRIC)', 'PASSPORT' => 'Passport', 'OTHERS' => 'Others'),
+            'idPh'    => 'e.g., 850123-14-5678',
+            'namePh'  => 'e.g., Ahmad bin Abdullah',
+            'cc'      => '+60',
+            'phonePh' => '123456789',
+        ),
+        'GH' => array(
+            'idTypes' => array('GHANA_CARD' => 'Ghana Card', 'PASSPORT' => 'Passport', 'OTHERS' => 'Others'),
+            'idPh'    => 'e.g., GHA-123456789-1',
+            'namePh'  => 'e.g., Kwame Asante',
+            'cc'      => '+233',
+            'phonePh' => '244123456',
+        ),
+        'NG' => array(
+            'idTypes' => array('NIN' => 'NIN', 'BVN' => 'BVN', 'PASSPORT' => 'Passport', 'OTHERS' => 'Others'),
+            'idPh'    => 'e.g., 12345678901',
+            'namePh'  => 'e.g., Adebayo Okonkwo',
+            'cc'      => '+234',
+            'phonePh' => '8012345678',
+        ),
+        'BT' => array(
+            'idTypes' => array('CID' => 'CID', 'PASSPORT' => 'Passport', 'OTHERS' => 'Others'),
+            'idPh'    => 'e.g., 11801001234',
+            'namePh'  => 'e.g., Tashi Wangmo',
+            'cc'      => '+975',
+            'phonePh' => '17123456',
+        ),
+        'IN' => array(
+            'idTypes' => array('AADHAAR' => 'Aadhaar', 'PAN' => 'PAN', 'PASSPORT' => 'Passport', 'OTHERS' => 'Others'),
+            'idPh'    => 'e.g., 1234 5678 9012',
+            'namePh'  => 'e.g., Priya Sharma',
+            'cc'      => '+91',
+            'phonePh' => '9876543210',
+        ),
+    );
+    $_elNp = isset($_elNpDefaults[$_elCC]) ? $_elNpDefaults[$_elCC] : $_elNpDefaults['SG'];
     try {
         // Build the rank map from EVERY product on the admin's website
         // (no status / name filter), ordered by entity_id ASC. Matches
@@ -9918,18 +10098,19 @@ button.el-btn-primary:hover{background:#1d4ed8 !important}
                 <h3 class="el-card-title">Trainee Information</h3>
                 <button type="button" class="el-back-search" onclick="elHideAddProfile()">&larr; Back to Search</button>
             </div>
+            <?php $_npRender = isset($_elNp) ? $_elNp : array('idTypes'=>array('NRIC'=>'NRIC'),'idPh'=>'','namePh'=>'','cc'=>'+65','phonePh'=>''); ?>
             <div class="el-row">
                 <div>
                     <label class="el-field-label">Trainee ID Type<span class="req">*</span></label>
                     <select id="el-np-id-type" class="el-input">
-                        <option value="NRIC">NRIC</option>
-                        <option value="FIN">FIN</option>
-                        <option value="OTHERS">Others</option>
+                        <?php foreach ($_npRender['idTypes'] as $_idVal => $_idLabel): ?>
+                        <option value="<?php echo htmlspecialchars($_idVal) ?>"><?php echo htmlspecialchars($_idLabel) ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
                 <div>
                     <label class="el-field-label">Trainee ID<span class="req">*</span></label>
-                    <input id="el-np-id" type="text" class="el-input" placeholder="e.g., S7020587D" />
+                    <input id="el-np-id" type="text" class="el-input" placeholder="<?php echo htmlspecialchars($_npRender['idPh']) ?>" />
                 </div>
             </div>
 
@@ -9937,7 +10118,7 @@ button.el-btn-primary:hover{background:#1d4ed8 !important}
             <div class="el-row-stack">
                 <div>
                     <label class="el-field-label">Trainee Full Name<span class="req">*</span></label>
-                    <input id="el-np-name" type="text" class="el-input" placeholder="e.g., Aileen Chong" />
+                    <input id="el-np-name" type="text" class="el-input" placeholder="<?php echo htmlspecialchars($_npRender['namePh']) ?>" />
                 </div>
                 <div>
                     <label class="el-field-label">Trainee Date of Birth<span class="req">*</span></label>
@@ -9951,11 +10132,11 @@ button.el-btn-primary:hover{background:#1d4ed8 !important}
             <div class="el-row" style="margin-top:14px">
                 <div>
                     <label class="el-field-label">Country Code<span class="req">*</span></label>
-                    <input id="el-np-cc" type="text" class="el-input" value="+65" />
+                    <input id="el-np-cc" type="text" class="el-input" value="<?php echo htmlspecialchars($_npRender['cc']) ?>" />
                 </div>
                 <div>
                     <label class="el-field-label">Phone Number<span class="req">*</span></label>
-                    <input id="el-np-phone" type="tel" class="el-input" placeholder="98765432" />
+                    <input id="el-np-phone" type="tel" class="el-input" placeholder="<?php echo htmlspecialchars($_npRender['phonePh']) ?>" />
                 </div>
             </div>
         </div>
@@ -10409,6 +10590,689 @@ window.elSaveNewLearner = function() {
 </script>
 </div><!-- end dash-panel-enrolllearner -->
 
+<?php /* ===== PANEL: Marketing Newsletter Builder ===== */ ?>
+<?php
+$_mnActive  = ($activeRole === 'marketing')
+    || (Mage::app()->getRequest()->getParam('panel') === 'marketing_newsletter');
+$_mnCC      = Mage::helper('mmd_rolemanager')->getActiveCountryCode();
+$_mnCountry = Mage::helper('mmd_rolemanager')->getActiveCountryName();
+$_mnHasAi   = Mage::helper('mmd_rolemanager')->hasAnthropicKey();
+$_mnHasMl   = Mage::helper('mmd_rolemanager')->hasMailerLiteKey();
+$_mnDrafts  = array();
+if ($_mnActive) {
+    try {
+        $_mnDrafts = Mage::getSingleton('core/resource')
+            ->getConnection('core_read')
+            ->fetchAll(
+                "SELECT newsletter_id, title, template_key, status, mailerlite_id, updated_at
+                 FROM " . Mage::getSingleton('core/resource')->getTableName('newsletters')
+              . " WHERE country_code = ?
+                 ORDER BY updated_at DESC LIMIT 30",
+                array($_mnCC)
+            );
+    } catch (Exception $e) {}
+}
+?>
+<div id="dash-panel-marketing-newsletter" style="display:none;">
+<style>
+.mn-wrap{max-width:1500px;margin:0 auto;padding:24px 28px;color:#e2e8f0}
+.mn-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:18px}
+.mn-title{font-size:28px;font-weight:700;color:#fff;margin:0}
+.mn-sub{font-size:13px;color:#94a3b8;margin:4px 0 0}
+.mn-stub-pill{display:inline-block;margin-left:8px;padding:3px 8px;border-radius:6px;background:rgba(245,158,11,.18);color:#fcd34d;border:1px solid rgba(245,158,11,.4);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.mn-toprow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:18px;margin-bottom:18px}
+.mn-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.mn-card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:18px}
+.mn-card h3{font-size:14px;font-weight:700;color:#fff;margin:0 0 12px;text-transform:uppercase;letter-spacing:.6px}
+.mn-tpl-list{display:flex;flex-direction:row;flex-wrap:wrap;gap:8px}
+.mn-tpl-list button.mn-tpl{flex:1 1 220px;min-width:0}
+button.mn-tpl,button.mn-tpl:hover,button.mn-tpl:focus{display:block;width:100%;padding:12px 14px !important;text-align:left !important;background:#0f172a !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #334155 !important;border-radius:8px !important;font-size:13px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:1.4 !important;height:auto !important}
+button.mn-tpl.active,button.mn-tpl.active:hover{background:rgba(59,130,246,.18) !important;border-color:#3b82f6 !important;color:#fff !important}
+button.mn-tpl strong{display:block;font-size:14px;font-weight:600;color:inherit;margin-bottom:2px}
+.mn-tpl small{display:block;font-size:11px;color:#94a3b8;line-height:1.4}
+.mn-drafts{margin-top:0}
+.mn-drafts-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto}
+button.mn-draft,button.mn-draft:hover,button.mn-draft:focus{display:block;width:100%;text-align:left !important;padding:8px 10px !important;background:#0f172a !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #283548 !important;border-radius:6px !important;font-size:12px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:1.3 !important;height:auto !important}
+button.mn-draft:hover{background:#1e293b !important}
+button.mn-draft.active{border-color:#3b82f6 !important;background:rgba(59,130,246,.12) !important}
+.mn-draft-title{font-weight:600;font-size:13px;color:#fff;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mn-draft-meta{font-size:11px;color:#94a3b8}
+.mn-status-draft{color:#fcd34d}
+.mn-status-pushed{color:#86efac}
+.mn-fld{margin-bottom:14px}
+.mn-fld label{display:block;font-size:12px;font-weight:600;color:#cbd5e1;margin-bottom:6px}
+.mn-input,textarea.mn-input,select.mn-input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:9px 12px;color:#e2e8f0;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box}
+.mn-input:focus{border-color:#3b82f6}
+textarea.mn-input{resize:vertical;min-height:90px}
+textarea.mn-body{min-height:180px;font-family:'Cascadia Code','Menlo','Consolas',monospace;font-size:12.5px;line-height:1.5}
+.mn-pids{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;min-height:24px}
+.mn-pid-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.35);color:#86efac;border-radius:6px;font-size:12px}
+.mn-pid-chip button{background:transparent;border:none;color:#86efac;cursor:pointer;font-size:14px;padding:0;line-height:1}
+.mn-search-results{margin-top:6px;background:#0f172a;border:1px solid #334155;border-radius:8px;max-height:200px;overflow-y:auto;display:none}
+.mn-search-results:not(:empty){display:block}
+.mn-result{padding:7px 12px;font-size:12px;color:#e2e8f0;cursor:pointer;border-bottom:1px solid #283548;line-height:1.4}
+.mn-result:hover{background:rgba(59,130,246,.18)}
+.mn-result-empty{padding:12px;font-size:12px;color:#64748b;font-style:italic}
+.mn-chat{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px;max-height:260px;overflow-y:auto;margin-bottom:10px;display:flex;flex-direction:column;gap:8px}
+.mn-msg{padding:9px 12px;border-radius:8px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
+.mn-msg.user{background:rgba(59,130,246,.16);color:#dbeafe;align-self:flex-end;max-width:88%}
+.mn-msg.assistant{background:#1e293b;color:#e2e8f0;border:1px solid #334155;align-self:flex-start;max-width:92%}
+.mn-msg-role{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px;font-weight:700}
+.mn-empty-chat{font-size:12px;color:#64748b;font-style:italic;text-align:center;padding:18px 0}
+.mn-composer{display:flex;gap:8px;margin-top:8px;align-items:flex-end}
+textarea.mn-composer-input{flex:1;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:13px;font-family:inherit;outline:none;resize:none;line-height:1.5;min-height:40px;max-height:140px;box-sizing:border-box}
+textarea.mn-composer-input:focus{border-color:#3b82f6}
+button.mn-composer-send,button.mn-composer-send:hover,button.mn-composer-send:focus{flex:0 0 auto !important;width:40px !important;height:40px !important;padding:0 !important;border-radius:50% !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;font-size:16px !important;position:relative}
+.mn-composer-arrow{display:inline-block;transform:translateX(1px);font-size:14px;line-height:1}
+button.mn-composer-send.mn-loading .mn-composer-arrow{visibility:hidden}
+button.mn-composer-send.mn-loading::after{content:"";position:absolute;width:18px;height:18px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:mnSpin .7s linear infinite}
+@keyframes mnSpin{to{transform:rotate(360deg)}}
+.mn-composer-hint{margin-top:6px;font-size:11px;color:#64748b;line-height:1.4}
+.mn-composer-hint kbd{display:inline-block;background:#1e293b;border:1px solid #334155;border-radius:3px;padding:0 4px;font-family:inherit;font-size:10px;color:#cbd5e1}
+textarea.mn-brief{min-height:280px;font-family:inherit;font-size:13px;line-height:1.55}
+input.mn-file-input{display:block;width:100%;padding:9px 12px;background:#0f172a;border:1px dashed #334155;border-radius:8px;color:#94a3b8;font-size:12px;cursor:pointer;font-family:inherit}
+input.mn-file-input::-webkit-file-upload-button{padding:5px 12px;background:#1e293b;color:#cbd5e1;border:1px solid #334155;border-radius:6px;cursor:pointer;font-size:12px;margin-right:10px}
+input.mn-file-input::-webkit-file-upload-button:hover{background:#334155;color:#fff}
+.mn-image-thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.mn-image-thumb{position:relative;width:90px;height:90px;border-radius:8px;overflow:hidden;border:1px solid #334155;background:#0f172a}
+.mn-image-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.mn-image-thumb button{position:absolute;top:3px;right:3px;width:20px;height:20px;border:none;border-radius:50%;background:rgba(15,23,42,.85);color:#fca5a5;font-size:14px;line-height:18px;cursor:pointer;padding:0}
+.mn-image-thumb button:hover{background:#0f172a;color:#ef4444}
+button.mn-btn,button.mn-btn:hover,button.mn-btn:focus{padding:9px 16px !important;background:#2563eb !important;background-image:none !important;color:#fff !important;border:none !important;border-radius:6px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;line-height:1 !important}
+button.mn-btn:hover{background:#1d4ed8 !important}
+button.mn-btn-ghost,button.mn-btn-ghost:hover,button.mn-btn-ghost:focus{background:transparent !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #334155 !important}
+button.mn-btn-ghost:hover{background:#1e293b !important}
+button.mn-btn-cta,button.mn-btn-cta:hover,button.mn-btn-cta:focus{background:#22d3ee !important;color:#0f172a !important}
+button.mn-btn-cta:hover{background:#0ea5e9 !important}
+button.mn-btn:disabled,button.mn-btn[disabled]{opacity:.45;cursor:not-allowed !important}
+.mn-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.mn-progress{margin-top:10px;padding:10px 12px;background:#0f172a;border:1px solid #334155;border-radius:6px}
+.mn-progress-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:#cbd5e1}
+.mn-progress-head span:last-child{font-variant-numeric:tabular-nums;color:#22d3ee;font-weight:700}
+.mn-progress-track{height:6px;background:#1e293b;border-radius:999px;overflow:hidden}
+.mn-progress-fill{height:100%;width:0%;background:linear-gradient(90deg,#2563eb,#22d3ee);border-radius:999px;transition:width .25s ease-out}
+.mn-preview{background:#0f172a;border:1px solid #334155;border-radius:10px;overflow:hidden;height:760px;display:flex;flex-direction:column}
+.mn-preview-head{padding:10px 14px;background:#0f172a;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.mn-preview-head h3{margin:0;color:#fff;font-size:13px;text-transform:uppercase;letter-spacing:.6px;font-weight:700}
+.mn-preview-empty{flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;font-style:italic;background:#0f172a;text-align:center;padding:20px}
+.mn-preview-stage{flex:1;background:#1e293b;overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:16px}
+.mn-preview-stage[data-vp="desktop"]{padding:0}
+.mn-preview-stage[data-vp="desktop"] iframe.mn-iframe{width:100%;height:100%;max-width:none;border-radius:0;box-shadow:none}
+.mn-preview-stage[data-vp="mobile"] iframe.mn-iframe{width:390px;max-width:100%;height:100%;border-radius:18px;box-shadow:0 4px 20px rgba(0,0,0,.35);background:#fff}
+iframe.mn-iframe{border:none;background:#fff;display:block}
+.mn-vp-toggle{display:inline-flex;background:#1e293b;border:1px solid #334155;border-radius:6px;overflow:hidden}
+.mn-vp-btn{appearance:none;background:transparent;border:0;color:#94a3b8;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.4px}
+.mn-vp-btn:hover{color:#e2e8f0}
+.mn-vp-btn.active{background:#2563eb;color:#fff}
+@media(max-width:1100px){.mn-toprow,.mn-grid{grid-template-columns:1fr}.mn-preview{height:560px}}
+</style>
+
+<div class="mn-wrap">
+    <div class="mn-head">
+        <div>
+            <h1 class="mn-title">Newsletters</h1>
+            <p class="mn-sub"><?php echo htmlspecialchars($_mnCountry) ?> · build with Claude, push to MailerLite as a draft</p>
+        </div>
+        <button type="button" class="mn-btn mn-btn-ghost" onclick="mnNewDraft()">+ New Newsletter</button>
+    </div>
+
+    <!-- TOP ROW: template picker + drafts list (full width, side-by-side) -->
+    <div class="mn-toprow">
+        <div class="mn-card">
+            <h3>Template</h3>
+            <div class="mn-tpl-list">
+                <button type="button" class="mn-tpl active" data-tpl="course_promo" onclick="mnPickTpl(this)"><strong>Course Promo</strong><small>Hero · course cards · CTA</small></button>
+            </div>
+        </div>
+        <div class="mn-card mn-drafts">
+            <h3>Drafts (<?php echo count($_mnDrafts) ?>)</h3>
+            <div class="mn-drafts-list" id="mn-drafts-list">
+                <?php if (empty($_mnDrafts)): ?>
+                    <div class="mn-result-empty">No drafts yet.</div>
+                <?php else: foreach ($_mnDrafts as $_d): ?>
+                    <button type="button" class="mn-draft" data-id="<?php echo (int)$_d['newsletter_id'] ?>" onclick="mnLoadDraft(<?php echo (int)$_d['newsletter_id'] ?>)">
+                        <div class="mn-draft-title"><?php echo htmlspecialchars($_d['title']) ?></div>
+                        <div class="mn-draft-meta">
+                            <?php echo htmlspecialchars($_d['template_key']) ?> ·
+                            <span class="mn-status-<?php echo htmlspecialchars($_d['status']) ?>"><?php echo htmlspecialchars(strtoupper($_d['status'])) ?></span>
+                            <?php if (!empty($_d['mailerlite_id'])): ?> · <?php echo htmlspecialchars($_d['mailerlite_id']) ?><?php endif; ?>
+                        </div>
+                    </button>
+                <?php endforeach; endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="mn-grid">
+        <!-- LEFT: editor -->
+        <div class="mn-card">
+            <div class="mn-fld">
+                <label>Featured Courses</label>
+                <input type="text" id="mn-course-search" class="mn-input" placeholder="Search course title or code..." oninput="mnSearchCourses(this)" autocomplete="off" />
+                <div id="mn-search-results" class="mn-search-results"></div>
+                <div id="mn-pids" class="mn-pids"></div>
+            </div>
+
+            <div class="mn-fld">
+                <label>Newsletter Brief <?php if (!$_mnHasAi): ?><span class="mn-stub-pill">Demo mode</span><?php endif; ?></label>
+                <textarea id="mn-prompt" class="mn-input mn-brief" rows="14" placeholder="Describe the newsletter you want — be specific. Claude reads this verbatim plus any images and the picked courses.
+
+Example brief:
+
+Create a new newsletter about Mastering the Art &amp; Science of Working with People &amp; Teams using DISC AsiaPlus.
+
+Include the following in the newsletter:
+- What will be learned
+- What is DISC about
+- What is the benefits of learning DISC
+- The course will be held on 21-22 May 2026
+- Add a sign-up button linking to https://www.tertiarycourses.com.sg/wsq-mastering-the-art-science-of-working-with-people-teams-using-discasiaplus.html
+- At the bottom of the newsletter also include our socials for contact
+- Make it more eye-catching by adding designs
+- Include the unsubscribe and update preference at the bottom of the page
+- Make sure the design and layout works on both desktop and mobile versions"></textarea>
+            </div>
+
+            <div class="mn-fld">
+                <label>Reference Images <span style="color:#64748b;font-weight:400;">(max 3 · 5MB each · sent to Claude as context)</span></label>
+                <input type="file" id="mn-images" class="mn-file-input" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" multiple onchange="mnHandleImages(this)" />
+                <div id="mn-image-thumbs" class="mn-image-thumbs"></div>
+            </div>
+
+            <div class="mn-fld">
+                <label>Conversation</label>
+                <div id="mn-chat" class="mn-chat">
+                    <div class="mn-empty-chat">Fill the brief above (and optionally attach images), then send your first message. Follow-up turns refine the draft.</div>
+                </div>
+                <div class="mn-composer">
+                    <textarea id="mn-composer-input" class="mn-composer-input" rows="1"
+                              placeholder="Send a message... (e.g. 'shorter intro', 'add early-bird discount')"
+                              onkeydown="mnComposerKey(event)"
+                              oninput="mnComposerAutoSize(this)"></textarea>
+                    <button type="button" class="mn-btn mn-composer-send" id="mn-send-btn" onclick="mnSend()" aria-label="Send">
+                        <span class="mn-composer-arrow">&#10148;</span>
+                    </button>
+                </div>
+                <div class="mn-composer-hint" id="mn-composer-hint">First message uses the brief above. Press <kbd>Enter</kbd> to send, <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line.</div>
+                <div id="mn-progress" class="mn-progress" style="display:none">
+                    <div class="mn-progress-head">
+                        <span id="mn-progress-label">Generating</span>
+                        <span id="mn-progress-pct">0%</span>
+                    </div>
+                    <div class="mn-progress-track"><div id="mn-progress-bar" class="mn-progress-fill"></div></div>
+                </div>
+            </div>
+
+            <div class="mn-fld">
+                <label>Body (editable)</label>
+                <textarea id="mn-body" class="mn-input mn-body" placeholder="Generated copy will appear here. You can edit freely." oninput="mnRefreshPreview()"></textarea>
+            </div>
+
+            <div class="mn-actions">
+                <button type="button" class="mn-btn mn-btn-ghost" onclick="mnSave()">Save Draft</button>
+                <button type="button" class="mn-btn mn-btn-cta" id="mn-push-btn" onclick="mnPush()" disabled>Push to MailerLite<?php if (!$_mnHasMl): ?> <span style="font-size:10px;opacity:.7">(stub)</span><?php endif; ?></button>
+            </div>
+        </div>
+
+        <!-- RIGHT: live preview (desktop / mobile viewport toggle) -->
+        <div>
+            <div class="mn-preview">
+                <div class="mn-preview-head">
+                    <h3>Live Preview</h3>
+                    <div class="mn-vp-toggle" role="tablist" aria-label="Preview viewport">
+                        <button type="button" class="mn-vp-btn active" id="mn-vp-desktop" onclick="mnSetViewport('desktop')" role="tab" aria-selected="true">Desktop</button>
+                        <button type="button" class="mn-vp-btn" id="mn-vp-mobile" onclick="mnSetViewport('mobile')" role="tab" aria-selected="false">Mobile</button>
+                    </div>
+                    <span style="font-size:11px;color:#94a3b8" id="mn-preview-status">No content yet</span>
+                </div>
+                <div id="mn-preview-empty" class="mn-preview-empty">Pick a template, add a course, and chat with Claude to see the preview.</div>
+                <div id="mn-preview-stage" class="mn-preview-stage" data-vp="desktop" style="display:none">
+                    <iframe id="mn-iframe" class="mn-iframe" srcdoc=""></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+window._mnState = {
+    cc: <?php echo json_encode($_mnCC) ?>,
+    country: <?php echo json_encode($_mnCountry) ?>,
+    newsletterId: 0,
+    template: 'course_promo',
+    pids: [],
+    pidNames: {},
+    chatHistory: [],
+    bodyBlocks: { body_block_1: '', body_block_2: '', body_block_3: '' },
+    images: [] // [{name, type, dataUrl}] — base64 data URLs, sent on next AI call
+};
+
+window.mnPickTpl = function(btn) {
+    var all = document.querySelectorAll('.mn-tpl');
+    for (var i = 0; i < all.length; i++) all[i].classList.remove('active');
+    btn.classList.add('active');
+    window._mnState.template = btn.getAttribute('data-tpl');
+    mnRefreshPreview();
+};
+
+window.mnNewDraft = function() {
+    if (window._mnState.newsletterId && !confirm('Discard the current draft?')) return;
+    window._mnState.newsletterId = 0;
+    window._mnState.pids = [];
+    window._mnState.pidNames = {};
+    window._mnState.chatHistory = [];
+    window._mnState.bodyBlocks = { body_block_1: '', body_block_2: '', body_block_3: '' };
+    window._mnState.images = [];
+    document.getElementById('mn-course-search').value = '';
+    var comp = document.getElementById('mn-composer-input');
+    if (comp) { comp.value = ''; mnComposerAutoSize(comp); }
+    document.getElementById('mn-prompt').value = '';
+    document.getElementById('mn-body').value = '';
+    document.getElementById('mn-search-results').innerHTML = '';
+    document.getElementById('mn-images').value = '';
+    var draftBtns = document.querySelectorAll('.mn-draft');
+    for (var i = 0; i < draftBtns.length; i++) draftBtns[i].classList.remove('active');
+    mnRenderPids();
+    mnRenderChat();
+    mnRenderImageThumbs();
+    if (typeof mnUpdateComposerHint === 'function') mnUpdateComposerHint();
+    var stage = document.getElementById('mn-preview-stage');
+    if (stage) stage.style.display = 'none';
+    var empty = document.getElementById('mn-preview-empty');
+    if (empty) empty.style.display = 'flex';
+    var status = document.getElementById('mn-preview-status');
+    if (status) status.textContent = 'No content yet';
+    var ifr = document.getElementById('mn-iframe');
+    if (ifr) ifr.srcdoc = '';
+};
+
+// --- Reference images (max 3) ----------------------------------------
+window.mnHandleImages = function(input) {
+    var files = Array.prototype.slice.call(input.files || []);
+    var room = 3 - window._mnState.images.length;
+    if (files.length > room) {
+        alert('Only ' + room + ' more image(s) allowed (max 3 total).');
+        files = files.slice(0, Math.max(0, room));
+    }
+    files.forEach(function (f) {
+        if (f.size > 5 * 1024 * 1024) { alert('"' + f.name + '" is over 5MB and was skipped.'); return; }
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            window._mnState.images.push({ name: f.name, type: f.type, dataUrl: e.target.result });
+            mnRenderImageThumbs();
+            mnRefreshPreview();
+        };
+        reader.readAsDataURL(f);
+    });
+    // Reset the input so re-selecting the same file fires onchange.
+    input.value = '';
+};
+window.mnRemoveImage = function(idx) {
+    window._mnState.images.splice(idx, 1);
+    mnRenderImageThumbs();
+    mnRefreshPreview();
+};
+window.mnRenderImageThumbs = function() {
+    var box = document.getElementById('mn-image-thumbs');
+    box.innerHTML = '';
+    window._mnState.images.forEach(function (img, idx) {
+        var d = document.createElement('div');
+        d.className = 'mn-image-thumb';
+        var i = document.createElement('img');
+        i.src = img.dataUrl;
+        i.alt = img.name;
+        d.appendChild(i);
+        var rm = document.createElement('button');
+        rm.type = 'button';
+        rm.textContent = '×';
+        rm.title = 'Remove ' + img.name;
+        rm.onclick = function () { mnRemoveImage(idx); };
+        d.appendChild(rm);
+        box.appendChild(d);
+    });
+};
+
+// --- Course picker autocomplete --------------------------------------
+var _mnSearchTimer = null;
+window.mnSearchCourses = function(inp) {
+    if (_mnSearchTimer) clearTimeout(_mnSearchTimer);
+    var q = (inp.value || '').trim();
+    var box = document.getElementById('mn-search-results');
+    if (q.length < 2) { box.innerHTML = ''; return; }
+    _mnSearchTimer = setTimeout(function () {
+        fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/searchCourses') ?>?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+              box.innerHTML = '';
+              if (!j || !j.success || !j.courses || !j.courses.length) {
+                  var n = document.createElement('div');
+                  n.className = 'mn-result-empty';
+                  n.textContent = 'No matches.';
+                  box.appendChild(n);
+                  return;
+              }
+              j.courses.forEach(function (c) {
+                  var d = document.createElement('div');
+                  d.className = 'mn-result';
+                  d.textContent = c.sku + ' — ' + c.name;
+                  d.onclick = function () { mnAddPid(c.id, c.sku, c.name); inp.value = ''; box.innerHTML = ''; };
+                  box.appendChild(d);
+              });
+          });
+    }, 200);
+};
+window.mnAddPid = function(id, sku, name) {
+    id = parseInt(id, 10);
+    if (!id || window._mnState.pids.indexOf(id) >= 0) return;
+    window._mnState.pids.push(id);
+    window._mnState.pidNames[id] = sku + ' — ' + name;
+    mnRenderPids();
+    mnRefreshPreview();
+};
+window.mnRemovePid = function(id) {
+    id = parseInt(id, 10);
+    var i = window._mnState.pids.indexOf(id);
+    if (i >= 0) window._mnState.pids.splice(i, 1);
+    delete window._mnState.pidNames[id];
+    mnRenderPids();
+    mnRefreshPreview();
+};
+window.mnRenderPids = function() {
+    var box = document.getElementById('mn-pids');
+    box.innerHTML = '';
+    window._mnState.pids.forEach(function (id) {
+        var c = document.createElement('span');
+        c.className = 'mn-pid-chip';
+        c.textContent = window._mnState.pidNames[id] || ('#' + id);
+        var x = document.createElement('button');
+        x.type = 'button';
+        x.textContent = '×';
+        x.onclick = function () { mnRemovePid(id); };
+        c.appendChild(x);
+        box.appendChild(c);
+    });
+};
+
+// --- Claude chat -----------------------------------------------------
+window.mnRenderChat = function() {
+    var box = document.getElementById('mn-chat');
+    var hist = window._mnState.chatHistory;
+    if (!hist.length) {
+        box.innerHTML = '<div class="mn-empty-chat">Tell Claude what to draft. Subsequent messages refine it.</div>';
+        return;
+    }
+    box.innerHTML = '';
+    hist.forEach(function (m) {
+        var d = document.createElement('div');
+        d.className = 'mn-msg ' + m.role;
+        var role = document.createElement('div');
+        role.className = 'mn-msg-role';
+        role.textContent = m.role === 'user' ? 'You' : 'Claude';
+        d.appendChild(role);
+        var body = document.createElement('div');
+        body.textContent = m.content;
+        d.appendChild(body);
+        box.appendChild(d);
+    });
+    box.scrollTop = box.scrollHeight;
+};
+// Progress bar driver — Claude responses don't stream into the page so
+// we simulate progress with an asymptotic curve that ticks up while we
+// wait, then snap to 100% when the response actually lands. The label
+// switches phases ("Sending" → "Drafting" → "Polishing") as the bar
+// climbs, so it reads as informative rather than a fake spinner.
+window._mnProg = { timer: null, value: 0, target: 0 };
+window.mnProgressStart = function() {
+    var box = document.getElementById('mn-progress');
+    if (!box) return;
+    box.style.display = '';
+    window._mnProg.value = 0;
+    window._mnProg.target = 8;
+    mnProgressRender();
+    if (window._mnProg.timer) clearInterval(window._mnProg.timer);
+    window._mnProg.timer = setInterval(function () {
+        // Ease toward target; raise the ceiling so the bar never stalls.
+        var p = window._mnProg;
+        p.value += Math.max(0.4, (p.target - p.value) * 0.08);
+        if (p.value > 92) p.value = 92;
+        // Climb the ceiling slowly so we don't sit at 92% for ages.
+        if (p.target < 90) p.target += 1.2;
+        mnProgressRender();
+    }, 250);
+};
+window.mnProgressFinish = function() {
+    if (window._mnProg.timer) clearInterval(window._mnProg.timer);
+    window._mnProg.timer = null;
+    window._mnProg.value = 100;
+    mnProgressRender();
+    setTimeout(function () {
+        var box = document.getElementById('mn-progress');
+        if (box) box.style.display = 'none';
+        window._mnProg.value = 0;
+        mnProgressRender();
+    }, 600);
+};
+window.mnProgressRender = function() {
+    var pct = Math.round(window._mnProg.value);
+    var bar = document.getElementById('mn-progress-bar');
+    var lbl = document.getElementById('mn-progress-pct');
+    var phase = document.getElementById('mn-progress-label');
+    if (bar) bar.style.width = pct + '%';
+    if (lbl) lbl.textContent = pct + '%';
+    if (phase) {
+        phase.textContent = pct < 25 ? 'Sending brief to Claude'
+            : pct < 65 ? 'Drafting newsletter copy'
+            : pct < 100 ? 'Polishing'
+            : 'Done';
+    }
+};
+
+// --- Chat composer (chatbot-style follow-up input) -------------------
+window.mnComposerKey = function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        mnSend();
+    }
+};
+window.mnComposerAutoSize = function(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(140, el.scrollHeight) + 'px';
+};
+
+window.mnSend = function() {
+    var promptEl   = document.getElementById('mn-prompt');
+    var composerEl = document.getElementById('mn-composer-input');
+    var briefText    = (promptEl.value || '').trim();
+    var composerText = (composerEl.value || '').trim();
+    // Composer wins when it has text (so follow-up turns use the chat
+    // input, not whatever's still sitting in the brief textarea).
+    // Otherwise fall back to the brief — covers the very first turn.
+    var prompt;
+    var clearComposer = false, clearBrief = false;
+    if (composerText) { prompt = composerText; clearComposer = true; }
+    else if (briefText) { prompt = briefText; clearBrief = true; }
+    else { alert('Type a message in the chat box, or fill the brief above.'); return; }
+    var btn = document.getElementById('mn-send-btn');
+    btn.disabled = true;
+    btn.classList.add('mn-loading');
+    mnProgressStart();
+    var fd = new FormData();
+    fd.append('newsletter_id', String(window._mnState.newsletterId || 0));
+    fd.append('prompt', prompt);
+    fd.append('template_key', window._mnState.template);
+    fd.append('country_code', window._mnState.cc);
+    fd.append('course_pids', window._mnState.pids.join(','));
+    fd.append('mode', window._mnState.chatHistory.length ? 'revise' : 'initial');
+    // Attach reference images (data URLs) — controller decodes them
+    // server-side and passes through to Claude as image content blocks.
+    // Only sent on the turn the admin attached them; cleared after to
+    // avoid re-sending the same images on every revise turn.
+    fd.append('images_json', JSON.stringify(window._mnState.images));
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/generate') ?>', {
+        method: 'POST', body: fd, credentials: 'same-origin'
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+        btn.disabled = false; btn.classList.remove('mn-loading');
+        mnProgressFinish();
+        if (!j || !j.success) { alert((j && j.message) || 'Generate failed.'); return; }
+        window._mnState.chatHistory = j.chat_history || [];
+        window._mnState.bodyBlocks  = j.body_blocks || window._mnState.bodyBlocks;
+        if (clearComposer) {
+            composerEl.value = '';
+            mnComposerAutoSize(composerEl);
+        }
+        if (clearBrief) promptEl.value = '';
+        document.getElementById('mn-body').value = [
+            window._mnState.bodyBlocks.body_block_1 || '',
+            window._mnState.bodyBlocks.body_block_2 || '',
+            window._mnState.bodyBlocks.body_block_3 || ''
+        ].filter(Boolean).join('\n\n');
+        mnRenderChat();
+        mnUpdateComposerHint();
+        mnRefreshPreview();
+        composerEl.focus();
+    })
+    .catch(function (e) {
+        btn.disabled = false; btn.classList.remove('mn-loading');
+        mnProgressFinish();
+        alert('Network: ' + e);
+    });
+};
+
+// Hint text below the composer flips once the conversation has started:
+// "First message uses the brief above" → "Press Enter to send".
+window.mnUpdateComposerHint = function() {
+    var h = document.getElementById('mn-composer-hint');
+    if (!h) return;
+    var hasTurns = window._mnState.chatHistory.length > 0;
+    h.innerHTML = hasTurns
+        ? 'Press <kbd>Enter</kbd> to send, <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line.'
+        : 'First message uses the brief above. Press <kbd>Enter</kbd> to send, <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line.';
+};
+
+// --- Preview (re-renders on every body / pid / template / Claude turn) -
+var _mnPreviewTimer = null;
+window.mnRefreshPreview = function() {
+    if (_mnPreviewTimer) clearTimeout(_mnPreviewTimer);
+    _mnPreviewTimer = setTimeout(function () {
+        var bodyText = document.getElementById('mn-body').value || '';
+        var parts = bodyText.split(/\n\s*\n/);
+        var blocks = {
+            body_block_1: parts[0] || '',
+            body_block_2: parts[1] || '',
+            body_block_3: parts.slice(2).join('\n\n') || ''
+        };
+        // Preserve the design seed across body edits so the look
+        // stays stable while the admin tweaks copy. Only Send-to-AI
+        // re-rolls the seed.
+        var prev = window._mnState.bodyBlocks || {};
+        if (prev._design_seed) blocks._design_seed = prev._design_seed;
+        window._mnState.bodyBlocks = blocks;
+        var fd = new FormData();
+        fd.append('template_key', window._mnState.template);
+        fd.append('course_pids', window._mnState.pids.join(','));
+        fd.append('body_blocks', JSON.stringify(blocks));
+        // Reference images flow through every preview call so the
+        // hero photo updates immediately as the admin uploads/removes.
+        fd.append('images_json', JSON.stringify(window._mnState.images || []));
+        fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/preview') ?>', {
+            method: 'POST', body: fd, credentials: 'same-origin'
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+            if (!j || !j.success) return;
+            var ifr = document.getElementById('mn-iframe');
+            ifr.srcdoc = j.html;
+            document.getElementById('mn-preview-stage').style.display = 'flex';
+            document.getElementById('mn-preview-empty').style.display = 'none';
+            document.getElementById('mn-preview-status').textContent = 'Updated ' + new Date().toLocaleTimeString();
+            // Push button gates on a real preview.
+            var pushBtn = document.getElementById('mn-push-btn');
+            if (window._mnState.chatHistory.length || (blocks.body_block_1 || '').trim()) {
+                pushBtn.removeAttribute('disabled');
+            }
+        });
+    }, 250);
+};
+
+// --- Save + Push -----------------------------------------------------
+window.mnSave = function() {
+    var fd = new FormData();
+    fd.append('newsletter_id', String(window._mnState.newsletterId || 0));
+    fd.append('country_code', window._mnState.cc);
+    fd.append('template_key', window._mnState.template);
+    fd.append('course_pids', window._mnState.pids.join(','));
+    fd.append('body_blocks', JSON.stringify(window._mnState.bodyBlocks));
+    fd.append('chat_history', JSON.stringify(window._mnState.chatHistory));
+    fd.append('images_json', JSON.stringify(window._mnState.images || []));
+    var lastPrompt = '';
+    for (var i = window._mnState.chatHistory.length - 1; i >= 0; i--) {
+        if (window._mnState.chatHistory[i].role === 'user') { lastPrompt = window._mnState.chatHistory[i].content; break; }
+    }
+    fd.append('ai_prompt', lastPrompt);
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/saveDraft') ?>', {
+        method: 'POST', body: fd, credentials: 'same-origin'
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+        if (!j || !j.success) { alert((j && j.message) || 'Save failed.'); return; }
+        window._mnState.newsletterId = j.newsletter_id;
+        alert('Draft saved.');
+    });
+};
+window.mnPush = function() {
+    if (!window._mnState.newsletterId) {
+        alert('Save the draft first.');
+        return;
+    }
+    if (!confirm('Push this newsletter to MailerLite as a draft campaign?')) return;
+    var btn = document.getElementById('mn-push-btn');
+    btn.disabled = true; btn.textContent = 'Pushing...';
+    var fd = new FormData();
+    fd.append('newsletter_id', String(window._mnState.newsletterId));
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/push') ?>', {
+        method: 'POST', body: fd, credentials: 'same-origin'
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+        btn.textContent = 'Push to MailerLite';
+        if (!j || !j.success) { btn.disabled = false; alert((j && j.message) || 'Push failed.'); return; }
+        var note = j.stubbed
+            ? '\n\nDemo mode: drop a real MailerLite key into local.xml to push live.'
+            : '\n\nGo to MailerLite to schedule the send.';
+        alert('Pushed as MailerLite campaign ' + j.mailerlite_id + '.' + note);
+        location.reload();
+    });
+};
+
+// --- Viewport toggle (Desktop / Mobile) -------------------------------
+window.mnSetViewport = function(mode) {
+    var stage = document.getElementById('mn-preview-stage');
+    if (!stage) return;
+    if (mode !== 'mobile') mode = 'desktop';
+    stage.dataset.vp = mode;
+    var d = document.getElementById('mn-vp-desktop');
+    var m = document.getElementById('mn-vp-mobile');
+    if (d) { d.classList.toggle('active', mode === 'desktop'); d.setAttribute('aria-selected', mode === 'desktop' ? 'true' : 'false'); }
+    if (m) { m.classList.toggle('active', mode === 'mobile');  m.setAttribute('aria-selected', mode === 'mobile' ? 'true' : 'false'); }
+};
+
+window.mnLoadDraft = function(id) {
+    // Loaded server-side on next page request — simplest path is reload
+    // with the id in URL. JS-side hydration could come later.
+    location.href = '<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'marketing_newsletter', 'newsletter_id' => '___ID___'))) ?>'.replace('___ID___', String(id));
+};
+
+(function init() {
+    mnRenderPids();
+    mnRenderChat();
+    mnRenderImageThumbs();
+    mnUpdateComposerHint();
+})();
+</script>
+</div><!-- end dash-panel-marketing-newsletter -->
+
 
 <?php /* ===== Role switcher JS ===== */ ?>
 <script type="text/javascript">
@@ -10419,7 +11283,7 @@ window.elSaveNewLearner = function() {
         var panels = {
             'Admin':             'dash-panel-admin',
             'Super Admin':       'dash-panel-superadmin',
-            'Marketing':         'dash-panel-superadmin',
+            'Marketing':         'dash-panel-marketing-newsletter',
             'Learner':           'dash-panel-learner',
             'Trainer':           'dash-panel-learner',
             'Developer':         'dash-panel-developer'
@@ -10495,7 +11359,7 @@ window.elSaveNewLearner = function() {
     function showAdminSubPanel(name, filter) {
         var r = role;
         if (r !== 'Admin' && r !== 'Super Admin' && r !== 'Marketing') return;
-        var panelMap = { admin: 'dash-panel-admin', trainers: 'dash-panel-trainers', companysetting: 'dash-panel-companysetting', createclass: 'dash-panel-createclass', assigntrainer: 'dash-panel-assigntrainer', assignlearner: 'dash-panel-assignlearner', enrolllearner: 'dash-panel-enrolllearner', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
+        var panelMap = { admin: 'dash-panel-admin', trainers: 'dash-panel-trainers', companysetting: 'dash-panel-companysetting', createclass: 'dash-panel-createclass', assigntrainer: 'dash-panel-assigntrainer', assignlearner: 'dash-panel-assignlearner', enrolllearner: 'dash-panel-enrolllearner', marketingnewsletter: 'dash-panel-marketing-newsletter', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
         var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-createclass','dash-panel-assigntrainer','dash-panel-assignlearner','dash-panel-enrolllearner'];
         for (var i=0; i<all.length; i++) { var el = document.getElementById(all[i]); if (el) el.style.display = 'none'; }
         var t = document.getElementById(panelMap[name] || panelMap.dashboard);
@@ -10574,6 +11438,16 @@ window.elSaveNewLearner = function() {
         if ((qsPanel === 'enroll_learner' || qsPanel === 'enrolllearner' || hash === '#enroll-learner')
             && (role === 'Admin' || role === 'Super Admin')) {
             showAdminSubPanel('enrolllearner');
+            return;
+        }
+        if ((qsPanel === 'marketing_newsletter' || qsPanel === 'marketingnewsletter' || hash === '#marketing-newsletter')
+            && (role === 'Marketing' || role === 'Admin' || role === 'Super Admin')) {
+            // Marketing newsletter panel — visible to Marketing role and
+            // higher. Use the same showAdminSubPanel hide/show machinery.
+            var panel = document.getElementById('dash-panel-marketing-newsletter');
+            var all = document.querySelectorAll('[id^="dash-panel-"]');
+            for (var i = 0; i < all.length; i++) all[i].style.display = 'none';
+            if (panel) panel.style.display = '';
             return;
         }
         if (qsFilter && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {

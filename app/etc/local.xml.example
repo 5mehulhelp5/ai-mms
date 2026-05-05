@@ -57,6 +57,21 @@
              027 ensures the table exists. Do not change to "files" without also
              configuring a persistent volume mount for /var/www/html/var/session. -->
         <session_save><![CDATA[db]]></session_save>
+        <!-- MMD Marketing newsletter builder.
+             Read by MMD_RoleManager_Helper_Data::getMarketingApiConfig().
+             Empty values flip the newsletter controller into stub mode
+             (mock Claude responses, MailerLite IDs prefixed STUB-) so the
+             admin UI works without real keys. Drop in real keys here when
+             ready and the same code paths go live. -->
+        <mmd_marketing>
+            <api>
+                <anthropic_key><![CDATA[]]></anthropic_key>
+                <anthropic_model><![CDATA[claude-sonnet-4-6]]></anthropic_model>
+                <mailerlite_key><![CDATA[]]></mailerlite_key>
+                <from_name><![CDATA[Tertiary Infotech Academy]]></from_name>
+                <from_email><![CDATA[noreply@tertiaryinfotech.com]]></from_email>
+            </api>
+        </mmd_marketing>
     </global>
     <admin>
         <routers>
