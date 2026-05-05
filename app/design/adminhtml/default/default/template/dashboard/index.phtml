@@ -2379,7 +2379,7 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
 
                 <div class="dcf-field">
                     <div class="dcf-label">Course Code</div>
-                    <input type="text" class="dcf-input" name="course_code" value="<?php echo htmlspecialchars($_editCourseData['sku']) ?>" style="font-family:monospace;letter-spacing:.5px;" placeholder="e.g. TGS-2024000102" />
+                    <input type="text" class="dcf-input" name="course_code" value="<?php echo htmlspecialchars($_editCourseData['sku']) ?>" style="font-family:monospace;letter-spacing:.5px;" placeholder="e.g. C432" />
                 </div>
 
                 <div class="dcf-field">
@@ -3226,7 +3226,7 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                         </table>
                     </div>
                     <div style="margin-top:14px;display:flex;gap:8px;align-items:center;">
-                        <input type="text" class="dcf-input" name="<?php echo $_gtInfo['name'] ?>_add_skus" placeholder="Add by SKU (comma-separated, e.g. TGS-2024001234, TGS-2024005678)" style="flex:1;" />
+                        <input type="text" class="dcf-input" name="<?php echo $_gtInfo['name'] ?>_add_skus" placeholder="Add by SKU (comma-separated, e.g. C432, M450)" style="flex:1;" />
                         <span style="color:#64748b;font-size:12px;">(adds on save)</span>
                     </div>
                 </div>
@@ -6420,7 +6420,7 @@ $cpPanels = array(
         'subtitle' => 'Basic course information and metadata',
         'fields' => array(
             array('type'=>'text','label'=>'Course Title','placeholder'=>'e.g. Autodesk Certified Professional (ACP) - AutoCAD'),
-            array('type'=>'text','label'=>'Course Reference Code','placeholder'=>'e.g. TGS-2023036004'),
+            array('type'=>'text','label'=>'Course Code','placeholder'=>'e.g. C432'),
             array('type'=>'row3','fields'=>array(
                 array('type'=>'text','label'=>'Duration (Hours)','placeholder'=>'e.g. 24'),
                 array('type'=>'select','label'=>'Mode of Training','options'=>array('Physical Classroom','Online/Virtual','Blended','Asynchronous e-Learning')),
@@ -7701,7 +7701,7 @@ button.cnc-btn-primary:hover{background:#3b82f6 !important;border-color:#3b82f6 
             <div class="cnc-row">
                 <div class="cnc-field cnc-field-full">
                     <label class="cnc-label" for="cnc-ref"><span class="cnc-req">*</span> Course Reference Number</label>
-                    <input type="text" id="cnc-ref" class="cnc-input" placeholder="Enter course code (e.g., TGS-2024001234)" required />
+                    <input type="text" id="cnc-ref" class="cnc-input" placeholder="Enter course code (e.g., C432)" required />
                     <div class="cnc-help">Enter the course code manually or select from available courses below</div>
                 </div>
             </div>
@@ -9658,7 +9658,6 @@ button.el-back-search:hover{color:#fff !important}
 .el-subhead{font-size:16px;font-weight:700;color:#fff;margin:22px 0 14px}
 .el-check{display:flex;align-items:center;gap:8px;color:#cbd5e1;font-size:14px;cursor:pointer;user-select:none}
 .el-check input[type="checkbox"]{width:16px;height:16px;cursor:pointer;accent-color:#3b82f6}
-.el-preview{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:18px 22px;color:#cbd5e1;font-family:'Cascadia Code','Menlo','Consolas',monospace;font-size:13px;line-height:1.5;margin:0;white-space:pre;overflow-x:auto}
 .el-foot{display:flex;justify-content:flex-end;gap:12px;margin-top:6px}
 button.el-btn-ghost,button.el-btn-ghost:hover,button.el-btn-ghost:focus{padding:11px 22px !important;background:transparent !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #334155 !important;border-radius:8px !important;font-size:14px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;line-height:normal !important}
 button.el-btn-ghost:hover{background:#1e293b !important}
@@ -9812,26 +9811,6 @@ button.el-btn-primary:hover{background:#1d4ed8 !important}
             <button type="button" class="el-btn-ghost" onclick="elHideAddProfile()">Cancel</button>
             <button type="button" class="el-btn-primary" onclick="elSaveNewLearner()">Save &amp; Enrol</button>
         </div>
-    </div>
-
-    <div class="el-card">
-        <h3 class="el-card-title">Training Partner Information</h3>
-        <div class="el-row">
-            <div>
-                <label class="el-field-label">Training Partner UEN<span class="req">*</span></label>
-                <input id="el-tp-uen" type="text" class="el-input" value="201200696W" oninput="elUpdatePreview()" />
-            </div>
-            <div>
-                <label class="el-field-label">Training Partner Code<span class="req">*</span></label>
-                <input id="el-tp-code" type="text" class="el-input" value="201200696W-01" oninput="elUpdatePreview()" />
-                <div class="el-helper">Code for the training partner conducting the course for which the trainee is enrolled</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="el-card">
-        <h3 class="el-card-title">Preview Request Body</h3>
-        <pre id="el-preview" class="el-preview"></pre>
     </div>
 
     <div class="el-foot">
@@ -10077,40 +10056,11 @@ window.elRemove = function(email) {
     });
 };
 
-// Build the SSG-format enrolment payload from the current form state
-// and the most-recently-added learner. Re-rendered live on any input.
-window.elBuildPayload = function() {
-    var courseCode = (document.getElementById('el-course-code').value || '').trim();
-    var runId      = (document.getElementById('el-run-id').value || '').trim();
-    var uen        = (document.getElementById('el-tp-uen').value || '').trim();
-    var tpCode     = (document.getElementById('el-tp-code').value || '').trim();
-    var list       = window._elState.list || [];
-    var trainee    = list.length ? list[list.length - 1] : null; // last enrolled
-    var today      = new Date();
-    var iso        = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
-    return {
-        enrolment: {
-            trainingPartner: { code: tpCode, uen: uen },
-            course:          { referenceNumber: courseCode, run: { id: runId } },
-            trainee: {
-                id: '',
-                idType:        { type: 'NRIC' },
-                fullName:      trainee ? trainee.name  : '',
-                dateOfBirth:   '',
-                emailAddress:  trainee ? trainee.email : '',
-                contactNumber: { countryCode: '+65', phoneNumber: '' },
-                enrolmentDate: iso,
-                sponsorshipType: 'INDIVIDUAL',
-                fees:          { discountAmount: 0, collectionStatus: 'Pending Payment' }
-            }
-        }
-    };
-};
-
-window.elUpdatePreview = function() {
-    var pre = document.getElementById('el-preview');
-    if (pre) pre.textContent = JSON.stringify(window.elBuildPayload(), null, 2);
-};
+// Preview-builder removed alongside the Training Partner / Preview
+// Request Body sections. Kept as a no-op so existing callsites
+// (elPickRun, elPickCourse, elRenderCurrent, elClearForm, etc.)
+// don't need editing.
+window.elUpdatePreview = function() {};
 
 window.elClearForm = function() {
     if (!confirm('Clear all fields?')) return;
