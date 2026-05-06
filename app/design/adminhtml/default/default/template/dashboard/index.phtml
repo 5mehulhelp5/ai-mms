@@ -43,7 +43,15 @@ $_trainerLocalCount = $_trainerTpgCount = $_unassignedTrainerCount = 0;
 $today = date('Y-m-d H:i:s');
 $trainerTable = $resource->getTableName('courses_trainers');
 
-if ($activeRole === 'admin'):
+// Tighter gate: when admin is viewing a sub-panel (Create New Class /
+// Assign Trainer / Assign Learner / Enroll Learner / View Trainers /
+// Configuration / Marketing Newsletter), the master-panel data is never
+// shown so we skip its ~12 queries entirely. Each sub-panel below has
+// its own self-contained data prep that runs independently.
+$_dashSubPanel = (string) Mage::app()->getRequest()->getParam('panel', '');
+$_dashOnAdminMaster = ($_dashSubPanel === '' || $_dashSubPanel === 'admin');
+
+if ($activeRole === 'admin' && $_dashOnAdminMaster):
 $attrMap = array();
 foreach ($read->fetchAll("SELECT attribute_id, attribute_code FROM eav_attribute WHERE entity_type_id=4 AND attribute_code IN ('name','software','news_from_date','news_to_date','status')") as $r) {
     $attrMap[$r['attribute_code']] = (int)$r['attribute_id'];
@@ -171,7 +179,7 @@ if ($_dashFilter !== '' && $startAid && $endAid) {
 }
 // Trainer counts surfaced on the Upcoming Classes view: Assigned / Unassigned.
 $_unassignedTrainerCount = max(0, ($_dashFilter === 'upcoming' ? $_dashFilterTotal : $upcomingCount) - $assignedLocal);
-endif; // end if ($activeRole === 'admin')
+endif; // end if ($activeRole === 'admin' && $_dashOnAdminMaster)
 
 // =====================================================================
 // DATA — View Trainers panel
@@ -182,7 +190,9 @@ $trainersTable = $resource->getTableName('courses_trainers');
 $tnTotal = $tnAclp = $tnNonAclp = 0;
 $trainerRows = array();
 
-if ($activeRole === 'admin' || $activeRole === 'training_provider'):
+// Only run when actually viewing the Trainers panel (the link in the sidebar
+// uses ?panel=trainers). Saves 4 queries on every other admin page load.
+if (($activeRole === 'admin' || $activeRole === 'training_provider') && $_dashSubPanel === 'trainers'):
 $tnTotal = (int)$read->fetchOne("SELECT COUNT(*) FROM {$trainersTable}");
 // Use trainer_type column if it exists, else fallback to estimate
 $_tnCols = array_flip($read->fetchCol("SHOW COLUMNS FROM {$trainersTable}"));

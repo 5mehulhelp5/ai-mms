@@ -19,6 +19,19 @@ services:
       # copy (Git for Windows can rewrite line endings to CRLF, breaking the
       # shebang). Same restart semantics — no rebuild needed.
       - ./docker/entrypoint.sh:/usr/local/bin/entrypoint.sh
+    tmpfs:
+      # Move Magento's runtime caches off the Windows bind mount and into
+      # in-container RAM. Bootstrap was reading ~5MB of small cache files
+      # over the Windows→Linux fs boundary on every request, which alone
+      # cost ~6s. tmpfs is RAM-backed so reads are essentially free; data
+      # is volatile but Magento rebuilds these on miss anyway. Production
+      # (Coolify's overlay fs on Linux) doesn't need this and uses the
+      # baked image path.
+      # mode=1777 = world-writable + sticky, so the www-data process can
+      # create cache files. Default tmpfs is root-owned 0755 → unwritable.
+      - /var/www/html/var/cache:mode=1777
+      - /var/www/html/var/full_page_cache:mode=1777
+      - /var/www/html/var/locks:mode=1777
     environment:
       - MAGE_IS_DEVELOPER_MODE=1
     depends_on:
