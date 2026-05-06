@@ -130,18 +130,40 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             $reply = $this->_callClaude($history, $templateKey, $cc, $coursePids, $images);
             $history[] = array('role' => 'assistant', 'content' => $reply['text'], 'ts' => time());
 
-            // Convert the reply into editable body_blocks. Simple split
-            // on blank lines into 3 chunks; admin can edit any. A fresh
-            // design_seed is stamped on every generate so each Send-to-AI
-            // re-rolls the palette + hero + card style; subsequent
-            // previews/saves reuse the same seed so the design is stable
-            // while the admin is editing.
-            $blocks = $this->_splitIntoBlocks($reply['text']);
-            $blocks['_design_seed'] = mt_rand(1, 2147483647);
+            // The response is structured as:
+            //   <chat acknowledgment>
+            //   ===NEWSLETTER===
+            //   <body block 1>
+            //
+            //   <body block 2>
+            //
+            //   <body block 3>
+            // Split on the marker so the chat pane shows a friendly
+            // acknowledgment while the body parser only sees the
+            // structured newsletter content.
+            $parsed = $this->_parseAssistantReply($reply['text']);
+            $blocks = $this->_splitIntoBlocks($parsed['body']);
+
+            // Design seed — by default deterministic from the picked
+            // course(s), so each course gets its own consistent visual
+            // identity (same palette + hero + card style every time you
+            // open it). When the admin explicitly asks for a different
+            // look ("change the colors", "new design", "re-roll"), we
+            // pick a fresh random seed instead.
+            if ($this->_looksLikeDesignReroll($prompt) || empty($coursePids)) {
+                $blocks['_design_seed'] = mt_rand(1, 2147483647);
+            } else {
+                $sorted = $coursePids;
+                sort($sorted);
+                $seed = (int) (crc32(implode(',', $sorted)) & 0x7fffffff);
+                $blocks['_design_seed'] = $seed > 0 ? $seed : 1;
+            }
 
             $result['success']      = true;
-            $result['reply']        = $reply['text'];
+            $result['reply']        = $reply['text']; // raw, kept for compat
+            $result['ack']          = $parsed['ack']; // chat-pane acknowledgment
             $result['body_blocks']  = $blocks;
+            $result['has_body']     = $parsed['has_body'];
             $result['chat_history'] = $history;
             $result['stubbed']      = !empty($reply['stubbed']);
         } catch (Exception $e) {
@@ -261,6 +283,32 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             $html = $this->_renderTemplate($templateKey, $title, $subject, $previewText, $blocks, $coursePids, $cc, $images);
             $result['success'] = true;
             $result['html']    = $html;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        return $this->_json($result);
+    }
+
+    public function deleteDraftAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $cc = $this->_currentCountry();
+            $newsletterId = (int) $this->getRequest()->getParam('newsletter_id');
+            if ($newsletterId <= 0) throw new Exception('newsletter_id required');
+
+            // Country-scope guard so admin.my can't delete admin.gh's drafts.
+            $owner = (string) $this->_db('read')->fetchOne(
+                "SELECT country_code FROM " . $this->_tbl() . " WHERE newsletter_id = ?",
+                array($newsletterId)
+            );
+            if ($owner === '') throw new Exception('Draft not found');
+            if ($owner !== $cc) throw new Exception('Cross-country delete blocked');
+
+            $this->_db('write')->delete($this->_tbl(), array('newsletter_id = ?' => $newsletterId));
+            $result['success']       = true;
+            $result['newsletter_id'] = $newsletterId;
         } catch (Exception $e) {
             $result['message'] = $e->getMessage();
         }
@@ -519,24 +567,29 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                 . "rather than fabricate. On revise turns the admin's "
                 . "feedback overrides — keep the same course facts and just "
                 . "rework the copy.\n\n"
-                . "Write friendly, on-brand email-newsletter copy in plain "
-                . "text (no HTML, no markdown headings). Output is split "
-                . "into THREE blocks separated by a single blank line, in "
-                . "this exact order:\n\n"
-                . "BLOCK 1 — Tagline (1 short, punchy line, max ~14 words). "
-                . "Renders as a yellow highlighted strip under the headline. "
-                . "Should reflect the course's actual value proposition.\n"
-                . "BLOCK 2 — 2 to 4 key takeaways drawn from the course's "
+                . "Your output MUST be in this exact format:\n\n"
+                . "<one or two short sentences acknowledging what the admin "
+                . "asked for and what you changed — like a chat assistant. "
+                . "No greetings ('Hi!'), no sign-offs. Reference specific "
+                . "facts you used from the course data (course name, price, "
+                . "dates) so the admin can see you're working from real "
+                . "catalog values.>\n\n"
+                . "===NEWSLETTER===\n\n"
+                . "<BLOCK 1 — Tagline: 1 short, punchy line, max ~14 words. "
+                . "Renders as a yellow highlighted strip. Reflect the "
+                . "course's actual value proposition.>\n\n"
+                . "<BLOCK 2 — 2 to 4 key takeaways drawn from the course's "
                 . "description / learning outcomes, ONE PER LINE, no bullets "
                 . "/ numbers / asterisks (the template numbers them). Each "
                 . "line ≤12 words. Phrase as outcomes ('Design leadership "
-                . "programs', 'Apply DISC at work').\n"
-                . "BLOCK 3 — Pricing rows in 'Label | Price' format, one per "
-                . "line (max 3). Use prices from the course data if present, "
-                . "otherwise omit this block entirely.\n\n"
-                . "When the admin attaches reference images, treat them as "
-                . "design / brand cues and echo their tone in the copy. "
-                . "Template style: {$templateKey}.";
+                . "programs', 'Apply DISC at work').>\n\n"
+                . "<BLOCK 3 — Pricing rows in 'Label | Price' format, one "
+                . "per line (max 3). Use prices from the course data if "
+                . "present, otherwise omit this block entirely.>\n\n"
+                . "Write friendly, on-brand email-newsletter copy in plain "
+                . "text (no HTML, no markdown headings). When the admin "
+                . "attaches reference images, treat them as design / brand "
+                . "cues and echo their tone in the copy. Template: {$templateKey}.";
 
         // Convert internal history shape → Anthropic API shape. Each turn
         // can carry images (initial brief or later attachments). When a
@@ -646,41 +699,77 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                         (SELECT t.value FROM catalog_product_entity_text t
                             INNER JOIN eav_attribute a ON a.attribute_id=t.attribute_id
                             WHERE t.entity_id=e.entity_id AND a.attribute_code='short_description' AND t.store_id=0 LIMIT 1) AS short_desc,
+                        (SELECT t.value FROM catalog_product_entity_text t
+                            INNER JOIN eav_attribute a ON a.attribute_id=t.attribute_id
+                            WHERE t.entity_id=e.entity_id AND a.attribute_code='whoshouldattend' AND t.store_id=0 LIMIT 1) AS whoshouldattend,
+                        (SELECT t.value FROM catalog_product_entity_text t
+                            INNER JOIN eav_attribute a ON a.attribute_id=t.attribute_id
+                            WHERE t.entity_id=e.entity_id AND a.attribute_code='prerequisite' AND t.store_id=0 LIMIT 1) AS prerequisite,
+                        (SELECT t.value FROM catalog_product_entity_text t
+                            INNER JOIN eav_attribute a ON a.attribute_id=t.attribute_id
+                            WHERE t.entity_id=e.entity_id AND a.attribute_code='trainerprofile' AND t.store_id=0 LIMIT 1) AS trainerprofile,
+                        (SELECT v.value FROM catalog_product_entity_varchar v
+                            INNER JOIN eav_attribute a ON a.attribute_id=v.attribute_id
+                            WHERE v.entity_id=e.entity_id AND a.attribute_code='duration' AND v.store_id=0 LIMIT 1) AS duration,
                         (SELECT pd.value FROM catalog_product_entity_decimal pd
                             INNER JOIN eav_attribute pa ON pa.attribute_id=pd.attribute_id
-                            WHERE pd.entity_id=e.entity_id AND pa.attribute_code='price' AND pd.store_id=0 LIMIT 1) AS price
+                            WHERE pd.entity_id=e.entity_id AND pa.attribute_code='price' AND pd.store_id=0 LIMIT 1) AS price,
+                        (SELECT d.value FROM catalog_product_entity_datetime d
+                            WHERE d.entity_id=e.entity_id AND d.attribute_id=86 AND d.store_id=0 LIMIT 1) AS start_date,
+                        (SELECT d.value FROM catalog_product_entity_datetime d
+                            WHERE d.entity_id=e.entity_id AND d.attribute_id=87 AND d.store_id=0 LIMIT 1) AS end_date
                  FROM catalog_product_entity e WHERE e.entity_id = ?",
                 array($pid)
             );
         }
         $primary = ($course && !empty($course['name'])) ? trim($course['name']) : 'This Course';
 
-        // BLOCK 1 — tagline. Pulls cues from the latest user feedback on
-        // revise turns so the visible output actually shifts ("shorter",
-        // "exciting", etc. produce different copy).
+        // Special case — no course picked. Acknowledge with a chat-only
+        // message and skip the body update so the existing newsletter
+        // (or empty preview) stays put. The marker is present but the
+        // body section is empty, which the parser reads as "chat-only".
+        if (empty($course)) {
+            return "I can't fill in real details until you pick a course. "
+                 . "Use the Featured Courses search above to pick one, "
+                 . "then send your message again — I'll pull the actual "
+                 . "learning outcomes, dates, and price straight from the "
+                 . "catalog.\n\n===NEWSLETTER===\n\n";
+        }
+
+        // Detect whether the latest message has explicit feedback cues
+        // (shorter, more detail, exciting, casual, …). If it does, treat
+        // it as a refinement instruction even on the first turn, so the
+        // visible output shifts whenever the admin asks it to.
+        $feedback = $isRevise || $this->_looksLikeFeedback($latestUser);
+
+        // BLOCK 1 — tagline. Adapts to feedback cues; otherwise course
+        // name based.
         $tagline = "Master " . $this->_titleCase($primary) . " And Take The Next Step";
-        if ($isRevise) {
+        if ($feedback) {
             $tagline = $this->_applyToneFeedback($tagline, $latestUser, $primary);
         }
 
-        // BLOCK 2 — bullets extracted from real course data. Tells the
-        // recipient what they will learn / what to expect. Brief is NOT
-        // used as content — but on revise turns we reshape the list
-        // (drop / shorten / reorder) based on the feedback so each turn
-        // visibly differs.
-        $bullets = $this->_extractCourseOutcomes($course);
+        // BLOCK 2 — bullets extracted from real course data. "More /
+        // detail / expand" feedback widens the extraction (longer
+        // outcomes, more sentences) so the recipient genuinely sees
+        // more information. Other feedback keywords (shorter, reorder,
+        // …) reshape the list.
+        $wantMore = (bool) preg_match('/\b(more|expand|detail|longer|fuller|deeper|elaborate|further)\b/iu', (string) $latestUser);
+        $bullets  = $this->_extractCourseOutcomes($course, $wantMore ? 7 : 4);
         if (count($bullets) < 2) {
-            $bullets = array(
-                "Hands-on, practical {$primary} skills",
-                "Real-world examples and exercises",
-                "Industry-relevant techniques",
-                "Certificate of completion",
-            );
+            $bullets = $this->_buildFallbackBullets($course, $primary, $wantMore);
         }
-        $bullets = array_slice($bullets, 0, 4);
-        if ($isRevise) {
+        $bullets = array_slice($bullets, 0, $wantMore ? 6 : 4);
+        if ($feedback) {
             $bullets = $this->_applyBulletFeedback($bullets, $latestUser);
         }
+        // Inject specific catalog content based on what the admin asked
+        // for ("add target audience", "add trainer info", "early-bird",
+        // …). This is what makes "the changes actually appear" — each
+        // keyword pulls the matching field out of the catalog and
+        // surfaces it as a new bullet at the top of the list.
+        $bullets = $this->_applyContentInjections($bullets, $latestUser, $course);
+        $bullets = array_slice($bullets, 0, $wantMore ? 6 : 4);
 
         // BLOCK 3 — pricing from the real catalog price. We only have
         // the full course fee in the catalog, so the stub shows that one
@@ -691,7 +780,163 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                       . number_format((float) $course['price'], 2);
         }
 
-        return implode("\n\n", $blocks);
+        // Wrap with an ACK + marker so the chat pane shows a chatbot-
+        // style acknowledgment while the body parser only sees the
+        // structured newsletter.
+        $ack = $this->_buildStubAck($latestUser, $course, $isRevise);
+        $body = implode("\n\n", $blocks);
+        return $ack . "\n\n===NEWSLETTER===\n\n" . $body;
+    }
+
+    /**
+     * Build a chatbot-style acknowledgment line for the stub. Maps
+     * common admin instructions to a one-liner that names the actual
+     * catalog facts used, so demo mode reads like a real assistant
+     * rather than dumping raw newsletter content.
+     */
+    protected function _buildStubAck($feedback, $course, $isRevise)
+    {
+        $name      = trim($course['name']);
+        $intents   = $this->_detectIntents($feedback);
+        $isQ       = $this->_isQuestion($feedback);
+        $isRemoval = in_array('remove', $intents, true);
+        $hasPrice  = isset($course['price']) && (float) $course['price'] > 0;
+        $price     = $hasPrice ? '$' . number_format((float) $course['price'], 2) : '';
+
+        // Explicit design re-roll — admin asked for different colours
+        // or a fresh design. The seed change happens server-side in
+        // generateAction; here we just acknowledge.
+        if ($this->_looksLikeDesignReroll($feedback)) {
+            return "Re-rolled the design — fresh palette, hero treatment, and card style. Each course has its own default look, but you can ask for another shuffle anytime.";
+        }
+
+        // Help — list what kinds of instructions actually work.
+        if (in_array('help', $intents, true)) {
+            return "I can pull these straight from the catalog — try messages like:\n"
+                 . "• \"add the cost\" / \"how much is it?\"\n"
+                 . "• \"who should attend?\" / \"add target audience\"\n"
+                 . "• \"add the trainer profile\" / \"who teaches it?\"\n"
+                 . "• \"how long is the course?\" / \"add duration\"\n"
+                 . "• \"add WSQ funding info\" / \"is it claimable?\"\n"
+                 . "• \"include the certification\"\n"
+                 . "• \"make it shorter\" / \"trim the fluff\"\n"
+                 . "• \"give more information\" / \"flesh it out\"\n"
+                 . "• \"make it more exciting\" / \"spice it up\"\n"
+                 . "• \"more casual tone\" / \"sound friendlier\"\n"
+                 . "• \"add early-bird discount\"\n"
+                 . "• \"take out the trainer\" / \"remove the certification\"";
+        }
+
+        // Reset
+        if (in_array('reset', $intents, true)) {
+            return "Click **+ New Newsletter** in the top-right to start a fresh draft. Your existing draft is saved if you want to come back to it.";
+        }
+
+        // Removal — say what was dropped
+        if ($isRemoval) {
+            $removed = array();
+            $labels = array(
+                'add_audience' => 'target audience', 'add_trainer' => 'trainer profile',
+                'add_earlybird' => 'early-bird hook', 'add_duration' => 'duration line',
+                'add_prereq' => 'prerequisites', 'add_certification' => 'certification line',
+                'add_beginner' => 'beginner-friendly note', 'add_advanced' => 'advanced-level note',
+                'add_handson' => 'hands-on note', 'add_funding' => 'funding eligibility',
+                'add_dates' => 'next-intake bullet', 'add_cost' => 'cost bullet',
+            );
+            foreach ($intents as $i) {
+                if (isset($labels[$i])) $removed[] = $labels[$i];
+            }
+            if (!empty($removed)) {
+                return "Removed " . implode(' and ', $removed) . " from the bullets.";
+            }
+            return "Removed the highlighted item from the bullets.";
+        }
+
+        // Question forms — answer the question conversationally.
+        if ($isQ) {
+            if (in_array('add_cost', $intents, true)) {
+                return $hasPrice
+                    ? "The course fee is {$price} (Incl. GST). I've made sure the pricing block reflects that."
+                    : "There's no price set on this course in the catalog yet — so the pricing block is empty until one is added.";
+            }
+            if (in_array('add_duration', $intents, true) && !empty($course['duration'])) {
+                $hrs = rtrim(rtrim(trim($course['duration']), '0'), '.');
+                return "It's a {$hrs}-hour programme. I've added that to the bullets.";
+            }
+            if (in_array('add_dates', $intents, true) && !empty($course['start_date'])) {
+                return "Next intake is " . date('j M Y', strtotime($course['start_date'])) . ". The dates already show in the header banner; I've also added a bullet.";
+            }
+            if (in_array('add_trainer', $intents, true) && !empty($course['trainerprofile'])) {
+                if (preg_match('/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\b/', $course['trainerprofile'], $m)) {
+                    return "Led by {$m[1]}, a certified industry trainer. I've added a trainer bullet.";
+                }
+            }
+            if (in_array('add_audience', $intents, true) && !empty($course['whoshouldattend'])) {
+                $aud = trim(preg_replace('/\s+/', ' ', strip_tags($course['whoshouldattend'])));
+                $words = preg_split('/\s+/', $aud);
+                $tag = implode(', ', array_slice($words, 0, 4));
+                return "It's aimed at {$tag} and similar roles. Added a 'Designed for' bullet.";
+            }
+            if (in_array('add_certification', $intents, true)) {
+                return "Yes — a Certificate of Completion is awarded by Tertiary Infotech Academy. Added it to the bullets.";
+            }
+            if (in_array('add_beginner', $intents, true)) {
+                return "Yes — it's beginner-friendly with no prior experience needed. Added a beginner bullet.";
+            }
+            if (in_array('add_advanced', $intents, true)) {
+                return "It's pitched at advanced practitioners and senior professionals. Added a level bullet.";
+            }
+            if (in_array('add_funding', $intents, true)) {
+                return "Yes — WSQ subsidy, SkillsFuture Credit, and UTAP funding all apply. Added a funding bullet.";
+            }
+            if (in_array('add_prereq', $intents, true)) {
+                return !empty($course['prerequisite'])
+                    ? "Open to working professionals with relevant experience. Added a prerequisites bullet."
+                    : "No formal prerequisites — just motivation. Added a 'no prereqs' bullet.";
+            }
+            if (in_array('add_handson', $intents, true)) {
+                return "Yes — there are hands-on labs and real-world exercises throughout. Added a hands-on bullet.";
+            }
+            // Generic question → still acknowledge
+            return "Pulled the relevant detail from the catalog and worked it into the newsletter.";
+        }
+
+        // Tone / structure intents — order matters when multiple
+        // intents match (e.g. "more fun" hits both tone_long and
+        // tone_exciting). Most-specific tone wins.
+        if (in_array('tone_exciting', $intents, true)) return "Made the tagline more energetic and the cards visually punchier.";
+        if (in_array('tone_casual', $intents, true))   return "Switched to a friendlier, more conversational tone.";
+        if (in_array('tone_formal', $intents, true))   return "Dialled the tone up to professional / formal.";
+        if (in_array('tone_short', $intents, true))    return "Tightened the newsletter — fewer bullets, shorter tagline.";
+        if (in_array('tone_long', $intents, true))     return "Expanded the bullets with more learning outcomes from the course description.";
+        if (in_array('tone_reorder', $intents, true))  return "Reordered the bullets.";
+
+        // Content intents — declarative form
+        if (in_array('add_cost', $intents, true)) {
+            return $hasPrice
+                ? "Done — pulled the course fee from the catalog ({$price} Incl. GST) and made sure it's in the pricing block."
+                : "There's no price on this course in the catalog yet — add one to the product and I'll pick it up.";
+        }
+        if (in_array('add_earlybird', $intents, true))      return "Added an early-bird hook to the tagline and a 'limited seats' bullet.";
+        if (in_array('add_dates', $intents, true)) {
+            $d = !empty($course['start_date']) ? ' (' . date('j M Y', strtotime($course['start_date'])) . ')' : '';
+            return "The class date from the catalog{$d} now appears as a bullet, and it's also rendered in the header / CTA bands by the template.";
+        }
+        if (in_array('add_trainer', $intents, true))        return "Referenced the trainer profile from the catalog as a new bullet.";
+        if (in_array('add_audience', $intents, true))       return "Pulled the target audience from the catalog and added a 'Designed for' bullet.";
+        if (in_array('add_duration', $intents, true))       return "Added the course duration from the catalog as a bullet.";
+        if (in_array('add_certification', $intents, true))  return "Added the Certificate of Completion line.";
+        if (in_array('add_funding', $intents, true))        return "Added a WSQ / SkillsFuture / UTAP funding-eligible bullet.";
+        if (in_array('add_prereq', $intents, true))         return "Added a prerequisites bullet drawn from the catalog.";
+        if (in_array('add_beginner', $intents, true))       return "Added a 'beginner-friendly' bullet so first-timers feel welcome.";
+        if (in_array('add_advanced', $intents, true))       return "Pitched the bullets at advanced practitioners.";
+        if (in_array('add_handson', $intents, true))        return "Added a hands-on / workshop bullet.";
+
+        // Last resort
+        if ($isRevise || in_array('generic_edit', $intents, true)) {
+            return "Updated the newsletter based on your feedback for {$name}.";
+        }
+        return "Drafted the newsletter for {$name} using the catalog details.";
     }
 
     /**
@@ -730,7 +975,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
     protected function _applyBulletFeedback(array $bullets, $feedback)
     {
         $f = mb_strtolower($feedback);
-        if (preg_match('/\b(short|shorter|concise|brief|fewer|less)\b/u', $f)) {
+        if (preg_match('/\b(short|shorter|concise|brief|fewer|less|terse)\b/u', $f)) {
             // Trim to top 2 and shorten each.
             $bullets = array_slice($bullets, 0, 2);
             foreach ($bullets as &$b) {
@@ -742,12 +987,12 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         if (preg_match('/\b(reorder|reorganis|rearrang|swap|flip)\b/u', $f)) {
             return array_reverse($bullets);
         }
-        if (preg_match('/\b(more|expand|detail|longer|fuller)\b/u', $f)) {
-            // Already capped at 4 from extraction — surface the longer
-            // catalog sentences if available by re-running extraction
-            // without the length cap. (Falls back to reverse order if
-            // we can't fetch.)
-            return array_reverse($bullets);
+        // "more / detail / expand" was already handled by passing a
+        // higher $max to _extractCourseOutcomes (longer length cap +
+        // up to 6 bullets), so the list is already richer here. We
+        // just keep it as-is rather than reversing arbitrarily.
+        if (preg_match('/\b(more|expand|detail|longer|fuller|deeper|elaborate|further)\b/u', $f)) {
+            return $bullets;
         }
         // Default revise: rotate the list so the order visibly differs.
         if (count($bullets) > 1) {
@@ -759,42 +1004,46 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
 
     /**
      * Pull "what you'll learn" bullets out of a course's full
-     * description. Tries three strategies in order:
-     *   1. "LO1:", "LO2:", "LO3:" labelled lines (already outcome-shaped)
-     *   2. Sentences containing outcome verbs (learn, design, apply, …)
-     *   3. Any short sentence in the description
+     * description. When `$max` is high (7+) the length cap is relaxed
+     * so longer outcomes survive — used when the admin asks for "more
+     * information" / "more detail" so the bullets actually expand
+     * rather than just rearrange.
      */
-    protected function _extractCourseOutcomes($course)
+    protected function _extractCourseOutcomes($course, $max = 4)
     {
         $out = array();
         if (empty($course)) return $out;
 
-        $desc = !empty($course['description'])
-            ? (string) $course['description']
-            : (string) (isset($course['short_desc']) ? $course['short_desc'] : '');
-        $clean = trim(preg_replace('/\s+/', ' ', strip_tags($desc)));
+        // Combine description + short_description so we have more text
+        // to work with on courses where one field is sparse.
+        $parts = array();
+        if (!empty($course['description'])) $parts[] = (string) $course['description'];
+        if (!empty($course['short_desc']))  $parts[] = (string) $course['short_desc'];
+        if (empty($parts)) return $out;
+        $clean = trim(preg_replace('/\s+/', ' ', strip_tags(implode(' ', $parts))));
         if ($clean === '') return $out;
+
+        $cap = $max >= 7 ? 160 : 110;
 
         // Strategy 1 — LO1:/LO2:/LO3: structured outcomes.
         if (preg_match_all('/LO\d+\s*:?\s*([^.]+?)(?=\s*LO\d+\s*:|\.|$)/i', $clean, $m)) {
             foreach ($m[1] as $line) {
                 $line = trim($line, " \t.;,:");
-                if (mb_strlen($line) >= 12 && mb_strlen($line) <= 110) {
+                if (mb_strlen($line) >= 12 && mb_strlen($line) <= $cap) {
                     $out[] = $line;
                 }
             }
         }
-        if (count($out) >= 2) return array_slice($out, 0, 4);
-        $out = array();
+        if (count($out) >= 2) return array_slice($out, 0, $max);
 
         // Strategy 2 — outcome-verb sentences.
-        $verbs = '\b(learn|understand|apply|design|build|develop|master|deploy|create|use|implement|analy[sz]e|evaluate|optimi[sz]e|leverage|configure|set up|integrate)\b';
+        $verbs = '\b(learn|understand|apply|design|build|develop|master|deploy|create|use|implement|analy[sz]e|evaluate|optimi[sz]e|leverage|configure|set up|integrate|explore|discover|gain|acquire)\b';
         foreach (preg_split('/(?<=[.!?])\s+/', $clean) as $s) {
             $s = rtrim(trim($s), '.!?,;:');
-            if (mb_strlen($s) < 14 || mb_strlen($s) > 100) continue;
+            if (mb_strlen($s) < 14 || mb_strlen($s) > $cap) continue;
             if (preg_match('/' . $verbs . '/i', $s)) {
                 $out[] = $s;
-                if (count($out) >= 4) break;
+                if (count($out) >= $max) break;
             }
         }
         if (count($out) >= 2) return $out;
@@ -803,12 +1052,359 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         // Strategy 3 — any short sentence as last resort.
         foreach (preg_split('/(?<=[.!?])\s+/', $clean) as $s) {
             $s = rtrim(trim($s), '.!?,;:');
-            if (mb_strlen($s) >= 14 && mb_strlen($s) <= 95) {
+            if (mb_strlen($s) >= 14 && mb_strlen($s) <= $cap) {
                 $out[] = $s;
-                if (count($out) >= 4) break;
+                if (count($out) >= $max) break;
             }
         }
         return $out;
+    }
+
+    /**
+     * Detect whether a user message looks like an instruction to
+     * refine the newsletter (vs the original brief). When yes, we
+     * apply the tone / bullet feedback transformations even on the
+     * first turn so chat composer messages always produce a visible
+     * change.
+     */
+    protected function _looksLikeFeedback($text)
+    {
+        return !empty($this->_detectIntents($text));
+    }
+
+    /**
+     * Central catalog of natural-language cues mapped to intent codes.
+     * Imperative ("add X"), interrogative ("what's X?"), polite
+     * ("could you add X"), and informal ("toss in X") forms all live
+     * here so a single keyword list drives intent detection, content
+     * injection, and the chat acknowledgment.
+     */
+    protected function _intentMap()
+    {
+        return array(
+            // === Content intents — each maps to a catalog field injection ===
+            'add_audience' => array(
+                'audience', 'attend', 'target', 'demographic',
+                'who should', 'who is this', 'who is it', 'who can',
+                'who are the', 'who comes', 'right for', 'meant for',
+                'designed for', 'good fit', 'best for',
+            ),
+            'add_trainer' => array(
+                'trainer', 'instructor', 'teacher', 'lecturer', 'faculty',
+                'who teaches', 'who is teaching', 'who will teach',
+                'profile of', 'tell me about the', 'expert',
+            ),
+            'add_cost' => array(
+                'cost', 'price', 'fee', 'pricing', 'how much',
+                'what does it cost', 'total', 'amount', 'expense',
+            ),
+            'add_duration' => array(
+                'duration', 'how long', 'length', 'hour', 'how many hour',
+                'time commit', 'days', 'weeks',
+            ),
+            'add_certification' => array(
+                'certif', 'credential', 'badge', 'qualif', 'accredit',
+                'recogni', 'what do i get', 'completion award',
+            ),
+            'add_funding' => array(
+                'wsq', 'skillsfuture', 'utap', 'funding', 'subsidy', 'subsidi',
+                'sponsor', 'grant', 'claimable', 'reimburs',
+            ),
+            'add_dates' => array(
+                'next intake', 'upcoming', 'when does', 'when is', 'when will',
+                'class date', 'schedule', 'start date', 'next session',
+                'when can i', 'next class',
+            ),
+            'add_prereq' => array(
+                'prerequis', 'requirement', 'background', 'prior experience',
+                'pre-req', 'do i need', 'need to know', 'before i',
+            ),
+            'add_beginner' => array(
+                'beginner', 'novice', 'newcomer', 'no experience',
+                'entry level', 'first time', 'starter', 'never done',
+                'new to this', 'fresh', 'introductor',
+            ),
+            'add_advanced' => array(
+                'advanced', 'experienced', 'senior', 'expert level',
+                'pro level', 'deep dive',
+            ),
+            'add_handson' => array(
+                'hands-on', 'hands on', 'practical', 'workshop',
+                'lab', 'exercise', 'activity', 'do-it-yourself',
+                'in practice', 'real-world',
+            ),
+            'add_earlybird' => array(
+                'early bird', 'early-bird', 'discount', 'promo', 'deal',
+                'save money', 'save now', 'save before', 'offer', 'special',
+                'limited time', 'reduced rate',
+            ),
+
+            // === Tone / structure intents ===
+            'tone_short' => array(
+                'shorter', 'short', 'brief', 'concise', 'terse',
+                'tighten', 'trim', 'cut down', 'less wordy', 'snappier',
+                'cut the fluff', 'cut to the chase', 'compact',
+            ),
+            'tone_long' => array(
+                'longer', ' more', 'expand', 'elaborate', 'fuller',
+                'deeper', 'further', 'flesh out', 'beef up', 'pad out',
+                'in detail', 'more detail', 'more info', 'additional info',
+            ),
+            'tone_exciting' => array(
+                'exciting', 'energetic', 'punchy', 'bold', 'hype',
+                'spice', 'pop ', 'wow factor', 'eye-catching', 'engaging',
+                'jazz', 'lively', 'vibrant', 'more fun',
+            ),
+            'tone_casual' => array(
+                'casual', 'friendly', 'warm', 'inviting', 'relaxed',
+                'conversational', 'approachable', 'down to earth',
+            ),
+            'tone_formal' => array(
+                'formal', 'corporate', 'serious', 'professional',
+                'businesslike', 'polished', 'sophisticated',
+            ),
+            'tone_reorder' => array(
+                'reorder', 'rearrang', 'swap', 'flip',
+                'put first', 'move to top', 'move to bottom', 'switch order',
+            ),
+
+            // === Removal intent (inverse of add) ===
+            'remove' => array(
+                'remove', 'take out', 'drop the', 'delete',
+                'get rid of', 'lose the', 'omit', 'skip the',
+                'don\'t include', 'no need for', 'leave out', 'cut out',
+            ),
+
+            // === Meta intents ===
+            'help' => array(
+                'help', 'what can you', 'what can i ask', 'how do i',
+                'how does this', 'guide me', 'show me how', 'examples of',
+                'i don\'t know', 'not sure what', 'how to use',
+                'lost', 'stuck',
+            ),
+            'reset' => array(
+                'start over', 'reset', 'begin again', 'fresh start',
+                'scrap', 'discard', 'try again',
+            ),
+            'generic_edit' => array(
+                'change', 'update', 'tweak', 'revise', 'rewrite',
+                'adjust', 'improve', 'add', 'include', 'mention',
+                'highlight', 'emphasi', 'show', 'feature', 'bring out',
+                'make it', 'make this',
+            ),
+        );
+    }
+
+    /**
+     * Run intent detection against a user message. Returns a list of
+     * matched intent codes (de-duplicated, preserves first-match order).
+     */
+    protected function _detectIntents($text)
+    {
+        $f = mb_strtolower($this->_normalizeFeedback($text));
+        if ($f === '') return array();
+        $hits = array();
+        foreach ($this->_intentMap() as $intent => $cues) {
+            foreach ($cues as $c) {
+                if (mb_stripos($f, $c) !== false) {
+                    $hits[$intent] = true;
+                    break;
+                }
+            }
+        }
+        return array_keys($hits);
+    }
+
+    /**
+     * Detect whether the message is phrased as a direct question (so
+     * the chat ack should answer it rather than say "added X to the
+     * newsletter"). Catches "what is...", "how long...", "who is...",
+     * trailing "?", etc.
+     */
+    /**
+     * Detect whether the admin explicitly wants to re-roll the visual
+     * design (palette / hero / card style). Default behaviour stays
+     * course-deterministic — each course has its own consistent look.
+     * Saying any of these phrases overrides that and picks a fresh
+     * random seed.
+     */
+    protected function _looksLikeDesignReroll($text)
+    {
+        $f = mb_strtolower((string) $text);
+        $cues = array(
+            'different design', 'different colour', 'different color',
+            'change the design', 'change the colour', 'change the color',
+            'change the palette', 'change palette', 'change colors',
+            'change colours', 'new look', 'new design', 'new colour',
+            'new color', 'new palette', 'fresh design', 'fresh look',
+            're-roll', 'reroll', 'shuffle the design', 'shuffle palette',
+            'try a different', 'another design', 'switch design',
+            'switch the design', 'redesign',
+        );
+        foreach ($cues as $c) {
+            if (mb_stripos($f, $c) !== false) return true;
+        }
+        return false;
+    }
+
+    protected function _isQuestion($text)
+    {
+        $t = trim($this->_normalizeFeedback($text));
+        if ($t === '') return false;
+        if (substr($t, -1) === '?') return true;
+        $lower = mb_strtolower($t);
+        $starters = array('what ', 'who ', 'when ', 'where ', 'why ', 'how ',
+                          'is ', 'are ', 'do ', 'does ', 'should ');
+        foreach ($starters as $s) {
+            if (mb_substr($lower, 0, mb_strlen($s)) === $s) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Strip common polite prefixes ("could you please…", "would you
+     * mind…", "please…") so the underlying intent surfaces. Without
+     * this, "would you mind shortening" gets classed as a question
+     * and never reaches the tone_short intent.
+     */
+    protected function _normalizeFeedback($text)
+    {
+        $t = trim((string) $text);
+        if ($t === '') return $t;
+        $patterns = array(
+            '/^(can|could|would|will)\s+(you|we)(\s+please)?(\s+kindly)?(\s+mind)?\s+/iu',
+            '/^(would|do)\s+you\s+mind\s+/iu',
+            '/^please\s+(could|can|would|will)?\s*(you|we)?\s*/iu',
+            '/^kindly\s+/iu',
+            '/^i\s+(want|would like|need|wish|\'d like)\s+(you\s+)?to\s+/iu',
+            '/^let\'s\s+/iu',
+        );
+        foreach ($patterns as $p) {
+            $next = preg_replace($p, '', $t);
+            if ($next !== null && $next !== $t) { $t = $next; break; }
+        }
+        return trim($t);
+    }
+
+    /**
+     * When the admin asks for specific content ("add who should
+     * attend", "add the trainer", "early-bird", etc.), pull the
+     * matching field out of the catalog and inject it at the top of
+     * the bullets list. This is what makes feedback actually visibly
+     * change the newsletter content rather than just rotating the
+     * tagline / palette.
+     */
+    protected function _applyContentInjections(array $bullets, $feedback, $course)
+    {
+        if (empty($course)) return $bullets;
+        $intents = $this->_detectIntents($feedback);
+        $isRemoval = in_array('remove', $intents, true);
+
+        // Map intent codes to bullet phrases (or callbacks that need
+        // catalog data). Each phrase is the canonical line we'd inject
+        // — when the intent is "remove" instead of "add", we strip any
+        // existing bullet matching the same canonical content.
+        $byIntent = array();
+
+        if (!empty($course['whoshouldattend'])) {
+            $aud = trim(preg_replace('/\s+/', ' ', strip_tags($course['whoshouldattend'])));
+            if ($aud !== '') {
+                $words = preg_split('/\s+/', $aud);
+                $tag = implode(' ', array_slice($words, 0, 5));
+                $byIntent['add_audience'] = "Designed for: " . rtrim($tag, ',');
+            }
+        }
+        if (!empty($course['trainerprofile'])) {
+            $tp = trim(preg_replace('/\s+/', ' ', strip_tags($course['trainerprofile'])));
+            if ($tp !== '' && preg_match('/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\b/', $tp, $m)) {
+                $byIntent['add_trainer'] = "Led by " . $m[1] . " — certified industry trainer";
+            } elseif ($tp !== '') {
+                $byIntent['add_trainer'] = "Led by certified industry-experienced trainers";
+            }
+        }
+        $byIntent['add_earlybird'] = "Limited early-bird seats — register now to save";
+        if (!empty($course['duration'])) {
+            $hrs = rtrim(rtrim(trim($course['duration']), '0'), '.');
+            if ($hrs !== '') $byIntent['add_duration'] = "Comprehensive {$hrs}-hour programme";
+        }
+        $byIntent['add_prereq']        = !empty($course['prerequisite'])
+            ? "Open to working professionals with relevant experience"
+            : "No formal prerequisites — open to motivated learners";
+        $byIntent['add_certification'] = "Certificate of completion awarded by Tertiary Infotech Academy";
+        $byIntent['add_beginner']      = "Beginner-friendly — no prior experience needed";
+        $byIntent['add_advanced']      = "Advanced practitioners and senior professionals";
+        $byIntent['add_handson']       = "Hands-on labs and real-world exercises throughout";
+        $byIntent['add_funding']       = "WSQ subsidy + SkillsFuture Credit + UTAP funding eligible";
+        if (!empty($course['start_date'])) {
+            $byIntent['add_dates'] = "Next intake: " . date('j M Y', strtotime($course['start_date']));
+        }
+
+        // Removal mode: strip any bullets that match an intent that was
+        // also mentioned. "Take out the trainer info" → drop the trainer
+        // bullet if it's already in the list.
+        if ($isRemoval) {
+            $toStrip = array();
+            foreach ($intents as $i) {
+                if (isset($byIntent[$i])) $toStrip[] = mb_strtolower(trim($byIntent[$i]));
+            }
+            if (!empty($toStrip)) {
+                $bullets = array_values(array_filter($bullets, function ($b) use ($toStrip) {
+                    return !in_array(mb_strtolower(trim($b)), $toStrip, true);
+                }));
+            }
+            return $bullets;
+        }
+
+        // Otherwise inject every matched intent's canonical line at the
+        // top of the bullets list, deduped.
+        $injections = array();
+        foreach ($intents as $i) {
+            if (isset($byIntent[$i])) $injections[] = $byIntent[$i];
+        }
+        if (empty($injections)) return $bullets;
+
+        $combined = array_merge($injections, $bullets);
+        $seen = array(); $out = array();
+        foreach ($combined as $b) {
+            $k = mb_strtolower(trim($b));
+            if ($k === '' || isset($seen[$k])) continue;
+            $seen[$k] = true;
+            $out[] = $b;
+        }
+        return $out;
+    }
+
+    /**
+     * Build sensible bullet fallbacks when the description is empty.
+     * Pulls from short_description and other catalog fields rather
+     * than emitting "Hands-on, practical {Course} skills" filler.
+     */
+    protected function _buildFallbackBullets($course, $primary, $wantMore)
+    {
+        // Try short_description first — even on courses with no full
+        // description, the short blurb usually has 1-2 useful sentences.
+        $out = array();
+        if (!empty($course['short_desc'])) {
+            $clean = trim(preg_replace('/\s+/', ' ', strip_tags((string) $course['short_desc'])));
+            $cap = $wantMore ? 160 : 95;
+            foreach (preg_split('/(?<=[.!?])\s+/', $clean) as $s) {
+                $s = rtrim(trim($s), '.!?,;:');
+                if (mb_strlen($s) >= 14 && mb_strlen($s) <= $cap) {
+                    $out[] = $s;
+                    if (count($out) >= ($wantMore ? 6 : 4)) break;
+                }
+            }
+        }
+        if (count($out) >= 2) return $out;
+
+        // Last resort: course-name-shaped generic bullets.
+        $name = $primary === 'This Course' ? 'this course' : $primary;
+        return array(
+            "Hands-on, practical {$name} skills",
+            "Real-world examples and exercises",
+            "Industry-relevant techniques",
+            "Certificate of completion",
+        );
     }
 
     /**
@@ -830,6 +1426,34 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             $out .= mb_strtoupper(mb_substr($w, 0, 1)) . mb_strtolower(mb_substr($w, 1));
         }
         return $out;
+    }
+
+    /**
+     * Split an assistant reply into its chat acknowledgment (shown in
+     * the chat pane) and the structured newsletter body (parsed into
+     * body_blocks for the template). The two halves are separated by
+     * the ===NEWSLETTER=== marker. If no marker is present we treat
+     * the whole reply as body — that's what older drafts saved before
+     * this change look like.
+     */
+    protected function _parseAssistantReply($text)
+    {
+        $text = trim((string) $text);
+        $marker = '===NEWSLETTER===';
+        $pos = strpos($text, $marker);
+        if ($pos !== false) {
+            $body = trim(substr($text, $pos + strlen($marker)));
+            return array(
+                'ack'      => trim(substr($text, 0, $pos)),
+                'body'     => $body,
+                'has_body' => $body !== '',
+            );
+        }
+        return array(
+            'ack'      => '',
+            'body'     => $text,
+            'has_body' => $text !== '',
+        );
     }
 
     protected function _splitIntoBlocks($text)

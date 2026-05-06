@@ -8466,6 +8466,7 @@ table.at-table{width:100%;border-collapse:collapse;color:#e2e8f0}
 .at-table tbody tr:last-child td{border-bottom:none}
 .at-table tbody tr:hover{background:rgba(30,58,99,.25)}
 .at-run-id{color:#22d3ee;font-weight:600}
+.at-course-code{color:#cbd5e1;font-weight:500;font-size:12px;letter-spacing:.3px}
 .at-badge{display:inline-block;padding:3px 12px;border-radius:5px;font-size:12px;font-weight:600}
 .at-badge-confirmed{background:rgba(34,197,94,.15);color:#86efac;border:1px solid rgba(34,197,94,.3)}
 .at-badge-pending{background:rgba(245,158,11,.15);color:#fcd34d;border:1px solid rgba(245,158,11,.3)}
@@ -8571,6 +8572,7 @@ button.at-pg-btn.disabled,button.at-pg-btn.disabled:hover{opacity:.45;cursor:not
             <thead><tr>
                 <th>Start Date</th>
                 <th>Course Run ID</th>
+                <th>Course Code</th>
                 <th>Course Title</th>
                 <th>Class Status</th>
                 <th>Trainer</th>
@@ -8587,6 +8589,7 @@ button.at-pg-btn.disabled,button.at-pg-btn.disabled:hover{opacity:.45;cursor:not
                 <tr data-tab="<?php echo $_r['tab'] ?>" data-title="<?php echo strtolower(htmlspecialchars($_r['title'])) ?>" data-sku="<?php echo strtolower(htmlspecialchars($_r['sku'])) ?>" data-run="<?php echo strtolower(htmlspecialchars($_r['run_id'])) ?>" data-trainers="<?php echo strtolower(htmlspecialchars(implode('|', $_r['trainers']))) ?>" data-trainers-empty="<?php echo empty($_r['trainers']) ? '1' : '0' ?>" data-course="<?php echo htmlspecialchars($_r['title']) ?>" data-pid="<?php echo (int)$_r['pid'] ?>" data-runid="<?php echo htmlspecialchars($_r['run_id']) ?>" data-oids="<?php echo htmlspecialchars(implode(',', array_map('intval', $_r['trainer_oids']))) ?>" data-tnames="<?php echo htmlspecialchars(implode('|', $_r['trainers'])) ?>">
                     <td><?php echo $_r['start_date'] ?></td>
                     <td><span class="at-run-id"><?php echo htmlspecialchars($_r['run_id']) ?></span></td>
+                    <td><span class="at-course-code"><?php echo htmlspecialchars($_r['sku']) ?></span></td>
                     <td><?php echo htmlspecialchars($_r['title']) ?></td>
                     <td><span class="at-badge <?php echo $_r['status_cls'] ?>"><?php echo $_r['status'] ?></span></td>
                     <td><?php if (empty($_r['trainers'])): ?><span class="at-trainer-empty">— No trainer —</span><?php else: foreach ($_r['trainers'] as $_tn): ?><span class="at-trainer-pill"><?php echo htmlspecialchars($_tn) ?></span><?php endforeach; endif; ?></td>
@@ -8911,8 +8914,8 @@ window.atmApplyToRow = function(pid, finalOids, list) {
         row.setAttribute('data-tnames', namesPipe);
         row.setAttribute('data-trainers', namesPipe.toLowerCase());
         row.setAttribute('data-trainers-empty', isEmpty);
-        // Trainer cell is the 5th <td> (Start, Run ID, Title, Status, Trainer, Action).
-        var td = row.children[4];
+        // Trainer cell is the 6th <td> (Start, Run ID, Code, Title, Status, Trainer, Action).
+        var td = row.children[5];
         if (td) {
             td.innerHTML = '';
             if (resolvedNames.length === 0) {
@@ -8929,8 +8932,8 @@ window.atmApplyToRow = function(pid, finalOids, list) {
                 }
             }
         }
-        // Action cell (6th <td>) — flip between Edit/Assign Trainer.
-        var act = row.children[5];
+        // Action cell (7th <td>) — flip between Edit/Assign Trainer.
+        var act = row.children[6];
         if (act) {
             var btn = act.querySelector('button.at-action-btn');
             if (btn) {
@@ -8975,7 +8978,7 @@ window.atmRecomputeKpis = function() {
         this <tr> directly under whichever row's action button is
         clicked, so it appears as in-row expansion. */ ?>
 <table style="display:none"><tbody><tr id="atm-row" class="atm-row" style="display:none">
-    <td colspan="6">
+    <td colspan="7">
         <div class="atm-inline">
             <div class="atm-section">
                 <div class="atm-section-head">
@@ -10667,9 +10670,13 @@ button.mn-tpl strong{display:block;font-size:14px;font-weight:600;color:inherit;
 .mn-tpl small{display:block;font-size:11px;color:#94a3b8;line-height:1.4}
 .mn-drafts{margin-top:0}
 .mn-drafts-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto}
-button.mn-draft,button.mn-draft:hover,button.mn-draft:focus{display:block;width:100%;text-align:left !important;padding:8px 10px !important;background:#0f172a !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #283548 !important;border-radius:6px !important;font-size:12px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:1.3 !important;height:auto !important}
-button.mn-draft:hover{background:#1e293b !important}
-button.mn-draft.active{border-color:#3b82f6 !important;background:rgba(59,130,246,.12) !important}
+.mn-draft{display:flex;align-items:stretch;gap:0;border:1px solid #283548;border-radius:6px;background:#0f172a;overflow:hidden;transition:border-color .15s}
+.mn-draft:hover{border-color:#475569}
+.mn-draft.active{border-color:#3b82f6;background:rgba(59,130,246,.12)}
+button.mn-draft-body,button.mn-draft-body:hover,button.mn-draft-body:focus{flex:1;display:block;width:auto;text-align:left !important;padding:8px 10px !important;background:transparent !important;background-image:none !important;color:#cbd5e1 !important;border:0 !important;border-radius:0 !important;font-size:12px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:1.3 !important;height:auto !important;min-width:0}
+button.mn-draft-body:hover{background:#1e293b !important}
+button.mn-draft-del,button.mn-draft-del:hover,button.mn-draft-del:focus{flex:0 0 auto !important;width:34px !important;padding:0 !important;background:transparent !important;background-image:none !important;color:#64748b !important;border:0 !important;border-left:1px solid #283548 !important;border-radius:0 !important;font-size:18px !important;font-weight:700 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;line-height:1 !important;height:auto !important;display:flex;align-items:center;justify-content:center}
+button.mn-draft-del:hover{background:rgba(239,68,68,.12) !important;color:#fca5a5 !important}
 .mn-draft-title{font-weight:600;font-size:13px;color:#fff;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mn-draft-meta{font-size:11px;color:#94a3b8}
 .mn-status-draft{color:#fcd34d}
@@ -10679,7 +10686,6 @@ button.mn-draft.active{border-color:#3b82f6 !important;background:rgba(59,130,24
 .mn-input,textarea.mn-input,select.mn-input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:9px 12px;color:#e2e8f0;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box}
 .mn-input:focus{border-color:#3b82f6}
 textarea.mn-input{resize:vertical;min-height:90px}
-textarea.mn-body{min-height:180px;font-family:'Cascadia Code','Menlo','Consolas',monospace;font-size:12.5px;line-height:1.5}
 .mn-pids{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;min-height:24px}
 .mn-pid-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.35);color:#86efac;border-radius:6px;font-size:12px}
 .mn-pid-chip button{background:transparent;border:none;color:#86efac;cursor:pointer;font-size:14px;padding:0;line-height:1}
@@ -10730,16 +10736,34 @@ button.mn-btn:disabled,button.mn-btn[disabled]{opacity:.45;cursor:not-allowed !i
 .mn-preview-head{padding:10px 14px;background:#0f172a;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .mn-preview-head h3{margin:0;color:#fff;font-size:13px;text-transform:uppercase;letter-spacing:.6px;font-weight:700}
 .mn-preview-empty{flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;font-style:italic;background:#0f172a;text-align:center;padding:20px}
-.mn-preview-stage{flex:1;background:#1e293b;overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:16px}
-.mn-preview-stage[data-vp="desktop"]{padding:0}
-.mn-preview-stage[data-vp="desktop"] iframe.mn-iframe{width:100%;height:100%;max-width:none;border-radius:0;box-shadow:none}
+.mn-preview-stage{flex:1;background:#1e293b;overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:16px;min-height:0}
+/* Desktop view = wide canvas (1200px) that overflows the column.
+   The stage scrolls horizontally so the user can drag left/right and
+   see how the email looks at full desktop width — same way Gmail
+   desktop centres a 600px email on a wide background. */
+.mn-preview-stage[data-vp="desktop"]{padding:0;justify-content:flex-start;align-items:stretch}
+.mn-preview-stage[data-vp="desktop"] iframe.mn-iframe{width:1200px;height:100%;min-height:728px;max-width:none;flex-shrink:0;border-radius:0;box-shadow:none;background:#fff}
 .mn-preview-stage[data-vp="mobile"] iframe.mn-iframe{width:390px;max-width:100%;height:100%;border-radius:18px;box-shadow:0 4px 20px rgba(0,0,0,.35);background:#fff}
 iframe.mn-iframe{border:none;background:#fff;display:block}
 .mn-vp-toggle{display:inline-flex;background:#1e293b;border:1px solid #334155;border-radius:6px;overflow:hidden}
-.mn-vp-btn{appearance:none;background:transparent;border:0;color:#94a3b8;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.4px}
-.mn-vp-btn:hover{color:#e2e8f0}
-.mn-vp-btn.active{background:#2563eb;color:#fff}
+button.mn-vp-btn,button.mn-vp-btn:hover,button.mn-vp-btn:focus{appearance:none !important;background:transparent !important;background-image:none !important;border:0 !important;border-radius:0 !important;color:#94a3b8 !important;padding:6px 14px !important;font-size:12px !important;font-weight:600 !important;cursor:pointer !important;letter-spacing:.4px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;line-height:1.5 !important;min-width:0 !important}
+button.mn-vp-btn:hover{color:#e2e8f0 !important;background:rgba(148,163,184,.08) !important}
+button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:focus{background:#2563eb !important;color:#fff !important}
 @media(max-width:1100px){.mn-toprow,.mn-grid{grid-template-columns:1fr}.mn-preview{height:560px}}
+.mn-draft-modal{position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;background:rgba(2,6,23,.78);backdrop-filter:blur(3px);z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;animation:mnFadeIn .18s ease-out}
+.mn-draft-modal-card{background:#0f172a;border:1px solid #334155;border-radius:14px;width:min(960px,100%);max-height:calc(100vh - 48px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+.mn-draft-modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #334155;gap:12px;flex-wrap:wrap;flex-shrink:0;min-height:0}
+.mn-draft-modal-head > div:first-child{min-width:0;flex:1 1 200px}
+.mn-draft-modal-title{font-size:15px;font-weight:700;color:#fff;line-height:1.3;word-wrap:break-word;overflow-wrap:break-word}
+.mn-draft-modal-meta{font-size:11px;color:#94a3b8;margin-top:3px;letter-spacing:.3px}
+.mn-draft-modal-actions{display:flex;gap:10px;align-items:center;flex-shrink:0}
+.mn-draft-modal-actions button.mn-btn-ghost{font-size:18px !important;padding:4px 12px !important;line-height:1 !important;min-width:36px}
+.mn-draft-modal-stage{flex:1;background:#1e293b;overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:18px;min-height:0}
+.mn-draft-modal-stage[data-vp="desktop"]{padding:0}
+.mn-draft-modal-stage[data-vp="desktop"] iframe.mn-iframe{width:100%;height:100%;min-height:520px;max-width:none;border-radius:0;box-shadow:none}
+.mn-draft-modal-stage[data-vp="mobile"] iframe.mn-iframe{width:390px;max-width:100%;height:100%;min-height:600px;border-radius:18px;box-shadow:0 4px 20px rgba(0,0,0,.35);background:#fff}
+.mn-draft-modal-loading{flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;font-style:italic}
+@keyframes mnFadeIn{from{opacity:0}to{opacity:1}}
 </style>
 
 <div class="mn-wrap">
@@ -10765,14 +10789,17 @@ iframe.mn-iframe{border:none;background:#fff;display:block}
                 <?php if (empty($_mnDrafts)): ?>
                     <div class="mn-result-empty">No drafts yet.</div>
                 <?php else: foreach ($_mnDrafts as $_d): ?>
-                    <button type="button" class="mn-draft" data-id="<?php echo (int)$_d['newsletter_id'] ?>" onclick="mnLoadDraft(<?php echo (int)$_d['newsletter_id'] ?>)">
-                        <div class="mn-draft-title"><?php echo htmlspecialchars($_d['title']) ?></div>
-                        <div class="mn-draft-meta">
-                            <?php echo htmlspecialchars($_d['template_key']) ?> ·
-                            <span class="mn-status-<?php echo htmlspecialchars($_d['status']) ?>"><?php echo htmlspecialchars(strtoupper($_d['status'])) ?></span>
-                            <?php if (!empty($_d['mailerlite_id'])): ?> · <?php echo htmlspecialchars($_d['mailerlite_id']) ?><?php endif; ?>
-                        </div>
-                    </button>
+                    <div class="mn-draft" data-id="<?php echo (int)$_d['newsletter_id'] ?>">
+                        <button type="button" class="mn-draft-body" onclick="mnLoadDraft(<?php echo (int)$_d['newsletter_id'] ?>)" title="Preview newsletter">
+                            <div class="mn-draft-title"><?php echo htmlspecialchars($_d['title']) ?></div>
+                            <div class="mn-draft-meta">
+                                <?php echo htmlspecialchars($_d['template_key']) ?> ·
+                                <span class="mn-status-<?php echo htmlspecialchars($_d['status']) ?>"><?php echo htmlspecialchars(strtoupper($_d['status'])) ?></span>
+                                <?php if (!empty($_d['mailerlite_id'])): ?> · <?php echo htmlspecialchars($_d['mailerlite_id']) ?><?php endif; ?>
+                            </div>
+                        </button>
+                        <button type="button" class="mn-draft-del" onclick="mnDeleteDraft(<?php echo (int)$_d['newsletter_id'] ?>, <?php echo htmlspecialchars(json_encode($_d['title'])) ?>)" aria-label="Delete draft" title="Delete draft">&times;</button>
+                    </div>
                 <?php endforeach; endif; ?>
             </div>
         </div>
@@ -10838,11 +10865,6 @@ Include the following in the newsletter:
                 </div>
             </div>
 
-            <div class="mn-fld">
-                <label>Body (editable)</label>
-                <textarea id="mn-body" class="mn-input mn-body" placeholder="Generated copy will appear here. You can edit freely." oninput="mnRefreshPreview()"></textarea>
-            </div>
-
             <div class="mn-actions">
                 <button type="button" class="mn-btn mn-btn-ghost" onclick="mnSave()">Save Draft</button>
                 <button type="button" class="mn-btn mn-btn-cta" id="mn-push-btn" onclick="mnPush()" disabled>Push to MailerLite<?php if (!$_mnHasMl): ?> <span style="font-size:10px;opacity:.7">(stub)</span><?php endif; ?></button>
@@ -10902,7 +10924,6 @@ window.mnNewDraft = function() {
     var comp = document.getElementById('mn-composer-input');
     if (comp) { comp.value = ''; mnComposerAutoSize(comp); }
     document.getElementById('mn-prompt').value = '';
-    document.getElementById('mn-body').value = '';
     document.getElementById('mn-search-results').innerHTML = '';
     document.getElementById('mn-images').value = '';
     var draftBtns = document.querySelectorAll('.mn-draft');
@@ -11045,7 +11066,17 @@ window.mnRenderChat = function() {
         role.textContent = m.role === 'user' ? 'You' : 'Claude';
         d.appendChild(role);
         var body = document.createElement('div');
-        body.textContent = m.content;
+        // Assistant messages contain the full response — chat ack on
+        // top, then `===NEWSLETTER===` marker, then the structured
+        // body. The chat pane only shows the ack so it reads like a
+        // chatbot conversation. Older messages without the marker fall
+        // back to showing the whole content.
+        var content = m.content || '';
+        if (m.role === 'assistant') {
+            var idx = content.indexOf('===NEWSLETTER===');
+            if (idx >= 0) content = content.substring(0, idx).trim();
+        }
+        body.textContent = content;
         d.appendChild(body);
         box.appendChild(d);
     });
@@ -11152,20 +11183,20 @@ window.mnSend = function() {
         mnProgressFinish();
         if (!j || !j.success) { alert((j && j.message) || 'Generate failed.'); return; }
         window._mnState.chatHistory = j.chat_history || [];
-        window._mnState.bodyBlocks  = j.body_blocks || window._mnState.bodyBlocks;
+        // has_body=false means the assistant returned a chat-only
+        // reply (e.g. "pick a course first"). In that case keep the
+        // existing newsletter body untouched — only the chat updates.
+        if (j.has_body !== false) {
+            window._mnState.bodyBlocks = j.body_blocks || window._mnState.bodyBlocks;
+            mnRefreshPreview();
+        }
         if (clearComposer) {
             composerEl.value = '';
             mnComposerAutoSize(composerEl);
         }
         if (clearBrief) promptEl.value = '';
-        document.getElementById('mn-body').value = [
-            window._mnState.bodyBlocks.body_block_1 || '',
-            window._mnState.bodyBlocks.body_block_2 || '',
-            window._mnState.bodyBlocks.body_block_3 || ''
-        ].filter(Boolean).join('\n\n');
         mnRenderChat();
         mnUpdateComposerHint();
-        mnRefreshPreview();
         composerEl.focus();
     })
     .catch(function (e) {
@@ -11191,19 +11222,12 @@ var _mnPreviewTimer = null;
 window.mnRefreshPreview = function() {
     if (_mnPreviewTimer) clearTimeout(_mnPreviewTimer);
     _mnPreviewTimer = setTimeout(function () {
-        var bodyText = document.getElementById('mn-body').value || '';
-        var parts = bodyText.split(/\n\s*\n/);
-        var blocks = {
-            body_block_1: parts[0] || '',
-            body_block_2: parts[1] || '',
-            body_block_3: parts.slice(2).join('\n\n') || ''
+        // Source of truth is _mnState.bodyBlocks — populated by Claude
+        // on every Send. The admin no longer hand-edits the body, so
+        // there's no textarea to read from.
+        var blocks = window._mnState.bodyBlocks || {
+            body_block_1: '', body_block_2: '', body_block_3: ''
         };
-        // Preserve the design seed across body edits so the look
-        // stays stable while the admin tweaks copy. Only Send-to-AI
-        // re-rolls the seed.
-        var prev = window._mnState.bodyBlocks || {};
-        if (prev._design_seed) blocks._design_seed = prev._design_seed;
-        window._mnState.bodyBlocks = blocks;
         var fd = new FormData();
         fd.append('template_key', window._mnState.template);
         fd.append('course_pids', window._mnState.pids.join(','));
@@ -11219,6 +11243,7 @@ window.mnRefreshPreview = function() {
             if (!j || !j.success) return;
             var ifr = document.getElementById('mn-iframe');
             ifr.srcdoc = j.html;
+            ifr.style.display = '';
             document.getElementById('mn-preview-stage').style.display = 'flex';
             document.getElementById('mn-preview-empty').style.display = 'none';
             document.getElementById('mn-preview-status').textContent = 'Updated ' + new Date().toLocaleTimeString();
@@ -11293,11 +11318,108 @@ window.mnSetViewport = function(mode) {
     if (m) { m.classList.toggle('active', mode === 'mobile');  m.setAttribute('aria-selected', mode === 'mobile' ? 'true' : 'false'); }
 };
 
-window.mnLoadDraft = function(id) {
-    // Loaded server-side on next page request — simplest path is reload
-    // with the id in URL. JS-side hydration could come later.
-    location.href = '<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'marketing_newsletter', 'newsletter_id' => '___ID___'))) ?>'.replace('___ID___', String(id));
+window.mnDeleteDraft = function(id, title) {
+    title = title || 'this draft';
+    if (!confirm('Delete "' + title + '"?\n\nThis cannot be undone.')) return;
+    var fd = new FormData();
+    fd.append('newsletter_id', String(id));
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/deleteDraft') ?>', {
+        method: 'POST', body: fd, credentials: 'same-origin'
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+        if (!j || !j.success) { alert((j && j.message) || 'Delete failed.'); return; }
+        // Drop the row from the DOM and update the count.
+        var row = document.querySelector('.mn-draft[data-id="' + id + '"]');
+        if (row) row.remove();
+        var listEl = document.getElementById('mn-drafts-list');
+        if (listEl && !listEl.querySelector('.mn-draft')) {
+            listEl.innerHTML = '<div class="mn-result-empty">No drafts yet.</div>';
+        }
+        var head = document.querySelector('.mn-drafts h3');
+        if (head) {
+            var n = document.querySelectorAll('.mn-draft').length;
+            head.textContent = 'Drafts (' + n + ')';
+        }
+        // If the draft being edited is the one we just deleted, reset.
+        if (window._mnState && Number(window._mnState.newsletterId) === Number(id)) {
+            window._mnState.newsletterId = 0;
+        }
+    })
+    .catch(function (e) { alert('Network: ' + e); });
 };
+window.mnLoadDraft = function(id) {
+    var modal = document.getElementById('mn-draft-modal');
+    var ifr   = document.getElementById('mn-draft-modal-iframe');
+    var load  = document.getElementById('mn-draft-modal-loading');
+    var titleEl = document.getElementById('mn-draft-modal-title');
+    var metaEl  = document.getElementById('mn-draft-modal-meta');
+    if (!modal || !ifr) return;
+    // Lift the modal out of the panel container so position:fixed is
+    // measured against the viewport, not a transformed ancestor.
+    if (modal.parentNode !== document.body) document.body.appendChild(modal);
+
+    var btn = document.querySelector('.mn-draft[data-id="' + id + '"]');
+    if (btn) {
+        var t = btn.querySelector('.mn-draft-title');
+        var m = btn.querySelector('.mn-draft-meta');
+        if (t && titleEl) titleEl.textContent = t.textContent;
+        if (m && metaEl)  metaEl.textContent  = m.textContent.replace(/\s+/g, ' ').trim();
+    }
+
+    ifr.style.display = 'none';
+    ifr.srcdoc = '';
+    load.style.display = '';
+    load.textContent = 'Loading preview…';
+    mnSetDraftViewport('desktop');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    var fd = new FormData();
+    fd.append('newsletter_id', String(id));
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/preview') ?>', {
+        method: 'POST', body: fd, credentials: 'same-origin'
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+        if (!j || !j.success) {
+            load.textContent = 'Could not load preview' + (j && j.message ? ': ' + j.message : '.');
+            return;
+        }
+        ifr.srcdoc = j.html;
+        ifr.style.display = '';
+        load.style.display = 'none';
+    })
+    .catch(function (e) {
+        load.textContent = 'Network error — ' + e;
+    });
+};
+window.mnCloseDraftModal = function(e) {
+    if (e && e.target && e.target.id !== 'mn-draft-modal' && !(e.target.tagName === 'BUTTON' && e.target.getAttribute('aria-label') === 'Close')) return;
+    var modal = document.getElementById('mn-draft-modal');
+    if (!modal) return;
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+    var ifr = document.getElementById('mn-draft-modal-iframe');
+    if (ifr) ifr.srcdoc = '';
+};
+window.mnSetDraftViewport = function(mode) {
+    var stage = document.getElementById('mn-draft-modal-stage');
+    if (!stage) return;
+    if (mode !== 'mobile') mode = 'desktop';
+    stage.dataset.vp = mode;
+    var d = document.getElementById('mn-draft-vp-desktop');
+    var m = document.getElementById('mn-draft-vp-mobile');
+    if (d) d.classList.toggle('active', mode === 'desktop');
+    if (m) m.classList.toggle('active', mode === 'mobile');
+};
+// Close on Escape
+document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') {
+        var modal = document.getElementById('mn-draft-modal');
+        if (modal && modal.style.display !== 'none') mnCloseDraftModal({ target: modal });
+    }
+});
 
 (function init() {
     mnRenderPids();
@@ -11306,6 +11428,29 @@ window.mnLoadDraft = function(id) {
     mnUpdateComposerHint();
 })();
 </script>
+
+<!-- Draft preview modal — shown when admin clicks a row in the Drafts list -->
+<div id="mn-draft-modal" class="mn-draft-modal" style="display:none" onclick="mnCloseDraftModal(event)">
+    <div class="mn-draft-modal-card" onclick="event.stopPropagation()">
+        <div class="mn-draft-modal-head">
+            <div>
+                <div class="mn-draft-modal-title" id="mn-draft-modal-title">Newsletter preview</div>
+                <div class="mn-draft-modal-meta" id="mn-draft-modal-meta"></div>
+            </div>
+            <div class="mn-draft-modal-actions">
+                <div class="mn-vp-toggle" role="tablist" aria-label="Preview viewport">
+                    <button type="button" class="mn-vp-btn active" id="mn-draft-vp-desktop" onclick="mnSetDraftViewport('desktop')">Desktop</button>
+                    <button type="button" class="mn-vp-btn" id="mn-draft-vp-mobile"  onclick="mnSetDraftViewport('mobile')">Mobile</button>
+                </div>
+                <button type="button" class="mn-btn mn-btn-ghost" onclick="mnCloseDraftModal()" aria-label="Close">&times;</button>
+            </div>
+        </div>
+        <div class="mn-draft-modal-stage" id="mn-draft-modal-stage" data-vp="desktop">
+            <div class="mn-draft-modal-loading" id="mn-draft-modal-loading">Loading preview…</div>
+            <iframe id="mn-draft-modal-iframe" class="mn-iframe" srcdoc="" style="display:none"></iframe>
+        </div>
+    </div>
+</div>
 </div><!-- end dash-panel-marketing-newsletter -->
 
 
