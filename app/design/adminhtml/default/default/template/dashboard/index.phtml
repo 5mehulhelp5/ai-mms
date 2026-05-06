@@ -51,8 +51,13 @@ $trainerTable = $resource->getTableName('courses_trainers');
 $_dashSubPanel = (string) Mage::app()->getRequest()->getParam('panel', '');
 $_dashOnAdminMaster = ($_dashSubPanel === '' || $_dashSubPanel === 'admin');
 
-if ($activeRole === 'admin' && $_dashOnAdminMaster):
-$attrMap = array();
+// EAV attribute IDs — needed by every admin sub-panel's catalog query
+// (Assign Trainer, Assign Learner, Enroll Learner, Create New Class all
+// reference $statusAid in INNER JOINs and $startAid/$endAid in ORDER BY
+// subqueries). Resolve them for ANY admin request, not just the master
+// view, otherwise sub-panels see empty data because $statusAid=0
+// matches no rows. One small query, always runs for admin role.
+if ($activeRole === 'admin'):
 foreach ($read->fetchAll("SELECT attribute_id, attribute_code FROM eav_attribute WHERE entity_type_id=4 AND attribute_code IN ('name','software','news_from_date','news_to_date','status')") as $r) {
     $attrMap[$r['attribute_code']] = (int)$r['attribute_id'];
 }
@@ -61,6 +66,9 @@ $typeAid   = isset($attrMap['software'])       ? $attrMap['software']       : 0;
 $startAid  = isset($attrMap['news_from_date']) ? $attrMap['news_from_date'] : 0;
 $endAid    = isset($attrMap['news_to_date'])   ? $attrMap['news_to_date']   : 0;
 $statusAid = isset($attrMap['status'])         ? $attrMap['status']         : 96;
+endif;
+
+if ($activeRole === 'admin' && $_dashOnAdminMaster):
 
 // Country scope from the logged-in admin (admin.<cc>@…). Default SG.
 // Applied as an INNER JOIN on catalog_product_website to every query
