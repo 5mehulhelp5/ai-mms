@@ -11513,19 +11513,27 @@ document.addEventListener('keydown', function (ev) {
     window.showDeveloperSubPanel = showDeveloperSubPanel;
 
     function applyInitialPanel() {
-        // Sub-panel selection — query string `?panel=` is the new style
-        // (gives each panel its own URL, browser back/forward works) and
-        // is preferred. Hash style `#anchor` is kept as a fallback for
-        // legacy in-page nav. Resolve sub-panel BEFORE the default
+        // Sub-panel selection — accept the resolved value from PHP first
+        // (covers Magento's default path-arg URL style /panel/<value>/),
+        // then fall back to the query string `?panel=` and finally the
+        // legacy `#anchor` hash. Resolve sub-panel BEFORE the default
         // showPanel() call so we don't paint the role's main dashboard
         // for a frame and then flip to the requested sub-panel.
-        var qsPanel = '';
-        var qsFilter = '';
-        try {
-            var qs = new URLSearchParams(window.location.search);
-            qsPanel  = qs.get('panel') || '';
-            qsFilter = qs.get('dash_filter') || '';
-        } catch (e) {}
+        //
+        // Without the PHP-source seed, sidebar links like View Trainers
+        // (which use getUrl(..., array('panel' => 'trainers')) → emits
+        // /panel/trainers/ path args) bypassed the JS switcher entirely
+        // because URLSearchParams only sees the query string. Server-side
+        // data prep still ran, but the panel never became visible.
+        var qsPanel  = <?php echo json_encode((string) Mage::app()->getRequest()->getParam('panel', '')) ?>;
+        var qsFilter = <?php echo json_encode((string) Mage::app()->getRequest()->getParam('dash_filter', '')) ?>;
+        if (!qsPanel || !qsFilter) {
+            try {
+                var qs = new URLSearchParams(window.location.search);
+                if (!qsPanel)  qsPanel  = qs.get('panel') || '';
+                if (!qsFilter) qsFilter = qs.get('dash_filter') || '';
+            } catch (e) {}
+        }
         var hash = window.location.hash;
 
         if ((qsPanel === 'companysetting' || hash === '#companysetting')
