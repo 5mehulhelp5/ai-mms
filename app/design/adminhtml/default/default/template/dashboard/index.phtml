@@ -4247,13 +4247,18 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     // section hardcoded 6 generic titles ("Courseware Link", "Lesson Plan",
     // ...) with no actual hrefs and no tie to saved data, which is what the
     // user reported: "view doesn't reflect the edit's saved courseware".
-    // Display order requested 2026-05-06: Courseware Link first (the
-    // "folder" tile that umbrellas everything), then the structured
-    // teaching artifacts in the order Lesson Plan -> Learner Guide ->
-    // Facilitator Guide -> Trainer Slides -> Assessment Plan, then
-    // every other URL the schema knows about. Empty URLs are skipped
-    // by the foreach below so the user only ever sees real, clickable
-    // links.
+    // The Courseware section on the developer course detail surfaces
+    // exactly these 6 tiles — the original hardcoded list that the
+    // section was designed around (Courseware Link as the umbrella
+    // "folder", then the teaching artifacts: Lesson Plan, Learner
+    // Guide, Facilitator Guide, Trainer Slides, Assessment Plan).
+    // Other course_courseware columns (learner_slides_url, brochure_link,
+    // assessment_record_link, assessment_summary_url) intentionally do
+    // NOT appear here — assessment_record_link / assessment_summary_url
+    // each have their own dedicated section below; learner_slides_url /
+    // brochure_link are exposed via the edit form only. Empty URLs are
+    // skipped by the foreach so the section may render fewer than 6
+    // tiles depending on what's saved.
     $_devCwLabels = array(
         'courseware_link'        => 'Courseware Link',
         'lesson_plan_url'        => 'Lesson Plan',
@@ -4261,10 +4266,6 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         'facilitator_guide_url'  => 'Facilitator Guide',
         'trainer_slides_url'     => 'Trainer Slides',
         'assessment_plan_url'    => 'Assessment Plan',
-        'learner_slides_url'     => 'Learner Slides',
-        'brochure_link'          => 'Brochure Link',
-        'assessment_record_link' => 'Assessment Record Link',
-        'assessment_summary_url' => 'Assessment Summary Record',
     );
     $_devCwSaved = array();
     foreach ($_devCwLabels as $_k => $_lbl) {
@@ -4813,9 +4814,9 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     // so an assigned trainer couldn't reach the saved URLs at all.
     // Same label map as the developer view + same loop pattern; only
     // tiles whose URL is actually saved render, and each is a real link.
-    // Same display order as the developer view (above): Courseware Link
-    // first, then Lesson Plan / Learner Guide / Facilitator Guide /
-    // Trainer Slides / Assessment Plan, then everything else.
+    // Same 6-tile set as the developer view above. See $_devCwLabels
+    // comment for rationale on why the other course_courseware columns
+    // are intentionally excluded from this section.
     $_trCwLabels = array(
         'courseware_link'        => 'Courseware Link',
         'lesson_plan_url'        => 'Lesson Plan',
@@ -4823,10 +4824,6 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         'facilitator_guide_url'  => 'Facilitator Guide',
         'trainer_slides_url'     => 'Trainer Slides',
         'assessment_plan_url'    => 'Assessment Plan',
-        'learner_slides_url'     => 'Learner Slides',
-        'brochure_link'          => 'Brochure Link',
-        'assessment_record_link' => 'Assessment Record Link',
-        'assessment_summary_url' => 'Assessment Summary Record',
     );
     $_trCwSaved = array();
     foreach ($_trCwLabels as $_k => $_lbl) {
