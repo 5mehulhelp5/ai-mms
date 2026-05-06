@@ -4333,7 +4333,21 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         </div>
     </div>
 
-    <!-- DEVELOPER: Assessment (Written + Practical with Published status) -->
+    <!-- DEVELOPER: Assessment (status driven by assessment_plan_url presence) -->
+    <?php
+    // The Written + Practical Exam tiles previously rendered a hardcoded
+    // green "Published" badge regardless of any data field — there's no
+    // separate publish-state column in the schema, just the assessment
+    // URLs in course_courseware. Drive the badge from whether
+    // assessment_plan_url is actually saved: green "Configured" when set,
+    // gray "Not Configured" when empty. Same field is used for both
+    // tiles because the schema doesn't distinguish written vs practical.
+    $_devAssessUrl = isset($_courseware['assessment_plan_url']) ? trim((string)$_courseware['assessment_plan_url']) : '';
+    $_devAssessConfigured = $_devAssessUrl !== '';
+    $_devAssessBadge = $_devAssessConfigured
+        ? '<span style="background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;">Configured</span>'
+        : '<span style="background:rgba(148,163,184,.15);color:#94a3b8;border:1px solid rgba(148,163,184,.3);padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;">Not Configured</span>';
+    ?>
     <div class="lcd-section" id="assessment">
         <div class="lcd-section-title">Assessment</div>
         <div style="display:flex;flex-direction:column;gap:10px;">
@@ -4343,7 +4357,7 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
                     <div class="lcd-tile-title">Written Exam</div>
                     <div class="lcd-tile-sub">Written assessment component</div>
                 </div>
-                <span style="background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;">Published</span>
+                <?php echo $_devAssessBadge ?>
             </div>
             <div class="lcd-tile" style="margin-bottom:0;">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
@@ -4351,7 +4365,7 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
                     <div class="lcd-tile-title">Practical Exam</div>
                     <div class="lcd-tile-sub">Practical assessment component</div>
                 </div>
-                <span style="background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;">Published</span>
+                <?php echo $_devAssessBadge ?>
             </div>
         </div>
     </div>
@@ -4920,7 +4934,20 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         </div>
     </div>
 
-    <!-- TRAINER: Assessment -->
+    <!-- TRAINER: Assessment (status + Open Link driven by assessment_plan_url) -->
+    <?php
+    // Same data-driven status as the developer Assessment section above:
+    // hardcoded green "Published" badges replaced with real Configured /
+    // Not Configured driven by assessment_plan_url. The "Open Assessment
+    // Link" tile becomes a real <a target="_blank"> when an assessment
+    // URL is saved, otherwise an inline italic note. The dead "Unpublish"
+    // button is removed — no backing schema for publish state.
+    $_trAssessUrl = isset($_courseware['assessment_plan_url']) ? trim((string)$_courseware['assessment_plan_url']) : '';
+    $_trAssessConfigured = $_trAssessUrl !== '';
+    $_trAssessBadge = $_trAssessConfigured
+        ? '<span style="background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.3px;">Configured</span>'
+        : '<span style="background:rgba(148,163,184,.15);color:#94a3b8;border:1px solid rgba(148,163,184,.3);padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.3px;">Not Configured</span>';
+    ?>
     <div class="lcd-section" id="assessment">
         <div class="lcd-section-title">Assessment</div>
         <div style="margin-bottom:18px;">
@@ -4929,16 +4956,19 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                     <span style="font-size:15px;font-weight:700;color:#fff;">Written Exam</span>
                 </div>
-                <span style="background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.3px;">Published</span>
+                <?php echo $_trAssessBadge ?>
             </div>
-            <div class="lcd-tile" style="margin-bottom:0;">
+            <?php if ($_trAssessConfigured): ?>
+            <a href="<?php echo htmlspecialchars($_trAssessUrl) ?>" target="_blank" rel="noopener" class="lcd-tile" style="margin-bottom:0;text-decoration:none;color:inherit;">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                 <div class="lcd-tile-body">
                     <div class="lcd-tile-title">Open Assessment Link</div>
                     <div class="lcd-tile-sub">Click to open external form</div>
                 </div>
-                <button type="button" style="background:transparent !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:8px 20px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;">Unpublish</button>
-            </div>
+            </a>
+            <?php else: ?>
+            <div style="color:#64748b;font-size:13px;font-style:italic;padding:8px 0;">No assessment plan link saved yet.</div>
+            <?php endif; ?>
         </div>
         <div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
@@ -4946,16 +4976,19 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                     <span style="font-size:15px;font-weight:700;color:#fff;">Practical Exam</span>
                 </div>
-                <span style="background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.3px;">Published</span>
+                <?php echo $_trAssessBadge ?>
             </div>
-            <div class="lcd-tile" style="margin-bottom:0;">
+            <?php if ($_trAssessConfigured): ?>
+            <a href="<?php echo htmlspecialchars($_trAssessUrl) ?>" target="_blank" rel="noopener" class="lcd-tile" style="margin-bottom:0;text-decoration:none;color:inherit;">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                 <div class="lcd-tile-body">
                     <div class="lcd-tile-title">Open Assessment Link</div>
                     <div class="lcd-tile-sub">Click to open external form</div>
                 </div>
-                <button type="button" style="background:transparent !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #475569 !important;border-radius:8px !important;padding:8px 20px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;">Unpublish</button>
-            </div>
+            </a>
+            <?php else: ?>
+            <div style="color:#64748b;font-size:13px;font-style:italic;padding:8px 0;">No assessment plan link saved yet.</div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -5095,26 +5128,41 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     <div class="lcd-section" id="learning-outcomes">
         <div class="lcd-section-title" style="padding-bottom:14px;border-bottom:2px solid #22d3ee;margin-bottom:4px;">Learning Outcomes <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg></div>
         <?php
-        $_topics = array(
-            'Topic 1: Planning and Scoping',
-            'Topic 2: Information Gathering and Vulnerability Scanning',
-            'Topic 3: Attacks and Exploits',
-            'Topic 4: Reporting and Communication',
-            'Topic 5: Tools and Code Analysis',
-        );
-        foreach ($_topics as $_t): ?>
+        // Extract topics from the course's saved description using the same
+        // <strong>(Topic|Lesson|Module|LU) N</strong> regex the developer
+        // course detail uses (line ~4297). Same data pipeline both views,
+        // so a topic added via the developer edit form's Learning Outcomes
+        // textarea (which writes to product.description) shows up here.
+        // Previously hardcoded to 5 CompTIA PenTest+ rows regardless of
+        // course, plus a fake 0% progress bar and a non-functional
+        // "Mark Complete" button — both removed, no schema for per-learner
+        // per-topic progress.
+        $_lnTopics = array();
+        try {
+            if (!empty($_selectedCourseId)) {
+                $_lnDescProd = isset($_devProd) ? $_devProd : Mage::getModel('catalog/product')->load($_selectedCourseId);
+                $_lnDescRaw  = (string) $_lnDescProd->getData('description');
+                if ($_lnDescRaw !== '' && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_lnDescRaw, $_lnDescM)) {
+                    foreach ($_lnDescM[1] as $_lnT) {
+                        $_lnT = trim(html_entity_decode($_lnT), " :\t\n\r\0\x0B");
+                        if ($_lnT !== '') $_lnTopics[] = $_lnT;
+                    }
+                }
+            }
+        } catch (Exception $e) {}
+        ?>
+        <?php if (empty($_lnTopics)): ?>
+        <div style="color:#64748b;font-size:13px;font-style:italic;padding:8px 0;">No learning outcomes available for this course.</div>
+        <?php else: ?>
+        <?php foreach ($_lnTopics as $_lnT): ?>
         <div class="lcd-topic">
             <div class="lcd-topic-head">
-                <div class="lcd-topic-title"><?php echo $_t ?></div>
+                <div class="lcd-topic-title"><?php echo htmlspecialchars($_lnT) ?></div>
                 <svg class="lcd-topic-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
-            </div>
-            <div class="lcd-progress-row">
-                <span class="lcd-progress-pct">0%</span>
-                <div class="lcd-progress-bar"><div class="lcd-progress-fill" style="width:0%"></div></div>
-                <button type="button" class="lcd-mark-btn">Mark Complete</button>
             </div>
         </div>
         <?php endforeach; ?>
+        <?php endif; ?>
     </div>
 
     <div class="lcd-section" id="traqom-survey">
@@ -5205,12 +5253,60 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
 
 
     <?php if ($activeRole !== 'trainer'): ?>
+    <?php
+    // Real-data certificate status. We don't have an attendance/cert
+    // tracking schema yet, so the previous static "Minimum Attendance
+    // Not Fulfilled" message lied — it showed regardless of whether the
+    // viewing learner had even ordered the course. Drive the message
+    // from the existing data we DO have:
+    //   no order found                                     -> Not Enrolled
+    //   order exists, course end date in future or unset   -> In Progress
+    //   order exists, course end date passed               -> Course Completed
+    // For Developer / Super Admin who have no learner identity, fall back
+    // to a generic note that certs are per-learner.
+    $_certState = 'unenrolled';
+    $_certEnd   = null;
+    try {
+        $_certViewerEmail = isset($_loggedInEmail) ? (string)$_loggedInEmail : '';
+        if ($_certViewerEmail !== '' && !empty($_selectedCourseId) && $activeRole === 'learner') {
+            $_certResource = Mage::getSingleton('core/resource');
+            $_certRead     = $_certResource->getConnection('core_read');
+            $_certOrderId  = (int) $_certRead->fetchOne(
+                "SELECT o.entity_id FROM " . $_certResource->getTableName('sales/order') . " o
+                 JOIN " . $_certResource->getTableName('sales/order_item') . " oi ON oi.order_id=o.entity_id
+                 WHERE oi.product_id = ? AND LOWER(o.customer_email) = ? AND o.state NOT IN ('canceled')
+                 ORDER BY o.created_at DESC LIMIT 1",
+                array((int)$_selectedCourseId, strtolower($_certViewerEmail))
+            );
+            if ($_certOrderId > 0) {
+                $_certEndProd = isset($_devProd) ? $_devProd : Mage::getModel('catalog/product')->load($_selectedCourseId);
+                $_certEnd     = $_certEndProd->getData('news_to_date');
+                if ($_certEnd && strtotime($_certEnd) < strtotime(date('Y-m-d'))) {
+                    $_certState = 'completed';
+                } else {
+                    $_certState = 'in_progress';
+                }
+            }
+        }
+    } catch (Exception $e) {}
+    ?>
     <div class="lcd-section" id="certificate">
         <div class="lcd-section-title">Certificate of Achievement</div>
         <div class="lcd-cert-box">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            <div class="lcd-cert-title">Minimum Attendance Not Fulfilled</div>
-            <div class="lcd-cert-sub">When you have fulfilled the minimum attendance requirement, your certificate will be available here.</div>
+            <?php if ($_certState === 'completed'): ?>
+            <div class="lcd-cert-title">Course Completed</div>
+            <div class="lcd-cert-sub">This course ended on <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certEnd))) ?>. Your certificate will be issued once the trainer has finalised your assessment record.</div>
+            <?php elseif ($_certState === 'in_progress'): ?>
+            <div class="lcd-cert-title">In Progress</div>
+            <div class="lcd-cert-sub">You're enrolled in this course<?php if ($_certEnd): ?> (ends <?php echo htmlspecialchars(date('d M Y', strtotime((string)$_certEnd))) ?>)<?php endif; ?>. Your certificate will be available here once the course is complete and your attendance / assessment is finalised.</div>
+            <?php elseif ($activeRole === 'learner'): ?>
+            <div class="lcd-cert-title">Not Enrolled</div>
+            <div class="lcd-cert-sub">You don't have an active enrolment for this course. Once you enrol and complete it, your certificate will appear here.</div>
+            <?php else: ?>
+            <div class="lcd-cert-title">Certificate Status</div>
+            <div class="lcd-cert-sub">Certificates are issued per-learner. Open this page as the Learner role to see your own certificate status.</div>
+            <?php endif; ?>
         </div>
     </div>
     <?php endif; ?>
