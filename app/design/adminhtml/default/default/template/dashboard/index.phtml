@@ -2269,10 +2269,30 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                     <?php
                     $_priceTblHead = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#334155;color:#cbd5e1;">';
                     ?>
+                    <?php
+                    // Pre-fill the Prices tab from the loaded product. Without
+                    // these existing values, every Save Changes click submits
+                    // the form with blanks, and the controller's
+                    // setData('special_price', $v === '' ? null : ...) treats
+                    // blank-string as "user cleared this" and nulls the column.
+                    // Result: every save accidentally wiped any previously-set
+                    // special_price / cost / msrp / special-date columns.
+                    // Bug fixed 2026-05-06 alongside Meta Information form.
+                    $_pxPrice          = $_editProd->getData('price');
+                    $_pxSpecialPrice   = $_editProd->getData('special_price');
+                    $_pxSpecialFrom    = $_editProd->getData('special_from_date');
+                    $_pxSpecialTo      = $_editProd->getData('special_to_date');
+                    $_pxCost           = $_editProd->getData('cost');
+                    $_pxMsrp           = $_editProd->getData('msrp');
+                    // <input type="date"> requires YYYY-MM-DD; Magento stores
+                    // these as DATETIME so slice off the time portion.
+                    $_pxSpecialFromYmd = $_pxSpecialFrom ? date('Y-m-d', strtotime($_pxSpecialFrom)) : '';
+                    $_pxSpecialToYmd   = $_pxSpecialTo   ? date('Y-m-d', strtotime($_pxSpecialTo))   : '';
+                    ?>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Price <span class="dcf-required">*</span></div>
                         <div class="dcf-row-input">
-                            <input type="number" step="0.01" class="dcf-input" name="prices_price" placeholder="0.00" />
+                            <input type="number" step="0.01" class="dcf-input" name="prices_price" placeholder="0.00" value="<?php echo $_pxPrice !== null && $_pxPrice !== '' ? number_format((float)$_pxPrice, 2, '.', '') : '' ?>" />
                             <div class="dcf-row-help">[SGD]</div>
                         </div>
                         <div class="dcf-row-scope">[WEBSITE]</div>
@@ -2341,25 +2361,25 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                     <div class="dcf-row">
                         <div class="dcf-row-label">Special Price</div>
                         <div class="dcf-row-input">
-                            <input type="number" step="0.01" class="dcf-input" name="prices_special_price" placeholder="0.00" />
+                            <input type="number" step="0.01" class="dcf-input" name="prices_special_price" placeholder="0.00" value="<?php echo $_pxSpecialPrice !== null && $_pxSpecialPrice !== '' ? number_format((float)$_pxSpecialPrice, 2, '.', '') : '' ?>" />
                             <div class="dcf-row-help">[SGD]</div>
                         </div>
                         <div class="dcf-row-scope">[WEBSITE]</div>
                     </div>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Special Price From Date</div>
-                        <div class="dcf-row-input"><input type="date" class="dcf-input" name="prices_special_from_date" /></div>
+                        <div class="dcf-row-input"><input type="date" class="dcf-input" name="prices_special_from_date" value="<?php echo htmlspecialchars($_pxSpecialFromYmd) ?>" /></div>
                         <div class="dcf-row-scope">[WEBSITE]</div>
                     </div>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Special Price To Date</div>
-                        <div class="dcf-row-input"><input type="date" class="dcf-input" name="prices_special_to_date" /></div>
+                        <div class="dcf-row-input"><input type="date" class="dcf-input" name="prices_special_to_date" value="<?php echo htmlspecialchars($_pxSpecialToYmd) ?>" /></div>
                         <div class="dcf-row-scope">[WEBSITE]</div>
                     </div>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Cost</div>
                         <div class="dcf-row-input">
-                            <input type="number" step="0.01" class="dcf-input" name="prices_cost" placeholder="0.00" />
+                            <input type="number" step="0.01" class="dcf-input" name="prices_cost" placeholder="0.00" value="<?php echo $_pxCost !== null && $_pxCost !== '' ? number_format((float)$_pxCost, 2, '.', '') : '' ?>" />
                             <div class="dcf-row-help">[SGD]</div>
                         </div>
                         <div class="dcf-row-scope">[WEBSITE]</div>
@@ -2412,7 +2432,7 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                     <div class="dcf-row">
                         <div class="dcf-row-label">Manufacturer's Suggested Retail Price</div>
                         <div class="dcf-row-input">
-                            <input type="number" step="0.01" class="dcf-input" name="prices_msrp" placeholder="0.00" />
+                            <input type="number" step="0.01" class="dcf-input" name="prices_msrp" placeholder="0.00" value="<?php echo $_pxMsrp !== null && $_pxMsrp !== '' ? number_format((float)$_pxMsrp, 2, '.', '') : '' ?>" />
                             <div class="dcf-row-help">[SGD]</div>
                         </div>
                         <div class="dcf-row-scope">[WEBSITE]</div>
@@ -2994,18 +3014,18 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 <div class="dcf-mag-body">
                     <div class="dcf-row">
                         <div class="dcf-row-label">Meta Title</div>
-                        <div class="dcf-row-input"><input type="text" class="dcf-input" name="meta_title" /></div>
+                        <div class="dcf-row-input"><input type="text" class="dcf-input" name="meta_title" value="<?php echo htmlspecialchars($_editCourseData['meta_title'] ?? '') ?>" /></div>
                         <div class="dcf-row-scope">[STORE VIEW]</div>
                     </div>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Meta Keywords</div>
-                        <div class="dcf-row-input"><textarea class="dcf-textarea" name="meta_keyword" style="height:120px;"></textarea></div>
+                        <div class="dcf-row-input"><textarea class="dcf-textarea" name="meta_keyword" style="height:120px;"><?php echo htmlspecialchars($_editCourseData['meta_keyword'] ?? '') ?></textarea></div>
                         <div class="dcf-row-scope">[STORE VIEW]</div>
                     </div>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Meta Description</div>
                         <div class="dcf-row-input">
-                            <textarea class="dcf-textarea" name="meta_description" maxlength="255" style="height:140px;"></textarea>
+                            <textarea class="dcf-textarea" name="meta_description" maxlength="255" style="height:140px;"><?php echo htmlspecialchars($_editCourseData['meta_description'] ?? '') ?></textarea>
                             <div class="dcf-row-help">Maximum 255 chars</div>
                         </div>
                         <div class="dcf-row-scope">[STORE VIEW]</div>
