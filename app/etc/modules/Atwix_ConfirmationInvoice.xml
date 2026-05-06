@@ -1,8 +1,16 @@
 <?xml version="1.0"?>
+<!--
+  Disabled 2026-05-06: the module's etc/config.xml has been renamed to
+  config.xml-BKP and config.xml-NA, so Magento cannot load any of its
+  config when booting. The PHP class files (Model/Email/Template/Mailer.php,
+  Model/Observer.php) exist but never get registered as Magento models /
+  observers without a valid config.xml. Re-enable by restoring config.xml
+  if confirmation-invoice email functionality is needed.
+-->
 <config>
     <modules>
         <Atwix_ConfirmationInvoice>
-            <active>true</active>
+            <active>false</active>
             <codePool>local</codePool>
         </Atwix_ConfirmationInvoice>
     </modules>

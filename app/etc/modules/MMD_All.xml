@@ -1,9 +1,21 @@
 <?xml version="1.0"?>
+<!--
+  Disabled 2026-05-06: this declaration points at MMD_Partnerslider, but the
+  module directory app/code/local/MMD/Partnerslider/ does not exist. Magento
+  was attempting to register a non-existent module class on every boot.
+  References to "partnerslider/" elsewhere in the codebase are either in
+  unloaded layout files (*.xml1 suffix Magento ignores), commented-out
+  template code (Infortis brand_slider.phtml), or template directories with
+  non-standard names (partnerslider123/) that aren't dispatched. Re-enable
+  by flipping <active> back to true if the partnerslider module is ever
+  actually delivered.
+-->
 <config>
     <modules>
          <MMD_Partnerslider>
-            <active>true</active>
+            <active>false</active>
             <codePool>local</codePool>
         </MMD_Partnerslider>
     </modules>
-</config> 
+</config>
+
