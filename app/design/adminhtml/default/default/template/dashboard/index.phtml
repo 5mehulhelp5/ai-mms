@@ -4349,29 +4349,39 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     </div>
 
     <!-- DEVELOPER: Assessment Grading -->
+    <?php $_devAsRecord = isset($_courseware['assessment_record_link']) ? trim((string)$_courseware['assessment_record_link']) : ''; ?>
     <div class="lcd-section" id="assessment-grading">
         <div class="lcd-section-title">Assessment Grading</div>
-        <div class="lcd-tile">
+        <?php if ($_devAsRecord !== ''): ?>
+        <a href="<?php echo htmlspecialchars($_devAsRecord) ?>" target="_blank" rel="noopener" class="lcd-tile" style="text-decoration:none;color:inherit;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             <div class="lcd-tile-body">
                 <div class="lcd-tile-title">Assessment Record Link</div>
                 <div class="lcd-tile-sub">Open assessment grading records</div>
             </div>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </div>
+        </a>
+        <?php else: ?>
+        <div style="color:#64748b;font-size:13px;font-style:italic;padding:8px 0;">No assessment record link saved yet.</div>
+        <?php endif; ?>
     </div>
 
     <!-- DEVELOPER: Assessment Summary Record -->
+    <?php $_devAsSummary = isset($_courseware['assessment_summary_url']) ? trim((string)$_courseware['assessment_summary_url']) : ''; ?>
     <div class="lcd-section" id="assessment-summary">
         <div class="lcd-section-title">Assessment Summary Record</div>
-        <div class="lcd-tile">
+        <?php if ($_devAsSummary !== ''): ?>
+        <a href="<?php echo htmlspecialchars($_devAsSummary) ?>" target="_blank" rel="noopener" class="lcd-tile" style="text-decoration:none;color:inherit;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             <div class="lcd-tile-body">
                 <div class="lcd-tile-title">Assessment Summary Record Template</div>
                 <div class="lcd-tile-sub">Click to open</div>
             </div>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </div>
+        </a>
+        <?php else: ?>
+        <div style="color:#64748b;font-size:13px;font-style:italic;padding:8px 0;">No assessment summary record URL saved yet.</div>
+        <?php endif; ?>
     </div>
 
     <!-- DEVELOPER: Course Sessions -->
@@ -4789,19 +4799,48 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     </div>
 
     <!-- TRAINER: Courseware -->
+    <?php
+    // Mirror of the developer Courseware fix (4fd06468): the trainer view
+    // had its own hardcoded list of 6 stub tiles ("Courseware Link",
+    // "Lesson Plan", ...) with no hrefs and no tie to course_courseware,
+    // so an assigned trainer couldn't reach the saved URLs at all.
+    // Same label map as the developer view + same loop pattern; only
+    // tiles whose URL is actually saved render, and each is a real link.
+    $_trCwLabels = array(
+        'lesson_plan_url'        => 'Lesson Plan',
+        'learner_guide_url'      => 'Learner Guide',
+        'facilitator_guide_url'  => 'Facilitator Guide',
+        'assessment_plan_url'    => 'Assessment Plan',
+        'learner_slides_url'     => 'Learner Slides',
+        'trainer_slides_url'     => 'Trainer Slides',
+        'courseware_link'        => 'Courseware Link',
+        'brochure_link'          => 'Brochure Link',
+        'assessment_record_link' => 'Assessment Record Link',
+        'assessment_summary_url' => 'Assessment Summary Record',
+    );
+    $_trCwSaved = array();
+    foreach ($_trCwLabels as $_k => $_lbl) {
+        $_url = isset($_courseware[$_k]) ? trim((string) $_courseware[$_k]) : '';
+        if ($_url !== '') {
+            $_trCwSaved[$_k] = array('label' => $_lbl, 'url' => $_url);
+        }
+    }
+    ?>
     <div class="lcd-section" id="courseware">
         <div class="lcd-section-title">Courseware</div>
-        <?php
-        $_coursewareItems = array('Courseware Link','Lesson Plan','Learner Guide','Facilitator Guide','Trainer Slides','Assessment Plan');
-        foreach ($_coursewareItems as $_cw): ?>
-        <div class="lcd-tile" style="margin-bottom:8px;">
+        <?php if (empty($_trCwSaved)): ?>
+        <div style="color:#64748b;font-size:13px;font-style:italic;padding:8px 0;">No courseware URLs saved yet.</div>
+        <?php else: ?>
+        <?php foreach ($_trCwSaved as $_cw): ?>
+        <a href="<?php echo htmlspecialchars($_cw['url']) ?>" target="_blank" rel="noopener" class="lcd-tile" style="margin-bottom:8px;text-decoration:none;color:inherit;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             <div class="lcd-tile-body">
-                <div class="lcd-tile-title"><?php echo $_cw ?></div>
+                <div class="lcd-tile-title"><?php echo htmlspecialchars($_cw['label']) ?></div>
                 <div class="lcd-tile-sub">Click to open</div>
             </div>
-        </div>
+        </a>
         <?php endforeach; ?>
+        <?php endif; ?>
     </div>
 
     <!-- TRAINER: Lesson (topics — title + chevron only, no progress bars) -->
@@ -4914,15 +4953,20 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     </div>
 
     <!-- TRAINER: Assessment Grading -->
+    <?php $_trAsRecord = isset($_courseware['assessment_record_link']) ? trim((string)$_courseware['assessment_record_link']) : ''; ?>
     <div class="lcd-section" id="assessment-grading">
         <div class="lcd-section-title">Assessment Grading</div>
-        <div class="lcd-tile" style="margin-bottom:8px;">
+        <?php if ($_trAsRecord !== ''): ?>
+        <a href="<?php echo htmlspecialchars($_trAsRecord) ?>" target="_blank" rel="noopener" class="lcd-tile" style="margin-bottom:8px;text-decoration:none;color:inherit;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             <div class="lcd-tile-body">
                 <div class="lcd-tile-title">Assessment Record Link</div>
                 <div class="lcd-tile-sub">Click to open</div>
             </div>
-        </div>
+        </a>
+        <?php else: ?>
+        <div style="color:#64748b;font-size:13px;font-style:italic;padding:8px 0;margin-bottom:8px;">No assessment record link saved yet.</div>
+        <?php endif; ?>
         <div class="lcd-tile">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             <div class="lcd-tile-body">
@@ -4993,37 +5037,52 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         </div>
     </div>
 
+    <?php $_lnLessonPlan = isset($_courseware['lesson_plan_url']) ? trim((string)$_courseware['lesson_plan_url']) : ''; ?>
     <div class="lcd-section" id="lesson-plan">
         <div class="lcd-section-title">Lesson Plan</div>
-        <div class="lcd-tile lcd-tile-static">
+        <?php if ($_lnLessonPlan !== ''): ?>
+        <a href="<?php echo htmlspecialchars($_lnLessonPlan) ?>" target="_blank" rel="noopener" class="lcd-tile" style="text-decoration:none;color:inherit;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             <div class="lcd-tile-body">
                 <div class="lcd-tile-title">Lesson Plan</div>
                 <div class="lcd-tile-sub">Click to open</div>
             </div>
-        </div>
+        </a>
+        <?php else: ?>
+        <div style="color:#64748b;font-size:13px;font-style:italic;padding:8px 0;">No lesson plan link saved yet.</div>
+        <?php endif; ?>
     </div>
 
+    <?php $_lnLearnerGuide = isset($_courseware['learner_guide_url']) ? trim((string)$_courseware['learner_guide_url']) : ''; ?>
     <div class="lcd-section" id="learner-guide">
         <div class="lcd-section-title">Learner Guide</div>
-        <div class="lcd-tile lcd-tile-static">
+        <?php if ($_lnLearnerGuide !== ''): ?>
+        <a href="<?php echo htmlspecialchars($_lnLearnerGuide) ?>" target="_blank" rel="noopener" class="lcd-tile" style="text-decoration:none;color:inherit;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             <div class="lcd-tile-body">
                 <div class="lcd-tile-title">Learner Guide</div>
                 <div class="lcd-tile-sub">Click to open</div>
             </div>
-        </div>
+        </a>
+        <?php else: ?>
+        <div style="color:#64748b;font-size:13px;font-style:italic;padding:8px 0;">No learner guide link saved yet.</div>
+        <?php endif; ?>
     </div>
 
+    <?php $_lnLearnerSlides = isset($_courseware['learner_slides_url']) ? trim((string)$_courseware['learner_slides_url']) : ''; ?>
     <div class="lcd-section" id="learner-slides">
         <div class="lcd-section-title">Learner Slides</div>
-        <div class="lcd-tile lcd-tile-static">
+        <?php if ($_lnLearnerSlides !== ''): ?>
+        <a href="<?php echo htmlspecialchars($_lnLearnerSlides) ?>" target="_blank" rel="noopener" class="lcd-tile" style="text-decoration:none;color:inherit;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             <div class="lcd-tile-body">
                 <div class="lcd-tile-title">Learner Slides</div>
                 <div class="lcd-tile-sub">Click to open</div>
             </div>
-        </div>
+        </a>
+        <?php else: ?>
+        <div style="color:#64748b;font-size:13px;font-style:italic;padding:8px 0;">No learner slides link saved yet.</div>
+        <?php endif; ?>
     </div>
 
     <div class="lcd-section" id="learning-outcomes">
