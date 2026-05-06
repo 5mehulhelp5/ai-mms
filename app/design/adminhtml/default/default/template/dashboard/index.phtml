@@ -4247,14 +4247,21 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     // section hardcoded 6 generic titles ("Courseware Link", "Lesson Plan",
     // ...) with no actual hrefs and no tie to saved data, which is what the
     // user reported: "view doesn't reflect the edit's saved courseware".
+    // Display order requested 2026-05-06: Courseware Link first (the
+    // "folder" tile that umbrellas everything), then the structured
+    // teaching artifacts in the order Lesson Plan -> Learner Guide ->
+    // Facilitator Guide -> Trainer Slides -> Assessment Plan, then
+    // every other URL the schema knows about. Empty URLs are skipped
+    // by the foreach below so the user only ever sees real, clickable
+    // links.
     $_devCwLabels = array(
+        'courseware_link'        => 'Courseware Link',
         'lesson_plan_url'        => 'Lesson Plan',
         'learner_guide_url'      => 'Learner Guide',
         'facilitator_guide_url'  => 'Facilitator Guide',
+        'trainer_slides_url'     => 'Trainer Slides',
         'assessment_plan_url'    => 'Assessment Plan',
         'learner_slides_url'     => 'Learner Slides',
-        'trainer_slides_url'     => 'Trainer Slides',
-        'courseware_link'        => 'Courseware Link',
         'brochure_link'          => 'Brochure Link',
         'assessment_record_link' => 'Assessment Record Link',
         'assessment_summary_url' => 'Assessment Summary Record',
@@ -4806,14 +4813,17 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     // so an assigned trainer couldn't reach the saved URLs at all.
     // Same label map as the developer view + same loop pattern; only
     // tiles whose URL is actually saved render, and each is a real link.
+    // Same display order as the developer view (above): Courseware Link
+    // first, then Lesson Plan / Learner Guide / Facilitator Guide /
+    // Trainer Slides / Assessment Plan, then everything else.
     $_trCwLabels = array(
+        'courseware_link'        => 'Courseware Link',
         'lesson_plan_url'        => 'Lesson Plan',
         'learner_guide_url'      => 'Learner Guide',
         'facilitator_guide_url'  => 'Facilitator Guide',
+        'trainer_slides_url'     => 'Trainer Slides',
         'assessment_plan_url'    => 'Assessment Plan',
         'learner_slides_url'     => 'Learner Slides',
-        'trainer_slides_url'     => 'Trainer Slides',
-        'courseware_link'        => 'Courseware Link',
         'brochure_link'          => 'Brochure Link',
         'assessment_record_link' => 'Assessment Record Link',
         'assessment_summary_url' => 'Assessment Summary Record',
