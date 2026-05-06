@@ -1019,18 +1019,48 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $read     = $resource->getConnection('core_read');
             $wid      = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
             $like = '%' . $q . '%';
+
+            // Resolve customer firstname/lastname attribute IDs once.
+            // OpenMage customer entity_type_id is 1.
+            $fnId = (int) $read->fetchOne(
+                "SELECT attribute_id FROM eav_attribute
+                 WHERE entity_type_id=1 AND attribute_code='firstname'"
+            );
+            $lnId = (int) $read->fetchOne(
+                "SELECT attribute_id FROM eav_attribute
+                 WHERE entity_type_id=1 AND attribute_code='lastname'"
+            );
+
+            // Search both sources so any registered customer is findable,
+            // not just those who've placed orders:
+            //   1. sales_flat_order — guests + customers with orders
+            //   2. customer_entity  — every registered account on the website
+            // UNION dedupes on (email, name).
             $rows = $read->fetchAll(
-                "SELECT DISTINCT
-                        LOWER(o.customer_email) AS email,
-                        COALESCE(NULLIF(TRIM(CONCAT(IFNULL(o.customer_firstname,''),' ',IFNULL(o.customer_lastname,''))),''), o.customer_email) AS name
-                 FROM sales_flat_order o
-                 JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id=?
-                 WHERE o.customer_email IS NOT NULL
-                   AND (LOWER(o.customer_email) LIKE ?
-                        OR LOWER(CONCAT(IFNULL(o.customer_firstname,''),' ',IFNULL(o.customer_lastname,''))) LIKE ?)
-                 ORDER BY name
-                 LIMIT 30",
-                array($wid, $like, $like)
+                "SELECT email, name FROM (
+                    SELECT DISTINCT
+                            LOWER(o.customer_email) AS email,
+                            COALESCE(NULLIF(TRIM(CONCAT(IFNULL(o.customer_firstname,''),' ',IFNULL(o.customer_lastname,''))),''), o.customer_email) AS name
+                     FROM sales_flat_order o
+                     JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id=?
+                     WHERE o.customer_email IS NOT NULL
+                       AND (LOWER(o.customer_email) LIKE ?
+                            OR LOWER(CONCAT(IFNULL(o.customer_firstname,''),' ',IFNULL(o.customer_lastname,''))) LIKE ?)
+                    UNION
+                    SELECT DISTINCT
+                            LOWER(ce.email) AS email,
+                            COALESCE(NULLIF(TRIM(CONCAT(IFNULL(fn.value,''),' ',IFNULL(ln.value,''))),''), ce.email) AS name
+                     FROM customer_entity ce
+                     LEFT JOIN customer_entity_varchar fn ON fn.entity_id=ce.entity_id AND fn.attribute_id=?
+                     LEFT JOIN customer_entity_varchar ln ON ln.entity_id=ce.entity_id AND ln.attribute_id=?
+                     WHERE ce.website_id=?
+                       AND ce.email IS NOT NULL
+                       AND (LOWER(ce.email) LIKE ?
+                            OR LOWER(CONCAT(IFNULL(fn.value,''),' ',IFNULL(ln.value,''))) LIKE ?)
+                ) s
+                ORDER BY name
+                LIMIT 60",
+                array($wid, $like, $like, $fnId, $lnId, $wid, $like, $like)
             );
             $result['learners'] = $rows;
             $result['success']  = true;
