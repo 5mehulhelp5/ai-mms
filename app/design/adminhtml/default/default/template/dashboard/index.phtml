@@ -1508,7 +1508,7 @@ $_devFilterQuery = trim((string) Mage::app()->getRequest()->getParam('dev_q', ''
 //   'all'     = row exists and all 11 URLs are filled
 $_devFilterCourseware = (string) Mage::app()->getRequest()->getParam('dev_courseware', '');
 $_devCwCount = array(); // product_id => count of non-empty URLs (0..11)
-$_devCwTotal = 11;      // number of URL columns we care about
+$_devCwTotal = 10;      // number of URL columns we care about — must match the SUM-over-CASE in the count query below + the $_cwFields array in the edit form
 $_devTotalCount = 0;
 $_devTotalPages = 1;
 $_devTotalAll = 0;
