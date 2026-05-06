@@ -370,7 +370,12 @@ try {
     $_loggedInEmail = $_loggedInUser ? strtolower($_loggedInUser->getEmail()) : '';
 } catch (Exception $e) {}
 
-if ($_loggedInEmail) {
+// Only Learner and Trainer roles render dash-panel-learner (per the JS
+// panelMap below) — for everyone else this whole block runs ~5+
+// queries against sales_flat_order whose results are never displayed.
+// $_learnerCourses, $_billingHistory et al. already have empty/zero
+// defaults above so the markup is safe to render either way.
+if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer')) {
     $_now = date('Y-m-d');
     $_resource = Mage::getSingleton('core/resource');
     $_read = $_resource->getConnection('core_read');
@@ -1480,6 +1485,17 @@ $_devFilterQuery = trim((string) Mage::app()->getRequest()->getParam('dev_q', ''
 $_devFilterCourseware = (string) Mage::app()->getRequest()->getParam('dev_courseware', '');
 $_devCwCount = array(); // product_id => count of non-empty URLs (0..11)
 $_devCwTotal = 11;      // number of URL columns we care about
+$_devTotalCount = 0;
+$_devTotalPages = 1;
+$_devTotalAll = 0;
+
+// dash-panel-developer is only shown to the Developer role (per the JS
+// panelMap). For every other role the catalog collection + courseware
+// counts below are wasted work — heavy product collection queries that
+// run on every admin page load. Skip when not actually rendering this
+// panel.
+if ($activeRole === 'developer'):
+
 if (in_array($_devFilterCourseware, array('missing','partial','all'), true)) {
     try {
         $_cwRead = Mage::getSingleton('core/resource')->getConnection('core_read');
@@ -1655,6 +1671,7 @@ if ($_devWebsiteId > 0) {
         ->getConnection('core_read')
         ->fetchOne("SELECT COUNT(*) FROM " . Mage::getSingleton('core/resource')->getTableName('catalog_product_entity'));
 }
+endif; // end if ($activeRole === 'developer')
 ?>
 <div id="dash-panel-developer" style="display:none;">
 <style>
