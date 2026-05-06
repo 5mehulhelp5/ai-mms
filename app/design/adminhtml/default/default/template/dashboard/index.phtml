@@ -7810,13 +7810,16 @@ if ($_cncActive) {
     // default and matches the original form.
     $_cncVenue = array(
         'SG' => array(
-            'block'    => array('label' => 'Block',         'ph' => 'BLK 170', 'required' => false),
-            'street'   => array('label' => 'Street',        'ph' => 'Upper Bukit Timah Road'),
-            'building' => array('label' => 'Building',      'ph' => 'Bukit Timah Shopping Centre'),
-            'floor'    => array('label' => 'Floor',         'ph' => '#05',          'required' => true),
-            'unit'     => array('label' => 'Unit',          'ph' => '27',           'required' => true),
-            'postal'   => array('label' => 'Postal Code',   'ph' => '588179',       'required' => true),
-            'room'     => array('label' => 'Room',          'ph' => 'Lab 3',        'required' => true),
+            // Tertiary Infotech Academy — Woods Square Tower 1, Woodlands.
+            // Address: 12 Woodlands Square, #07-85/86/87, Woods Square Tower 1,
+            // Singapore 737715 (Disabled-Friendly).
+            'block'    => array('label' => 'Block',         'ph' => '12',                        'required' => false),
+            'street'   => array('label' => 'Street',        'ph' => 'Woodlands Square'),
+            'building' => array('label' => 'Building',      'ph' => 'Woods Square Tower 1'),
+            'floor'    => array('label' => 'Floor',         'ph' => '#07',                       'required' => true),
+            'unit'     => array('label' => 'Unit',          'ph' => '85',                        'required' => true),
+            'postal'   => array('label' => 'Postal Code',   'ph' => '737715',                    'required' => true),
+            'room'     => array('label' => 'Room',          'ph' => 'Training Centre',           'required' => true),
         ),
         'MY' => array(
             'block'    => array('label' => 'City',          'ph' => 'Kuala Lumpur'),
