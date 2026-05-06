@@ -426,6 +426,33 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         return 'Newsletter draft — ' . date('j M Y');
     }
 
+    /**
+     * Strip HTML *and* decode entities from catalog text. The catalog
+     * stores rich descriptions with `&nbsp;`, `&rsquo;`, `<br>`, etc.
+     * Plain `strip_tags()` removes the tags but leaves entities intact,
+     * which then leak into bullets as literal "&nbsp;" because the
+     * outer template re-escapes the `&` via htmlspecialchars(). We need
+     * to decode entities BEFORE re-escaping.
+     */
+    protected function _cleanCatalogText($raw)
+    {
+        if ($raw === null) return '';
+        $s = (string) $raw;
+        // Decode &nbsp; / &amp; / &rsquo; / numeric refs, etc.
+        $s = html_entity_decode($s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // Replace non-breaking spaces with regular spaces.
+        $s = str_replace("\xc2\xa0", ' ', $s);
+        // Inject a space before block-level / line-break tags so stripping
+        // them doesn't merge adjacent words ("a<br>b" → "a b" not "ab").
+        $s = preg_replace('#<(br|p|li|tr|td|div|h[1-6])\b[^>]*>#i', ' $0', $s);
+        $s = preg_replace('#</(p|li|tr|td|div|h[1-6])>#i', ' $0', $s);
+        // Remove tags after decoding (so entities inside tags don't leak).
+        $s = strip_tags($s);
+        // Collapse all whitespace runs into single spaces.
+        $s = trim(preg_replace('/\s+/u', ' ', $s));
+        return $s;
+    }
+
     protected function _normalisePids($csv)
     {
         $out = array();
@@ -495,8 +522,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                     );
                 } catch (Exception $e) { $val = null; }
                 if ($val === null || $val === '') continue;
-                $cleaned = trim(strip_tags((string) $val));
-                $cleaned = preg_replace('/\s+/', ' ', $cleaned);
+                $cleaned = $this->_cleanCatalogText($val);
                 if ($cleaned === '') continue;
                 // Cap each field so the prompt doesn't blow up the token budget.
                 if (mb_strlen($cleaned) > 1500) $cleaned = mb_substr($cleaned, 0, 1497) . '...';
@@ -771,13 +797,27 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         $bullets = $this->_applyContentInjections($bullets, $latestUser, $course);
         $bullets = array_slice($bullets, 0, $wantMore ? 6 : 4);
 
-        // BLOCK 3 — pricing from the real catalog price. We only have
-        // the full course fee in the catalog, so the stub shows that one
-        // accurate row rather than inventing subsidy tiers.
+        // BLOCK 3 — pricing. SG courses always show the brand 3-tier
+        // table (Full / Singaporean 21-39 / Singaporean 40+) computed
+        // from the catalog price using the standard WSQ subsidy ratios.
+        // Other countries get a single-row fee. No price → omit.
         $blocks = array($tagline, implode("\n", $bullets));
-        if ($course && isset($course['price']) && (float) $course['price'] > 0) {
-            $blocks[] = "Course Fee (Incl. GST) | $"
-                      . number_format((float) $course['price'], 2);
+        $price = ($course && isset($course['price'])) ? (float) $course['price'] : 0.0;
+        if ($price > 0) {
+            $fmt = function ($n) { return '$' . number_format(round($n), 0); };
+            if ($cc === 'SG') {
+                // Standard WSQ subsidy approximation: ~45% off for
+                // 21-39, ~64% off for 40+. Drop in real subsidy data
+                // when funding metadata is added to the catalog.
+                $sub21 = $price * 0.55;
+                $sub40 = $price * 0.36;
+                $blocks[] = "Full Course Fee (Incl. GST) | " . $fmt($price) . "\n"
+                          . "Nett Fee for Singaporeans / PRs aged 21-39 | " . $fmt($sub21) . "\n"
+                          . "Nett Fee for Singaporeans 40yo and above | " . $fmt($sub40);
+            } else {
+                $blocks[] = "Course Fee (Incl. GST) | $"
+                          . number_format($price, 2);
+            }
         }
 
         // Wrap with an ACK + marker so the chat pane shows a chatbot-
@@ -872,7 +912,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                 }
             }
             if (in_array('add_audience', $intents, true) && !empty($course['whoshouldattend'])) {
-                $aud = trim(preg_replace('/\s+/', ' ', strip_tags($course['whoshouldattend'])));
+                $aud = $this->_cleanCatalogText($course['whoshouldattend']);
                 $words = preg_split('/\s+/', $aud);
                 $tag = implode(', ', array_slice($words, 0, 4));
                 return "It's aimed at {$tag} and similar roles. Added a 'Designed for' bullet.";
@@ -1020,7 +1060,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         if (!empty($course['description'])) $parts[] = (string) $course['description'];
         if (!empty($course['short_desc']))  $parts[] = (string) $course['short_desc'];
         if (empty($parts)) return $out;
-        $clean = trim(preg_replace('/\s+/', ' ', strip_tags(implode(' ', $parts))));
+        $clean = $this->_cleanCatalogText(implode(' ', $parts));
         if ($clean === '') return $out;
 
         $cap = $max >= 7 ? 160 : 110;
@@ -1307,7 +1347,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         $byIntent = array();
 
         if (!empty($course['whoshouldattend'])) {
-            $aud = trim(preg_replace('/\s+/', ' ', strip_tags($course['whoshouldattend'])));
+            $aud = $this->_cleanCatalogText($course['whoshouldattend']);
             if ($aud !== '') {
                 $words = preg_split('/\s+/', $aud);
                 $tag = implode(' ', array_slice($words, 0, 5));
@@ -1315,7 +1355,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             }
         }
         if (!empty($course['trainerprofile'])) {
-            $tp = trim(preg_replace('/\s+/', ' ', strip_tags($course['trainerprofile'])));
+            $tp = $this->_cleanCatalogText($course['trainerprofile']);
             if ($tp !== '' && preg_match('/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\b/', $tp, $m)) {
                 $byIntent['add_trainer'] = "Led by " . $m[1] . " — certified industry trainer";
             } elseif ($tp !== '') {
@@ -1385,7 +1425,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         // description, the short blurb usually has 1-2 useful sentences.
         $out = array();
         if (!empty($course['short_desc'])) {
-            $clean = trim(preg_replace('/\s+/', ' ', strip_tags((string) $course['short_desc'])));
+            $clean = $this->_cleanCatalogText($course['short_desc']);
             $cap = $wantMore ? 160 : 95;
             foreach (preg_split('/(?<=[.!?])\s+/', $clean) as $s) {
                 $s = rtrim(trim($s), '.!?,;:');
@@ -1593,22 +1633,37 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
     protected function _pickDesignVariant($seed)
     {
         $palettes = array(
-            // primary, dark, accent, yellow, sub
-            array('name'=>'magenta-teal','primary'=>'#d4276e','dark'=>'#7c1741','accent'=>'#2bc4d4','yellow'=>'#ffc83d','sub'=>'#e63946'),
-            array('name'=>'indigo-coral','primary'=>'#4f46e5','dark'=>'#312e81','accent'=>'#fb7185','yellow'=>'#fbbf24','sub'=>'#dc2626'),
-            array('name'=>'forest-amber','primary'=>'#059669','dark'=>'#064e3b','accent'=>'#f59e0b','yellow'=>'#fde047','sub'=>'#dc2626'),
-            array('name'=>'royal-rose','primary'=>'#7c3aed','dark'=>'#4c1d95','accent'=>'#ec4899','yellow'=>'#fde047','sub'=>'#dc2626'),
-            array('name'=>'ocean-citrus','primary'=>'#0891b2','dark'=>'#164e63','accent'=>'#f97316','yellow'=>'#fef08a','sub'=>'#dc2626'),
-            array('name'=>'sunset-slate','primary'=>'#dc2626','dark'=>'#7f1d1d','accent'=>'#0f766e','yellow'=>'#fde047','sub'=>'#1e293b'),
-            array('name'=>'berry-sky','primary'=>'#be185d','dark'=>'#831843','accent'=>'#0ea5e9','yellow'=>'#fef08a','sub'=>'#dc2626'),
-            array('name'=>'pumpkin-teal','primary'=>'#ea580c','dark'=>'#7c2d12','accent'=>'#0d9488','yellow'=>'#fde047','sub'=>'#7c2d12'),
+            // Each palette: primary (hero/header), dark (gradient end /
+            // accents), accent (CTA band / call-out), yellow (tagline
+            // strip / pricing header / CTA button), sub (subsidy pill)
+            array('name'=>'magenta-teal',  'primary'=>'#d4276e','dark'=>'#7c1741','accent'=>'#2bc4d4','yellow'=>'#ffc83d','sub'=>'#e63946'),
+            array('name'=>'indigo-coral',  'primary'=>'#4f46e5','dark'=>'#312e81','accent'=>'#fb7185','yellow'=>'#fbbf24','sub'=>'#dc2626'),
+            array('name'=>'forest-amber',  'primary'=>'#059669','dark'=>'#064e3b','accent'=>'#f59e0b','yellow'=>'#fde047','sub'=>'#dc2626'),
+            array('name'=>'royal-rose',    'primary'=>'#7c3aed','dark'=>'#4c1d95','accent'=>'#ec4899','yellow'=>'#fde047','sub'=>'#dc2626'),
+            array('name'=>'ocean-citrus',  'primary'=>'#0891b2','dark'=>'#164e63','accent'=>'#f97316','yellow'=>'#fef08a','sub'=>'#dc2626'),
+            array('name'=>'sunset-slate',  'primary'=>'#dc2626','dark'=>'#7f1d1d','accent'=>'#0f766e','yellow'=>'#fde047','sub'=>'#1e293b'),
+            array('name'=>'berry-sky',     'primary'=>'#be185d','dark'=>'#831843','accent'=>'#0ea5e9','yellow'=>'#fef08a','sub'=>'#dc2626'),
+            array('name'=>'pumpkin-teal',  'primary'=>'#ea580c','dark'=>'#7c2d12','accent'=>'#0d9488','yellow'=>'#fde047','sub'=>'#7c2d12'),
+            // New additions:
+            array('name'=>'midnight-gold', 'primary'=>'#1e293b','dark'=>'#0f172a','accent'=>'#eab308','yellow'=>'#fde68a','sub'=>'#b45309'),
+            array('name'=>'emerald-coral', 'primary'=>'#10b981','dark'=>'#065f46','accent'=>'#fb7185','yellow'=>'#fef08a','sub'=>'#be185d'),
+            array('name'=>'plum-amber',    'primary'=>'#9333ea','dark'=>'#581c87','accent'=>'#f59e0b','yellow'=>'#fde68a','sub'=>'#be123c'),
+            array('name'=>'navy-orange',   'primary'=>'#1e40af','dark'=>'#1e3a8a','accent'=>'#f97316','yellow'=>'#fef08a','sub'=>'#dc2626'),
+            array('name'=>'crimson-cream', 'primary'=>'#b91c1c','dark'=>'#7f1d1d','accent'=>'#fef3c7','yellow'=>'#fde68a','sub'=>'#1e293b'),
+            array('name'=>'teal-rose',     'primary'=>'#0d9488','dark'=>'#134e4a','accent'=>'#f43f5e','yellow'=>'#fef08a','sub'=>'#be123c'),
+            array('name'=>'violet-lime',   'primary'=>'#8b5cf6','dark'=>'#5b21b6','accent'=>'#84cc16','yellow'=>'#fde047','sub'=>'#dc2626'),
+            array('name'=>'bronze-sage',   'primary'=>'#a16207','dark'=>'#713f12','accent'=>'#84cc16','yellow'=>'#fde68a','sub'=>'#7c2d12'),
         );
         $seed = max(1, abs((int) $seed));
         return array(
             'seed'    => $seed,
             'palette' => $palettes[$seed % count($palettes)],
-            'hero'    => (int) (intdiv($seed, 8)  % 2),  // 0 = pills above headline, 1 = pills below in yellow band
-            'cards'   => (int) (intdiv($seed, 32) % 2),  // 0 = numbered colored squares, 1 = checkmark cards
+            // 4 hero × 4 card × 4 body-layout × 16 palettes = 1024
+            // unique compositions — different palette AND structural
+            // layout per course, not just colors.
+            'hero'    => (int) (intdiv($seed, 16)   % 4),
+            'cards'   => (int) (intdiv($seed, 64)   % 4),
+            'layout'  => (int) (intdiv($seed, 256)  % 4),
         );
     }
 
