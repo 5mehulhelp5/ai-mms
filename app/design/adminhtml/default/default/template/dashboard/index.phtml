@@ -1489,14 +1489,9 @@ $_devTotalCount = 0;
 $_devTotalPages = 1;
 $_devTotalAll = 0;
 
-// dash-panel-developer is only shown to the Developer role (per the JS
-// panelMap). For every other role the catalog collection + courseware
-// counts below are wasted work — heavy product collection queries that
-// run on every admin page load. Skip when not actually rendering this
-// panel.
-if ($activeRole === 'developer'):
-
-if (in_array($_devFilterCourseware, array('missing','partial','all'), true)) {
+// Courseware-URL counts are only used by the Developer panel's filter
+// chips, so skip the SUM-over-CASE query for every other role.
+if ($activeRole === 'developer' && in_array($_devFilterCourseware, array('missing','partial','all'), true)) {
     try {
         $_cwRead = Mage::getSingleton('core/resource')->getConnection('core_read');
         // Count non-empty URLs per product. (col != '') casts to 0/1, summed.
@@ -1577,6 +1572,11 @@ try {
     }
 } catch (Exception $e) {}
 $_devTotalCount = 0;
+// Heavy block — paginated catalog product collection with multiple EAV
+// attributes selected, plus filtering, plus an iteration that resolves
+// thumbnail images per row. Only the Developer panel renders this; for
+// every other role the result ($_devCourses) is never displayed.
+if ($activeRole === 'developer'):
 try {
     // For "All", disable the flat-catalog at runtime so the collection
     // reads from catalog_product_entity (EAV) instead of catalog_product_flat_1.
@@ -1671,7 +1671,7 @@ if ($_devWebsiteId > 0) {
         ->getConnection('core_read')
         ->fetchOne("SELECT COUNT(*) FROM " . Mage::getSingleton('core/resource')->getTableName('catalog_product_entity'));
 }
-endif; // end if ($activeRole === 'developer')
+endif; // end if ($activeRole === 'developer') — closes the $_devCollection block
 ?>
 <div id="dash-panel-developer" style="display:none;">
 <style>
