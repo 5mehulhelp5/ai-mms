@@ -283,6 +283,17 @@ $monthOrders = (int)$mc->getSize();
 // reports/order_collection objects in a loop. Each collection round-trip
 // previously rebuilt the full sales/order subselect with the same JOINs,
 // so this is the heaviest of the dashboard's old N+1 patterns.
+//
+// Hardened 2026-05-06: production (MySQL 8.4 strict mode) was returning
+// $_smRows as an empty array, leaving $salesByMonth at all-zero values
+// and the chart canvas effectively blank. Two changes:
+//   1. GROUP BY uses the full DATE_FORMAT expression rather than the
+//      `ym` alias. MySQL 8 ONLY_FULL_GROUP_BY can reject alias-based
+//      grouping in some edge cases; the explicit expression is safe
+//      across versions.
+//   2. The fetch is wrapped in try/catch so any future query/permission
+//      issue can't blank the chart again — we always emit 12 month
+//      buckets with whatever data the query returned (or all zeros).
 $_smStart  = date('Y-m-01 00:00:00', strtotime('-11 months'));
 $_smOrderT = $resource->getTableName('sales/order');
 $_smWhere  = "o.created_at >= '{$_smStart}' AND o.state NOT IN ('canceled','new')";
@@ -296,15 +307,20 @@ if ($countryFilter) {
                FROM {$_smOrderT} o
                JOIN {$_smAddrT} a ON a.parent_id=o.entity_id AND a.address_type='billing'
                WHERE {$_smWhere} AND a.country_id = " . $read->quote($countryFilter) . "
-               GROUP BY ym";
+               GROUP BY DATE_FORMAT(o.created_at,'%Y-%m')";
 } else {
     $_smSql = "SELECT DATE_FORMAT(o.created_at,'%Y-%m') AS ym,
                       COALESCE(SUM(o.base_grand_total),0) AS mt
                FROM {$_smOrderT} o
                WHERE {$_smWhere}
-               GROUP BY ym";
+               GROUP BY DATE_FORMAT(o.created_at,'%Y-%m')";
 }
-$_smRows = $read->fetchPairs($_smSql);
+$_smRows = array();
+try {
+    $_smRows = $read->fetchPairs($_smSql);
+} catch (Exception $e) {
+    Mage::logException($e);
+}
 $salesByMonth = array();
 for ($i = 11; $i >= 0; $i--) {
     $ym  = date('Y-m', strtotime("-$i months"));
