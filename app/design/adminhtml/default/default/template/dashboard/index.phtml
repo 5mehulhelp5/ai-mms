@@ -876,6 +876,17 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
     }
     unset($_lcRef);
 
+    // Sort My Classes by start_date ascending (chronological — soonest
+    // course first, undated rows last). Per product request 2026-05-06.
+    usort($_learnerCourses, function ($a, $b) {
+        $aSt = (!empty($a['start_date']) && $a['start_date'] !== '—') ? strtotime($a['start_date']) : 0;
+        $bSt = (!empty($b['start_date']) && $b['start_date'] !== '—') ? strtotime($b['start_date']) : 0;
+        if ($aSt === 0 && $bSt === 0) return 0;
+        if ($aSt === 0) return 1;
+        if ($bSt === 0) return -1;
+        return $aSt - $bSt;
+    });
+
     // Query billing history for this learner (one row per order item)
     $_billSql = "SELECT o.increment_id, o.created_at, o.grand_total, o.status, o.state,
                         oi.name as item_name, oi.sku as item_sku, oi.product_type,
@@ -1845,7 +1856,7 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
             </div>
             <div class="dev-card-body">
                 <div class="dev-card-title"><span><?php echo htmlspecialchars($_dc['name']) ?></span><?php if ($_dcRef): ?><span class="dev-card-tgs-sub"><?php echo htmlspecialchars($_dcRef) ?></span><?php endif; ?></div>
-                <div class="dev-card-row"><span class="dev-card-lbl">TGS Ref:</span><span class="dev-card-val"><?php echo $_dcRef ? htmlspecialchars($_dcRef) : '—' ?></span></div>
+                <div class="dev-card-row"><span class="dev-card-lbl">Course Code:</span><span class="dev-card-val"><?php echo $_dcRef ? htmlspecialchars($_dcRef) : '—' ?></span></div>
                 <?php $_runRank = isset($_devRankMap[(int)$_dc['id']]) ? $_devRankMap[(int)$_dc['id']] : 0; ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Course Run ID:</span><span class="dev-card-val"><?php echo $_devPrefix . '-' . (100000 + $_runRank) ?></span></div>
                 <div class="dev-card-row"><span class="dev-card-lbl">Course Type:</span><span class="dev-card-val"><?php echo $_dc['course_type'] ? '<span class="dev-badge">' . htmlspecialchars($_dc['course_type']) . '</span>' : '—' ?></span></div>
@@ -1858,7 +1869,7 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
                 <?php if ($_dc['price'] > 0): ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Price:</span><span class="dev-card-val">$<?php echo number_format($_dc['price'], 2) ?></span></div>
                 <?php endif; ?>
-                <div class="dev-card-row"><span class="dev-card-lbl">Funding Validity:</span><span class="dev-card-val" style="color:#22c55e;"><?php echo $_dc['funding_date'] ? date('j M Y', strtotime($_dc['funding_date'])).' - Valid' : '—' ?></span></div>
+                <!-- Funding Validity row removed 2026-05-06 per product decision. -->
             </div>
             <?php
             $_dcBackSuffix = $_devBackQs !== '' ? '?dev_back=' . urlencode($_devBackQs) : '';
@@ -4100,7 +4111,6 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     <div class="lcd-drawer-body">
         <h3 class="lcd-drawer-section-title">Course Details</h3>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Funding Validity</span><span class="lcd-detail-value" style="color:#22c55e">21 Apr 2026 (Valid)</span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Digital Attendance ID</span><span class="lcd-detail-value"><?php echo $_digitalAttId ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Start Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['start_date']) ?></span></div>
@@ -4145,6 +4155,7 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
             <a href="#lesson-plan" class="lcd-nav-item" onclick="return lcdNavTo(this,'lesson-plan')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson Plan</span></a>
             <a href="#learner-guide" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-guide')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Learner Guide</span></a>
             <a href="#learner-slides" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-slides')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/></svg><span>Learner Slides</span></a>
+            <a href="#lesson" class="lcd-nav-item" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
             <a href="#learning-outcomes" class="lcd-nav-item active" onclick="return lcdNavTo(this,'learning-outcomes')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Learning Outcomes</span></a>
             <a href="#assessment" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h4"/><path d="M15 15h4a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-4"/></svg><span>Assessment</span></a>
             <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
@@ -4159,7 +4170,6 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     <div class="lcd-sidebar-details">
         <h3 style="font-size:16px;font-weight:700;color:#fff;margin:0 0 12px;">Course Details</h3>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
-        <div class="lcd-detail-row"><span class="lcd-detail-label">Funding Validity</span><span class="lcd-detail-value" style="color:#22c55e">21 Apr 2026 (Valid)</span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Digital Attendance ID</span><span class="lcd-detail-value"><?php echo $_digitalAttId ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Start Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['start_date']) ?></span></div>
@@ -4187,6 +4197,7 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
             <a href="#lesson-plan" class="lcd-nav-item" onclick="return lcdNavTo(this,'lesson-plan')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson Plan</span></a>
             <a href="#learner-guide" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-guide')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Learner Guide</span></a>
             <a href="#learner-slides" class="lcd-nav-item" onclick="return lcdNavTo(this,'learner-slides')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/></svg><span>Learner Slides</span></a>
+            <a href="#lesson" class="lcd-nav-item" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
             <a href="#learning-outcomes" class="lcd-nav-item active" onclick="return lcdNavTo(this,'learning-outcomes')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Learning Outcomes</span></a>
             <a href="#assessment" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h4"/><path d="M15 15h4a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-4"/></svg><span>Assessment</span></a>
             <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
@@ -4724,29 +4735,6 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         <?php endif; ?>
     </div>
 
-    <!-- TRAINER: Lesson (topics — title + chevron only, no progress bars) -->
-    <div class="lcd-section" id="lesson">
-        <div class="lcd-section-title" style="padding-bottom:14px;border-bottom:2px solid #22d3ee;margin-bottom:4px;">Lesson <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg></div>
-        <?php
-        $_trainerTopics = array(
-            'Topic 1 : Advanced Drawing Objects',
-            'Topic 2: Organize Objects',
-            'Topic 3: Draw with accuracy',
-            'Topic 4: Layouts, printing, and outputs',
-            'Topic 5: Adding annotative techniques',
-            'Topic 6: Reusable content and drawing management',
-            'Topic 7: Productivity tips for AutoCAD',
-        );
-        foreach ($_trainerTopics as $_ti => $_t): ?>
-        <div class="lcd-topic" style="padding:16px 0;cursor:pointer;" onclick="var c=this.querySelector('.lcd-topic-caret');c.classList.toggle('lcd-caret-open');">
-            <div class="lcd-topic-head" style="margin-bottom:0;">
-                <div class="lcd-topic-title"><?php echo $_t ?></div>
-                <svg class="lcd-topic-caret" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" style="transition:transform .2s;flex-shrink:0;"><polyline points="18 15 12 9 6 15"/></svg>
-            </div>
-        </div>
-        <?php endforeach; ?>
-    </div>
-
     <!-- TRAINER: Certificate Delivery (TRAQOM Survey card removed
          2026-05-06 per product decision; the rest of the TRAQOM feature
          set is also gone — see commits in this batch). -->
@@ -4808,6 +4796,32 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         </div>
     </div>
 
+    <?php endif; ?>
+
+    <?php if ($activeRole === 'trainer' || $activeRole === 'learner'): ?>
+    <!-- Lesson (visible to trainer + learner) — pulled out of the trainer
+         branch 2026-05-06 so learners see the topic list too. -->
+    <div class="lcd-section" id="lesson">
+        <div class="lcd-section-title" style="padding-bottom:14px;border-bottom:2px solid #22d3ee;margin-bottom:4px;">Lesson <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg></div>
+        <?php
+        $_lessonTopics = array(
+            'Topic 1 : Advanced Drawing Objects',
+            'Topic 2: Organize Objects',
+            'Topic 3: Draw with accuracy',
+            'Topic 4: Layouts, printing, and outputs',
+            'Topic 5: Adding annotative techniques',
+            'Topic 6: Reusable content and drawing management',
+            'Topic 7: Productivity tips for AutoCAD',
+        );
+        foreach ($_lessonTopics as $_t): ?>
+        <div class="lcd-topic" style="padding:16px 0;cursor:pointer;" onclick="var c=this.querySelector('.lcd-topic-caret');c.classList.toggle('lcd-caret-open');">
+            <div class="lcd-topic-head" style="margin-bottom:0;">
+                <div class="lcd-topic-title"><?php echo $_t ?></div>
+                <svg class="lcd-topic-caret" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" style="transition:transform .2s;flex-shrink:0;"><polyline points="18 15 12 9 6 15"/></svg>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div>
     <?php endif; ?>
 
     <?php if ($activeRole !== 'developer'): ?>
@@ -5280,6 +5294,66 @@ function lmcSetView(view, btn) {
             Go to My Classes
         </button>
     </div>
+</div>
+
+<?php /* ===== PANEL: Certificate History (Learner sub-view) — added 2026-05-06 ===== */ ?>
+<div id="dash-panel-certhistory" style="display:none;">
+<div class="edt-wrap" style="max-width:1200px;">
+    <h1 class="edt-title">Certificate History</h1>
+    <div style="background:#131d2e;border:1px solid var(--b1);border-radius:12px;overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+            <thead>
+                <tr>
+                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;">Course Title</th>
+                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Start Date</th>
+                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">End Date</th>
+                    <th style="text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Status</th>
+                    <th style="text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Certificate</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                // A certificate is "available" once a learner-enrolled course's
+                // end_date has passed. Until per-learner attendance/assessment
+                // sign-off lands, this is the simplest defensible signal.
+                $_certRows = array();
+                foreach ($_learnerCourses as $_lc) {
+                    if (empty($_lc['end_date']) || $_lc['end_date'] === '—') continue;
+                    $_certRows[] = $_lc;
+                }
+                ?>
+                <?php if (empty($_certRows)): ?>
+                <tr><td colspan="5" style="padding:40px;text-align:center;color:#64748b;">No certificate history yet. Certificates appear here after a course ends.</td></tr>
+                <?php else: ?>
+                <?php foreach ($_certRows as $_cr):
+                    $_endTs = strtotime((string)$_cr['end_date']);
+                    $_isIssued = $_endTs && $_endTs < time();
+                ?>
+                <tr style="border-bottom:1px solid #1a2535;">
+                    <td style="padding:10px 16px;color:#cbd5e1;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?php echo htmlspecialchars($_cr['name']) ?></td>
+                    <td style="padding:10px 16px;color:#94a3b8;white-space:nowrap;"><?php echo htmlspecialchars($_cr['start_date']) ?></td>
+                    <td style="padding:10px 16px;color:#94a3b8;white-space:nowrap;"><?php echo htmlspecialchars($_cr['end_date']) ?></td>
+                    <td style="padding:10px 16px;text-align:center;">
+                        <?php if ($_isIssued): ?>
+                        <span style="display:inline-flex;align-items:center;gap:5px;color:#10b981;font-size:12px;font-weight:500;"><span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;"></span> Issued</span>
+                        <?php else: ?>
+                        <span style="display:inline-flex;align-items:center;gap:5px;color:#f59e0b;font-size:12px;font-weight:500;"><span style="width:6px;height:6px;border-radius:50%;background:#f59e0b;display:inline-block;"></span> Pending</span>
+                        <?php endif; ?>
+                    </td>
+                    <td style="padding:10px 16px;text-align:center;">
+                        <?php if ($_isIssued): ?>
+                        <a href="<?php echo htmlspecialchars($_cr['detail_url']) ?>#certificate" style="color:#22d3ee;text-decoration:none;font-size:12px;font-weight:500;">View</a>
+                        <?php else: ?>
+                        <span style="color:#64748b;font-size:12px;">—</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
 </div>
 
 <?php /* ===== PANEL 5: Ed Tools (Trainer sub-view) ===== */ ?>
@@ -6679,65 +6753,67 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
 ?>
 <div id="dash-panel-companysetting" style="display:none;">
 <style>
-.cs-wrap{max-width:900px;margin:0 auto;padding:0 0 60px}
-.cs-header{display:flex;align-items:center;gap:20px;margin-bottom:32px}
-.cs-logo{width:64px;height:64px;border-radius:16px;background:#1e3a5f;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#60a5fa;border:2px solid #2d4a6f}
-.cs-header-info h1{font-size:22px;font-weight:700;color:var(--t1);margin:0 0 4px}
-.cs-header-info p{font-size:13px;color:#94a3b8;margin:0}
+/* Company Setting — compact restyle 2026-05-06 (sections collapsed by
+   default, lighter blue Edit buttons, tighter typography). */
+.cs-wrap{max-width:880px;margin:0 auto;padding:0 0 48px;font-size:13px}
+.cs-header{display:flex;align-items:center;gap:16px;margin-bottom:20px}
+.cs-logo{width:52px;height:52px;border-radius:12px;background:#1e3a5f;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#60a5fa;border:1px solid #2d4a6f}
+.cs-header-info h1{font-size:18px;font-weight:700;color:var(--t1);margin:0 0 2px}
+.cs-header-info p{font-size:12px;color:#94a3b8;margin:0}
 .cs-header .cs-edit-btn{margin-left:auto}
-.cs-section{margin-bottom:8px}
-.cs-section-head{display:flex;align-items:center;padding:14px 0;border-bottom:1px solid rgba(34,211,238,.12);cursor:pointer;user-select:none}
-.cs-section-head h2{font-size:17px;font-weight:700;color:var(--t1);margin:0;flex:1}
-.cs-section-head .cs-caret{color:#64748b;transition:transform .2s;font-size:18px}
+.cs-section{margin-bottom:4px}
+.cs-section-head{display:flex;align-items:center;padding:10px 0;border-bottom:1px solid rgba(34,211,238,.10);cursor:pointer;user-select:none}
+.cs-section-head h2{font-size:14px;font-weight:600;color:var(--t1);margin:0;flex:1}
+.cs-section-head .cs-caret{color:#64748b;transition:transform .2s;font-size:14px}
 .cs-section-head .cs-caret.open{transform:rotate(180deg)}
-.cs-section-head .cs-edit-btn{margin-left:12px}
-.cs-edit-btn{background:#0d9488;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
-.cs-edit-btn:hover{background:#0f766e}
-.cs-save-btn{background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.cs-section-head .cs-edit-btn{margin-left:10px}
+.cs-edit-btn{background:#3b82f6;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.cs-edit-btn:hover{background:#2563eb}
+.cs-save-btn{background:#2563eb;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
 .cs-save-btn:hover{background:#1d4ed8}
-.cs-cancel-btn{background:#475569;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;margin-left:6px}
-.cs-section-body{padding:16px 0;display:none}
+.cs-cancel-btn{background:#475569;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;margin-left:4px}
+.cs-section-body{padding:12px 0;display:none}
 .cs-section-body.open{display:block}
-.cs-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:14px}
-.cs-row-2{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:14px}
-.cs-row-1{margin-bottom:14px}
-.cs-field label{font-size:11px;color:#64748b;display:block;margin-bottom:3px}
-.cs-field .cs-val{font-size:14px;color:var(--t1);font-weight:500}
-.cs-field input,.cs-field select{width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:8px 12px;color:var(--t1);font-size:13px;display:none}
+.cs-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:10px}
+.cs-row-2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:10px}
+.cs-row-1{margin-bottom:10px}
+.cs-field label{font-size:10.5px;color:#64748b;display:block;margin-bottom:2px;text-transform:uppercase;letter-spacing:.4px}
+.cs-field .cs-val{font-size:12.5px;color:var(--t1);font-weight:500}
+.cs-field input,.cs-field select{width:100%;background:#0f172a;border:1px solid #334155;border-radius:5px;padding:6px 10px;color:var(--t1);font-size:12px;display:none}
 .cs-field input:focus,.cs-field select:focus{border-color:#22d3ee;outline:none}
 .cs-field.editing .cs-val{display:none}
 .cs-field.editing input,.cs-field.editing select{display:block}
-.cs-card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px 18px;margin-bottom:10px}
-.cs-card-title{font-size:14px;font-weight:600;color:var(--t1);margin-bottom:8px}
-.cs-sub-section{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px 18px;margin-bottom:10px}
-.cs-sub-title{font-size:14px;font-weight:700;color:var(--t1);margin:0 0 12px}
-.cs-toggle-row{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 16px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between}
-.cs-toggle-row span{color:var(--t1);font-size:13px;font-weight:500}
-.cs-toggle{position:relative;width:44px;height:24px;cursor:pointer}
+.cs-card{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 14px;margin-bottom:8px}
+.cs-card-title{font-size:12.5px;font-weight:600;color:var(--t1);margin-bottom:6px}
+.cs-sub-section{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 14px;margin-bottom:8px}
+.cs-sub-title{font-size:12.5px;font-weight:700;color:var(--t1);margin:0 0 10px}
+.cs-toggle-row{background:#1e293b;border:1px solid #334155;border-radius:6px;padding:9px 12px;margin-bottom:5px;display:flex;align-items:center;justify-content:space-between}
+.cs-toggle-row span{color:var(--t1);font-size:12px;font-weight:500}
+.cs-toggle{position:relative;width:38px;height:20px;cursor:pointer}
 .cs-toggle input{display:none}
-.cs-toggle .slider{position:absolute;inset:0;background:#475569;border-radius:12px;transition:.2s}
-.cs-toggle input:checked+.slider{background:#0d9488}
-.cs-toggle .slider:before{content:'';position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.2s}
-.cs-toggle input:checked+.slider:before{transform:translateX(20px)}
-.cs-status{font-size:12px;font-weight:500;margin-left:auto;margin-right:12px}
+.cs-toggle .slider{position:absolute;inset:0;background:#475569;border-radius:10px;transition:.2s}
+.cs-toggle input:checked+.slider{background:#3b82f6}
+.cs-toggle .slider:before{content:'';position:absolute;left:2px;top:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.2s}
+.cs-toggle input:checked+.slider:before{transform:translateX(18px)}
+.cs-status{font-size:11px;font-weight:500;margin-left:auto;margin-right:10px}
 .cs-status.enabled{color:#10b981}
 .cs-status.disabled{color:#94a3b8}
 .cs-status.configured{color:#10b981}
 .cs-masked{font-family:monospace;letter-spacing:2px;color:#94a3b8}
-.cs-eye-btn{background:none;border:none;color:#64748b;cursor:pointer;padding:2px 6px;font-size:14px}
-.cs-link{color:#22d3ee;font-size:13px;word-break:break-all}
-.cs-divider{border:none;border-top:1px solid rgba(34,211,238,.12);margin:20px 0}
-.cs-app-card{border:1px solid #334155;border-radius:10px;margin-bottom:10px;overflow:hidden}
+.cs-eye-btn{background:none;border:none;color:#64748b;cursor:pointer;padding:2px 6px;font-size:12px}
+.cs-link{color:#22d3ee;font-size:12px;word-break:break-all}
+.cs-divider{border:none;border-top:1px solid rgba(34,211,238,.10);margin:14px 0}
+.cs-app-card{border:1px solid #334155;border-radius:8px;margin-bottom:8px;overflow:hidden}
 .cs-app-card.active{border-color:#10b981}
-.cs-app-header{background:#1e293b;padding:12px 16px;display:flex;align-items:center;cursor:pointer}
-.cs-app-header h4{font-size:14px;font-weight:600;color:var(--t1);margin:0;flex:1}
-.cs-app-body{padding:16px;display:none}
+.cs-app-header{background:#1e293b;padding:10px 12px;display:flex;align-items:center;cursor:pointer}
+.cs-app-header h4{font-size:12.5px;font-weight:600;color:var(--t1);margin:0;flex:1}
+.cs-app-body{padding:12px;display:none}
 .cs-app-body.open{display:block}
-.cs-cred-card{border:1px solid #334155;border-radius:10px;padding:16px;margin-bottom:10px}
-.cs-cred-card h4{font-size:14px;font-weight:600;color:var(--t1);margin:0 0 10px}
-.cs-cred-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
-.cs-input-masked{display:flex;align-items:center;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:4px 8px}
-.cs-input-masked span{flex:1;color:#94a3b8;font-family:monospace;font-size:13px;letter-spacing:1px}
+.cs-cred-card{border:1px solid #334155;border-radius:8px;padding:12px;margin-bottom:8px}
+.cs-cred-card h4{font-size:12.5px;font-weight:600;color:var(--t1);margin:0 0 8px}
+.cs-cred-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.cs-input-masked{display:flex;align-items:center;background:#0f172a;border:1px solid #334155;border-radius:5px;padding:3px 6px}
+.cs-input-masked span{flex:1;color:#94a3b8;font-family:monospace;font-size:12px;letter-spacing:1px}
 </style>
 
 <div class="cs-wrap">
@@ -6758,13 +6834,13 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
     <div class="cs-section" data-section="company_details">
         <div class="cs-section-head" onclick="csToggleSection(this)">
             <h2>Company Details</h2>
-            <span class="cs-caret open">&#9650;</span>
+            <span class="cs-caret">&#9650;</span>
             <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('company_details')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
             </button>
         </div>
-        <div class="cs-section-body open" id="cs-body-company_details">
+        <div class="cs-section-body" id="cs-body-company_details">
             <div class="cs-row">
                 <div class="cs-field" data-path="mmd_company/details/name">
                     <label>Company Name</label>
@@ -6818,13 +6894,13 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
     <div class="cs-section" data-section="support">
         <div class="cs-section-head" onclick="csToggleSection(this)">
             <h2>Company Support Details</h2>
-            <span class="cs-caret open">&#9650;</span>
+            <span class="cs-caret">&#9650;</span>
             <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('support')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
             </button>
         </div>
-        <div class="cs-section-body open" id="cs-body-support">
+        <div class="cs-section-body" id="cs-body-support">
             <div class="cs-row">
                 <div class="cs-field" data-path="mmd_company/support/name">
                     <label>Support Name</label>
@@ -6854,13 +6930,13 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
     <div class="cs-section" data-section="gst">
         <div class="cs-section-head" onclick="csToggleSection(this)">
             <h2>GST</h2>
-            <span class="cs-caret open">&#9650;</span>
+            <span class="cs-caret">&#9650;</span>
             <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('gst')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
             </button>
         </div>
-        <div class="cs-section-body open" id="cs-body-gst">
+        <div class="cs-section-body" id="cs-body-gst">
             <div class="cs-row-2">
                 <div class="cs-field" data-path="mmd_company/gst/rate">
                     <label>GST Rate</label>
@@ -6885,13 +6961,13 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
     <div class="cs-section" data-section="integrations">
         <div class="cs-section-head" onclick="csToggleSection(this)">
             <h2>Integrations</h2>
-            <span class="cs-caret open">&#9650;</span>
+            <span class="cs-caret">&#9650;</span>
             <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('integrations')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
             </button>
         </div>
-        <div class="cs-section-body open" id="cs-body-integrations">
+        <div class="cs-section-body" id="cs-body-integrations">
 
             <!-- Google -->
             <div class="cs-sub-section">
@@ -7075,13 +7151,13 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
     <div class="cs-section" data-section="doc_templates">
         <div class="cs-section-head" onclick="csToggleSection(this)">
             <h2>Document Templates</h2>
-            <span class="cs-caret open">&#9650;</span>
+            <span class="cs-caret">&#9650;</span>
             <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('doc_templates')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
             </button>
         </div>
-        <div class="cs-section-body open" id="cs-body-doc_templates">
+        <div class="cs-section-body" id="cs-body-doc_templates">
             <div class="cs-toggle-row" style="flex-direction:column;align-items:flex-start">
                 <label style="font-size:11px;color:#64748b;margin-bottom:2px">Proforma Invoice Template ID</label>
                 <div class="cs-field" data-path="mmd_company/templates/proforma" style="width:100%">
@@ -7122,13 +7198,13 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
     <div class="cs-section" data-section="admin_setting">
         <div class="cs-section-head" onclick="csToggleSection(this)">
             <h2>Admin Setting</h2>
-            <span class="cs-caret open">&#9650;</span>
+            <span class="cs-caret">&#9650;</span>
             <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('admin_setting')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
             </button>
         </div>
-        <div class="cs-section-body open" id="cs-body-admin_setting">
+        <div class="cs-section-body" id="cs-body-admin_setting">
             <div class="cs-toggle-row">
                 <span>Upcoming Classes Threshold (Days)</span>
                 <span class="cs-status enabled" style="margin-left:auto">365 days</span>
@@ -7181,13 +7257,13 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
     <div class="cs-section" data-section="security">
         <div class="cs-section-head" onclick="csToggleSection(this)">
             <h2>Security Setting</h2>
-            <span class="cs-caret open">&#9650;</span>
+            <span class="cs-caret">&#9650;</span>
             <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('security')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
             </button>
         </div>
-        <div class="cs-section-body open" id="cs-body-security">
+        <div class="cs-section-body" id="cs-body-security">
             <div class="cs-toggle-row" style="flex-direction:column;align-items:flex-start">
                 <div style="display:flex;width:100%;align-items:center">
                     <span style="color:var(--t1);font-size:13px;font-weight:500">Auto Sanitise Data</span>
@@ -7225,21 +7301,21 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
     <div class="cs-section" data-section="credentials">
         <div class="cs-section-head" onclick="csToggleSection(this)">
             <h2>Credentials</h2>
-            <span class="cs-caret open">&#9650;</span>
+            <span class="cs-caret">&#9650;</span>
             <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('credentials')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
             </button>
         </div>
-        <div class="cs-section-body open" id="cs-body-credentials">
+        <div class="cs-section-body" id="cs-body-credentials">
 
             <!-- LLM -->
             <div class="cs-app-card">
                 <div class="cs-app-header" onclick="csToggleApp(this)">
                     <h4>LLM</h4>
-                    <span class="cs-caret open">&#9650;</span>
+                    <span class="cs-caret">&#9650;</span>
                 </div>
-                <div class="cs-app-body open">
+                <div class="cs-app-body">
                     <!-- Anthropic -->
                     <div class="cs-cred-card">
                         <div style="display:flex;align-items:center"><h4 style="margin:0;flex:1">Anthropic (Claude)</h4><span class="cs-status configured">&#9679; Configured</span></div>
@@ -7349,9 +7425,9 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
             <div class="cs-app-card">
                 <div class="cs-app-header" onclick="csToggleApp(this)">
                     <h4>Quickbooks</h4>
-                    <span class="cs-caret open">&#9650;</span>
+                    <span class="cs-caret">&#9650;</span>
                 </div>
-                <div class="cs-app-body open">
+                <div class="cs-app-body">
                     <!-- App 1 -->
                     <div class="cs-cred-card" style="border-color:#10b981">
                         <div style="display:flex;align-items:center;gap:8px">
@@ -7401,13 +7477,13 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
     <div class="cs-section" data-section="gamification">
         <div class="cs-section-head" onclick="csToggleSection(this)">
             <h2>Gamification Setting</h2>
-            <span class="cs-caret open">&#9650;</span>
+            <span class="cs-caret">&#9650;</span>
             <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('gamification')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
             </button>
         </div>
-        <div class="cs-section-body open" id="cs-body-gamification">
+        <div class="cs-section-body" id="cs-body-gamification">
             <div class="cs-toggle-row">
                 <span>Enable Leaderboard</span>
                 <span class="cs-status disabled" style="margin-left:auto">Disabled</span>
@@ -7428,13 +7504,13 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
     <div class="cs-section" data-section="appearance">
         <div class="cs-section-head" onclick="csToggleSection(this)">
             <h2>Appearance</h2>
-            <span class="cs-caret open">&#9650;</span>
+            <span class="cs-caret">&#9650;</span>
             <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('appearance')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
             </button>
         </div>
-        <div class="cs-section-body open" id="cs-body-appearance">
+        <div class="cs-section-body" id="cs-body-appearance">
             <div class="cs-toggle-row">
                 <div style="display:flex;align-items:center;gap:10px">
                     <span style="font-size:22px">&#127769;</span>
@@ -11438,7 +11514,7 @@ document.addEventListener('keydown', function (ev) {
         if (current !== 'Trainer' && current !== 'Learner') return;
 
         // Hide ALL panels first, then show only the requested sub-panel
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-eattendance'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-eattendance','dash-panel-certhistory','dash-panel-billing'];
         for (var i=0; i<all.length; i++) {
             var el = document.getElementById(all[i]);
             if (el) el.style.display = 'none';
@@ -11457,7 +11533,8 @@ document.addEventListener('keydown', function (ev) {
             'agentic':        'dash-panel-agentic',
             'virtual':        'dash-panel-virtual',
             'billing':        'dash-panel-billing',
-            'eattendance':    'dash-panel-eattendance'
+            'eattendance':    'dash-panel-eattendance',
+            'certhistory':    'dash-panel-certhistory'
         };
         var target = subMap[name] || 'dash-panel-learner';
         var show = document.getElementById(target);
