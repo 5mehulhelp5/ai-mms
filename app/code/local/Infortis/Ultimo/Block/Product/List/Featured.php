@@ -58,6 +58,14 @@ class Infortis_Ultimo_Block_Product_List_Featured extends Mage_Catalog_Block_Pro
 
 		{
 
+			// Note: getUniqueCollectionId() was previously part of this key,
+			// but computing it requires loading the full product collection,
+			// which defeats the cache — every render paid for the slow query
+			// just to build the lookup key. The category_id + block params
+			// below uniquely identify the block's output already, so the
+			// collection-id entry was both redundant and ruinously expensive
+			// (homepage has 3 of these blocks; was ~8s of the 10s pageload).
+
 			$this->_cacheKeyArray = array(
 
 				'INFORTIS_ITEMSLIDER',
@@ -66,19 +74,19 @@ class Infortis_Ultimo_Block_Product_List_Featured extends Mage_Catalog_Block_Pro
 
 				//Mage::app()->getStore()->getCurrentCurrencyCode(),
 
-				
+
 
 				Mage::app()->getStore()->getId(),
 
 				Mage::getDesign()->getPackageName(), ///
 
-				Mage::getDesign()->getTheme('template'), 
+				Mage::getDesign()->getTheme('template'),
 
 				Mage::getSingleton('customer/session')->getCustomerGroupId(),
 
 				'template' => $this->getTemplate(),
 
-				
+
 
 				$this->getBlockName(),
 
@@ -98,11 +106,9 @@ class Infortis_Ultimo_Block_Product_List_Featured extends Mage_Catalog_Block_Pro
 
 				$this->getSortDirection(),
 
-				
+
 
 				(int)Mage::app()->getStore()->isCurrentlySecure(),
-
-				$this->getUniqueCollectionId(),
 
 			);
 
@@ -272,14 +278,18 @@ class Infortis_Ultimo_Block_Product_List_Featured extends Mage_Catalog_Block_Pro
 
 			
 
+			// Restored the original is_random gate. The unconditional
+			// ORDER BY RAND() below was patched in 2016 ("ranjeet"), and
+			// it ran the random sort even when the homepage CMS markup
+			// didn't pass is_random=1. ORDER BY RAND() is a full-table
+			// random scan in MySQL — across 3 featured blocks × hundreds
+			// of products in each category, this was a major hot spot.
+			// CMS blocks that genuinely want random can opt in by adding
+			// is_random="1" to their {{block}} markup.
 			if ($this->getIsRandom())
-
 			{
-
-			//	$collection->getSelect()->order('rand()');
-
+				$collection->getSelect()->order('rand()');
 			}
-			$collection->getSelect()->order('rand()'); /* ranjeet 07-03-2016 */
 			$collection->addStoreFilter();
 
 			$productCount = $this->getProductCount() ? $this->getProductCount() : 8;
