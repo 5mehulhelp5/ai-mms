@@ -8165,7 +8165,11 @@ button.cnc-btn-primary:hover{background:#3b82f6 !important;border-color:#3b82f6 
                             for (var i = 0; i < window._cncTrainerOpts.length; i++) {
                                 var o = window._cncTrainerOpts[i];
                                 if (qClean === '' || o.name.toLowerCase().indexOf(qClean) !== -1) matches.push(o);
-                                if (matches.length >= 50) break;
+                                // Cap at 500 — covers the full current
+                                // ~270 trainer roster with room to grow,
+                                // while still preventing runaway DOM
+                                // builds if the list ever explodes.
+                                if (matches.length >= 500) break;
                             }
                             if (matches.length === 0) {
                                 var n = document.createElement('div');
