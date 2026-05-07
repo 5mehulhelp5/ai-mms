@@ -128,18 +128,12 @@
         <div class="tools-group-items">
             <!-- Master List link removed 2026-05-06 per product decision. -->
             <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('panel' => 'trainers')) ?>" class="tools-sub-item"><span>View Trainers</span></a>
-            <div class="tools-group" style="margin:0;">
-                <div class="tools-group-toggle" onclick="toggleToolGroup(this)" style="padding:8px 12px;">
-                    <span style="font-size:11px;font-weight:600;color:#64748b;letter-spacing:.5px;">CLASSES</span>
-                    <svg class="tools-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                </div>
-                <div class="tools-group-items">
-                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'create_class'))) ?>" class="tools-sub-item"><span>Create New Class</span></a>
-                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'assign_trainer'))) ?>" class="tools-sub-item"><span>Assign Trainer</span></a>
-                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'assign_learner'))) ?>" class="tools-sub-item"><span>Assign Learner</span></a>
-                    <!-- Enroll Learner link removed 2026-05-06 per product decision. -->
-                </div>
-            </div>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'create_class'))) ?>" class="tools-sub-item"><span>Create New Class</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'assign_trainer'))) ?>" class="tools-sub-item"><span>Assign Trainer</span></a>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'assign_learner'))) ?>" class="tools-sub-item"><span>Assign Learner</span></a>
+            <!-- Enroll Learner link removed 2026-05-06 per product decision.
+                 Nested "CLASSES" sub-group flattened 2026-05-07: those three
+                 items now sit directly under Class Management. -->
         </div>
     </div>
     <!-- View Learners menu (Manage Learners / Learner Groups / Online Learners)
