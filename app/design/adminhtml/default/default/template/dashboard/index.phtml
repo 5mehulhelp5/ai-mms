@@ -6760,7 +6760,38 @@ window.trnCloseAddModal = function() {
     else { if (ov) ov.style.display = 'none'; }
 };
 
-// Override submit to handle both add and edit
+// Floating toast — instant visual feedback for slow admin POSTs.
+// Mounted at body level so it survives panel switches, with three states:
+//   pending — neutral pill with spinner
+//   success — green pill, auto-fades after 1.5s
+//   error   — red pill, sticks until user clicks
+window.trnShowToast = function(text, kind) {
+    kind = kind || 'pending';
+    var t = document.getElementById('trn-toast');
+    if (!t) {
+        t = document.createElement('div');
+        t.id = 'trn-toast';
+        t.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.45);display:none;align-items:center;gap:10px;cursor:pointer;font-family:inherit';
+        t.onclick = function () { t.style.display = 'none'; };
+        document.body.appendChild(t);
+    }
+    var palette = {
+        pending: { bg: '#1e293b', color: '#e2e8f0', border: '1px solid #475569', dot: '⏳' },
+        success: { bg: '#10b981', color: '#fff',    border: 'none',              dot: '✓'  },
+        error:   { bg: '#ef4444', color: '#fff',    border: 'none',              dot: '✗'  }
+    }[kind];
+    t.style.background  = palette.bg;
+    t.style.color       = palette.color;
+    t.style.border      = palette.border;
+    t.innerHTML = '<span style="font-size:14px">' + palette.dot + '</span><span></span>';
+    t.lastChild.textContent = text;
+    t.style.display = 'inline-flex';
+    if (kind === 'success') {
+        setTimeout(function () { if (t) t.style.display = 'none'; }, 1500);
+    }
+};
+
+// Override submit to handle both add and edit, with optimistic UX.
 window.trnSubmit_orig = window.trnSubmit;
 window.trnSubmit = function(e) {
     e.preventDefault();
@@ -6768,12 +6799,20 @@ window.trnSubmit = function(e) {
     var msg = document.getElementById('trnAddMsg');
     var btn = document.getElementById('trnAddBtn');
     if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
-    btn.disabled = true; btn.textContent = isEdit ? 'Saving...' : 'Adding...';
+
+    // Light validation before optimistic close so we don't close on
+    // a clearly-broken submit.
+    var emailVal = document.getElementById('trnEmail').value.trim();
+    var nameVal  = document.getElementById('trnName').value.trim();
+    if (!emailVal || !nameVal) {
+        if (msg) { msg.style.display = ''; msg.textContent = 'Email and Full Name are required'; }
+        return;
+    }
 
     var fd = new FormData();
     if (isEdit) fd.append('trainer_id', window._trnEditId);
-    fd.append('email',         document.getElementById('trnEmail').value);
-    fd.append('full_name',     document.getElementById('trnName').value);
+    fd.append('email',         emailVal);
+    fd.append('full_name',     nameVal);
     fd.append('telephone',     document.getElementById('trnTel').value);
     fd.append('trainer_type',  document.getElementById('trnType').value);
     fd.append('status',        document.getElementById('trnStatus').value);
@@ -6781,20 +6820,37 @@ window.trnSubmit = function(e) {
     fd.append('linkedin_url',  document.getElementById('trnLinkedin').value);
     fd.append('form_key',      window.__trnFormKey);
 
+    // Optimistic UX — close modal immediately and show a toast so the
+    // admin doesn't sit watching a "Saving..." button while OpenMage
+    // bootstraps the admin session for the POST. On error we re-open
+    // the modal with the data still filled in.
+    btn.disabled = true; btn.textContent = isEdit ? 'Saving...' : 'Adding...';
+    trnCloseAddModal();
+    trnShowToast(isEdit ? 'Saving changes...' : 'Adding trainer...', 'pending');
+
     var url = isEdit ? window.__trnEditUrl : window.__trnAddUrl;
     fetch(url, { method: 'POST', body: fd, credentials: 'same-origin' })
         .then(function(r){ return r.json(); })
         .then(function(data){
             btn.disabled = false; btn.textContent = isEdit ? 'Save Changes' : 'Add Trainer';
             if (data.success) {
-                trnCloseAddModal();
-                window.location.reload();
+                trnShowToast(isEdit ? 'Trainer updated' : 'Trainer added', 'success');
+                // Brief delay so the user sees the success toast before
+                // the dashboard reload starts.
+                setTimeout(function(){ window.location.reload(); }, 600);
             } else {
+                trnShowToast(data.message || 'Save failed — re-opening', 'error');
+                // Reopen the modal so the admin can correct + retry.
+                var ov = document.getElementById('trnAddOverlay');
+                if (ov) ov.style.display = 'flex';
                 if (msg) { msg.style.display = ''; msg.textContent = data.message || 'Failed'; }
             }
         })
         .catch(function(err){
             btn.disabled = false; btn.textContent = isEdit ? 'Save Changes' : 'Add Trainer';
+            trnShowToast('Network error — please try again', 'error');
+            var ov = document.getElementById('trnAddOverlay');
+            if (ov) ov.style.display = 'flex';
             if (msg) { msg.style.display = ''; msg.textContent = 'Network error: ' + err.message; }
         });
 };
