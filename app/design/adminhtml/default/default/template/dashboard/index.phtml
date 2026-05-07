@@ -1012,6 +1012,7 @@ if ($_selectedCourseId) {
                     'order_state' => 'complete',
                     'detail_url'  => '',
                     'class_type'  => $_swAttr ?: '',
+                    'duration'    => (float)$_prod->getData('duration'),
                 );
             }
         } catch (Exception $e) {}
@@ -4137,11 +4138,19 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         <div class="lcd-detail-row"><span class="lcd-detail-label">Class Type</span><span class="lcd-badge lcd-badge-virtual">Virtual</span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Class Status</span><span class="lcd-badge lcd-badge-<?php echo strtolower($_selectedCourse['status']) ?>"><?php echo htmlspecialchars($_selectedCourse['status']) ?></span></div>
 
+        <?php
+        // Real duration from the product's `duration` attribute. Trim
+        // trailing .0 (so 7.5 stays "7.5" but 8.0 becomes "8"). Fall back
+        // to em-dash if unset.
+        $_dDur = (!empty($_selectedCourse['duration']) && (float)$_selectedCourse['duration'] > 0)
+            ? rtrim(rtrim(number_format((float)$_selectedCourse['duration'], 1), '0'), '.')
+            : '—';
+        ?>
         <div class="lcd-duration-block">
             <h4 class="lcd-duration-title">Course Duration</h4>
-            <div class="lcd-duration-row"><span>Training Hours:</span><strong>37</strong></div>
+            <div class="lcd-duration-row"><span>Training Hours:</span><strong><?php echo $_dDur ?></strong></div>
             <div class="lcd-duration-divider"></div>
-            <div class="lcd-duration-row lcd-duration-total"><span>Total Duration:</span><strong>40</strong></div>
+            <div class="lcd-duration-row lcd-duration-total"><span>Total Duration:</span><strong><?php echo $_dDur ?></strong></div>
         </div>
 
         <nav class="lcd-drawer-nav">
@@ -4192,9 +4201,9 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         <div class="lcd-detail-row"><span class="lcd-detail-label">Class Status</span><span class="lcd-badge lcd-badge-<?php echo strtolower($_selectedCourse['status']) ?>"><?php echo htmlspecialchars($_selectedCourse['status']) ?></span></div>
         <div style="padding:10px 0 0;margin:6px 0 0;">
             <div style="font-size:14px;font-weight:700;color:#fff;margin:0 0 6px;">Course Duration</div>
-            <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#cbd5e1;"><span>Training Hours:</span><strong style="color:#fff">37</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#cbd5e1;"><span>Training Hours:</span><strong style="color:#fff"><?php echo $_dDur ?></strong></div>
             <div style="height:1px;background:#1e293b;margin:4px 0;"></div>
-            <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong>40</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong><?php echo $_dDur ?></strong></div>
         </div>
         <nav style="margin-top:14px;padding-top:14px;border-top:1px solid #1e293b;display:flex;flex-direction:column;gap:2px;">
             <?php if ($activeRole === 'developer'): ?>
