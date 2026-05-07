@@ -9899,6 +9899,18 @@ if ($_alActive) {
         //   2. course_run_enrolments — admins clicking "Add Learner".
         // Distinct count over the union de-dupes a learner who both
         // ordered AND was admin-assigned to the same course.
+        // IMPORTANT: this filter MUST stay in sync with the modal's
+        // loadLearnersAction in CoursesaveController.php — otherwise the
+        // badge updates with a different number the moment the admin
+        // clicks "Add / Edit Learners" (because the JS replaces the
+        // initial badge value with the modal's count). Both queries:
+        //   - orders: state IN ('complete','processing') only
+        //     (paid attendees only; pending / payment_review / holded
+        //      shouldn't show as enrolled)
+        //   - course_run_enrolments: every row, the admin explicitly
+        //     added them
+        // UNION-distinct on (product_id, email) so a learner who both
+        // ordered AND was admin-assigned to the same product counts once.
         $_alEnrol = array();
         try {
             $_alEnrolRows = $read->fetchAll(
@@ -9908,7 +9920,8 @@ if ($_alActive) {
                      FROM sales_flat_order o
                      JOIN sales_flat_order_item oi ON oi.order_id=o.entity_id
                      JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id={$_alWid}
-                     WHERE o.state NOT IN ('canceled') AND o.customer_email IS NOT NULL
+                     WHERE o.state IN ('complete','processing')
+                       AND o.customer_email IS NOT NULL
                      UNION
                      SELECT product_id, LOWER(learner_email) AS email
                      FROM course_run_enrolments
@@ -10045,13 +10058,19 @@ if ($_alActive) {
                 $_pidsList = implode(',', $_pidsT);
                 // Distinct over UNION of order-based + admin-driven
                 // enrolments — same shape as the per-product query.
+                // Same filter as the per-product count + the modal's
+                // loadLearners action — orders restricted to paid /
+                // processing only (state IN complete/processing), plus
+                // every admin-added course_run_enrolments row. Keep
+                // these three sources in lockstep so the KPI tile
+                // matches the row badges and the modal.
                 $_alDistinctByTab[$_tabName] = (int) $read->fetchOne(
                     "SELECT COUNT(DISTINCT u.email) FROM (
                          SELECT LOWER(o.customer_email) AS email
                          FROM sales_flat_order o
                          JOIN sales_flat_order_item oi ON oi.order_id=o.entity_id
                          JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id={$_alWid}
-                         WHERE o.state NOT IN ('canceled')
+                         WHERE o.state IN ('complete','processing')
                            AND o.customer_email IS NOT NULL
                            AND oi.product_id IN ({$_pidsList})
                          UNION
