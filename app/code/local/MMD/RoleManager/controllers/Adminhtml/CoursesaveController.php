@@ -1031,10 +1031,16 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                  WHERE entity_type_id=1 AND attribute_code='lastname'"
             );
 
-            // Search both sources so any registered customer is findable,
-            // not just those who've placed orders:
+            // Search three sources so any user who could be a learner is
+            // findable, regardless of whether they've placed an order:
             //   1. sales_flat_order — guests + customers with orders
             //   2. customer_entity  — every registered account on the website
+            //   3. admin_user joined to mmd_user_role_map — admin-side
+            //      accounts assigned the 'learner' role. Added 2026-05-07
+            //      because admin-created test users with the learner role
+            //      never go through the storefront, so they don't appear
+            //      in customer_entity / sales_flat_order. Without this
+            //      branch they were unreachable from Assign Learner.
             // UNION dedupes on (email, name).
             $rows = $read->fetchAll(
                 "SELECT email, name FROM (
@@ -1057,10 +1063,22 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                        AND ce.email IS NOT NULL
                        AND (LOWER(ce.email) LIKE ?
                             OR LOWER(CONCAT(IFNULL(fn.value,''),' ',IFNULL(ln.value,''))) LIKE ?)
+                    UNION
+                    SELECT DISTINCT
+                            LOWER(au.email) AS email,
+                            COALESCE(NULLIF(TRIM(CONCAT(IFNULL(au.firstname,''),' ',IFNULL(au.lastname,''))),''), au.email) AS name
+                     FROM admin_user au
+                     INNER JOIN mmd_user_role_map mrm
+                            ON mrm.user_id = au.user_id
+                           AND mrm.role_code = 'learner'
+                     WHERE au.email IS NOT NULL
+                       AND au.is_active = 1
+                       AND (LOWER(au.email) LIKE ?
+                            OR LOWER(CONCAT(IFNULL(au.firstname,''),' ',IFNULL(au.lastname,''))) LIKE ?)
                 ) s
                 ORDER BY name
                 LIMIT 60",
-                array($wid, $like, $like, $fnId, $lnId, $wid, $like, $like)
+                array($wid, $like, $like, $fnId, $lnId, $wid, $like, $like, $like, $like)
             );
             $result['learners'] = $rows;
             $result['success']  = true;
