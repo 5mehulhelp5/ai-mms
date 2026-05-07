@@ -186,6 +186,130 @@ class MMD_RoleManager_Adminhtml_AttendanceController extends Mage_Adminhtml_Cont
     // change. The Manual Attendance flow (listAction / saveAction above)
     // and the course_attendance table it writes to are unaffected.
 
+    /**
+     * Aggregate endpoint for the trainer's E-Attendance dashboard. Given a
+     * course_id, returns the list of sessions (custom-option dropdowns) and
+     * the list of enrolments (orders for that course). Used by the
+     * standalone E-Attendance page reachable from the trainer top bar.
+     *
+     * GET: course_id
+     * Returns JSON:
+     *   {
+     *     success: true,
+     *     sessions:   [ { option_type_id, title } ],
+     *     enrolments: [ {
+     *       no, order_id, order_no, run_id, start_date, end_date,
+     *       trainee_name, nric, contact, email, sponsorship,
+     *       employer, status
+     *     } ],
+     *   }
+     */
+    public function classInfoAction()
+    {
+        $result = array('success' => false, 'sessions' => array(), 'enrolments' => array());
+        try {
+            $courseId = (int) $this->getRequest()->getParam('course_id');
+            if (!$courseId) throw new Exception('course_id is required');
+
+            $resource = Mage::getSingleton('core/resource');
+            $read     = $resource->getConnection('core_read');
+
+            // Sessions: catalog custom options of type 'Course Date' (or any
+            // option title containing 'Date') — these are the per-run
+            // dropdown values learners pick when they enrol.
+            $sessions = $read->fetchAll(
+                "SELECT ov.option_type_id, ott.title
+                 FROM catalog_product_option o
+                 JOIN catalog_product_option_title ot       ON ot.option_id = o.option_id  AND ot.store_id = 0
+                 JOIN catalog_product_option_type_value ov  ON ov.option_id = o.option_id
+                 JOIN catalog_product_option_type_title ott ON ott.option_type_id = ov.option_type_id AND ott.store_id = 0
+                 WHERE o.product_id = ? AND (ot.title = 'Course Date' OR ot.title LIKE '%Date%')
+                 ORDER BY ott.title",
+                array($courseId)
+            );
+            foreach ($sessions as $s) {
+                $result['sessions'][] = array(
+                    'option_type_id' => (int)$s['option_type_id'],
+                    'title'          => (string)$s['title'],
+                );
+            }
+
+            // Enrolments: every order line for this product. Customer EAV
+            // stores firstname/lastname/telephone separately; NRIC and
+            // sponsorship/employer are custom attributes on the order item
+            // (varies per project — best effort, fall back to em-dashes).
+            $fnAttr = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE entity_type_id=1 AND attribute_code='firstname'");
+            $lnAttr = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE entity_type_id=1 AND attribute_code='lastname'");
+            $phAttr = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE entity_type_id=1 AND attribute_code='telephone'");
+            $nricAttr = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE entity_type_id=1 AND attribute_code='nric'");
+            $sponAttr = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE entity_type_id=1 AND attribute_code='sponsorship'");
+            $emplAttr = (int) $read->fetchOne("SELECT attribute_id FROM eav_attribute WHERE entity_type_id=1 AND attribute_code='employer'");
+
+            $orderTbl = $resource->getTableName('sales/order');
+            $itemTbl  = $resource->getTableName('sales/order_item');
+            $custVc   = $resource->getTableName('customer/entity_varchar');
+            $custEnt  = $resource->getTableName('customer/entity');
+
+            $rows = $read->fetchAll(
+                "SELECT o.entity_id AS order_id, o.increment_id, o.created_at, o.status,
+                        o.customer_id, o.customer_email, o.customer_firstname, o.customer_lastname,
+                        oi.item_id, oi.product_options
+                 FROM {$itemTbl} oi
+                 JOIN {$orderTbl} o ON o.entity_id = oi.order_id
+                 WHERE oi.product_id = ?
+                 ORDER BY o.created_at DESC",
+                array($courseId)
+            );
+
+            // Lookup dates from course_runs (for run_id + start/end dates)
+            $runs = $read->fetchAll("SELECT * FROM course_runs WHERE product_id = ?", array($courseId));
+            $runByDate = array();
+            foreach ($runs as $r) $runByDate[$r['run_id']] = $r;
+
+            $no = 0;
+            foreach ($rows as $r) {
+                $no++;
+                $custId = (int)$r['customer_id'];
+                $first = $r['customer_firstname']; $last = $r['customer_lastname'];
+                $phone = $nric = $spon = $empl = '';
+                if ($custId) {
+                    if (!$first || !$last) {
+                        if ($fnAttr) $first = (string)$read->fetchOne("SELECT value FROM {$custVc} WHERE entity_id=? AND attribute_id=?", array($custId, $fnAttr));
+                        if ($lnAttr) $last  = (string)$read->fetchOne("SELECT value FROM {$custVc} WHERE entity_id=? AND attribute_id=?", array($custId, $lnAttr));
+                    }
+                    if ($phAttr)   $phone = (string)$read->fetchOne("SELECT value FROM {$custVc} WHERE entity_id=? AND attribute_id=?", array($custId, $phAttr));
+                    if ($nricAttr) $nric  = (string)$read->fetchOne("SELECT value FROM {$custVc} WHERE entity_id=? AND attribute_id=?", array($custId, $nricAttr));
+                    if ($sponAttr) $spon  = (string)$read->fetchOne("SELECT value FROM {$custVc} WHERE entity_id=? AND attribute_id=?", array($custId, $sponAttr));
+                    if ($emplAttr) $empl  = (string)$read->fetchOne("SELECT value FROM {$custVc} WHERE entity_id=? AND attribute_id=?", array($custId, $emplAttr));
+                }
+                $name = trim($first . ' ' . $last);
+                if ($name === '') $name = (string)$r['customer_email'];
+
+                $result['enrolments'][] = array(
+                    'no'           => $no,
+                    'order_id'     => (int)$r['order_id'],
+                    'order_no'     => (string)$r['increment_id'],
+                    'run_id'       => '',
+                    'start_date'   => '',
+                    'end_date'     => '',
+                    'enrolment_ref'=> 'EN-' . str_pad((string)$r['item_id'], 6, '0', STR_PAD_LEFT),
+                    'trainee_name' => $name,
+                    'nric'         => $nric ?: '—',
+                    'contact'      => $phone ?: '—',
+                    'email'        => (string)$r['customer_email'],
+                    'sponsorship'  => $spon ?: '—',
+                    'employer'     => $empl ?: '—',
+                    'status'       => ucwords(str_replace('_', ' ', (string)$r['status'])),
+                );
+            }
+
+            $result['success'] = true;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
     protected function _sendJson(array $data)
     {
         $this->getResponse()
