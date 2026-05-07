@@ -876,11 +876,27 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
     }
     unset($_lcRef);
 
-    // Sort My Classes by start_date ascending (chronological — soonest
-    // course first, undated rows last). Per product request 2026-05-06.
-    usort($_learnerCourses, function ($a, $b) {
-        $aSt = (!empty($a['start_date']) && $a['start_date'] !== '—') ? strtotime($a['start_date']) : 0;
-        $bSt = (!empty($b['start_date']) && $b['start_date'] !== '—') ? strtotime($b['start_date']) : 0;
+    // Sort My Classes / My Assigned Classes by date (per product request
+    // 2026-05-06, reaffirmed 2026-05-07). Group upcoming → current → past
+    // so the next-up class is at the top of the grid, then within each
+    // group order ascending by start_date. Undated rows fall to the very
+    // end. We parse "j M Y" explicitly because that's what we render with
+    // — strtotime usually handles it but DateTime::createFromFormat is
+    // bullet-proof.
+    $_lcParseTs = function ($val) {
+        if (empty($val) || $val === '—') return 0;
+        $dt = DateTime::createFromFormat('!j M Y', (string)$val);
+        if ($dt instanceof DateTime) return (int)$dt->getTimestamp();
+        $ts = strtotime((string)$val);
+        return $ts ? (int)$ts : 0;
+    };
+    $_lcStatusOrder = array('upcoming' => 0, 'current' => 1, 'past' => 2);
+    usort($_learnerCourses, function ($a, $b) use ($_lcParseTs, $_lcStatusOrder) {
+        $aBucket = isset($_lcStatusOrder[$a['time_status']]) ? $_lcStatusOrder[$a['time_status']] : 3;
+        $bBucket = isset($_lcStatusOrder[$b['time_status']]) ? $_lcStatusOrder[$b['time_status']] : 3;
+        if ($aBucket !== $bBucket) return $aBucket - $bBucket;
+        $aSt = $_lcParseTs(isset($a['start_date']) ? $a['start_date'] : '');
+        $bSt = $_lcParseTs(isset($b['start_date']) ? $b['start_date'] : '');
         if ($aSt === 0 && $bSt === 0) return 0;
         if ($aSt === 0) return 1;
         if ($bSt === 0) return -1;
@@ -4111,6 +4127,7 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     <div class="lcd-drawer-body">
         <h3 class="lcd-drawer-section-title">Course Details</h3>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['sku'] ?: '—') ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Digital Attendance ID</span><span class="lcd-detail-value"><?php echo $_digitalAttId ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Start Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['start_date']) ?></span></div>
@@ -4170,6 +4187,7 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     <div class="lcd-sidebar-details">
         <h3 style="font-size:16px;font-weight:700;color:#fff;margin:0 0 12px;">Course Details</h3>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Title</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['name']) ?></span></div>
+        <div class="lcd-detail-row"><span class="lcd-detail-label">Course Code</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['sku'] ?: '—') ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Course Run ID</span><span class="lcd-detail-value"><?php echo $_courseRunId ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Digital Attendance ID</span><span class="lcd-detail-value"><?php echo $_digitalAttId ?></span></div>
         <div class="lcd-detail-row"><span class="lcd-detail-label">Start Date</span><span class="lcd-detail-value"><?php echo htmlspecialchars($_selectedCourse['start_date']) ?></span></div>
@@ -4257,22 +4275,26 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     // ...) with no actual hrefs and no tie to saved data, which is what the
     // user reported: "view doesn't reflect the edit's saved courseware".
     // The Courseware section on the developer course detail surfaces
-    // exactly these 6 tiles — the original hardcoded list that the
-    // section was designed around (Courseware Link as the umbrella
-    // "folder", then the teaching artifacts: Lesson Plan, Learner
-    // Guide, Facilitator Guide, Trainer Slides, Assessment Plan).
-    // Other course_courseware columns (learner_slides_url, brochure_link,
-    // assessment_record_link, assessment_summary_url) intentionally do
-    // NOT appear here — assessment_record_link / assessment_summary_url
-    // each have their own dedicated section below; learner_slides_url /
-    // brochure_link are exposed via the edit form only. Empty URLs are
-    // skipped by the foreach so the section may render fewer than 6
-    // tiles depending on what's saved.
+    // these tiles — the hardcoded list that the section was designed
+    // around (Courseware Link as the umbrella "folder", then the
+    // teaching artifacts: Lesson Plan, Learner Guide, Facilitator
+    // Guide, Learner Slides, Trainer Slides, Assessment Plan).
+    // Learner Slides was added 2026-05-07 — previously it was hidden
+    // here and only available via the edit form, so a course that had
+    // 3 saved URLs (Courseware Link + Trainer Slides + Learner Slides)
+    // would only render 2 tiles. Now all stored URLs render even if
+    // they're identical to another field — duplicates intentionally
+    // surface so the user can see exactly what was saved per slot.
+    // assessment_record_link / assessment_summary_url stay out — each
+    // has its own dedicated section below. Empty URLs are skipped by
+    // the foreach so the section may render fewer tiles depending on
+    // what's saved.
     $_devCwLabels = array(
         'courseware_link'        => 'Courseware Link',
         'lesson_plan_url'        => 'Lesson Plan',
         'learner_guide_url'      => 'Learner Guide',
         'facilitator_guide_url'  => 'Facilitator Guide',
+        'learner_slides_url'     => 'Learner Slides',
         'trainer_slides_url'     => 'Trainer Slides',
         'assessment_plan_url'    => 'Assessment Plan',
     );
@@ -4707,6 +4729,7 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         'lesson_plan_url'        => 'Lesson Plan',
         'learner_guide_url'      => 'Learner Guide',
         'facilitator_guide_url'  => 'Facilitator Guide',
+        'learner_slides_url'     => 'Learner Slides',
         'trainer_slides_url'     => 'Trainer Slides',
         'assessment_plan_url'    => 'Assessment Plan',
     );
@@ -4796,6 +4819,46 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         </div>
     </div>
 
+    <?php endif; ?>
+
+    <?php if ($activeRole === 'learner'): ?>
+    <!-- LEARNER: Courseware — added 2026-05-07. Same tile set + label
+         map as the developer / trainer views so a learner sees every
+         saved URL (including duplicates). -->
+    <?php
+    $_lnCwLabels = array(
+        'courseware_link'        => 'Courseware Link',
+        'lesson_plan_url'        => 'Lesson Plan',
+        'learner_guide_url'      => 'Learner Guide',
+        'facilitator_guide_url'  => 'Facilitator Guide',
+        'learner_slides_url'     => 'Learner Slides',
+        'trainer_slides_url'     => 'Trainer Slides',
+        'assessment_plan_url'    => 'Assessment Plan',
+    );
+    $_lnCwSaved = array();
+    foreach ($_lnCwLabels as $_k => $_lbl) {
+        $_url = isset($_courseware[$_k]) ? trim((string) $_courseware[$_k]) : '';
+        if ($_url !== '') {
+            $_lnCwSaved[$_k] = array('label' => $_lbl, 'url' => $_url);
+        }
+    }
+    ?>
+    <div class="lcd-section" id="courseware">
+        <div class="lcd-section-title">Courseware</div>
+        <?php if (empty($_lnCwSaved)): ?>
+        <div style="color:#64748b;font-size:13px;font-style:italic;padding:8px 0;">No courseware URLs saved yet.</div>
+        <?php else: ?>
+        <?php foreach ($_lnCwSaved as $_lcw): ?>
+        <a href="<?php echo htmlspecialchars($_lcw['url']) ?>" target="_blank" rel="noopener" class="lcd-tile" style="margin-bottom:8px;text-decoration:none;color:inherit;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title"><?php echo htmlspecialchars($_lcw['label']) ?></div>
+                <div class="lcd-tile-sub">Click to open</div>
+            </div>
+        </a>
+        <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
     <?php endif; ?>
 
     <?php if ($activeRole === 'trainer' || $activeRole === 'learner'): ?>
@@ -6753,67 +6816,72 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
 ?>
 <div id="dash-panel-companysetting" style="display:none;">
 <style>
-/* Company Setting — compact restyle 2026-05-06 (sections collapsed by
-   default, lighter blue Edit buttons, tighter typography). */
-.cs-wrap{max-width:880px;margin:0 auto;padding:0 0 48px;font-size:13px}
-.cs-header{display:flex;align-items:center;gap:16px;margin-bottom:20px}
-.cs-logo{width:52px;height:52px;border-radius:12px;background:#1e3a5f;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#60a5fa;border:1px solid #2d4a6f}
-.cs-header-info h1{font-size:18px;font-weight:700;color:var(--t1);margin:0 0 2px}
-.cs-header-info p{font-size:12px;color:#94a3b8;margin:0}
+/* Company Setting — restyled 2026-05-07 to match the cyan-edit reference
+   screenshot. Header logo + name, accordion sections collapsed by default,
+   each section header has its own cyan Edit pill on the right. */
+.cs-wrap{max-width:1180px;margin:0 auto;padding:32px 36px 36px;background:#172033;border:1px solid #1e293b;border-radius:14px;box-shadow:0 1px 0 rgba(255,255,255,.02) inset}
+.cs-header{display:flex;align-items:center;gap:24px;padding:0 0 24px;background:transparent;border-bottom:1px solid rgba(148,163,184,.18);margin-bottom:8px}
+.cs-logo{width:78px;height:78px;border-radius:12px;background:#1e3a5f;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:800;color:#60a5fa;border:1px solid #2d4a6f}
+.cs-header-info{flex:1}
+.cs-header-info h1{font-size:30px;font-weight:800;color:#fff;margin:0 0 4px;letter-spacing:-.3px}
+.cs-header-info p{font-size:14px;color:#94a3b8;margin:0}
 .cs-header .cs-edit-btn{margin-left:auto}
-.cs-section{margin-bottom:4px}
-.cs-section-head{display:flex;align-items:center;padding:10px 0;border-bottom:1px solid rgba(34,211,238,.10);cursor:pointer;user-select:none}
-.cs-section-head h2{font-size:14px;font-weight:600;color:var(--t1);margin:0;flex:1}
-.cs-section-head .cs-caret{color:#64748b;transition:transform .2s;font-size:14px}
+.cs-header .cs-edit-btn{padding:10px 18px;font-size:13px;border-radius:8px}
+.cs-section{margin:0}
+.cs-section-head{display:flex;align-items:center;padding:22px 4px;border-bottom:1px solid rgba(148,163,184,.18);cursor:pointer;user-select:none;gap:12px}
+.cs-section-head h2{font-size:18px;font-weight:700;color:#fff;margin:0;flex:1;letter-spacing:-.1px}
+.cs-section-head .cs-caret{color:#94a3b8;transition:transform .2s;font-size:18px;line-height:1}
 .cs-section-head .cs-caret.open{transform:rotate(180deg)}
-.cs-section-head .cs-edit-btn{margin-left:10px}
-.cs-edit-btn{background:#3b82f6;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
-.cs-edit-btn:hover{background:#2563eb}
-.cs-save-btn{background:#2563eb;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
-.cs-save-btn:hover{background:#1d4ed8}
-.cs-cancel-btn{background:#475569;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;margin-left:4px}
-.cs-section-body{padding:12px 0;display:none}
+.cs-section-head .cs-edit-btn{margin-left:0}
+/* Cyan/teal Edit pill that matches the reference screenshot exactly. */
+.cs-edit-btn{background:#22d3ee;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:12.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;line-height:1;transition:background .15s}
+.cs-edit-btn:hover{background:#06b6d4;color:#fff}
+.cs-edit-btn svg{width:14px;height:14px}
+.cs-save-btn{background:#22d3ee;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:12.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.cs-save-btn:hover{background:#06b6d4}
+.cs-cancel-btn{background:#475569;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12.5px;font-weight:600;cursor:pointer;margin-left:6px}
+.cs-section-body{padding:18px 4px 24px;display:none}
 .cs-section-body.open{display:block}
-.cs-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:10px}
-.cs-row-2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:10px}
-.cs-row-1{margin-bottom:10px}
-.cs-field label{font-size:10.5px;color:#64748b;display:block;margin-bottom:2px;text-transform:uppercase;letter-spacing:.4px}
-.cs-field .cs-val{font-size:12.5px;color:var(--t1);font-weight:500}
-.cs-field input,.cs-field select{width:100%;background:#0f172a;border:1px solid #334155;border-radius:5px;padding:6px 10px;color:var(--t1);font-size:12px;display:none}
+.cs-row{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:14px}
+.cs-row-2{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-bottom:14px}
+.cs-row-1{margin-bottom:14px}
+.cs-field label{font-size:11px;color:#94a3b8;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.cs-field .cs-val{font-size:14px;color:#fff;font-weight:500}
+.cs-field input,.cs-field select{width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:9px 12px;color:#fff;font-size:13px;display:none}
 .cs-field input:focus,.cs-field select:focus{border-color:#22d3ee;outline:none}
 .cs-field.editing .cs-val{display:none}
 .cs-field.editing input,.cs-field.editing select{display:block}
-.cs-card{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 14px;margin-bottom:8px}
-.cs-card-title{font-size:12.5px;font-weight:600;color:var(--t1);margin-bottom:6px}
-.cs-sub-section{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 14px;margin-bottom:8px}
-.cs-sub-title{font-size:12.5px;font-weight:700;color:var(--t1);margin:0 0 10px}
-.cs-toggle-row{background:#1e293b;border:1px solid #334155;border-radius:6px;padding:9px 12px;margin-bottom:5px;display:flex;align-items:center;justify-content:space-between}
-.cs-toggle-row span{color:var(--t1);font-size:12px;font-weight:500}
-.cs-toggle{position:relative;width:38px;height:20px;cursor:pointer}
+.cs-card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px 18px;margin-bottom:10px}
+.cs-card-title{font-size:14px;font-weight:600;color:#fff;margin-bottom:8px}
+.cs-sub-section{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px 18px;margin-bottom:10px}
+.cs-sub-title{font-size:14px;font-weight:700;color:#fff;margin:0 0 12px}
+.cs-toggle-row{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:11px 16px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between}
+.cs-toggle-row span{color:#fff;font-size:13px;font-weight:500}
+.cs-toggle{position:relative;width:42px;height:22px;cursor:pointer}
 .cs-toggle input{display:none}
-.cs-toggle .slider{position:absolute;inset:0;background:#475569;border-radius:10px;transition:.2s}
-.cs-toggle input:checked+.slider{background:#3b82f6}
-.cs-toggle .slider:before{content:'';position:absolute;left:2px;top:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.2s}
-.cs-toggle input:checked+.slider:before{transform:translateX(18px)}
-.cs-status{font-size:11px;font-weight:500;margin-left:auto;margin-right:10px}
+.cs-toggle .slider{position:absolute;inset:0;background:#475569;border-radius:11px;transition:.2s}
+.cs-toggle input:checked+.slider{background:#22d3ee}
+.cs-toggle .slider:before{content:'';position:absolute;left:3px;top:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.2s}
+.cs-toggle input:checked+.slider:before{transform:translateX(20px)}
+.cs-status{font-size:12px;font-weight:500;margin-left:auto;margin-right:12px}
 .cs-status.enabled{color:#10b981}
 .cs-status.disabled{color:#94a3b8}
 .cs-status.configured{color:#10b981}
 .cs-masked{font-family:monospace;letter-spacing:2px;color:#94a3b8}
-.cs-eye-btn{background:none;border:none;color:#64748b;cursor:pointer;padding:2px 6px;font-size:12px}
-.cs-link{color:#22d3ee;font-size:12px;word-break:break-all}
-.cs-divider{border:none;border-top:1px solid rgba(34,211,238,.10);margin:14px 0}
-.cs-app-card{border:1px solid #334155;border-radius:8px;margin-bottom:8px;overflow:hidden}
+.cs-eye-btn{background:none;border:none;color:#94a3b8;cursor:pointer;padding:2px 6px;font-size:13px}
+.cs-link{color:#22d3ee;font-size:13px;word-break:break-all}
+.cs-divider{border:none;border-top:1px solid rgba(148,163,184,.18);margin:18px 0}
+.cs-app-card{border:1px solid #334155;border-radius:10px;margin-bottom:10px;overflow:hidden}
 .cs-app-card.active{border-color:#10b981}
-.cs-app-header{background:#1e293b;padding:10px 12px;display:flex;align-items:center;cursor:pointer}
-.cs-app-header h4{font-size:12.5px;font-weight:600;color:var(--t1);margin:0;flex:1}
-.cs-app-body{padding:12px;display:none}
+.cs-app-header{background:#1e293b;padding:12px 16px;display:flex;align-items:center;cursor:pointer}
+.cs-app-header h4{font-size:14px;font-weight:600;color:#fff;margin:0;flex:1}
+.cs-app-body{padding:16px;display:none}
 .cs-app-body.open{display:block}
-.cs-cred-card{border:1px solid #334155;border-radius:8px;padding:12px;margin-bottom:8px}
-.cs-cred-card h4{font-size:12.5px;font-weight:600;color:var(--t1);margin:0 0 8px}
-.cs-cred-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
-.cs-input-masked{display:flex;align-items:center;background:#0f172a;border:1px solid #334155;border-radius:5px;padding:3px 6px}
-.cs-input-masked span{flex:1;color:#94a3b8;font-family:monospace;font-size:12px;letter-spacing:1px}
+.cs-cred-card{border:1px solid #334155;border-radius:10px;padding:16px;margin-bottom:10px}
+.cs-cred-card h4{font-size:14px;font-weight:600;color:#fff;margin:0 0 10px}
+.cs-cred-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+.cs-input-masked{display:flex;align-items:center;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:4px 8px}
+.cs-input-masked span{flex:1;color:#94a3b8;font-family:monospace;font-size:13px;letter-spacing:1px}
 </style>
 
 <div class="cs-wrap">
