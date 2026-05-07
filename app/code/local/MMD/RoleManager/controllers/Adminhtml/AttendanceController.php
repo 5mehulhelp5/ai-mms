@@ -65,6 +65,30 @@ class MMD_RoleManager_Adminhtml_AttendanceController extends Mage_Adminhtml_Cont
                 array($fnAttr, $lnAttr, $courseId, '%i:' . $optionTypeId . ';%', '%"option_value";s:%"' . $optionTypeId . '"%')
             );
 
+            // Also pull manually-assigned learners from course_run_enrolments
+            // (the table the admin Assign Learner panel writes to). These
+            // never appear in sales_flat_order_item, so the previous query
+            // missed them entirely — the trainer attendance picker showed
+            // "No enrolled learners" even when the admin had assigned 3+.
+            // Added 2026-05-07.
+            //
+            // course_run_enrolments has no option_type_id column (it's a
+            // per-run table, not per-session-date), so we include every
+            // manual enrolment for this product regardless of which
+            // session the trainer picked. Class-level learners always
+            // appear; the order-based query already filters by session.
+            $manualRows = $read->fetchAll(
+                "SELECT cre.learner_email, cre.learner_name,
+                        c.entity_id AS customer_id,
+                        TRIM(CONCAT(COALESCE(fn.value,''), ' ', COALESCE(ln.value,''))) AS cust_name
+                 FROM course_run_enrolments cre
+                 LEFT JOIN customer_entity c ON LOWER(c.email) = LOWER(cre.learner_email)
+                 LEFT JOIN customer_entity_varchar fn ON fn.entity_id = c.entity_id AND fn.attribute_id = ?
+                 LEFT JOIN customer_entity_varchar ln ON ln.entity_id = c.entity_id AND ln.attribute_id = ?
+                 WHERE cre.product_id = ?",
+                array($fnAttr, $lnAttr, $courseId)
+            );
+
             // Also include any previously-marked attendance rows (keeps record if enrolment data changed)
             $marked = $read->fetchPairs(
                 "SELECT customer_id, status FROM course_attendance WHERE option_type_id = ?",
@@ -77,14 +101,40 @@ class MMD_RoleManager_Adminhtml_AttendanceController extends Mage_Adminhtml_Cont
             // nobody picked this particular option_type_id.
 
             $learners = array();
+            $seenEmails = array();
             foreach ($rows as $r) {
                 $cid = (int) $r['customer_id'];
                 if (!$cid) continue;
+                $emailLc = strtolower((string)$r['email']);
+                $seenEmails[$emailLc] = true;
                 $learners[] = array(
                     'customer_id' => $cid,
                     'name'        => trim($r['name']) ?: $r['email'],
                     'email'       => $r['email'],
                     'status'      => isset($marked[$cid]) ? $marked[$cid] : '',
+                );
+            }
+            // Append manual enrolments we haven't already seen via orders.
+            // customer_id may be 0 here (admin-only users without a
+            // storefront account); the saveAction will skip those rows
+            // for now — visible but not yet markable. That's a known
+            // follow-up; for this fix the priority is making the list
+            // not lie.
+            foreach ($manualRows as $m) {
+                $email = (string)$m['learner_email'];
+                if ($email === '') continue;
+                $emailLc = strtolower($email);
+                if (isset($seenEmails[$emailLc])) continue;
+                $seenEmails[$emailLc] = true;
+                $cid = (int) $m['customer_id'];
+                $name = trim((string)$m['cust_name']);
+                if ($name === '') $name = trim((string)$m['learner_name']);
+                if ($name === '') $name = $email;
+                $learners[] = array(
+                    'customer_id' => $cid,
+                    'name'        => $name,
+                    'email'       => $email,
+                    'status'      => ($cid && isset($marked[$cid])) ? $marked[$cid] : '',
                 );
             }
 
