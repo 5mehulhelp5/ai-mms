@@ -178,22 +178,41 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
 
     /**
      * Marketing newsletter API config (Anthropic + MailerLite).
-     * Read from <mmd_marketing><api> in app/etc/local.xml. Empty values
-     * flip the controller into stub mode so the UI works end-to-end
-     * without real keys.
+     *
+     * Resolution order:
+     *   1. core_config_data with path 'mmd_marketing/api/<key>' — what
+     *      the Credentials admin UI writes to. Takes precedence so a
+     *      key entered through the UI overrides whatever is in
+     *      local.xml.
+     *   2. <mmd_marketing><api><key> in app/etc/local.xml — original
+     *      static config, kept as a fallback so existing deployments
+     *      keep working.
+     *   3. Hardcoded sensible defaults (from_name / from_email / model)
+     *      when neither source has a value.
+     *
+     * Empty values flip the marketing controller into stub mode.
      */
     public function getMarketingApiConfig()
     {
         $node = Mage::getConfig()->getNode('global/mmd_marketing/api');
-        $get = function ($key) use ($node) {
+        $xmlGet = function ($key) use ($node) {
             return $node && $node->$key ? trim((string) $node->$key) : '';
         };
+        $cfgGet = function ($key) {
+            $val = (string) Mage::getStoreConfig('mmd_marketing/api/' . $key);
+            return trim($val);
+        };
+        $resolve = function ($key) use ($cfgGet, $xmlGet) {
+            $v = $cfgGet($key);
+            if ($v !== '') return $v;
+            return $xmlGet($key);
+        };
         return array(
-            'anthropic_key'   => $get('anthropic_key'),
-            'anthropic_model' => $get('anthropic_model') ?: 'claude-sonnet-4-6',
-            'mailerlite_key'  => $get('mailerlite_key'),
-            'from_name'       => $get('from_name')  ?: 'Tertiary Infotech Academy',
-            'from_email'      => $get('from_email') ?: 'noreply@tertiaryinfotech.com',
+            'anthropic_key'   => $resolve('anthropic_key'),
+            'anthropic_model' => $resolve('anthropic_model') ?: 'claude-sonnet-4-6',
+            'mailerlite_key'  => $resolve('mailerlite_key'),
+            'from_name'       => $resolve('from_name')  ?: 'Tertiary Infotech Academy',
+            'from_email'      => $resolve('from_email') ?: 'noreply@tertiaryinfotech.com',
         );
     }
 

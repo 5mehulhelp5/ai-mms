@@ -7332,7 +7332,11 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
 .cs-row-2{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-bottom:14px}
 .cs-row-1{margin-bottom:14px}
 .cs-field label{font-size:11px;color:#94a3b8;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
-.cs-field .cs-val{font-size:14px;color:#fff;font-weight:500}
+.cs-field .cs-val{display:flex;align-items:center;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:9px 12px;font-size:13px;color:#fff;font-weight:500;font-family:'SF Mono','Cascadia Code','Consolas',monospace;min-height:38px;box-sizing:border-box;letter-spacing:.3px}
+/* When a .cs-val just wraps a .cs-input-masked (eg masked API keys with eye buttons),
+   suppress the outer box AND switch back to block display so the inner pill can
+   stretch to the full grid-cell width instead of shrinking to its content. */
+.cs-field .cs-val:has(> .cs-input-masked){background:transparent;border:0;padding:0;min-height:0;display:block}
 .cs-field input,.cs-field select{width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:9px 12px;color:#fff;font-size:13px;display:none}
 .cs-field input:focus,.cs-field select:focus{border-color:#22d3ee;outline:none}
 .cs-field.editing .cs-val{display:none}
@@ -7366,8 +7370,8 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
 .cs-cred-card{border:1px solid #334155;border-radius:10px;padding:16px;margin-bottom:10px}
 .cs-cred-card h4{font-size:14px;font-weight:600;color:#fff;margin:0 0 10px}
 .cs-cred-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
-.cs-input-masked{display:flex;align-items:center;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:4px 8px}
-.cs-input-masked span{flex:1;color:#94a3b8;font-family:monospace;font-size:13px;letter-spacing:1px}
+.cs-input-masked{display:flex;align-items:center;width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:4px 8px;min-height:38px;box-sizing:border-box}
+.cs-input-masked span{flex:1;color:#94a3b8;font-family:'SF Mono','Cascadia Code','Consolas',monospace;font-size:13px;letter-spacing:1px}
 </style>
 
 <div class="cs-wrap">
@@ -7851,17 +7855,279 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
     <hr class="cs-divider"/>
 
 
-    <!-- Section: Credentials -->
-    <div class="cs-section" data-section="credentials">
+    <!-- Section: Gamification Setting -->
+    <div class="cs-section" data-section="gamification">
         <div class="cs-section-head" onclick="csToggleSection(this)">
-            <h2>Credentials</h2>
+            <h2>Gamification Setting</h2>
             <span class="cs-caret">&#9650;</span>
-            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('credentials')">
+            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('gamification')">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
             </button>
         </div>
-        <div class="cs-section-body" id="cs-body-credentials">
+        <div class="cs-section-body" id="cs-body-gamification">
+            <div class="cs-toggle-row">
+                <span>Enable Leaderboard</span>
+                <span class="cs-status disabled" style="margin-left:auto">Disabled</span>
+            </div>
+            <div class="cs-toggle-row">
+                <span>Enable Points System</span>
+                <span class="cs-status disabled" style="margin-left:auto">Disabled</span>
+            </div>
+            <div id="cs-actions-gamification" style="display:none;margin-top:10px;">
+                <button class="cs-save-btn" onclick="csSaveSection('gamification')">Save</button>
+                <button class="cs-cancel-btn" onclick="csCancelSection('gamification')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <hr class="cs-divider"/>
+
+    <!-- Section: Appearance -->
+    <div class="cs-section" data-section="appearance">
+        <div class="cs-section-head" onclick="csToggleSection(this)">
+            <h2>Appearance</h2>
+            <span class="cs-caret">&#9650;</span>
+            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('appearance')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+        </div>
+        <div class="cs-section-body" id="cs-body-appearance">
+            <div class="cs-toggle-row">
+                <div style="display:flex;align-items:center;gap:10px">
+                    <span style="font-size:22px">&#127769;</span>
+                    <div>
+                        <div style="color:var(--t1);font-weight:600;font-size:13px">Theme Mode</div>
+                        <div style="color:#94a3b8;font-size:11px">Dark theme active</div>
+                    </div>
+                </div>
+                <label class="cs-toggle"><input type="checkbox" checked/><span class="slider"></span></label>
+            </div>
+            <div class="cs-toggle-row" style="margin-top:6px">
+                <div style="display:flex;align-items:center;gap:10px">
+                    <div style="width:28px;height:28px;border-radius:6px;background:#258BB6"></div>
+                    <div>
+                        <div style="color:var(--t1);font-weight:600;font-size:13px">Primary Color</div>
+                        <div style="color:#94a3b8;font-size:11px">#258BB6</div>
+                    </div>
+                </div>
+                <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 12px;color:var(--t1);font-size:13px">#258bb6</div>
+            </div>
+            <div id="cs-actions-appearance" style="display:none;margin-top:10px;">
+                <button class="cs-save-btn" onclick="csSaveSection('appearance')">Save</button>
+                <button class="cs-cancel-btn" onclick="csCancelSection('appearance')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+</div><!-- end cs-wrap -->
+
+<script type="text/javascript">
+// Company Setting panel JS
+window.csToggleSection = function(headEl) {
+    var body = headEl.nextElementSibling;
+    var caret = headEl.querySelector('.cs-caret');
+    if (body.classList.contains('open')) {
+        body.classList.remove('open');
+        if (caret) caret.classList.remove('open');
+    } else {
+        body.classList.add('open');
+        if (caret) caret.classList.add('open');
+    }
+};
+window.csToggleApp = function(headerEl) {
+    var body = headerEl.nextElementSibling;
+    var caret = headerEl.querySelector('.cs-caret');
+    if (body.classList.contains('open')) {
+        body.classList.remove('open');
+        if (caret) caret.classList.remove('open');
+    } else {
+        body.classList.add('open');
+        if (caret) caret.classList.add('open');
+    }
+};
+window.csEditSection = function(section) {
+    var body = document.getElementById('cs-body-' + section);
+    if (!body) return;
+    var fields = body.querySelectorAll('.cs-field[data-path]');
+    for (var i = 0; i < fields.length; i++) fields[i].classList.add('editing');
+    var actions = document.getElementById('cs-actions-' + section);
+    if (actions) actions.style.display = '';
+};
+window.csCancelSection = function(section) {
+    var body = document.getElementById('cs-body-' + section);
+    if (!body) return;
+    var fields = body.querySelectorAll('.cs-field[data-path]');
+    for (var i = 0; i < fields.length; i++) fields[i].classList.remove('editing');
+    var actions = document.getElementById('cs-actions-' + section);
+    if (actions) actions.style.display = 'none';
+};
+window.csSaveSection = function(section) {
+    var body = document.getElementById('cs-body-' + section);
+    if (!body) return;
+    var fields = body.querySelectorAll('.cs-field[data-path]');
+    var settings = {};
+    for (var i = 0; i < fields.length; i++) {
+        var path = fields[i].getAttribute('data-path');
+        var input = fields[i].querySelector('input,select');
+        if (input && path) {
+            settings[path] = input.value;
+            // Update the display value
+            var valEl = fields[i].querySelector('.cs-val');
+            if (valEl) {
+                var linkEl = valEl.querySelector('a');
+                if (linkEl) { linkEl.textContent = input.value; linkEl.href = input.value; }
+                else if (valEl.querySelector('.cs-masked')) { /* keep masked */ }
+                else { valEl.textContent = input.value; }
+            }
+        }
+    }
+    // Also collect toggle values
+    var toggles = body.querySelectorAll('.cs-toggle input[data-path]');
+    for (var j = 0; j < toggles.length; j++) {
+        settings[toggles[j].getAttribute('data-path')] = toggles[j].checked ? '1' : '0';
+    }
+    // Send AJAX save
+    new Ajax.Request('<?php echo $_csUrl ?>', {
+        method: 'post',
+        parameters: { settings: JSON.stringify(settings) },
+        onSuccess: function(t) {
+            try {
+                var r = JSON.parse(t.responseText);
+                if (r.success) {
+                    csCancelSection(section);
+                }
+            } catch(e) {}
+        }
+    });
+};
+</script>
+</div><!-- end dash-panel-companysetting -->
+
+<?php /* ===== PANEL: Credentials (Super Admin sub-view) =====
+    Reuses .cs-* styles already declared inside dash-panel-companysetting,
+    so no new <style> block is needed here. */ ?>
+<div id="dash-panel-credentials" style="display:none;">
+<div class="cs-wrap">
+    <div class="cs-header">
+        <div class="cs-logo">T</div>
+        <div class="cs-header-info">
+            <h1>Credentials</h1>
+            <p id="cs-cred-sub">API keys and tokens for connected services</p>
+        </div>
+        <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('credentials')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit
+        </button>
+    </div>
+
+    <div class="cs-section" data-section="credentials">
+        <div class="cs-section-body open" id="cs-body-credentials">
+
+            <?php
+            // Marketing API keys — pull live state so the badge / mask
+            // reflects whatever is currently saved (core_config_data
+            // takes precedence, falls back to local.xml).
+            $_mkCfg = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
+            $_mkAk  = (string) $_mkCfg['anthropic_key'];
+            $_mkMl  = (string) $_mkCfg['mailerlite_key'];
+            $_mkAkMask = $_mkAk !== ''
+                ? str_repeat('•', max(8, mb_strlen($_mkAk) - 4)) . mb_substr($_mkAk, -4)
+                : 'Not set';
+            $_mkMlMask = $_mkMl !== ''
+                ? str_repeat('•', max(8, mb_strlen($_mkMl) - 4)) . mb_substr($_mkMl, -4)
+                : 'Not set';
+            ?>
+
+            <!-- Marketing — Newsletter Builder API keys (open by default) -->
+            <div class="cs-app-card" style="border-color:#22d3ee">
+                <div class="cs-app-header" onclick="csToggleApp(this)">
+                    <h4>Marketing</h4>
+                    <span class="cs-caret open">&#9650;</span>
+                </div>
+                <div class="cs-app-body open">
+                    <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.5">
+                        Used by the Marketing role's Newsletter Builder to draft copy with Claude and push campaigns to MailerLite. Empty values keep the system in demo / stub mode.
+                    </div>
+
+                    <!-- Anthropic (Claude) — Marketing -->
+                    <div class="cs-cred-card">
+                        <div style="display:flex;align-items:center">
+                            <h4 style="margin:0;flex:1">Anthropic (Claude)</h4>
+                            <?php if ($_mkAk !== ''): ?>
+                                <span class="cs-status configured">&#9679; Configured</span>
+                            <?php else: ?>
+                                <span class="cs-status disabled" style="background:rgba(148,163,184,.12);color:#94a3b8;border:1px solid rgba(148,163,184,.3);padding:2px 10px;border-radius:6px;font-size:11px">Not set</span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="cs-cred-row">
+                            <div class="cs-field" data-path="mmd_marketing/api/anthropic_key">
+                                <label>API Key</label>
+                                <div class="cs-val">
+                                    <div class="cs-input-masked" style="margin-top:0">
+                                        <span><?php echo htmlspecialchars($_mkAkMask) ?></span>
+                                        <button type="button" class="cs-eye-btn" onclick="event.preventDefault()">&#128065;</button>
+                                    </div>
+                                </div>
+                                <input type="text" value="<?php echo htmlspecialchars($_mkAk) ?>" placeholder="sk-ant-api03-..." />
+                            </div>
+                            <div class="cs-field" data-path="mmd_marketing/api/anthropic_model">
+                                <label>Model</label>
+                                <div class="cs-val">
+                                    <div class="cs-input-masked" style="margin-top:0">
+                                        <span style="color:var(--t1)"><?php echo htmlspecialchars($_mkCfg['anthropic_model']) ?></span>
+                                    </div>
+                                </div>
+                                <input type="text" value="<?php echo htmlspecialchars($_mkCfg['anthropic_model']) ?>" placeholder="claude-sonnet-4-6" />
+                            </div>
+                        </div>
+                        <div style="font-size:11px;color:#64748b;margin-top:6px">Get a key at <a href="https://console.anthropic.com/" target="_blank" style="color:#22d3ee">console.anthropic.com</a> → API Keys. New accounts get $5 free credit.</div>
+                    </div>
+
+                    <!-- MailerLite -->
+                    <div class="cs-cred-card">
+                        <div style="display:flex;align-items:center">
+                            <h4 style="margin:0;flex:1">MailerLite</h4>
+                            <?php if ($_mkMl !== ''): ?>
+                                <span class="cs-status configured">&#9679; Configured</span>
+                            <?php else: ?>
+                                <span class="cs-status disabled" style="background:rgba(148,163,184,.12);color:#94a3b8;border:1px solid rgba(148,163,184,.3);padding:2px 10px;border-radius:6px;font-size:11px">Not set</span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="cs-field" data-path="mmd_marketing/api/mailerlite_key" style="margin-top:6px">
+                            <label>API Token</label>
+                            <div class="cs-val">
+                                <div class="cs-input-masked" style="margin-top:0">
+                                    <span><?php echo htmlspecialchars($_mkMlMask) ?></span>
+                                    <button type="button" class="cs-eye-btn" onclick="event.preventDefault()">&#128065;</button>
+                                </div>
+                            </div>
+                            <input type="text" value="<?php echo htmlspecialchars($_mkMl) ?>" placeholder="eyJ0eXAiOiJKV1Q..." />
+                        </div>
+                        <div class="cs-cred-row" style="margin-top:10px">
+                            <div class="cs-field" data-path="mmd_marketing/api/from_name">
+                                <label>From Name</label>
+                                <div class="cs-val">
+                                    <div class="cs-input-masked" style="margin-top:0">
+                                        <span style="color:var(--t1)"><?php echo htmlspecialchars($_mkCfg['from_name']) ?></span>
+                                    </div>
+                                </div>
+                                <input type="text" value="<?php echo htmlspecialchars($_mkCfg['from_name']) ?>" placeholder="Tertiary Infotech Academy" />
+                            </div>
+                            <div class="cs-field" data-path="mmd_marketing/api/from_email">
+                                <label>From Email</label>
+                                <div class="cs-val">
+                                    <div class="cs-input-masked" style="margin-top:0">
+                                        <span style="color:var(--t1)"><?php echo htmlspecialchars($_mkCfg['from_email']) ?></span>
+                                    </div>
+                                </div>
+                                <input type="email" value="<?php echo htmlspecialchars($_mkCfg['from_email']) ?>" placeholder="noreply@tertiaryinfotech.com" />
+                            </div>
+                        </div>
+                        <div style="font-size:11px;color:#64748b;margin-top:6px">Get a token at <a href="https://dashboard.mailerlite.com/" target="_blank" style="color:#22d3ee">dashboard.mailerlite.com</a> → Profile → Integrations → MailerLite API. Free tier covers 1k subscribers + 12k emails/month.</div>
+                    </div>
+                </div>
+            </div>
 
             <!-- LLM -->
             <div class="cs-app-card">
@@ -8025,156 +8291,8 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
             </div>
         </div>
     </div>
-    <hr class="cs-divider"/>
-
-    <!-- Section: Gamification Setting -->
-    <div class="cs-section" data-section="gamification">
-        <div class="cs-section-head" onclick="csToggleSection(this)">
-            <h2>Gamification Setting</h2>
-            <span class="cs-caret">&#9650;</span>
-            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('gamification')">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                Edit
-            </button>
-        </div>
-        <div class="cs-section-body" id="cs-body-gamification">
-            <div class="cs-toggle-row">
-                <span>Enable Leaderboard</span>
-                <span class="cs-status disabled" style="margin-left:auto">Disabled</span>
-            </div>
-            <div class="cs-toggle-row">
-                <span>Enable Points System</span>
-                <span class="cs-status disabled" style="margin-left:auto">Disabled</span>
-            </div>
-            <div id="cs-actions-gamification" style="display:none;margin-top:10px;">
-                <button class="cs-save-btn" onclick="csSaveSection('gamification')">Save</button>
-                <button class="cs-cancel-btn" onclick="csCancelSection('gamification')">Cancel</button>
-            </div>
-        </div>
-    </div>
-    <hr class="cs-divider"/>
-
-    <!-- Section: Appearance -->
-    <div class="cs-section" data-section="appearance">
-        <div class="cs-section-head" onclick="csToggleSection(this)">
-            <h2>Appearance</h2>
-            <span class="cs-caret">&#9650;</span>
-            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('appearance')">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                Edit
-            </button>
-        </div>
-        <div class="cs-section-body" id="cs-body-appearance">
-            <div class="cs-toggle-row">
-                <div style="display:flex;align-items:center;gap:10px">
-                    <span style="font-size:22px">&#127769;</span>
-                    <div>
-                        <div style="color:var(--t1);font-weight:600;font-size:13px">Theme Mode</div>
-                        <div style="color:#94a3b8;font-size:11px">Dark theme active</div>
-                    </div>
-                </div>
-                <label class="cs-toggle"><input type="checkbox" checked/><span class="slider"></span></label>
-            </div>
-            <div class="cs-toggle-row" style="margin-top:6px">
-                <div style="display:flex;align-items:center;gap:10px">
-                    <div style="width:28px;height:28px;border-radius:6px;background:#258BB6"></div>
-                    <div>
-                        <div style="color:var(--t1);font-weight:600;font-size:13px">Primary Color</div>
-                        <div style="color:#94a3b8;font-size:11px">#258BB6</div>
-                    </div>
-                </div>
-                <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 12px;color:var(--t1);font-size:13px">#258bb6</div>
-            </div>
-            <div id="cs-actions-appearance" style="display:none;margin-top:10px;">
-                <button class="cs-save-btn" onclick="csSaveSection('appearance')">Save</button>
-                <button class="cs-cancel-btn" onclick="csCancelSection('appearance')">Cancel</button>
-            </div>
-        </div>
-    </div>
-
-</div><!-- end cs-wrap -->
-
-<script type="text/javascript">
-// Company Setting panel JS
-window.csToggleSection = function(headEl) {
-    var body = headEl.nextElementSibling;
-    var caret = headEl.querySelector('.cs-caret');
-    if (body.classList.contains('open')) {
-        body.classList.remove('open');
-        if (caret) caret.classList.remove('open');
-    } else {
-        body.classList.add('open');
-        if (caret) caret.classList.add('open');
-    }
-};
-window.csToggleApp = function(headerEl) {
-    var body = headerEl.nextElementSibling;
-    var caret = headerEl.querySelector('.cs-caret');
-    if (body.classList.contains('open')) {
-        body.classList.remove('open');
-        if (caret) caret.classList.remove('open');
-    } else {
-        body.classList.add('open');
-        if (caret) caret.classList.add('open');
-    }
-};
-window.csEditSection = function(section) {
-    var body = document.getElementById('cs-body-' + section);
-    if (!body) return;
-    var fields = body.querySelectorAll('.cs-field[data-path]');
-    for (var i = 0; i < fields.length; i++) fields[i].classList.add('editing');
-    var actions = document.getElementById('cs-actions-' + section);
-    if (actions) actions.style.display = '';
-};
-window.csCancelSection = function(section) {
-    var body = document.getElementById('cs-body-' + section);
-    if (!body) return;
-    var fields = body.querySelectorAll('.cs-field[data-path]');
-    for (var i = 0; i < fields.length; i++) fields[i].classList.remove('editing');
-    var actions = document.getElementById('cs-actions-' + section);
-    if (actions) actions.style.display = 'none';
-};
-window.csSaveSection = function(section) {
-    var body = document.getElementById('cs-body-' + section);
-    if (!body) return;
-    var fields = body.querySelectorAll('.cs-field[data-path]');
-    var settings = {};
-    for (var i = 0; i < fields.length; i++) {
-        var path = fields[i].getAttribute('data-path');
-        var input = fields[i].querySelector('input,select');
-        if (input && path) {
-            settings[path] = input.value;
-            // Update the display value
-            var valEl = fields[i].querySelector('.cs-val');
-            if (valEl) {
-                var linkEl = valEl.querySelector('a');
-                if (linkEl) { linkEl.textContent = input.value; linkEl.href = input.value; }
-                else if (valEl.querySelector('.cs-masked')) { /* keep masked */ }
-                else { valEl.textContent = input.value; }
-            }
-        }
-    }
-    // Also collect toggle values
-    var toggles = body.querySelectorAll('.cs-toggle input[data-path]');
-    for (var j = 0; j < toggles.length; j++) {
-        settings[toggles[j].getAttribute('data-path')] = toggles[j].checked ? '1' : '0';
-    }
-    // Send AJAX save
-    new Ajax.Request('<?php echo $_csUrl ?>', {
-        method: 'post',
-        parameters: { settings: JSON.stringify(settings) },
-        onSuccess: function(t) {
-            try {
-                var r = JSON.parse(t.responseText);
-                if (r.success) {
-                    csCancelSection(section);
-                }
-            } catch(e) {}
-        }
-    });
-};
-</script>
-</div><!-- end dash-panel-companysetting -->
+</div>
+</div><!-- end dash-panel-credentials -->
 
 <?php /* ===== PANEL: Create New Class (Admin only) ===== */ ?>
 <?php
@@ -12179,7 +12297,7 @@ document.addEventListener('keydown', function (ev) {
     function showAdminSubPanel(name, filter) {
         var r = role;
         if (r !== 'Admin' && r !== 'Super Admin' && r !== 'Marketing') return;
-        var panelMap = { admin: 'dash-panel-admin', trainers: 'dash-panel-trainers', companysetting: 'dash-panel-companysetting', createclass: 'dash-panel-createclass', assigntrainer: 'dash-panel-assigntrainer', assignlearner: 'dash-panel-assignlearner', enrolllearner: 'dash-panel-enrolllearner', marketingnewsletter: 'dash-panel-marketing-newsletter', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
+        var panelMap = { admin: 'dash-panel-admin', trainers: 'dash-panel-trainers', companysetting: 'dash-panel-companysetting', credentials: 'dash-panel-credentials', createclass: 'dash-panel-createclass', assigntrainer: 'dash-panel-assigntrainer', assignlearner: 'dash-panel-assignlearner', enrolllearner: 'dash-panel-enrolllearner', marketingnewsletter: 'dash-panel-marketing-newsletter', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
         var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-createclass','dash-panel-assigntrainer','dash-panel-assignlearner','dash-panel-enrolllearner'];
         for (var i=0; i<all.length; i++) { var el = document.getElementById(all[i]); if (el) el.style.display = 'none'; }
         var t = document.getElementById(panelMap[name] || panelMap.dashboard);
@@ -12241,6 +12359,11 @@ document.addEventListener('keydown', function (ev) {
         if ((qsPanel === 'companysetting' || hash === '#companysetting')
             && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
             showAdminSubPanel('companysetting');
+            return;
+        }
+        if ((qsPanel === 'credentials' || hash === '#credentials')
+            && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
+            showAdminSubPanel('credentials');
             return;
         }
         if ((qsPanel === 'trainers' || hash === '#trainers')
