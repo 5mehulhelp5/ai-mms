@@ -6731,7 +6731,25 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
                     <div><div class="trn-flbl">Email <span class="trn-req">*</span></div><input type="email" id="trnEmail" required class="trn-fld" /></div>
                     <div><div class="trn-flbl">Full Name <span class="trn-req">*</span></div><input type="text" id="trnName" required class="trn-fld" /></div>
 
-                    <div><div class="trn-flbl">Default Password</div><input type="text" id="trnPwd" value="Tertiary888" readonly class="trn-fld" style="opacity:.7;" /><div style="font-size:11px;color:#64748b;margin-top:4px;">Default password from Company Settings will be assigned to the new trainer</div></div>
+                    <?php
+                    // Pull the default trainer password from
+                    // core_config_data so the form actually reflects what
+                    // Company Settings has configured. Falls back to the
+                    // long-time hardcoded "Tertiary888" if no row exists.
+                    $_csTrnPwd = 'Tertiary888';
+                    try {
+                        $_csPwdRead = Mage::getSingleton('core/resource')->getConnection('core_read');
+                        $_csPwdTbl  = Mage::getSingleton('core/resource')->getTableName('core/config_data');
+                        $_csPwdRow  = $_csPwdRead->fetchOne(
+                            "SELECT value FROM {$_csPwdTbl} WHERE path = ? AND scope = 'default' AND scope_id = 0 LIMIT 1",
+                            array('mmd_company/admin/default_trainer_password')
+                        );
+                        if ($_csPwdRow !== false && $_csPwdRow !== null && $_csPwdRow !== '') {
+                            $_csTrnPwd = (string)$_csPwdRow;
+                        }
+                    } catch (Exception $e) {}
+                    ?>
+                    <div><div class="trn-flbl">Default Password</div><input type="text" id="trnPwd" value="<?php echo htmlspecialchars($_csTrnPwd, ENT_QUOTES) ?>" readonly class="trn-fld" style="opacity:.7;" /><div style="font-size:11px;color:#64748b;margin-top:4px;">Default password from Company Settings will be assigned to the new trainer</div></div>
                     <div><div class="trn-flbl">Telephone <span class="trn-req">*</span></div><input type="tel" id="trnTel" required class="trn-fld" /></div>
 
                     <div>
@@ -7478,6 +7496,32 @@ window.cpSubmitCP = function() {
 <?php
 $_csUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/save');
 $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load');
+
+// Load saved Company Setting values from core_config_data so the panel
+// renders real saved values instead of the hardcoded HTML defaults.
+// CompanysettingController::saveAction has been writing here for a
+// while, but the panel never read back, so saves persisted in the DB
+// while the UI kept showing the old defaults. Wired up 2026-05-07.
+$_cs = array();
+try {
+    $_csRead = Mage::getSingleton('core/resource')->getConnection('core_read');
+    $_csTbl  = Mage::getSingleton('core/resource')->getTableName('core/config_data');
+    $_csRows = $_csRead->fetchAll(
+        "SELECT path, value FROM {$_csTbl} WHERE path LIKE 'mmd_company/%' AND scope = 'default' AND scope_id = 0"
+    );
+    foreach ($_csRows as $_csR) {
+        $_cs[$_csR['path']] = (string)$_csR['value'];
+    }
+} catch (Exception $e) { /* core_config_data table is fundamental — this should never fail in practice */ }
+
+// Tiny helper closure: return htmlspecialchars'd saved value, falling
+// back to the second arg when no DB row exists. Empty-string DB values
+// also fall through to the default so a field can be "reset" by saving
+// blank without rendering blank to users.
+$_csv = function ($path, $default = '') use ($_cs) {
+    $v = isset($_cs[$path]) ? $_cs[$path] : '';
+    return htmlspecialchars($v !== '' ? $v : $default, ENT_QUOTES);
+};
 ?>
 <div id="dash-panel-companysetting" style="display:none;">
 <style>
@@ -7579,44 +7623,56 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
         </div>
         <div class="cs-section-body" id="cs-body-company_details">
             <div class="cs-row">
+                <?php
+                // Pull defaults to local vars so we don't repeat the
+                // long literal twice (once for cs-val, once for input
+                // value) — both come from the same DB row when present.
+                $_csName  = isset($_cs['mmd_company/details/name'])       && $_cs['mmd_company/details/name']       !== '' ? $_cs['mmd_company/details/name']       : 'Tertiary Infotech Academy Pte Ltd';
+                $_csShort = isset($_cs['mmd_company/details/short_name']) && $_cs['mmd_company/details/short_name'] !== '' ? $_cs['mmd_company/details/short_name'] : 'Tertiary Infotech Academy';
+                $_csUen   = isset($_cs['mmd_company/details/uen'])        && $_cs['mmd_company/details/uen']        !== '' ? $_cs['mmd_company/details/uen']        : '201200696W';
+                $_csAddr  = isset($_cs['mmd_company/details/address'])    && $_cs['mmd_company/details/address']    !== '' ? $_cs['mmd_company/details/address']    : '12 Woodland Square #07-85/86/87 Woods Square Tower 1, Singapore 737715';
+                $_csEmail = isset($_cs['mmd_company/details/email'])      && $_cs['mmd_company/details/email']      !== '' ? $_cs['mmd_company/details/email']      : 'enquiry@tertiaryinfotech.com';
+                $_csTel   = isset($_cs['mmd_company/details/tel'])        && $_cs['mmd_company/details/tel']        !== '' ? $_cs['mmd_company/details/tel']        : '61000613';
+                $_csWeb   = isset($_cs['mmd_company/details/website'])    && $_cs['mmd_company/details/website']    !== '' ? $_cs['mmd_company/details/website']    : 'https://www.tertiarycourses.com.sg/';
+                ?>
                 <div class="cs-field" data-path="mmd_company/details/name">
                     <label>Company Name</label>
-                    <div class="cs-val">Tertiary Infotech Academy Pte Ltd</div>
-                    <input type="text" value="Tertiary Infotech Academy Pte Ltd"/>
+                    <div class="cs-val"><?php echo htmlspecialchars($_csName) ?></div>
+                    <input type="text" value="<?php echo htmlspecialchars($_csName, ENT_QUOTES) ?>"/>
                 </div>
                 <div class="cs-field" data-path="mmd_company/details/short_name">
                     <label>Company Short Name</label>
-                    <div class="cs-val">Tertiary Infotech Academy</div>
-                    <input type="text" value="Tertiary Infotech Academy"/>
+                    <div class="cs-val"><?php echo htmlspecialchars($_csShort) ?></div>
+                    <input type="text" value="<?php echo htmlspecialchars($_csShort, ENT_QUOTES) ?>"/>
                 </div>
                 <div class="cs-field" data-path="mmd_company/details/uen">
                     <label>UEN</label>
-                    <div class="cs-val">201200696W</div>
-                    <input type="text" value="201200696W"/>
+                    <div class="cs-val"><?php echo htmlspecialchars($_csUen) ?></div>
+                    <input type="text" value="<?php echo htmlspecialchars($_csUen, ENT_QUOTES) ?>"/>
                 </div>
             </div>
             <div class="cs-row-1">
                 <div class="cs-field" data-path="mmd_company/details/address">
                     <label>Company Address</label>
-                    <div class="cs-val">12 Woodland Square #07-85/86/87 Woods Square Tower 1, Singapore 737715</div>
-                    <input type="text" value="12 Woodland Square #07-85/86/87 Woods Square Tower 1, Singapore 737715"/>
+                    <div class="cs-val"><?php echo htmlspecialchars($_csAddr) ?></div>
+                    <input type="text" value="<?php echo htmlspecialchars($_csAddr, ENT_QUOTES) ?>"/>
                 </div>
             </div>
             <div class="cs-row">
                 <div class="cs-field" data-path="mmd_company/details/email">
                     <label>Company Email</label>
-                    <div class="cs-val">enquiry@tertiaryinfotech.com</div>
-                    <input type="email" value="enquiry@tertiaryinfotech.com"/>
+                    <div class="cs-val"><?php echo htmlspecialchars($_csEmail) ?></div>
+                    <input type="email" value="<?php echo htmlspecialchars($_csEmail, ENT_QUOTES) ?>"/>
                 </div>
                 <div class="cs-field" data-path="mmd_company/details/tel">
                     <label>Company Tel</label>
-                    <div class="cs-val">61000613</div>
-                    <input type="text" value="61000613"/>
+                    <div class="cs-val"><?php echo htmlspecialchars($_csTel) ?></div>
+                    <input type="text" value="<?php echo htmlspecialchars($_csTel, ENT_QUOTES) ?>"/>
                 </div>
                 <div class="cs-field" data-path="mmd_company/details/website">
                     <label>Company Website</label>
-                    <div class="cs-val"><a href="https://www.tertiarycourses.com.sg/" target="_blank" class="cs-link">https://www.tertiarycourses.com.sg/</a></div>
-                    <input type="url" value="https://www.tertiarycourses.com.sg/"/>
+                    <div class="cs-val"><a href="<?php echo htmlspecialchars($_csWeb, ENT_QUOTES) ?>" target="_blank" class="cs-link"><?php echo htmlspecialchars($_csWeb) ?></a></div>
+                    <input type="url" value="<?php echo htmlspecialchars($_csWeb, ENT_QUOTES) ?>"/>
                 </div>
             </div>
             <div id="cs-actions-company_details" style="display:none;margin-top:10px;">
@@ -7638,21 +7694,26 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
             </button>
         </div>
         <div class="cs-section-body" id="cs-body-support">
+            <?php
+            $_csSupName  = isset($_cs['mmd_company/support/name'])  && $_cs['mmd_company/support/name']  !== '' ? $_cs['mmd_company/support/name']  : 'Tertiary Infotech Academy';
+            $_csSupEmail = isset($_cs['mmd_company/support/email']) && $_cs['mmd_company/support/email'] !== '' ? $_cs['mmd_company/support/email'] : 'support@tertiaryinfotech.com';
+            $_csSupTel   = isset($_cs['mmd_company/support/tel'])   && $_cs['mmd_company/support/tel']   !== '' ? $_cs['mmd_company/support/tel']   : '61000613';
+            ?>
             <div class="cs-row">
                 <div class="cs-field" data-path="mmd_company/support/name">
                     <label>Support Name</label>
-                    <div class="cs-val">Tertiary Infotech Academy</div>
-                    <input type="text" value="Tertiary Infotech Academy"/>
+                    <div class="cs-val"><?php echo htmlspecialchars($_csSupName) ?></div>
+                    <input type="text" value="<?php echo htmlspecialchars($_csSupName, ENT_QUOTES) ?>"/>
                 </div>
                 <div class="cs-field" data-path="mmd_company/support/email">
                     <label>Support Email</label>
-                    <div class="cs-val">support@tertiaryinfotech.com</div>
-                    <input type="email" value="support@tertiaryinfotech.com"/>
+                    <div class="cs-val"><?php echo htmlspecialchars($_csSupEmail) ?></div>
+                    <input type="email" value="<?php echo htmlspecialchars($_csSupEmail, ENT_QUOTES) ?>"/>
                 </div>
                 <div class="cs-field" data-path="mmd_company/support/tel">
                     <label>Support Telephone</label>
-                    <div class="cs-val">61000613</div>
-                    <input type="text" value="61000613"/>
+                    <div class="cs-val"><?php echo htmlspecialchars($_csSupTel) ?></div>
+                    <input type="text" value="<?php echo htmlspecialchars($_csSupTel, ENT_QUOTES) ?>"/>
                 </div>
             </div>
             <div id="cs-actions-support" style="display:none;margin-top:10px;">
@@ -7674,16 +7735,20 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
             </button>
         </div>
         <div class="cs-section-body" id="cs-body-gst">
+            <?php
+            $_csGstRate = isset($_cs['mmd_company/gst/rate'])       && $_cs['mmd_company/gst/rate']       !== '' ? $_cs['mmd_company/gst/rate']       : '9%';
+            $_csGstReg  = isset($_cs['mmd_company/gst/registered']) && $_cs['mmd_company/gst/registered'] !== '' ? $_cs['mmd_company/gst/registered'] : 'Yes';
+            ?>
             <div class="cs-row-2">
                 <div class="cs-field" data-path="mmd_company/gst/rate">
                     <label>GST Rate</label>
-                    <div class="cs-val">9%</div>
-                    <input type="text" value="9%"/>
+                    <div class="cs-val"><?php echo htmlspecialchars($_csGstRate) ?></div>
+                    <input type="text" value="<?php echo htmlspecialchars($_csGstRate, ENT_QUOTES) ?>"/>
                 </div>
                 <div class="cs-field" data-path="mmd_company/gst/registered">
                     <label>GST Registered</label>
-                    <div class="cs-val">Yes</div>
-                    <input type="text" value="Yes"/>
+                    <div class="cs-val"><?php echo htmlspecialchars($_csGstReg) ?></div>
+                    <input type="text" value="<?php echo htmlspecialchars($_csGstReg, ENT_QUOTES) ?>"/>
                 </div>
             </div>
             <div id="cs-actions-gst" style="display:none;margin-top:10px;">
@@ -7717,22 +7782,22 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
                         <div class="cs-card-title">Email Configuration (Google OAuth2)</div>
                         <div class="cs-field" data-path="mmd_company/google/email_user" style="margin-bottom:8px">
                             <label>Email User</label>
-                            <div class="cs-val">sales@tertiarycourses.com.sg</div>
-                            <input type="text" value="sales@tertiarycourses.com.sg"/>
+                            <div class="cs-val"><?php echo $_csv('mmd_company/google/email_user', 'sales@tertiarycourses.com.sg') ?></div>
+                            <input type="text" value="<?php echo $_csv('mmd_company/google/email_user', 'sales@tertiarycourses.com.sg') ?>"/>
                         </div>
                         <div class="cs-field" data-path="mmd_company/google/client_id" style="margin-bottom:8px">
                             <label>Google Client ID</label>
-                            <div class="cs-val" style="word-break:break-all;font-size:12px;color:#94a3b8">244747523157-a87jleaej9on49cfo5jv6qamjj271d4k.apps.googleusercontent.com</div>
-                            <input type="text" value=""/>
+                            <div class="cs-val" style="word-break:break-all;font-size:12px;color:#94a3b8"><?php echo $_csv('mmd_company/google/client_id', '244747523157-a87jleaej9on49cfo5jv6qamjj271d4k.apps.googleusercontent.com') ?></div>
+                            <input type="text" value="<?php echo $_csv('mmd_company/google/client_id', '') ?>"/>
                         </div>
                         <div class="cs-field" data-path="mmd_company/google/client_secret" style="margin-bottom:8px">
                             <label>Google Client Secret</label>
-                            <div class="cs-val"><span class="cs-masked">••••••••</span></div>
+                            <div class="cs-val"><span class="cs-masked"><?php echo $_csv('mmd_company/google/client_secret', '') !== '' ? '••••••••' : '(not set)' ?></span></div>
                             <input type="password" value=""/>
                         </div>
                         <div class="cs-field" data-path="mmd_company/google/refresh_token">
                             <label>Google Refresh Token</label>
-                            <div class="cs-val"><span class="cs-masked">••••••••</span></div>
+                            <div class="cs-val"><span class="cs-masked"><?php echo $_csv('mmd_company/google/refresh_token', '') !== '' ? '••••••••' : '(not set)' ?></span></div>
                             <input type="password" value=""/>
                         </div>
                     </div>
@@ -7743,8 +7808,8 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
                     <div class="cs-card-title">Service Account</div>
                     <div class="cs-field" data-path="mmd_company/google/service_account" style="margin-top:8px">
                         <label>Service Account Key File</label>
-                        <div class="cs-val">1776135707586_service-account.json</div>
-                        <input type="text" value="1776135707586_service-account.json"/>
+                        <div class="cs-val"><?php echo $_csv('mmd_company/google/service_account', '1776135707586_service-account.json') ?></div>
+                        <input type="text" value="<?php echo $_csv('mmd_company/google/service_account', '1776135707586_service-account.json') ?>"/>
                     </div>
                 </div>
 
@@ -7752,30 +7817,41 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
                 <div class="cs-card">
                     <div class="cs-card-title">Google Sheet</div>
                     <div class="cs-card" style="background:#0f172a;margin-top:8px;">
+                        <?php
+                        // Helper for "URL or '(not set)'" — these all share
+                        // the same render pattern so a tiny inline closure
+                        // keeps each row to one line of markup.
+                        $_csUrl = function ($path) use ($_cs) {
+                            $u = isset($_cs[$path]) ? trim($_cs[$path]) : '';
+                            if ($u === '') return '<span style="color:#64748b;font-size:12px;">(not set)</span>';
+                            $h = htmlspecialchars($u, ENT_QUOTES);
+                            return '<a href="' . $h . '" target="_blank" class="cs-link" style="font-size:12px">' . $h . '</a>';
+                        };
+                        ?>
                         <div class="cs-field" data-path="mmd_company/google/sheet_master" style="margin-bottom:10px">
                             <label>Master List</label>
-                            <div class="cs-val"><a href="#" class="cs-link" style="font-size:12px">https://docs.google.com/spreadsheets/d/...</a></div>
-                            <input type="url" value=""/>
+                            <div class="cs-val"><?php echo $_csUrl('mmd_company/google/sheet_master') ?></div>
+                            <input type="url" value="<?php echo $_csv('mmd_company/google/sheet_master', '') ?>"/>
                         </div>
                         <div class="cs-field" data-path="mmd_company/google/sheet_tms" style="margin-bottom:10px">
                             <label>Tertiary TMS</label>
-                            <div class="cs-val"><a href="#" class="cs-link" style="font-size:12px">https://docs.google.com/spreadsheets/d/...</a></div>
-                            <input type="url" value=""/>
+                            <div class="cs-val"><?php echo $_csUrl('mmd_company/google/sheet_tms') ?></div>
+                            <input type="url" value="<?php echo $_csv('mmd_company/google/sheet_tms', '') ?>"/>
                         </div>
                         <div class="cs-field" data-path="mmd_company/google/sheet_fms" style="margin-bottom:10px">
                             <label>Tertiary FMS</label>
-                            <div class="cs-val"><a href="#" class="cs-link" style="font-size:12px">https://docs.google.com/spreadsheets/d/...</a></div>
-                            <input type="url" value=""/>
+                            <div class="cs-val"><?php echo $_csUrl('mmd_company/google/sheet_fms') ?></div>
+                            <input type="url" value="<?php echo $_csv('mmd_company/google/sheet_fms', '') ?>"/>
                         </div>
                         <div class="cs-field" data-path="mmd_company/google/sheet_mms" style="margin-bottom:10px">
                             <label>Tertiary MMS</label>
-                            <div class="cs-val"><a href="#" class="cs-link" style="font-size:12px">https://docs.google.com/spreadsheets/d/...</a></div>
-                            <input type="url" value=""/>
+                            <div class="cs-val"><?php echo $_csUrl('mmd_company/google/sheet_mms') ?></div>
+                            <input type="url" value="<?php echo $_csv('mmd_company/google/sheet_mms', '') ?>"/>
                         </div>
                         <div class="cs-field" data-path="mmd_company/google/sheet_tpms">
                             <label>Tertiary TPMS</label>
-                            <div class="cs-val"><a href="#" class="cs-link" style="font-size:12px">https://docs.google.com/spreadsheets/d/...</a></div>
-                            <input type="url" value=""/>
+                            <div class="cs-val"><?php echo $_csUrl('mmd_company/google/sheet_tpms') ?></div>
+                            <input type="url" value="<?php echo $_csv('mmd_company/google/sheet_tpms', '') ?>"/>
                         </div>
                     </div>
                 </div>
@@ -7786,13 +7862,13 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
                     <div class="cs-card" style="background:#0f172a;margin-top:8px;">
                         <div class="cs-field" data-path="mmd_company/google/drive_trainer" style="margin-bottom:10px">
                             <label>Trainer Profile Image Folder</label>
-                            <div class="cs-val"><a href="#" class="cs-link" style="font-size:12px">https://drive.google.com/drive/folders/...</a></div>
-                            <input type="url" value=""/>
+                            <div class="cs-val"><?php echo $_csUrl('mmd_company/google/drive_trainer') ?></div>
+                            <input type="url" value="<?php echo $_csv('mmd_company/google/drive_trainer', '') ?>"/>
                         </div>
                         <div class="cs-field" data-path="mmd_company/google/drive_certificate">
                             <label>Certificate Folder</label>
-                            <div class="cs-val"><a href="#" class="cs-link" style="font-size:12px">https://drive.google.com/drive/folders/...</a></div>
-                            <input type="url" value=""/>
+                            <div class="cs-val"><?php echo $_csUrl('mmd_company/google/drive_certificate') ?></div>
+                            <input type="url" value="<?php echo $_csv('mmd_company/google/drive_certificate', '') ?>"/>
                         </div>
                     </div>
                 </div>
@@ -7803,8 +7879,8 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
                     <div class="cs-card" style="background:#0f172a;margin-top:8px;">
                         <div class="cs-field" data-path="mmd_company/google/calendar_url">
                             <label>Calendar Embed URL</label>
-                            <div class="cs-val"><a href="#" class="cs-link" style="font-size:12px">https://calendar.google.com/calendar/u/2?cid=...</a></div>
-                            <input type="url" value=""/>
+                            <div class="cs-val"><?php echo $_csUrl('mmd_company/google/calendar_url') ?></div>
+                            <input type="url" value="<?php echo $_csv('mmd_company/google/calendar_url', '') ?>"/>
                         </div>
                     </div>
                 </div>
@@ -7814,35 +7890,43 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
             <div class="cs-sub-section">
                 <h3 class="cs-sub-title">Nemo OpenClaw</h3>
                 <div class="cs-card" style="background:#0f172a">
+                    <?php
+                    $_csOcMode    = isset($_cs['mmd_company/openclaw/mode'])         && $_cs['mmd_company/openclaw/mode']         !== '' ? $_cs['mmd_company/openclaw/mode']         : 'Remote Live Mode';
+                    $_csOcLive    = isset($_cs['mmd_company/openclaw/live_url'])     && $_cs['mmd_company/openclaw/live_url']     !== '' ? $_cs['mmd_company/openclaw/live_url']     : 'http://10.0.1.1:18789';
+                    $_csOcTest    = isset($_cs['mmd_company/openclaw/test_url'])     && $_cs['mmd_company/openclaw/test_url']     !== '' ? $_cs['mmd_company/openclaw/test_url']     : 'http://76.13.180.29:18789';
+                    $_csOcHooks   = isset($_cs['mmd_company/openclaw/hooks_path'])   && $_cs['mmd_company/openclaw/hooks_path']   !== '' ? $_cs['mmd_company/openclaw/hooks_path']   : '/hooks';
+                    $_csOcAgent   = isset($_cs['mmd_company/openclaw/agent_id'])     && $_cs['mmd_company/openclaw/agent_id']     !== '' ? $_cs['mmd_company/openclaw/agent_id']     : 'main';
+                    $_csOcCb      = isset($_cs['mmd_company/openclaw/callback_url'])                                                  ? $_cs['mmd_company/openclaw/callback_url']  : '';
+                    ?>
                     <div class="cs-field" data-path="mmd_company/openclaw/mode" style="margin-bottom:8px">
                         <label>Mode</label>
-                        <div class="cs-val" style="font-weight:700">Remote Live Mode</div>
-                        <input type="text" value="Remote Live Mode"/>
+                        <div class="cs-val" style="font-weight:700"><?php echo htmlspecialchars($_csOcMode) ?></div>
+                        <input type="text" value="<?php echo htmlspecialchars($_csOcMode, ENT_QUOTES) ?>"/>
                     </div>
                     <div class="cs-field" data-path="mmd_company/openclaw/live_url" style="margin-bottom:8px">
                         <label>Live Gateway URL</label>
-                        <div class="cs-val"><a href="#" class="cs-link">http://10.0.1.1:18789</a></div>
-                        <input type="url" value="http://10.0.1.1:18789"/>
+                        <div class="cs-val"><a href="<?php echo htmlspecialchars($_csOcLive, ENT_QUOTES) ?>" target="_blank" class="cs-link"><?php echo htmlspecialchars($_csOcLive) ?></a></div>
+                        <input type="url" value="<?php echo htmlspecialchars($_csOcLive, ENT_QUOTES) ?>"/>
                     </div>
                     <div class="cs-field" data-path="mmd_company/openclaw/test_url" style="margin-bottom:8px">
                         <label>Local Testing URL</label>
-                        <div class="cs-val"><a href="#" class="cs-link">http://76.13.180.29:18789</a></div>
-                        <input type="url" value="http://76.13.180.29:18789"/>
+                        <div class="cs-val"><a href="<?php echo htmlspecialchars($_csOcTest, ENT_QUOTES) ?>" target="_blank" class="cs-link"><?php echo htmlspecialchars($_csOcTest) ?></a></div>
+                        <input type="url" value="<?php echo htmlspecialchars($_csOcTest, ENT_QUOTES) ?>"/>
                     </div>
                     <div class="cs-field" data-path="mmd_company/openclaw/hooks_path" style="margin-bottom:8px">
                         <label>Hooks Path</label>
-                        <div class="cs-val"><span class="cs-link">/hooks</span></div>
-                        <input type="text" value="/hooks"/>
+                        <div class="cs-val"><span class="cs-link"><?php echo htmlspecialchars($_csOcHooks) ?></span></div>
+                        <input type="text" value="<?php echo htmlspecialchars($_csOcHooks, ENT_QUOTES) ?>"/>
                     </div>
                     <div class="cs-field" data-path="mmd_company/openclaw/agent_id" style="margin-bottom:8px">
                         <label>Agent ID</label>
-                        <div class="cs-val"><span class="cs-link">main</span></div>
-                        <input type="text" value="main"/>
+                        <div class="cs-val"><span class="cs-link"><?php echo htmlspecialchars($_csOcAgent) ?></span></div>
+                        <input type="text" value="<?php echo htmlspecialchars($_csOcAgent, ENT_QUOTES) ?>"/>
                     </div>
                     <div class="cs-field" data-path="mmd_company/openclaw/callback_url">
                         <label>Callback URL</label>
-                        <div class="cs-val">Not Set</div>
-                        <input type="url" value=""/>
+                        <div class="cs-val"><?php echo $_csOcCb !== '' ? htmlspecialchars($_csOcCb) : 'Not Set' ?></div>
+                        <input type="url" value="<?php echo htmlspecialchars($_csOcCb, ENT_QUOTES) ?>"/>
                     </div>
                 </div>
             </div>
@@ -7850,11 +7934,14 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
             <!-- Magento -->
             <div class="cs-sub-section">
                 <h3 class="cs-sub-title">Magento</h3>
+                <?php
+                $_csMagBe = isset($_cs['mmd_company/magento/backend_url']) && $_cs['mmd_company/magento/backend_url'] !== '' ? $_cs['mmd_company/magento/backend_url'] : 'https://www.tertiarycourses.com.sg/tigerdragon';
+                ?>
                 <div class="cs-card" style="background:#0f172a">
                     <div class="cs-field" data-path="mmd_company/magento/backend_url">
                         <label>Magento Backend URL</label>
-                        <div class="cs-val"><a href="https://www.tertiarycourses.com.sg/tigerdragon" target="_blank" class="cs-link">https://www.tertiarycourses.com.sg/tigerdragon</a></div>
-                        <input type="url" value="https://www.tertiarycourses.com.sg/tigerdragon"/>
+                        <div class="cs-val"><a href="<?php echo htmlspecialchars($_csMagBe, ENT_QUOTES) ?>" target="_blank" class="cs-link"><?php echo htmlspecialchars($_csMagBe) ?></a></div>
+                        <input type="url" value="<?php echo htmlspecialchars($_csMagBe, ENT_QUOTES) ?>"/>
                     </div>
                 </div>
             </div>
@@ -7862,16 +7949,20 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
             <!-- n8n -->
             <div class="cs-sub-section">
                 <h3 class="cs-sub-title">n8n</h3>
+                <?php
+                $_csN8n1 = isset($_cs['mmd_company/n8n/host1']) && $_cs['mmd_company/n8n/host1'] !== '' ? $_cs['mmd_company/n8n/host1'] : 'https://n8n.srv923061.hstgr.cloud/home/workflows';
+                $_csN8n2 = isset($_cs['mmd_company/n8n/host2']) && $_cs['mmd_company/n8n/host2'] !== '' ? $_cs['mmd_company/n8n/host2'] : 'https://n8n.srv1231536.hstgr.cloud/home/workflows';
+                ?>
                 <div class="cs-card" style="background:#0f172a">
                     <div class="cs-field" data-path="mmd_company/n8n/host1" style="margin-bottom:8px">
                         <label>Host 1 URL</label>
-                        <div class="cs-val"><a href="#" class="cs-link">https://n8n.srv923061.hstgr.cloud/home/workflows</a></div>
-                        <input type="url" value=""/>
+                        <div class="cs-val"><a href="<?php echo htmlspecialchars($_csN8n1, ENT_QUOTES) ?>" target="_blank" class="cs-link"><?php echo htmlspecialchars($_csN8n1) ?></a></div>
+                        <input type="url" value="<?php echo htmlspecialchars($_csN8n1, ENT_QUOTES) ?>"/>
                     </div>
                     <div class="cs-field" data-path="mmd_company/n8n/host2">
                         <label>Host 2 URL</label>
-                        <div class="cs-val"><a href="#" class="cs-link">https://n8n.srv1231536.hstgr.cloud/home/workflows</a></div>
-                        <input type="url" value=""/>
+                        <div class="cs-val"><a href="<?php echo htmlspecialchars($_csN8n2, ENT_QUOTES) ?>" target="_blank" class="cs-link"><?php echo htmlspecialchars($_csN8n2) ?></a></div>
+                        <input type="url" value="<?php echo htmlspecialchars($_csN8n2, ENT_QUOTES) ?>"/>
                     </div>
                 </div>
             </div>
@@ -7897,30 +7988,36 @@ $_csLoadUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/load')
         <div class="cs-section-body" id="cs-body-doc_templates">
             <div class="cs-toggle-row" style="flex-direction:column;align-items:flex-start">
                 <label style="font-size:11px;color:#64748b;margin-bottom:2px">Proforma Invoice Template ID</label>
+                <?php
+                $_csTplPro = isset($_cs['mmd_company/templates/proforma'])    && $_cs['mmd_company/templates/proforma']    !== '' ? $_cs['mmd_company/templates/proforma']    : '1KbvgGpNsirzmCvLZOuMv7SY5IWxX0XfTSbnNF_pjZYY';
+                $_csTplInv = isset($_cs['mmd_company/templates/invoice'])     && $_cs['mmd_company/templates/invoice']     !== '' ? $_cs['mmd_company/templates/invoice']     : '/uploads/training_provider/invoice_template/1759478197184_cer1.docx';
+                $_csTplRec = isset($_cs['mmd_company/templates/receipt'])     && $_cs['mmd_company/templates/receipt']     !== '' ? $_cs['mmd_company/templates/receipt']     : '/uploads/training_provider/receipt_template/1759478231535_cer2.docx';
+                $_csTplCer = isset($_cs['mmd_company/templates/certificate']) && $_cs['mmd_company/templates/certificate'] !== '' ? $_cs['mmd_company/templates/certificate'] : '1MKZRSVz115eGPTdaVB_sLPiD7SrlfpZeh_PTl2cMQl0';
+                ?>
                 <div class="cs-field" data-path="mmd_company/templates/proforma" style="width:100%">
-                    <div class="cs-val" style="font-size:12px;word-break:break-all">1KbvgGpNsirzmCvLZOuMv7SY5IWxX0XfTSbnNF_pjZYY</div>
-                    <input type="text" value="1KbvgGpNsirzmCvLZOuMv7SY5IWxX0XfTSbnNF_pjZYY"/>
+                    <div class="cs-val" style="font-size:12px;word-break:break-all"><?php echo htmlspecialchars($_csTplPro) ?></div>
+                    <input type="text" value="<?php echo htmlspecialchars($_csTplPro, ENT_QUOTES) ?>"/>
                 </div>
             </div>
             <div class="cs-toggle-row" style="flex-direction:column;align-items:flex-start">
                 <label style="font-size:11px;color:#64748b;margin-bottom:2px">Invoice Template ID</label>
                 <div class="cs-field" data-path="mmd_company/templates/invoice" style="width:100%">
-                    <div class="cs-val" style="font-size:12px;word-break:break-all">/uploads/training_provider/invoice_template/1759478197184_cer1.docx</div>
-                    <input type="text" value="/uploads/training_provider/invoice_template/1759478197184_cer1.docx"/>
+                    <div class="cs-val" style="font-size:12px;word-break:break-all"><?php echo htmlspecialchars($_csTplInv) ?></div>
+                    <input type="text" value="<?php echo htmlspecialchars($_csTplInv, ENT_QUOTES) ?>"/>
                 </div>
             </div>
             <div class="cs-toggle-row" style="flex-direction:column;align-items:flex-start">
                 <label style="font-size:11px;color:#64748b;margin-bottom:2px">Receipt Template ID</label>
                 <div class="cs-field" data-path="mmd_company/templates/receipt" style="width:100%">
-                    <div class="cs-val" style="font-size:12px;word-break:break-all">/uploads/training_provider/receipt_template/1759478231535_cer2.docx</div>
-                    <input type="text" value="/uploads/training_provider/receipt_template/1759478231535_cer2.docx"/>
+                    <div class="cs-val" style="font-size:12px;word-break:break-all"><?php echo htmlspecialchars($_csTplRec) ?></div>
+                    <input type="text" value="<?php echo htmlspecialchars($_csTplRec, ENT_QUOTES) ?>"/>
                 </div>
             </div>
             <div class="cs-toggle-row" style="flex-direction:column;align-items:flex-start">
                 <label style="font-size:11px;color:#64748b;margin-bottom:2px">Certificate Template ID</label>
                 <div class="cs-field" data-path="mmd_company/templates/certificate" style="width:100%">
-                    <div class="cs-val" style="font-size:12px;word-break:break-all">1MKZRSVz115eGPTdaVB_sLPiD7SrlfpZeh_PTl2cMQl0</div>
-                    <input type="text" value="1MKZRSVz115eGPTdaVB_sLPiD7SrlfpZeh_PTl2cMQl0"/>
+                    <div class="cs-val" style="font-size:12px;word-break:break-all"><?php echo htmlspecialchars($_csTplCer) ?></div>
+                    <input type="text" value="<?php echo htmlspecialchars($_csTplCer, ENT_QUOTES) ?>"/>
                 </div>
             </div>
             <div id="cs-actions-doc_templates" style="display:none;margin-top:10px;">
