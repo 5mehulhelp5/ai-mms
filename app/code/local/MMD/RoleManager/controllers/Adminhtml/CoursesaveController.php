@@ -493,7 +493,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 'assessment_plan_url', 'learner_slides_url', 'trainer_slides_url',
                 'courseware_link', 'brochure_link',
                 'assessment_record_link', 'assessment_summary_url',
-                'google_meet_url',
+                'google_meet_url', 'certificate_url',
             );
             $_cwAny = false;
             $_cwData = array();
@@ -517,6 +517,40 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                     }
                 } catch (Exception $_cwEx) {
                     // Table may not exist yet on fresh DBs — silently ignore
+                }
+            }
+
+            // Save Additional Documents (per-course list). The form
+            // submits parallel arrays course_doc_id[], course_doc_filename[],
+            // course_doc_url[]; an empty filename row is treated as a
+            // delete request. Strategy: delete-then-insert all rows for
+            // this product when ANY course_doc_filename[] is in the
+            // post, so the editor can fully control the list. Skips
+            // entirely when the form didn't submit a course_doc_*[]
+            // (e.g. courses being saved by another flow).
+            $_docFilenames = $req->getParam('course_doc_filename');
+            if (is_array($_docFilenames)) {
+                try {
+                    $_w = Mage::getSingleton('core/resource')->getConnection('core_write');
+                    $_w->delete('course_documents', array('product_id = ?' => (int)$courseId));
+                    $_docUrls   = (array) $req->getParam('course_doc_url');
+                    $_uploader  = '';
+                    try {
+                        $_u = Mage::getSingleton('admin/session')->getUser();
+                        if ($_u) $_uploader = (string) $_u->getEmail();
+                    } catch (Exception $_e) {}
+                    foreach ($_docFilenames as $_idx => $_fn) {
+                        $_fn = trim((string)$_fn);
+                        if ($_fn === '') continue; // empty row = delete-only
+                        $_w->insert('course_documents', array(
+                            'product_id'  => (int)$courseId,
+                            'filename'    => $_fn,
+                            'file_url'    => isset($_docUrls[$_idx]) ? trim((string)$_docUrls[$_idx]) : '',
+                            'uploaded_by' => $_uploader,
+                        ));
+                    }
+                } catch (Exception $_docEx) {
+                    // course_documents table not yet on this DB — ignore
                 }
             }
 
