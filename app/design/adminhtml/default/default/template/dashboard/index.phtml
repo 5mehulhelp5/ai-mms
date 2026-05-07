@@ -8842,21 +8842,26 @@ window.atOpenTrainerModal = function(btn) {
 
     var atmRow = document.getElementById('atm-row');
     if (!atmRow) return;
-    // Toggle: if already attached directly under this row, collapse instead.
-    if (atmRow.parentNode && atmRow.previousElementSibling === tr) {
-        atmRow.parentNode.removeChild(atmRow);
+    // Toggle: if already showing under this row, just hide. Don't
+    // detach from the DOM — once removed, document.getElementById
+    // can't find it again, which is why "Edit Trainer" only worked
+    // on the first click.
+    var alreadyOpenHere = atmRow.previousElementSibling === tr
+        && atmRow.style.display !== 'none';
+    if (alreadyOpenHere) {
         atmRow.style.display = 'none';
         return;
     }
-    if (atmRow.parentNode) atmRow.parentNode.removeChild(atmRow);
+    // insertBefore moves the element if it's already attached
+    // elsewhere — no need to removeChild first.
     tr.parentNode.insertBefore(atmRow, tr.nextSibling);
     atmRow.style.display = '';
     atmRender();
 };
 
 window.atmClose = function() {
+    // Just hide — keep it in the DOM so the next click can find it.
     var atmRow = document.getElementById('atm-row');
-    if (atmRow && atmRow.parentNode) atmRow.parentNode.removeChild(atmRow);
     if (atmRow) atmRow.style.display = 'none';
 };
 
