@@ -1431,7 +1431,7 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
                     <th>Class Type</th><th>Start Date</th><th>End Date</th>
                     <th>Class Status</th><th>Learners</th>
                     <th>Trainer</th>
-                    <th>Cal</th><th>Attendance</th>
+                    <th>Cal</th>
                 </tr></thead>
                 <tbody id="dashTableBody">
                 <?php foreach ($courseRows as $row):
@@ -1464,7 +1464,6 @@ body.adminhtml-dashboard-index .main-col-inner{padding-top:0 !important;margin-t
                     <td><?php echo (int)$row['learners'] ?></td>
                     <td style="color:#94a3b8;">—</td>
                     <td><a href="#" title="Calendar" style="color:#22d3ee;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:rgba(34,211,238,.08);" onclick="event.preventDefault();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></a></td>
-                    <td><a href="#" title="Attendance" style="color:#10b981;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:rgba(16,185,129,.08);" onclick="event.preventDefault();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></a></td>
                 </tr>
                 <?php endforeach; ?>
                 </tbody>
@@ -4257,7 +4256,6 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
             <a href="#course-sessions" class="lcd-nav-item" onclick="return lcdNavTo(this,'course-sessions')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Course Sessions</span></a>
             <a href="#additional-documents" class="lcd-nav-item" onclick="return lcdNavTo(this,'additional-documents')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Additional Documents</span></a>
             <?php elseif ($activeRole === 'trainer'): ?>
-            <a href="#e-attendance" class="lcd-nav-item" onclick="return lcdNavTo(this,'e-attendance')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Attendance</span></a>
             <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware Link</span></a>
             <a href="#assessment-grading" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-grading')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span>Assessment Grading</span></a>
             <a href="#assessment-summary" class="lcd-nav-item" onclick="return lcdNavTo(this,'assessment-summary')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assessment Summary Record</span></a>
@@ -4621,178 +4619,13 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     <div class="lcd-footer">Powered by <strong>Tertiary Infotech Academy Pte Ltd</strong> &copy; <?php echo date('Y') ?></div>
 
     <?php elseif ($activeRole === 'trainer'): ?>
-    <!-- TRAINER: E-Attendance section removed 2026-05-06 per product
-         decision. The check-in token endpoint adminhtml/attendance/
-         generateToken (AttendanceController) is also removed in this
-         change. Manual Attendance (below) remains as the supported
-         attendance flow. -->
-
-    <!-- TRAINER: Manual Attendance -->
-    <?php
-    $_attListUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/list');
-    $_attSaveUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/save');
-    ?>
-    <div class="lcd-section" id="e-attendance">
-        <div class="lcd-section-title">Attendance</div>
-        <?php if (empty($_courseSessions)): ?>
-            <div style="color:#94a3b8;font-size:13px;padding:14px 0;">No sessions scheduled for this class yet. Ask your admin to add a session date.</div>
-        <?php else: ?>
-            <div style="color:#94a3b8;font-size:13px;margin-bottom:12px;">Pick a session date, then mark each enrolled learner present or absent.</div>
-            <div style="margin-bottom:14px;">
-                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Session</label>
-                <select id="attSessionPicker" onchange="attLoadSession(this.value)" style="width:100%;max-width:420px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 12px;color:#f1f5f9;font-size:14px;">
-                    <option value="">— Select a session —</option>
-                    <?php foreach ($_courseSessions as $_s): ?>
-                    <option value="<?php echo (int)$_s['option_type_id'] ?>"><?php echo htmlspecialchars($_s['title']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div id="attPanel" style="display:none;background:#131d2e;border:1px solid #334155;border-radius:10px;padding:18px;">
-                <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
-                    <div style="color:#94a3b8;font-size:13px;" id="attSummary"></div>
-                    <div style="margin-left:auto;display:flex;gap:8px;">
-                        <button type="button" onclick="attSetAll('present')" style="background:#10b981;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;">Mark All Present</button>
-                        <button type="button" onclick="attSetAll('absent')" style="background:#475569;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;">Mark All Absent</button>
-                    </div>
-                </div>
-                <div id="attList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;max-height:420px;overflow-y:auto;"></div>
-                <div style="display:flex;justify-content:flex-end;gap:8px;">
-                    <button type="button" onclick="attSave()" id="attSaveBtn" style="background:#2563eb;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:13px;font-weight:600;cursor:pointer;">Save Attendance</button>
-                </div>
-                <div id="attResult" style="margin-top:10px;font-size:12px;display:none;"></div>
-            </div>
-        <?php endif; ?>
-    </div>
-
-    <script type="text/javascript">
-    (function(){
-        window.__attListUrl = <?php echo json_encode($_attListUrl) ?>;
-        window.__attSaveUrl = <?php echo json_encode($_attSaveUrl) ?>;
-        window.__attCourseId = <?php echo (int)$_selectedCourseId ?>;
-        window.__attCurrentSession = null;
-        window.__attLearners = [];
-    })();
-    window.attLoadSession = function(optionTypeId) {
-        var panel = document.getElementById('attPanel');
-        var summary = document.getElementById('attSummary');
-        var list = document.getElementById('attList');
-        if (!optionTypeId) { panel.style.display = 'none'; return; }
-        window.__attCurrentSession = parseInt(optionTypeId, 10);
-        panel.style.display = '';
-        summary.textContent = 'Loading…';
-        list.innerHTML = '';
-        var url = window.__attListUrl + '?course_id=' + window.__attCourseId + '&option_type_id=' + optionTypeId;
-        fetch(url, { credentials: 'same-origin' })
-            .then(function(r){ return r.json(); })
-            .then(function(d){
-                if (!d.success) { summary.textContent = d.message || 'Failed to load'; return; }
-                window.__attLearners = d.learners || [];
-                if (window.__attLearners.length === 0) {
-                    summary.textContent = 'No enrolled learners found for this session.';
-                    return;
-                }
-                attRender();
-            })
-            .catch(function(err){ summary.textContent = 'Network error: ' + err.message; });
-    };
-    // Inject once: forceful styles for attendance buttons/rows — overrides admin-area button CSS
-    (function(){
-        if (document.getElementById('att-styles')) return;
-        var s = document.createElement('style');
-        s.id = 'att-styles';
-        s.textContent = ''
-            + '.att-row{background:#0f172a;border:1px solid #334155;border-left-width:4px;border-left-color:#64748b;border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:12px;transition:background .15s,border-color .15s}'
-            + '.att-row.att-status-present{background:rgba(16,185,129,.08);border-color:#10b981}'
-            + '.att-row.att-status-absent{background:rgba(239,68,68,.08);border-color:#ef4444}'
-            + '.att-badge{font-size:10px;font-weight:800;letter-spacing:.8px;padding:3px 9px;border-radius:999px;text-transform:uppercase;background:#334155;color:#94a3b8;flex-shrink:0}'
-            + '.att-badge.att-badge-present{background:#10b981;color:#0f172a}'
-            + '.att-badge.att-badge-absent{background:#ef4444;color:#fff}'
-            + 'button.att-btn,button.att-btn:hover,button.att-btn:focus,button.att-btn:active{background:#334155 !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #475569 !important;border-radius:6px !important;padding:7px 14px !important;font-size:12px !important;font-weight:600 !important;cursor:pointer !important;text-align:center !important;transition:all .15s !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;display:inline-flex !important;align-items:center !important;gap:5px !important;min-width:96px !important;justify-content:center !important}'
-            + 'button.att-btn:hover{background:#475569 !important}'
-            + 'button.att-btn.att-btn-present.att-on,button.att-btn.att-btn-present.att-on:hover,button.att-btn.att-btn-present.att-on:focus{background:#10b981 !important;border-color:#10b981 !important;color:#0f172a !important;box-shadow:0 0 0 2px rgba(16,185,129,.25) !important}'
-            + 'button.att-btn.att-btn-absent.att-on,button.att-btn.att-btn-absent.att-on:hover,button.att-btn.att-btn-absent.att-on:focus{background:#ef4444 !important;border-color:#ef4444 !important;color:#fff !important;box-shadow:0 0 0 2px rgba(239,68,68,.25) !important}';
-        document.head.appendChild(s);
-    })();
-
-    function attRender() {
-        var list = document.getElementById('attList');
-        var summary = document.getElementById('attSummary');
-        list.innerHTML = '';
-        var present = 0, absent = 0;
-        window.__attLearners.forEach(function(l) {
-            if (l.status === 'present') present++;
-            else if (l.status === 'absent') absent++;
-            var row = document.createElement('div');
-            row.className = 'att-row' + (l.status === 'present' ? ' att-status-present' : (l.status === 'absent' ? ' att-status-absent' : ''));
-
-            var badgeLabel = l.status === 'present' ? 'Present' : (l.status === 'absent' ? 'Absent' : 'Unmarked');
-            var badgeClass = l.status === 'present' ? 'att-badge-present' : (l.status === 'absent' ? 'att-badge-absent' : '');
-            var presentIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
-            var absentIcon  = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
-
-            row.innerHTML =
-                '<span class="att-badge ' + badgeClass + '">' + badgeLabel + '</span>' +
-                '<div style="flex:1;min-width:0;">' +
-                    '<div style="color:#f1f5f9;font-size:13px;font-weight:600;">' + escapeHtml(l.name) + '</div>' +
-                    '<div style="color:#94a3b8;font-size:11.5px;">' + escapeHtml(l.email) + '</div>' +
-                '</div>' +
-                '<div style="display:flex;gap:6px;">' +
-                    '<button type="button" data-s="present" class="att-btn att-btn-present' + (l.status === 'present' ? ' att-on' : '') + '">' + presentIcon + ' Present</button>' +
-                    '<button type="button" data-s="absent"  class="att-btn att-btn-absent'  + (l.status === 'absent'  ? ' att-on' : '') + '">' + absentIcon + ' Absent</button>' +
-                '</div>';
-            var cid = l.customer_id;
-            row.querySelectorAll('button').forEach(function(b){
-                b.addEventListener('click', function(){
-                    var idx = window.__attLearners.findIndex(function(x){ return x.customer_id === cid; });
-                    if (idx < 0) return;
-                    var target = b.getAttribute('data-s');
-                    // Clicking the already-active state clears it (back to unmarked)
-                    window.__attLearners[idx].status = (window.__attLearners[idx].status === target) ? '' : target;
-                    attRender();
-                });
-            });
-            list.appendChild(row);
-        });
-        var total = window.__attLearners.length;
-        var unmarked = total - present - absent;
-        summary.innerHTML = '<strong style="color:#f1f5f9;">' + total + ' learner(s):</strong> '
-            + '<span style="color:#10b981;font-weight:600;">' + present + ' present</span>, '
-            + '<span style="color:#ef4444;font-weight:600;">' + absent + ' absent</span>'
-            + (unmarked ? ', <span style="color:#94a3b8;">' + unmarked + ' unmarked</span>' : '');
-    }
-    function escapeHtml(s) { s = s || ''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-    window.attSetAll = function(status) {
-        window.__attLearners.forEach(function(l){ l.status = status; });
-        attRender();
-    };
-    window.attSave = function() {
-        var btn = document.getElementById('attSaveBtn');
-        var rs  = document.getElementById('attResult');
-        if (!window.__attCurrentSession) return;
-        var payload = {};
-        window.__attLearners.forEach(function(l){
-            if (l.status === 'present' || l.status === 'absent') payload[l.customer_id] = l.status;
-        });
-        btn.disabled = true; btn.textContent = 'Saving…';
-        rs.style.display = ''; rs.innerHTML = '<span style="color:#94a3b8;">Saving…</span>';
-        var fd = new FormData();
-        fd.append('course_id', window.__attCourseId);
-        fd.append('option_type_id', window.__attCurrentSession);
-        fd.append('attendance', JSON.stringify(payload));
-        fetch(window.__attSaveUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
-            .then(function(r){ return r.json(); })
-            .then(function(d){
-                btn.disabled = false; btn.textContent = 'Save Attendance';
-                if (d.success) rs.innerHTML = '<span style="color:#10b981;">Saved ' + d.updated + ' record(s).</span>';
-                else rs.innerHTML = '<span style="color:#ef4444;">' + (d.message || 'Save failed') + '</span>';
-            })
-            .catch(function(err){
-                btn.disabled = false; btn.textContent = 'Save Attendance';
-                rs.innerHTML = '<span style="color:#ef4444;">Network error: ' + err.message + '</span>';
-            });
-    };
-    </script>
+    <!-- Attendance feature deleted 2026-05-07. The trainer-facing
+         Attendance section (and the standalone E-Attendance page,
+         AttendanceController, and migration 053's entry_mode column)
+         all came out together. Trainer course detail now starts
+         straight at the Google Meet section. -->
+    <?php /* Trainer Manual Attendance section + ~170 lines of JS deleted
+            2026-05-07. Feature retired. Google Meet section follows. */ ?>
 
     <!-- TRAINER: Google Meet — N/A for Physical, real link for Virtual/Hybrid. -->
     <?php
@@ -5236,7 +5069,7 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
         // Trainer top-bar markup lives in page/header.phtml (next to the
         // View As selector). This handler is what those header tabs call.
         window.trnTopbarSwitch = function(tab) {
-            var subMap = { myclasses: 'classes', eattendance: 'eattendance', edtools: 'edtools', genai: 'genai' };
+            var subMap = { myclasses: 'classes', edtools: 'edtools', genai: 'genai' };
             var sub = subMap[tab] || 'classes';
             if (window.showTrainerSubPanel) window.showTrainerSubPanel(sub);
             var bar = document.getElementById('header-trn-tabs');
@@ -5463,570 +5296,6 @@ function lmcSetView(view, btn) {
 </div>
 </div>
 
-<?php /* ===== PANEL: E-Attendance (Trainer top-bar destination) ===== */ ?>
-<?php
-// Reachable from the trainer top-bar "E-Attendance" link. Single-page UI:
-// - Class Selection: dropdown of trainer's assigned classes
-// - Attendance: QR Attendance / E-Attendance List tabs
-// - Course Session Attendance: per-session attendance table (existing
-//   AttendanceController::listAction)
-// - Class Enrolments: orders for the selected class (classInfoAction)
-// - Manual Attendance Taking: same dataset, editable status + reason
-$_eaListUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/list');
-$_eaSaveUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/save');
-$_eaInfoUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/classInfo');
-?>
-<div id="dash-panel-eattendance" style="display:none;">
-<style>
-.ea-wrap{max-width:1280px;margin:0 auto;padding:0 0 60px;color:#e2e8f0}
-.ea-title{font-size:26px;font-weight:800;color:#fff;margin:0 0 6px;letter-spacing:-.2px}
-.ea-sub{font-size:13px;color:#94a3b8;margin:0 0 22px}
-.ea-card{background:#172033;border:1px solid #1e293b;border-radius:12px;margin-bottom:18px;overflow:hidden}
-.ea-card-head{padding:14px 18px;border-bottom:1px solid #1e293b;font-size:14px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.ea-card-body{padding:16px 18px}
-.ea-label{font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;font-weight:600;display:block;margin-bottom:6px}
-.ea-req{color:#ef4444;margin-left:2px}
-.ea-select,.ea-input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 12px;color:#fff;font-size:13px}
-.ea-select:focus,.ea-input:focus{border-color:#22d3ee;outline:none}
-.ea-tabs{display:flex;gap:0;border-bottom:1px solid #1e293b;margin-bottom:14px}
-.ea-tab{background:transparent;border:none;color:#94a3b8;font-size:13px;font-weight:600;padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
-.ea-tab:hover{color:#cbd5e1}
-.ea-tab.active{color:#22d3ee;border-bottom-color:#22d3ee}
-.ea-tab-panel{display:none}
-.ea-tab-panel.active{display:block}
-.ea-btn{background:#22d3ee;color:#0b1220;border:none;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .15s}
-.ea-btn:hover{background:#06b6d4}
-.ea-btn[disabled]{background:#1e293b;color:#64748b;cursor:not-allowed}
-.ea-btn-secondary{background:#1e293b;color:#cbd5e1;border:1px solid #334155}
-.ea-btn-secondary:hover{background:#243044}
-.ea-table{width:100%;border-collapse:collapse;font-size:12.5px}
-.ea-table th{background:#1e293b;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:10px 12px;text-align:left;white-space:nowrap}
-.ea-table td{padding:10px 12px;color:#cbd5e1;border-bottom:1px solid #1a2535;white-space:nowrap}
-.ea-table tr:last-child td{border-bottom:none}
-.ea-empty{padding:28px 16px;text-align:center;color:#64748b;font-style:italic;font-size:13px}
-.ea-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px}
-.ea-pill-present{background:rgba(16,185,129,.12);color:#10b981}
-.ea-pill-absent{background:rgba(239,68,68,.12);color:#ef4444}
-.ea-pill-pending{background:rgba(245,158,11,.12);color:#f59e0b}
-.ea-row{display:grid;grid-template-columns:1fr;gap:14px}
-.ea-mark-select{background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 10px;color:#fff;font-size:12.5px}
-.ea-table-scroll{overflow-x:auto}
-.ea-show-toggle{color:#22d3ee;font-size:11px;font-weight:600;cursor:pointer;margin-left:6px}
-</style>
-<div class="ea-wrap">
-    <h1 class="ea-title">E-Attendance</h1>
-    <p class="ea-sub">Select an assigned class to manage sessions and view enrolments.</p>
-
-    <!-- Class Selection -->
-    <div class="ea-card">
-        <div class="ea-card-head">Class Selection</div>
-        <div class="ea-card-body">
-            <label class="ea-label">Assigned Class<span class="ea-req">*</span></label>
-            <select class="ea-select" id="eaClassPicker" onchange="eaOnClassChange(this.value)">
-                <option value="">— Select a class —</option>
-                <?php
-                // Build a unique list (course_id keyed) — $_learnerCourses
-                // can have multiple rows per product when expanded by run.
-                $_eaSeen = array();
-                foreach ($_learnerCourses as $_lc) {
-                    $_pid = (int)$_lc['id'];
-                    if (isset($_eaSeen[$_pid])) continue;
-                    $_eaSeen[$_pid] = true;
-                    $_eaName = $_lc['name'] . ' (' . ($_lc['sku'] ?: '—') . ')';
-                    echo '<option value="' . $_pid . '">' . htmlspecialchars($_eaName) . '</option>';
-                }
-                ?>
-            </select>
-        </div>
-    </div>
-
-    <!-- Attendance (QR / E-Attendance List tabs) -->
-    <div class="ea-card">
-        <div class="ea-card-head">Attendance</div>
-        <div class="ea-card-body">
-            <div class="ea-tabs">
-                <button type="button" class="ea-tab active" data-eatab="qr" onclick="eaSwitchTab('qr',this)">QR Attendance</button>
-                <button type="button" class="ea-tab" data-eatab="list" onclick="eaSwitchTab('list',this)">E-Attendance List</button>
-            </div>
-            <div class="ea-tab-panel active" id="ea-tab-qr">
-                <div style="margin-bottom:12px;">
-                    <label class="ea-label">Session</label>
-                    <select class="ea-select" id="eaQrSessionPicker" disabled>
-                        <option value="">— Select a class first —</option>
-                    </select>
-                </div>
-                <button type="button" id="eaLoadLinkBtn" class="ea-btn" disabled onclick="eaLoadAttendanceLink()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                    Load Attendance Link
-                </button>
-                <div id="eaQrPanel" style="margin-top:16px;display:none;">
-                    <div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:18px;display:flex;gap:18px;align-items:center;flex-wrap:wrap;">
-                        <div style="background:#fff;border-radius:8px;padding:10px;"><img id="eaQrImg" src="" alt="" width="160" height="160" style="display:block;"/></div>
-                        <div style="flex:1;min-width:240px;">
-                            <div style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Check-in Link</div>
-                            <div id="eaQrUrl" style="color:#22d3ee;font-size:13px;word-break:break-all;margin-bottom:10px;"></div>
-                            <button type="button" class="ea-btn ea-btn-secondary" onclick="eaCopyQrUrl()">Copy Link</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="ea-tab-panel" id="ea-tab-list">
-                <div style="color:#94a3b8;font-size:13px;padding:8px 0;" id="eaListMsg">Select a class and session above to load the e-attendance log.</div>
-                <div class="ea-table-scroll" id="eaListWrap" style="display:none;">
-                    <table class="ea-table">
-                        <thead>
-                            <tr><th>No.</th><th>Name</th><th>NRIC</th><th>Status</th><th>Check-in Time</th></tr>
-                        </thead>
-                        <tbody id="eaListBody"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Course Session Attendance -->
-    <div class="ea-card">
-        <div class="ea-card-head">Course Session Attendance</div>
-        <div class="ea-card-body">
-            <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap;">
-                <div style="flex:1;min-width:240px;">
-                    <label class="ea-label">Session</label>
-                    <select class="ea-select" id="eaSessionPicker" disabled onchange="eaLoadSessionAttendance(this.value)">
-                        <option value="">— Select a class first —</option>
-                    </select>
-                </div>
-            </div>
-            <div class="ea-table-scroll">
-                <table class="ea-table">
-                    <thead>
-                        <tr><th>No.</th><th>Name</th><th>NRIC</th><th>Type</th><th>Status</th><th>Entry Mode</th></tr>
-                    </thead>
-                    <tbody id="eaSessionBody">
-                        <tr><td colspan="6" class="ea-empty">Select a class and session to load attendance.</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Class Enrolments -->
-    <div class="ea-card">
-        <div class="ea-card-head">Class Enrolments</div>
-        <div class="ea-card-body">
-            <div class="ea-table-scroll">
-                <table class="ea-table">
-                    <thead>
-                        <tr>
-                            <th>No.</th>
-                            <th>Course Run ID</th>
-                            <th>Start Date</th>
-                            <th>End Date</th>
-                            <th>Enrolment Ref</th>
-                            <th>Trainee Name</th>
-                            <th>NRIC</th>
-                            <th>Contact Number<span class="ea-show-toggle" onclick="eaToggleCol('contact',this)">Show</span></th>
-                            <th>Email</th>
-                            <th>Sponsorship</th>
-                            <th>Employer</th>
-                            <th>Enrolment Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="eaEnrolBody">
-                        <tr><td colspan="12" class="ea-empty">Select a class to load enrolments.</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Manual Attendance Taking -->
-    <div class="ea-card">
-        <div class="ea-card-head">
-            <span>Manual Attendance Taking</span>
-            <button type="button" class="ea-btn" onclick="eaAddManualLearner()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add Learner
-            </button>
-        </div>
-        <div class="ea-card-body">
-            <div class="ea-table-scroll">
-                <table class="ea-table">
-                    <thead>
-                        <tr><th>No.</th><th>Name</th><th>NRIC</th><th>Attendance Marking</th><th>Reason of Absence</th></tr>
-                    </thead>
-                    <tbody id="eaManualBody">
-                        <tr><td colspan="5" class="ea-empty">Select a class to take attendance.</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <div style="margin-top:14px;text-align:right;">
-                <button type="button" class="ea-btn" id="eaSaveManualBtn" disabled onclick="eaSaveManual()">Save Attendance</button>
-                <span id="eaSaveManualMsg" style="margin-left:10px;font-size:12px;"></span>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script type="text/javascript">
-(function(){
-    var EA = {
-        listUrl: <?php echo json_encode($_eaListUrl) ?>,
-        saveUrl: <?php echo json_encode($_eaSaveUrl) ?>,
-        infoUrl: <?php echo json_encode($_eaInfoUrl) ?>,
-        currentCourseId: '',
-        currentSessionId: '',
-        sessions: [],
-        enrolments: [],
-        manualRows: [], // { customer_id|null, name, nric, status, reason }
-    };
-    window.EA = EA;
-
-    window.eaSwitchTab = function(name, btn) {
-        document.querySelectorAll('.ea-tab').forEach(function(t){ t.classList.remove('active'); });
-        btn.classList.add('active');
-        document.querySelectorAll('.ea-tab-panel').forEach(function(p){ p.classList.remove('active'); });
-        var panel = document.getElementById('ea-tab-' + name);
-        if (panel) panel.classList.add('active');
-    };
-
-    window.eaOnClassChange = function(courseId) {
-        EA.currentCourseId = courseId;
-        EA.currentSessionId = '';
-        document.getElementById('eaSessionPicker').innerHTML = '<option value="">— Loading… —</option>';
-        document.getElementById('eaQrSessionPicker').innerHTML = '<option value="">— Loading… —</option>';
-        document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="6" class="ea-empty">Loading…</td></tr>';
-        document.getElementById('eaEnrolBody').innerHTML = '<tr><td colspan="12" class="ea-empty">Loading…</td></tr>';
-        document.getElementById('eaManualBody').innerHTML = '<tr><td colspan="5" class="ea-empty">Loading…</td></tr>';
-        document.getElementById('eaQrPanel').style.display = 'none';
-
-        if (!courseId) {
-            eaResetEmpty();
-            return;
-        }
-
-        var url = EA.infoUrl + (EA.infoUrl.indexOf('?') >= 0 ? '&' : '?') + 'course_id=' + encodeURIComponent(courseId);
-        fetch(url, { credentials: 'same-origin' })
-            .then(function(r){ return r.json(); })
-            .then(function(d){
-                if (!d.success) throw new Error(d.message || 'Failed to load class info');
-                EA.sessions   = d.sessions || [];
-                EA.enrolments = d.enrolments || [];
-                eaPopulateSessions();
-                eaPopulateEnrolments();
-                eaPopulateManualFromEnrolments();
-            })
-            .catch(function(err){
-                document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="6" class="ea-empty">' + err.message + '</td></tr>';
-                document.getElementById('eaEnrolBody').innerHTML = '<tr><td colspan="12" class="ea-empty">' + err.message + '</td></tr>';
-                document.getElementById('eaManualBody').innerHTML = '<tr><td colspan="5" class="ea-empty">' + err.message + '</td></tr>';
-            });
-    };
-
-    function eaResetEmpty() {
-        document.getElementById('eaSessionPicker').innerHTML = '<option value="">— Select a class first —</option>';
-        document.getElementById('eaSessionPicker').disabled = true;
-        document.getElementById('eaQrSessionPicker').innerHTML = '<option value="">— Select a class first —</option>';
-        document.getElementById('eaQrSessionPicker').disabled = true;
-        document.getElementById('eaLoadLinkBtn').disabled = true;
-        document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="6" class="ea-empty">Select a class and session to load attendance.</td></tr>';
-        document.getElementById('eaEnrolBody').innerHTML = '<tr><td colspan="12" class="ea-empty">Select a class to load enrolments.</td></tr>';
-        document.getElementById('eaManualBody').innerHTML = '<tr><td colspan="5" class="ea-empty">Select a class to take attendance.</td></tr>';
-        document.getElementById('eaSaveManualBtn').disabled = true;
-    }
-
-    function eaPopulateSessions() {
-        var sel = document.getElementById('eaSessionPicker');
-        var qrSel = document.getElementById('eaQrSessionPicker');
-        if (!EA.sessions.length) {
-            sel.innerHTML = '<option value="">— No sessions scheduled —</option>';
-            qrSel.innerHTML = '<option value="">— No sessions scheduled —</option>';
-            sel.disabled = qrSel.disabled = true;
-            document.getElementById('eaLoadLinkBtn').disabled = true;
-            return;
-        }
-        var html = '<option value="">— Select a session —</option>';
-        for (var i = 0; i < EA.sessions.length; i++) {
-            var s = EA.sessions[i];
-            html += '<option value="' + s.option_type_id + '">' + eaEsc(s.title) + '</option>';
-        }
-        sel.innerHTML = html;
-        qrSel.innerHTML = html;
-        sel.disabled = qrSel.disabled = false;
-        document.getElementById('eaLoadLinkBtn').disabled = false;
-    }
-
-    function eaPopulateEnrolments() {
-        var body = document.getElementById('eaEnrolBody');
-        if (!EA.enrolments.length) {
-            body.innerHTML = '<tr><td colspan="12" class="ea-empty">No enrolments yet for this class.</td></tr>';
-            return;
-        }
-        var html = '';
-        for (var i = 0; i < EA.enrolments.length; i++) {
-            var e = EA.enrolments[i];
-            html += '<tr>'
-                +  '<td>' + e.no + '</td>'
-                +  '<td>' + eaEsc(e.run_id || '—') + '</td>'
-                +  '<td>' + eaEsc(e.start_date || '—') + '</td>'
-                +  '<td>' + eaEsc(e.end_date || '—') + '</td>'
-                +  '<td>' + eaEsc(e.enrolment_ref) + '</td>'
-                +  '<td>' + eaEsc(e.trainee_name) + '</td>'
-                +  '<td>' + eaEsc(e.nric) + '</td>'
-                +  '<td class="ea-col-contact" style="filter:blur(4px);">' + eaEsc(e.contact) + '</td>'
-                +  '<td>' + eaEsc(e.email) + '</td>'
-                +  '<td>' + eaEsc(e.sponsorship) + '</td>'
-                +  '<td>' + eaEsc(e.employer) + '</td>'
-                +  '<td>' + eaEsc(e.status) + '</td>'
-                +  '</tr>';
-        }
-        body.innerHTML = html;
-    }
-
-    function eaPopulateManualFromEnrolments() {
-        EA.manualRows = [];
-        for (var i = 0; i < EA.enrolments.length; i++) {
-            var e = EA.enrolments[i];
-            EA.manualRows.push({
-                customer_id: null, // resolved server-side via session list
-                name: e.trainee_name,
-                nric: e.nric,
-                status: '',
-                reason: '',
-            });
-        }
-        eaRenderManual();
-        document.getElementById('eaSaveManualBtn').disabled = !EA.manualRows.length || !EA.currentSessionId;
-    }
-
-    function eaRenderManual() {
-        var body = document.getElementById('eaManualBody');
-        if (!EA.manualRows.length) {
-            body.innerHTML = '<tr><td colspan="5" class="ea-empty">No enrolled learners to mark.</td></tr>';
-            return;
-        }
-        var html = '';
-        for (var i = 0; i < EA.manualRows.length; i++) {
-            var r = EA.manualRows[i];
-            html += '<tr>'
-                +  '<td>' + (i + 1) + '</td>'
-                +  '<td>' + eaEsc(r.name) + '</td>'
-                +  '<td>' + eaEsc(r.nric || '—') + '</td>'
-                +  '<td><select class="ea-mark-select" data-row="' + i + '" onchange="eaMarkChange(this)">'
-                +    '<option value=""' + (r.status === '' ? ' selected' : '') + '>—</option>'
-                +    '<option value="present"' + (r.status === 'present' ? ' selected' : '') + '>Present</option>'
-                +    '<option value="absent"'  + (r.status === 'absent'  ? ' selected' : '') + '>Absent</option>'
-                +    '</select></td>'
-                +  '<td><input type="text" class="ea-input" style="padding:6px 10px;font-size:12px;" placeholder="Reason (if absent)" data-row="' + i + '" oninput="eaReasonChange(this)" value="' + eaEsc(r.reason) + '" /></td>'
-                +  '</tr>';
-        }
-        body.innerHTML = html;
-    }
-
-    window.eaMarkChange = function(sel) {
-        var idx = parseInt(sel.getAttribute('data-row'), 10);
-        if (EA.manualRows[idx]) EA.manualRows[idx].status = sel.value;
-    };
-    window.eaReasonChange = function(inp) {
-        var idx = parseInt(inp.getAttribute('data-row'), 10);
-        if (EA.manualRows[idx]) EA.manualRows[idx].reason = inp.value;
-    };
-    window.eaAddManualLearner = function() {
-        var name = prompt('Learner full name:');
-        if (!name) return;
-        var nric = prompt('NRIC (optional):') || '';
-        EA.manualRows.push({ customer_id: null, name: name, nric: nric, status: '', reason: '' });
-        eaRenderManual();
-        document.getElementById('eaSaveManualBtn').disabled = !EA.currentSessionId;
-    };
-
-    document.getElementById('eaSessionPicker').addEventListener('change', function(){
-        EA.currentSessionId = this.value;
-        if (!EA.currentSessionId || !EA.currentCourseId) {
-            document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="6" class="ea-empty">Select a class and session to load attendance.</td></tr>';
-            return;
-        }
-        var url = EA.listUrl
-            + (EA.listUrl.indexOf('?') >= 0 ? '&' : '?')
-            + 'course_id=' + encodeURIComponent(EA.currentCourseId)
-            + '&option_type_id=' + encodeURIComponent(EA.currentSessionId);
-        fetch(url, { credentials: 'same-origin' })
-            .then(function(r){ return r.json(); })
-            .then(function(d){
-                if (!d.success) throw new Error(d.message || 'Failed to load attendance');
-                var learners = d.learners || [];
-                // Class-level type (Physical / Virtual / Hybrid) — same
-                // value for every row in this session, returned once at
-                // the top of the response. Falls back to em-dash if the
-                // API didn't supply it.
-                var classType = d.class_type || '—';
-                if (!learners.length) {
-                    document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="6" class="ea-empty">No learners enrolled for this session.</td></tr>';
-                } else {
-                    var html = '';
-                    for (var i = 0; i < learners.length; i++) {
-                        var L = learners[i];
-                        var pillCls = L.status === 'present' ? 'ea-pill-present' : (L.status === 'absent' ? 'ea-pill-absent' : 'ea-pill-pending');
-                        var pillTxt = L.status === 'present' ? 'Present' : (L.status === 'absent' ? 'Absent' : 'Pending');
-                        // Entry mode comes from course_attendance.entry_mode
-                        // ('manual' / 'qr' / 'digital'); capitalise for
-                        // display. Defaults to "—" when no row exists yet
-                        // (i.e. the learner is enrolled but unmarked).
-                        var rawMode = (L.entry_mode || '').toString();
-                        var entryModeTxt = rawMode ? (rawMode.charAt(0).toUpperCase() + rawMode.slice(1)) : '—';
-                        html += '<tr>'
-                             +  '<td>' + (i + 1) + '</td>'
-                             +  '<td>' + eaEsc(L.name) + '</td>'
-                             +  '<td>' + eaEsc(L.nric || '—') + '</td>'
-                             +  '<td>' + eaEsc(classType) + '</td>'
-                             +  '<td><span class="ea-pill ' + pillCls + '">' + pillTxt + '</span></td>'
-                             +  '<td>' + eaEsc(entryModeTxt) + '</td>'
-                             +  '</tr>';
-                    }
-                    document.getElementById('eaSessionBody').innerHTML = html;
-                }
-                // Sync manual rows to use the resolved customer ids from the session list
-                var byEmail = {};
-                for (var j = 0; j < learners.length; j++) byEmail[(learners[j].email || '').toLowerCase()] = learners[j];
-                for (var k = 0; k < EA.enrolments.length; k++) {
-                    var en = EA.enrolments[k];
-                    var match = byEmail[(en.email || '').toLowerCase()];
-                    if (match && EA.manualRows[k]) {
-                        EA.manualRows[k].customer_id = match.customer_id;
-                        if (match.status) EA.manualRows[k].status = match.status;
-                    }
-                }
-                eaRenderManual();
-                document.getElementById('eaSaveManualBtn').disabled = !EA.manualRows.length;
-            })
-            .catch(function(err){
-                document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="6" class="ea-empty">' + err.message + '</td></tr>';
-            });
-    });
-
-    window.eaLoadSessionAttendance = function(){};
-
-    window.eaLoadAttendanceLink = function() {
-        var sid = document.getElementById('eaQrSessionPicker').value;
-        if (!sid) { alert('Pick a session first.'); return; }
-        // Build a deterministic check-in URL for the session. The actual
-        // check-in handler was retired with migration 048; keep the URL as
-        // a stable per-session identifier for the QR card so trainers can
-        // share it externally if their attendance flow comes back.
-        var url = window.location.origin + '/attendance/check-in?course=' + encodeURIComponent(EA.currentCourseId) + '&session=' + encodeURIComponent(sid);
-        document.getElementById('eaQrUrl').textContent = url;
-        document.getElementById('eaQrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(url);
-        document.getElementById('eaQrPanel').style.display = '';
-    };
-    window.eaCopyQrUrl = function() {
-        var u = document.getElementById('eaQrUrl').textContent;
-        if (u && navigator.clipboard) navigator.clipboard.writeText(u);
-    };
-
-    window.eaToggleCol = function(col, span) {
-        var cells = document.querySelectorAll('.ea-col-' + col);
-        var hidden = span.textContent === 'Show';
-        cells.forEach(function(c){ c.style.filter = hidden ? '' : 'blur(4px)'; });
-        span.textContent = hidden ? 'Hide' : 'Show';
-    };
-
-    window.eaSaveManual = function() {
-        if (!EA.currentSessionId) { alert('Select a session first.'); return; }
-        var payload = {};
-        for (var i = 0; i < EA.manualRows.length; i++) {
-            var r = EA.manualRows[i];
-            if (!r.customer_id || !r.status) continue;
-            payload[r.customer_id] = r.status;
-        }
-        var btn = document.getElementById('eaSaveManualBtn');
-        var msg = document.getElementById('eaSaveManualMsg');
-        btn.disabled = true; msg.innerHTML = 'Saving…';
-        var fd = new FormData();
-        fd.append('course_id', EA.currentCourseId);
-        fd.append('option_type_id', EA.currentSessionId);
-        fd.append('attendance', JSON.stringify(payload));
-        fd.append('form_key', (window.FORM_KEY || ''));
-        fetch(EA.saveUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
-            .then(function(r){ return r.json(); })
-            .then(function(d){
-                if (d.success) msg.innerHTML = '<span style="color:#10b981;">Saved ' + d.updated + ' record(s).</span>';
-                else msg.innerHTML = '<span style="color:#ef4444;">' + (d.message || 'Save failed') + '</span>';
-                btn.disabled = false;
-            })
-            .catch(function(err){
-                msg.innerHTML = '<span style="color:#ef4444;">' + err.message + '</span>';
-                btn.disabled = false;
-            });
-    };
-
-    function eaEsc(s) {
-        if (s === null || typeof s === 'undefined') return '';
-        return String(s).replace(/[&<>"']/g, function(c){
-            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
-        });
-    }
-})();
-</script>
-</div>
-
-<?php /* ===== PANEL: Certificate History (Learner sub-view) — added 2026-05-06 ===== */ ?>
-<div id="dash-panel-certhistory" style="display:none;">
-<div class="edt-wrap" style="max-width:1200px;">
-    <h1 class="edt-title">Certificate History</h1>
-    <div style="background:#131d2e;border:1px solid var(--b1);border-radius:12px;overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
-            <thead>
-                <tr>
-                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;">Course Title</th>
-                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Start Date</th>
-                    <th style="text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">End Date</th>
-                    <th style="text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Status</th>
-                    <th style="text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #1e293b;white-space:nowrap;">Certificate</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php
-                // A certificate is "available" once a learner-enrolled course's
-                // end_date has passed. Until per-learner attendance/assessment
-                // sign-off lands, this is the simplest defensible signal.
-                $_certRows = array();
-                foreach ($_learnerCourses as $_lc) {
-                    if (empty($_lc['end_date']) || $_lc['end_date'] === '—') continue;
-                    $_certRows[] = $_lc;
-                }
-                ?>
-                <?php if (empty($_certRows)): ?>
-                <tr><td colspan="5" style="padding:40px;text-align:center;color:#64748b;">No certificate history yet. Certificates appear here after a course ends.</td></tr>
-                <?php else: ?>
-                <?php foreach ($_certRows as $_cr):
-                    $_endTs = strtotime((string)$_cr['end_date']);
-                    $_isIssued = $_endTs && $_endTs < time();
-                ?>
-                <tr style="border-bottom:1px solid #1a2535;">
-                    <td style="padding:10px 16px;color:#cbd5e1;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?php echo htmlspecialchars($_cr['name']) ?></td>
-                    <td style="padding:10px 16px;color:#94a3b8;white-space:nowrap;"><?php echo htmlspecialchars($_cr['start_date']) ?></td>
-                    <td style="padding:10px 16px;color:#94a3b8;white-space:nowrap;"><?php echo htmlspecialchars($_cr['end_date']) ?></td>
-                    <td style="padding:10px 16px;text-align:center;">
-                        <?php if ($_isIssued): ?>
-                        <span style="display:inline-flex;align-items:center;gap:5px;color:#10b981;font-size:12px;font-weight:500;"><span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;"></span> Issued</span>
-                        <?php else: ?>
-                        <span style="display:inline-flex;align-items:center;gap:5px;color:#f59e0b;font-size:12px;font-weight:500;"><span style="width:6px;height:6px;border-radius:50%;background:#f59e0b;display:inline-block;"></span> Pending</span>
-                        <?php endif; ?>
-                    </td>
-                    <td style="padding:10px 16px;text-align:center;">
-                        <?php if ($_isIssued): ?>
-                        <a href="<?php echo htmlspecialchars($_cr['detail_url']) ?>#certificate" style="color:#22d3ee;text-decoration:none;font-size:12px;font-weight:500;">View</a>
-                        <?php else: ?>
-                        <span style="color:#64748b;font-size:12px;">—</span>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-</div>
-</div>
 
 <?php /* ===== PANEL 5: Ed Tools (Trainer sub-view) ===== */ ?>
 <div id="dash-panel-edtools" style="display:none;">
@@ -7821,7 +7090,7 @@ $_csv = function ($path, $default = '') use ($_cs) {
                         // Helper for "URL or '(not set)'" — these all share
                         // the same render pattern so a tiny inline closure
                         // keeps each row to one line of markup.
-                        $_csUrl = function ($path) use ($_cs) {
+                        $_csUrlFmt = function ($path) use ($_cs) {
                             $u = isset($_cs[$path]) ? trim($_cs[$path]) : '';
                             if ($u === '') return '<span style="color:#64748b;font-size:12px;">(not set)</span>';
                             $h = htmlspecialchars($u, ENT_QUOTES);
@@ -7830,27 +7099,27 @@ $_csv = function ($path, $default = '') use ($_cs) {
                         ?>
                         <div class="cs-field" data-path="mmd_company/google/sheet_master" style="margin-bottom:10px">
                             <label>Master List</label>
-                            <div class="cs-val"><?php echo $_csUrl('mmd_company/google/sheet_master') ?></div>
+                            <div class="cs-val"><?php echo $_csUrlFmt('mmd_company/google/sheet_master') ?></div>
                             <input type="url" value="<?php echo $_csv('mmd_company/google/sheet_master', '') ?>"/>
                         </div>
                         <div class="cs-field" data-path="mmd_company/google/sheet_tms" style="margin-bottom:10px">
                             <label>Tertiary TMS</label>
-                            <div class="cs-val"><?php echo $_csUrl('mmd_company/google/sheet_tms') ?></div>
+                            <div class="cs-val"><?php echo $_csUrlFmt('mmd_company/google/sheet_tms') ?></div>
                             <input type="url" value="<?php echo $_csv('mmd_company/google/sheet_tms', '') ?>"/>
                         </div>
                         <div class="cs-field" data-path="mmd_company/google/sheet_fms" style="margin-bottom:10px">
                             <label>Tertiary FMS</label>
-                            <div class="cs-val"><?php echo $_csUrl('mmd_company/google/sheet_fms') ?></div>
+                            <div class="cs-val"><?php echo $_csUrlFmt('mmd_company/google/sheet_fms') ?></div>
                             <input type="url" value="<?php echo $_csv('mmd_company/google/sheet_fms', '') ?>"/>
                         </div>
                         <div class="cs-field" data-path="mmd_company/google/sheet_mms" style="margin-bottom:10px">
                             <label>Tertiary MMS</label>
-                            <div class="cs-val"><?php echo $_csUrl('mmd_company/google/sheet_mms') ?></div>
+                            <div class="cs-val"><?php echo $_csUrlFmt('mmd_company/google/sheet_mms') ?></div>
                             <input type="url" value="<?php echo $_csv('mmd_company/google/sheet_mms', '') ?>"/>
                         </div>
                         <div class="cs-field" data-path="mmd_company/google/sheet_tpms">
                             <label>Tertiary TPMS</label>
-                            <div class="cs-val"><?php echo $_csUrl('mmd_company/google/sheet_tpms') ?></div>
+                            <div class="cs-val"><?php echo $_csUrlFmt('mmd_company/google/sheet_tpms') ?></div>
                             <input type="url" value="<?php echo $_csv('mmd_company/google/sheet_tpms', '') ?>"/>
                         </div>
                     </div>
@@ -7862,12 +7131,12 @@ $_csv = function ($path, $default = '') use ($_cs) {
                     <div class="cs-card" style="background:#0f172a;margin-top:8px;">
                         <div class="cs-field" data-path="mmd_company/google/drive_trainer" style="margin-bottom:10px">
                             <label>Trainer Profile Image Folder</label>
-                            <div class="cs-val"><?php echo $_csUrl('mmd_company/google/drive_trainer') ?></div>
+                            <div class="cs-val"><?php echo $_csUrlFmt('mmd_company/google/drive_trainer') ?></div>
                             <input type="url" value="<?php echo $_csv('mmd_company/google/drive_trainer', '') ?>"/>
                         </div>
                         <div class="cs-field" data-path="mmd_company/google/drive_certificate">
                             <label>Certificate Folder</label>
-                            <div class="cs-val"><?php echo $_csUrl('mmd_company/google/drive_certificate') ?></div>
+                            <div class="cs-val"><?php echo $_csUrlFmt('mmd_company/google/drive_certificate') ?></div>
                             <input type="url" value="<?php echo $_csv('mmd_company/google/drive_certificate', '') ?>"/>
                         </div>
                     </div>
@@ -7879,7 +7148,7 @@ $_csv = function ($path, $default = '') use ($_cs) {
                     <div class="cs-card" style="background:#0f172a;margin-top:8px;">
                         <div class="cs-field" data-path="mmd_company/google/calendar_url">
                             <label>Calendar Embed URL</label>
-                            <div class="cs-val"><?php echo $_csUrl('mmd_company/google/calendar_url') ?></div>
+                            <div class="cs-val"><?php echo $_csUrlFmt('mmd_company/google/calendar_url') ?></div>
                             <input type="url" value="<?php echo $_csv('mmd_company/google/calendar_url', '') ?>"/>
                         </div>
                     </div>
@@ -12563,7 +11832,7 @@ document.addEventListener('keydown', function (ev) {
         if (current !== 'Trainer' && current !== 'Learner') return;
 
         // Hide ALL panels first, then show only the requested sub-panel
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-eattendance','dash-panel-certhistory','dash-panel-billing'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-certhistory','dash-panel-billing'];
         for (var i=0; i<all.length; i++) {
             var el = document.getElementById(all[i]);
             if (el) el.style.display = 'none';
@@ -12582,7 +11851,6 @@ document.addEventListener('keydown', function (ev) {
             'agentic':        'dash-panel-agentic',
             'virtual':        'dash-panel-virtual',
             'billing':        'dash-panel-billing',
-            'eattendance':    'dash-panel-eattendance',
             'certhistory':    'dash-panel-certhistory'
         };
         var target = subMap[name] || 'dash-panel-learner';
