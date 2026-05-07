@@ -493,6 +493,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 'assessment_plan_url', 'learner_slides_url', 'trainer_slides_url',
                 'courseware_link', 'brochure_link',
                 'assessment_record_link', 'assessment_summary_url',
+                'google_meet_url',
             );
             $_cwAny = false;
             $_cwData = array();
