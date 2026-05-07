@@ -10224,12 +10224,18 @@ window.almOpen = function(btn) {
     var almRow = document.getElementById('alm-row');
     if (!almRow) return;
 
-    // Toggle: if already directly under this row, collapse it.
-    if (almRow.parentNode && almRow.previousElementSibling === tr) {
+    // Toggle: if already showing under this row, just hide. Don't
+    // detach from the DOM — once removed, getElementById can't find
+    // it again, which made the button silently no-op on every click
+    // after the first.
+    var alreadyHere = almRow.previousElementSibling === tr
+        && almRow.style.display !== 'none';
+    if (alreadyHere) {
         almClose();
         return;
     }
-    if (almRow.parentNode) almRow.parentNode.removeChild(almRow);
+    // insertBefore moves the element if it's already attached
+    // elsewhere — no removeChild needed.
     tr.parentNode.insertBefore(almRow, tr.nextSibling);
     almRow.style.display = '';
 
@@ -10248,8 +10254,8 @@ window.almOpen = function(btn) {
 };
 
 window.almClose = function() {
+    // Just hide — keep it in the DOM so the next click can find it.
     var almRow = document.getElementById('alm-row');
-    if (almRow && almRow.parentNode) almRow.parentNode.removeChild(almRow);
     if (almRow) almRow.style.display = 'none';
     if (window._almOpenerBtn) {
         window._almOpenerBtn.textContent = 'Add / Edit Learners';
@@ -12053,13 +12059,17 @@ window.mnPush = function() {
     })
     .then(function (r) { return r.json(); })
     .then(function (j) {
-        btn.textContent = 'Push to MailerLite';
-        if (!j || !j.success) { btn.disabled = false; alert((j && j.message) || 'Push failed.'); return; }
+        btn.disabled = false; btn.textContent = 'Push to MailerLite';
+        if (!j || !j.success) { alert((j && j.message) || 'Push failed.'); return; }
         var note = j.stubbed
             ? '\n\nDemo mode: drop a real MailerLite key into local.xml to push live.'
             : '\n\nGo to MailerLite to schedule the send.';
         alert('Pushed as MailerLite campaign ' + j.mailerlite_id + '.' + note);
         location.reload();
+    })
+    .catch(function (err) {
+        btn.disabled = false; btn.textContent = 'Push to MailerLite';
+        alert('Network error — please try again: ' + (err && err.message ? err.message : err));
     });
 };
 
