@@ -124,12 +124,12 @@ $roleIcons = array(
     }
     ?>
     <style>
-    .header-search-pill{flex:1;max-width:520px;margin:0 24px;position:relative}
-    .header-search-input{width:100%;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px 10px 40px;color:#e2e8f0;font-size:13px;cursor:pointer;transition:border-color .15s}
-    .header-search-input:hover,.header-search-input:focus{border-color:#475569;outline:none}
-    .header-search-input::placeholder{color:#64748b}
-    .header-search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#64748b;pointer-events:none}
-    .header-search-kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:#0f172a;border:1px solid #334155;border-radius:5px;padding:2px 8px;font-size:11px;color:#94a3b8;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;pointer-events:none}
+    .header-search-pill{flex:1;max-width:560px;margin:0 24px;position:relative}
+    .header-search-input{width:100%;background:#0b1220;border:1px solid #2d3f55;border-radius:999px;padding:11px 18px 11px 46px;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;transition:border-color .15s,background .15s}
+    .header-search-input:hover,.header-search-input:focus{border-color:#3d536d;outline:none}
+    .header-search-input::placeholder{color:#cbd5e1;opacity:.85}
+    .header-search-icon{position:absolute;left:18px;top:50%;transform:translateY(-50%);color:#cbd5e1;pointer-events:none}
+    .header-search-kbd{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:1px solid #475569;border-radius:6px;padding:3px 9px;font-size:11px;color:#cbd5e1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;pointer-events:none}
     .header-search-overlay{display:none;position:fixed;inset:0;background:rgba(2,6,23,.55);z-index:9998;align-items:flex-start;justify-content:center;padding-top:96px}
     .header-search-overlay.open{display:flex}
     .header-search-modal{width:min(680px,92vw);background:#0f172a;border:1px solid #334155;border-radius:14px;box-shadow:0 24px 64px rgba(0,0,0,.45);overflow:hidden}
@@ -255,9 +255,9 @@ $roleIcons = array(
     ?>
     <style>
     .header-lnr-tabs{display:flex;gap:2px;align-items:center;flex:1;justify-content:center;margin:0 24px}
-    a.header-lnr-tab,a.header-lnr-tab:hover,a.header-lnr-tab:focus,a.header-lnr-tab:active{background:transparent !important;border:none !important;border-bottom:2px solid transparent !important;color:#94a3b8 !important;padding:14px 16px !important;font-size:14px !important;font-weight:600 !important;cursor:pointer !important;display:inline-flex !important;align-items:center !important;gap:8px !important;border-radius:0 !important;text-decoration:none !important;text-transform:none !important;line-height:normal !important;transition:color .15s,border-color .15s !important}
-    a.header-lnr-tab:hover{color:#cbd5e1 !important}
-    a.header-lnr-tab.active,a.header-lnr-tab.active:hover{color:#22d3ee !important;border-bottom-color:#22d3ee !important}
+    a.header-lnr-tab,a.header-lnr-tab:hover,a.header-lnr-tab:focus,a.header-lnr-tab:active{background:transparent !important;border:none !important;border-bottom:2px solid transparent !important;color:#ffffff !important;padding:14px 16px !important;font-size:14px !important;font-weight:600 !important;cursor:pointer !important;display:inline-flex !important;align-items:center !important;gap:8px !important;border-radius:0 !important;text-decoration:none !important;text-transform:none !important;line-height:normal !important;transition:color .15s,border-color .15s !important}
+    a.header-lnr-tab:hover{color:#ffffff !important;opacity:.85}
+    a.header-lnr-tab.active,a.header-lnr-tab.active:hover{color:#22d3ee !important;border-bottom-color:#22d3ee !important;opacity:1}
     a.header-lnr-tab svg{width:18px;height:18px;flex-shrink:0}
     </style>
     <div class="header-lnr-tabs" id="header-lnr-tabs">
@@ -300,9 +300,9 @@ $roleIcons = array(
     <?php $_dashUrl = $this->getUrl('adminhtml/dashboard'); ?>
     <style>
     .header-trn-tabs{display:flex;gap:2px;align-items:center;flex:1;justify-content:center;margin:0 24px}
-    a.header-trn-tab,a.header-trn-tab:hover,a.header-trn-tab:focus,a.header-trn-tab:active{background:transparent !important;border:none !important;border-bottom:2px solid transparent !important;color:#94a3b8 !important;padding:14px 16px !important;font-size:14px !important;font-weight:600 !important;cursor:pointer !important;display:inline-flex !important;align-items:center !important;gap:8px !important;border-radius:0 !important;text-decoration:none !important;text-transform:none !important;line-height:normal !important;transition:color .15s,border-color .15s !important}
-    a.header-trn-tab:hover{color:#cbd5e1 !important}
-    a.header-trn-tab.active,a.header-trn-tab.active:hover{color:#22d3ee !important;border-bottom-color:#22d3ee !important}
+    a.header-trn-tab,a.header-trn-tab:hover,a.header-trn-tab:focus,a.header-trn-tab:active{background:transparent !important;border:none !important;border-bottom:2px solid transparent !important;color:#ffffff !important;padding:14px 16px !important;font-size:14px !important;font-weight:600 !important;cursor:pointer !important;display:inline-flex !important;align-items:center !important;gap:8px !important;border-radius:0 !important;text-decoration:none !important;text-transform:none !important;line-height:normal !important;transition:color .15s,border-color .15s !important}
+    a.header-trn-tab:hover{color:#ffffff !important;opacity:.85}
+    a.header-trn-tab.active,a.header-trn-tab.active:hover{color:#22d3ee !important;border-bottom-color:#22d3ee !important;opacity:1}
     a.header-trn-tab svg{width:18px;height:18px;flex-shrink:0}
     </style>
     <div class="header-trn-tabs" id="header-trn-tabs">
