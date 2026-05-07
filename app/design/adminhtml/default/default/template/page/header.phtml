@@ -125,11 +125,51 @@ $roleIcons = array(
     ?>
     <style>
     .header-search-pill{flex:1;max-width:560px;margin:0 24px;position:relative}
-    .header-search-input{width:100%;background:#0b1220;border:1px solid #2d3f55;border-radius:999px;padding:11px 18px 11px 46px;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;transition:border-color .15s,background .15s}
-    .header-search-input:hover,.header-search-input:focus{border-color:#3d536d;outline:none}
-    .header-search-input::placeholder{color:#cbd5e1;opacity:.85}
-    .header-search-icon{position:absolute;left:18px;top:50%;transform:translateY(-50%);color:#cbd5e1;pointer-events:none}
-    .header-search-kbd{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:1px solid #475569;border-radius:6px;padding:3px 9px;font-size:11px;color:#cbd5e1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;pointer-events:none}
+    /* High-specificity #id selector to beat dark-theme.css's
+       body input[type="text"]{...!important} which would otherwise
+       overpower my class selector at equal specificity. */
+    body #header-search-trigger,
+    body #header-search-trigger:hover,
+    body #header-search-trigger:focus{
+        width:100% !important;
+        background:transparent !important;
+        background-image:none !important;
+        border:1px solid #ffffff !important;
+        border-radius:999px !important;
+        padding:11px 46px 11px 46px !important;
+        color:#fff !important;
+        font-size:13.5px !important;
+        font-weight:500 !important;
+        cursor:pointer !important;
+        outline:none !important;
+        box-shadow:none !important;
+        height:auto !important;
+        min-height:0 !important;
+        line-height:normal !important;
+        transition:border-color .15s,opacity .15s !important;
+    }
+    body #header-search-trigger:hover,body #header-search-trigger:focus{border-color:#ffffff !important;opacity:.85}
+    body #header-search-trigger::placeholder{color:#cbd5e1 !important;opacity:.85 !important}
+    .header-search-icon{position:absolute;left:18px;top:50%;transform:translateY(-50%);color:#cbd5e1;pointer-events:none;z-index:1}
+    .header-search-kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:transparent !important;border:1px solid #475569 !important;border-radius:6px !important;padding:3px 9px !important;font-size:11px !important;color:#cbd5e1 !important;font-family:ui-monospace,SFMono-Regular,Menlo,monospace !important;pointer-events:none;line-height:1 !important}
+    /* Modal input — same fight with dark-theme.css. */
+    body #header-search-q,
+    body #header-search-q:hover,
+    body #header-search-q:focus{
+        background:transparent !important;
+        background-image:none !important;
+        border:none !important;
+        border-radius:0 !important;
+        padding:0 !important;
+        color:#fff !important;
+        font-size:15px !important;
+        outline:none !important;
+        box-shadow:none !important;
+        height:auto !important;
+        min-height:0 !important;
+        line-height:normal !important;
+    }
+    body #header-search-q::placeholder{color:#64748b !important;opacity:1 !important}
     .header-search-overlay{display:none;position:fixed;inset:0;background:rgba(2,6,23,.55);z-index:9998;align-items:flex-start;justify-content:center;padding-top:96px}
     .header-search-overlay.open{display:flex}
     .header-search-modal{width:min(680px,92vw);background:#0f172a;border:1px solid #334155;border-radius:14px;box-shadow:0 24px 64px rgba(0,0,0,.45);overflow:hidden}
