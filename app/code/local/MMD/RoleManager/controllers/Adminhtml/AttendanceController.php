@@ -90,10 +90,30 @@ class MMD_RoleManager_Adminhtml_AttendanceController extends Mage_Adminhtml_Cont
             );
 
             // Also include any previously-marked attendance rows (keeps record if enrolment data changed)
-            $marked = $read->fetchPairs(
-                "SELECT customer_id, status FROM course_attendance WHERE option_type_id = ?",
+            $markedRows = $read->fetchAll(
+                "SELECT customer_id, status, entry_mode FROM course_attendance WHERE option_type_id = ?",
                 array($optionTypeId)
             );
+            $marked = array();      // customer_id -> status
+            $markedMode = array();  // customer_id -> entry_mode
+            foreach ($markedRows as $_mr) {
+                $_cid = (int)$_mr['customer_id'];
+                $marked[$_cid] = (string)$_mr['status'];
+                $markedMode[$_cid] = isset($_mr['entry_mode']) ? (string)$_mr['entry_mode'] : 'manual';
+            }
+
+            // Resolve a single class_type label (Physical / Virtual /
+            // Hybrid) for this course from course_runs.mode_of_training.
+            // 1 = Physical, 2 = Virtual, 3 = Hybrid (matches the editor
+            // radio order). Falls back to Physical when no run row.
+            $modeMap = array(1 => 'Physical', 2 => 'Virtual', 3 => 'Hybrid');
+            $modeKey = (int) $read->fetchOne(
+                "SELECT mode_of_training FROM course_runs
+                 WHERE product_id = ? ORDER BY run_id ASC LIMIT 1",
+                array($courseId)
+            );
+            if (!isset($modeMap[$modeKey])) $modeKey = 1;
+            $classType = $modeMap[$modeKey];
 
             // No fallback to "all customers who ordered this course" — that was showing
             // the same learner on every session of a course regardless of which session
@@ -112,6 +132,7 @@ class MMD_RoleManager_Adminhtml_AttendanceController extends Mage_Adminhtml_Cont
                     'name'        => trim($r['name']) ?: $r['email'],
                     'email'       => $r['email'],
                     'status'      => isset($marked[$cid]) ? $marked[$cid] : '',
+                    'entry_mode'  => isset($markedMode[$cid]) ? $markedMode[$cid] : '',
                 );
             }
             // Append manual enrolments we haven't already seen via orders.
@@ -135,11 +156,13 @@ class MMD_RoleManager_Adminhtml_AttendanceController extends Mage_Adminhtml_Cont
                     'name'        => $name,
                     'email'       => $email,
                     'status'      => ($cid && isset($marked[$cid])) ? $marked[$cid] : '',
+                    'entry_mode'  => ($cid && isset($markedMode[$cid])) ? $markedMode[$cid] : '',
                 );
             }
 
             $result['success']       = true;
             $result['session_label'] = $sessionLabel;
+            $result['class_type']    = $classType;
             $result['learners']      = $learners;
         } catch (Exception $e) {
             $result['message'] = $e->getMessage();
@@ -208,6 +231,7 @@ class MMD_RoleManager_Adminhtml_AttendanceController extends Mage_Adminhtml_Cont
                 if ($existing) {
                     $write->update('course_attendance', array(
                         'status'             => $status,
+                        'entry_mode'         => 'manual',
                         'marked_by_admin_id' => $markedById ?: null,
                     ), array('id = ?' => (int) $existing));
                 } else {
@@ -215,6 +239,7 @@ class MMD_RoleManager_Adminhtml_AttendanceController extends Mage_Adminhtml_Cont
                         'option_type_id'     => $optionTypeId,
                         'customer_id'        => $cid,
                         'status'             => $status,
+                        'entry_mode'         => 'manual',
                         'marked_by_admin_id' => $markedById ?: null,
                     ));
                 }

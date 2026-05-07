@@ -5599,10 +5599,10 @@ $_eaInfoUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/classInfo'
             <div class="ea-table-scroll">
                 <table class="ea-table">
                     <thead>
-                        <tr><th>No.</th><th>Name</th><th>NRIC</th><th>Type</th><th>Status</th><th>Entry Mode</th><th>TRAQOM</th></tr>
+                        <tr><th>No.</th><th>Name</th><th>NRIC</th><th>Type</th><th>Status</th><th>Entry Mode</th></tr>
                     </thead>
                     <tbody id="eaSessionBody">
-                        <tr><td colspan="7" class="ea-empty">Select a class and session to load attendance.</td></tr>
+                        <tr><td colspan="6" class="ea-empty">Select a class and session to load attendance.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -5694,7 +5694,7 @@ $_eaInfoUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/classInfo'
         EA.currentSessionId = '';
         document.getElementById('eaSessionPicker').innerHTML = '<option value="">— Loading… —</option>';
         document.getElementById('eaQrSessionPicker').innerHTML = '<option value="">— Loading… —</option>';
-        document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="7" class="ea-empty">Loading…</td></tr>';
+        document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="6" class="ea-empty">Loading…</td></tr>';
         document.getElementById('eaEnrolBody').innerHTML = '<tr><td colspan="12" class="ea-empty">Loading…</td></tr>';
         document.getElementById('eaManualBody').innerHTML = '<tr><td colspan="5" class="ea-empty">Loading…</td></tr>';
         document.getElementById('eaQrPanel').style.display = 'none';
@@ -5716,7 +5716,7 @@ $_eaInfoUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/classInfo'
                 eaPopulateManualFromEnrolments();
             })
             .catch(function(err){
-                document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="7" class="ea-empty">' + err.message + '</td></tr>';
+                document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="6" class="ea-empty">' + err.message + '</td></tr>';
                 document.getElementById('eaEnrolBody').innerHTML = '<tr><td colspan="12" class="ea-empty">' + err.message + '</td></tr>';
                 document.getElementById('eaManualBody').innerHTML = '<tr><td colspan="5" class="ea-empty">' + err.message + '</td></tr>';
             });
@@ -5728,7 +5728,7 @@ $_eaInfoUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/classInfo'
         document.getElementById('eaQrSessionPicker').innerHTML = '<option value="">— Select a class first —</option>';
         document.getElementById('eaQrSessionPicker').disabled = true;
         document.getElementById('eaLoadLinkBtn').disabled = true;
-        document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="7" class="ea-empty">Select a class and session to load attendance.</td></tr>';
+        document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="6" class="ea-empty">Select a class and session to load attendance.</td></tr>';
         document.getElementById('eaEnrolBody').innerHTML = '<tr><td colspan="12" class="ea-empty">Select a class to load enrolments.</td></tr>';
         document.getElementById('eaManualBody').innerHTML = '<tr><td colspan="5" class="ea-empty">Select a class to take attendance.</td></tr>';
         document.getElementById('eaSaveManualBtn').disabled = true;
@@ -5842,7 +5842,7 @@ $_eaInfoUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/classInfo'
     document.getElementById('eaSessionPicker').addEventListener('change', function(){
         EA.currentSessionId = this.value;
         if (!EA.currentSessionId || !EA.currentCourseId) {
-            document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="7" class="ea-empty">Select a class and session to load attendance.</td></tr>';
+            document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="6" class="ea-empty">Select a class and session to load attendance.</td></tr>';
             return;
         }
         var url = EA.listUrl
@@ -5854,22 +5854,32 @@ $_eaInfoUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/classInfo'
             .then(function(d){
                 if (!d.success) throw new Error(d.message || 'Failed to load attendance');
                 var learners = d.learners || [];
+                // Class-level type (Physical / Virtual / Hybrid) — same
+                // value for every row in this session, returned once at
+                // the top of the response. Falls back to em-dash if the
+                // API didn't supply it.
+                var classType = d.class_type || '—';
                 if (!learners.length) {
-                    document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="7" class="ea-empty">No learners enrolled for this session.</td></tr>';
+                    document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="6" class="ea-empty">No learners enrolled for this session.</td></tr>';
                 } else {
                     var html = '';
                     for (var i = 0; i < learners.length; i++) {
                         var L = learners[i];
                         var pillCls = L.status === 'present' ? 'ea-pill-present' : (L.status === 'absent' ? 'ea-pill-absent' : 'ea-pill-pending');
                         var pillTxt = L.status === 'present' ? 'Present' : (L.status === 'absent' ? 'Absent' : 'Pending');
+                        // Entry mode comes from course_attendance.entry_mode
+                        // ('manual' / 'qr' / 'digital'); capitalise for
+                        // display. Defaults to "—" when no row exists yet
+                        // (i.e. the learner is enrolled but unmarked).
+                        var rawMode = (L.entry_mode || '').toString();
+                        var entryModeTxt = rawMode ? (rawMode.charAt(0).toUpperCase() + rawMode.slice(1)) : '—';
                         html += '<tr>'
                              +  '<td>' + (i + 1) + '</td>'
                              +  '<td>' + eaEsc(L.name) + '</td>'
                              +  '<td>' + eaEsc(L.nric || '—') + '</td>'
-                             +  '<td>Live</td>'
+                             +  '<td>' + eaEsc(classType) + '</td>'
                              +  '<td><span class="ea-pill ' + pillCls + '">' + pillTxt + '</span></td>'
-                             +  '<td>Manual</td>'
-                             +  '<td>—</td>'
+                             +  '<td>' + eaEsc(entryModeTxt) + '</td>'
                              +  '</tr>';
                     }
                     document.getElementById('eaSessionBody').innerHTML = html;
@@ -5889,7 +5899,7 @@ $_eaInfoUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/classInfo'
                 document.getElementById('eaSaveManualBtn').disabled = !EA.manualRows.length;
             })
             .catch(function(err){
-                document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="7" class="ea-empty">' + err.message + '</td></tr>';
+                document.getElementById('eaSessionBody').innerHTML = '<tr><td colspan="6" class="ea-empty">' + err.message + '</td></tr>';
             });
     });
 
