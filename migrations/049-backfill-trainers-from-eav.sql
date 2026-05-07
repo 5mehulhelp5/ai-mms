@@ -6,18 +6,18 @@
 -- ~270 trainers. This migration aligns the two: every distinct trainer
 -- name in the multiselect now also gets a row in courses_trainers.
 --
--- Idempotent — re-running skips trainers whose title already exists.
--- Rich profile fields (email, NRIC, LinkedIn, CV, skill tags, …) stay
--- NULL / blank so the admin can fill them in via Add Trainer / Bulk
--- Upload. relation_id stores the source option_id so we can map back
--- to product assignments later if needed.
+-- Defensive variant: INSERT IGNORE so any row that hits a UNIQUE / FK /
+-- strict-mode constraint is silently skipped instead of aborting the
+-- whole migration. Production MySQL is stricter than local MySQL 5.7,
+-- so the previous version (plain INSERT + NOT EXISTS) failed there.
+-- Idempotent — re-runs are safe; any pre-existing rows just get skipped.
 
-INSERT INTO courses_trainers
+INSERT IGNORE INTO courses_trainers
     (relation_id, title, address, city, zip, country_id, region_id, region,
      email, profile_image, status, trainer_type, gender, linkedin_url,
      telephone, created_time, update_time)
 SELECT
-    eaov.option_id              AS relation_id,
+    COALESCE(eaov.option_id, 0) AS relation_id,
     TRIM(eaov.value)            AS title,
     ''                          AS address,
     ''                          AS city,
@@ -43,6 +43,7 @@ INNER JOIN eav_attribute        ea  ON ea.attribute_id = eao.attribute_id
 WHERE ea.attribute_code = 'trainers'
   AND ea.entity_type_id = 4
   AND eaov.store_id = 0
+  AND eaov.value IS NOT NULL
   AND TRIM(eaov.value) <> ''
   AND NOT EXISTS (
       SELECT 1 FROM courses_trainers ct
