@@ -4826,28 +4826,40 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     <?php endif; ?>
 
     <?php if ($activeRole === 'trainer' || $activeRole === 'learner'): ?>
-    <!-- Lesson (visible to trainer + learner) — pulled out of the trainer
-         branch 2026-05-06 so learners see the topic list too. -->
+    <!-- Lesson (visible to trainer + learner). Topics extracted from the
+         course's description field (the same source the Developer view
+         uses) — looking for <strong>Topic N: ...</strong> markup that
+         the dev course editor's Lesson editor saves into the description.
+         Previously hardcoded 7 AutoCAD topics, which made trainer/learner
+         views show stale data unrelated to the actual course (fixed
+         2026-05-07). -->
+    <?php
+    $_sharedLessonTopics = array();
+    try {
+        $_sharedProd = Mage::getModel('catalog/product')->load($_selectedCourse['id']);
+        $_sharedDescRaw = (string)$_sharedProd->getData('description');
+        if ($_sharedDescRaw !== '' && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_sharedDescRaw, $_sltm)) {
+            foreach ($_sltm[1] as $_lt) {
+                $_lt = trim(html_entity_decode($_lt), " :\t\n\r\0\x0B");
+                if ($_lt !== '') $_sharedLessonTopics[] = $_lt;
+            }
+        }
+    } catch (Exception $e) {}
+    ?>
     <div class="lcd-section" id="lesson">
         <div class="lcd-section-title" style="padding-bottom:14px;border-bottom:2px solid #22d3ee;margin-bottom:4px;">Lesson <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg></div>
-        <?php
-        $_lessonTopics = array(
-            'Topic 1 : Advanced Drawing Objects',
-            'Topic 2: Organize Objects',
-            'Topic 3: Draw with accuracy',
-            'Topic 4: Layouts, printing, and outputs',
-            'Topic 5: Adding annotative techniques',
-            'Topic 6: Reusable content and drawing management',
-            'Topic 7: Productivity tips for AutoCAD',
-        );
-        foreach ($_lessonTopics as $_t): ?>
+        <?php if (!empty($_sharedLessonTopics)): ?>
+        <?php foreach ($_sharedLessonTopics as $_t): ?>
         <div class="lcd-topic" style="padding:16px 0;cursor:pointer;" onclick="var c=this.querySelector('.lcd-topic-caret');c.classList.toggle('lcd-caret-open');">
             <div class="lcd-topic-head" style="margin-bottom:0;">
-                <div class="lcd-topic-title"><?php echo $_t ?></div>
+                <div class="lcd-topic-title"><?php echo htmlspecialchars($_t) ?></div>
                 <svg class="lcd-topic-caret" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" style="transition:transform .2s;flex-shrink:0;"><polyline points="18 15 12 9 6 15"/></svg>
             </div>
         </div>
         <?php endforeach; ?>
+        <?php else: ?>
+        <div style="color:#64748b;font-size:13px;font-style:italic;padding:14px 0;">No lesson topics available for this course yet.</div>
+        <?php endif; ?>
     </div>
     <?php endif; ?>
 
