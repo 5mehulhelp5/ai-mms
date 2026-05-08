@@ -941,6 +941,19 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                     'enrol_id' => (int) $r['enrolment_id'],
                 );
             }
+
+            // Honour the per-course exclusion list — lets Remove hide a
+            // learner from this course's roster without touching the order.
+            $excludes = $read->fetchCol(
+                "SELECT learner_email
+                 FROM " . $resource->getTableName('course_learner_excludes') . "
+                 WHERE product_id = ?",
+                array($productId)
+            );
+            foreach ($excludes as $exEmail) {
+                unset($byEmail[strtolower((string) $exEmail)]);
+            }
+
             $result['learners'] = array_values($byEmail);
             $result['success']  = true;
         } catch (Exception $e) {
@@ -996,6 +1009,12 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 "INSERT IGNORE INTO {$tbl} (product_id, run_id, learner_email, learner_name) VALUES (?, ?, ?, ?)",
                 array($productId, $runId, $email, $name)
             );
+            // If this learner was previously hidden via Remove, clear the
+            // exclusion so they reappear in the roster.
+            $write->delete(
+                $resource->getTableName('course_learner_excludes'),
+                array('product_id=?' => $productId, 'learner_email=?' => $email)
+            );
             $result['success'] = true;
             $result['email']   = $email;
             $result['name']    = $name;
@@ -1007,9 +1026,11 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
     }
 
     /**
-     * Remove an admin-driven enrolment. Order-sourced learners can't be
-     * removed from this panel — those represent paid orders and need to
-     * be canceled via the orders flow.
+     * Hide a learner from this course's roster. Manual enrolments are
+     * deleted outright; order-sourced learners are added to the
+     * course_learner_excludes suppression list so the underlying order
+     * is untouched. Reversible via addLearnerAction (which clears the
+     * exclusion row).
      */
     public function removeLearnerAction()
     {
@@ -1023,8 +1044,25 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
 
             $resource = Mage::getSingleton('core/resource');
             $write    = $resource->getConnection('core_write');
-            $tbl      = $resource->getTableName('course_run_enrolments');
-            $write->delete($tbl, array('product_id=?' => $productId, 'learner_email=?' => $email));
+            // Drop the manual enrolment if any — covers learners added via
+            // Add Learner. For order-sourced learners this is a no-op.
+            $write->delete(
+                $resource->getTableName('course_run_enrolments'),
+                array('product_id=?' => $productId, 'learner_email=?' => $email)
+            );
+            // Suppress the (product, email) pair so order-sourced learners
+            // also disappear from the roster. Reversible via Add Learner.
+            $adminUser = Mage::getSingleton('admin/session')->getUser();
+            $excludedBy = $adminUser ? (int) $adminUser->getId() : null;
+            $write->insertOnDuplicate(
+                $resource->getTableName('course_learner_excludes'),
+                array(
+                    'product_id'    => $productId,
+                    'learner_email' => $email,
+                    'excluded_by'   => $excludedBy,
+                ),
+                array('excluded_by', 'excluded_at')
+            );
             $result['success'] = true;
         } catch (Exception $e) {
             $result['message'] = $e->getMessage();
