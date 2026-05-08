@@ -22,6 +22,57 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
         $this->_emit($this->_collectConfig());
     }
 
+    /**
+     * One-shot credential writer. The admin form save path is racy enough
+     * across scope and cache that two attempts in a row can land on the
+     * wrong row; this writes default-scope smtp_username + smtp_password
+     * directly, encrypting under the running environment's key (so it
+     * round-trips correctly through getStoreConfig later) and clears the
+     * config cache.
+     *
+     *   /maildiagnose/setcreds?username=foo@bar&password=secret
+     *
+     * Returns the JSON the index action would return, after the write,
+     * so you can see the new effective config in the same hop.
+     */
+    public function setcredsAction()
+    {
+        $username = trim((string) $this->getRequest()->getParam('username'));
+        $password = (string) $this->getRequest()->getParam('password');
+
+        if ($username === '' || $password === '') {
+            $this->_emit(['error' => 'Pass ?username=<email>&password=<plain>']);
+            return;
+        }
+
+        try {
+            $encrypted = Mage::helper('core')->encrypt($password);
+            $cfg = Mage::getConfig();
+            $cfg->saveConfig('smtppro/general/smtp_username', $username, 'default', 0);
+            $cfg->saveConfig('smtppro/general/smtp_password', $encrypted, 'default', 0);
+
+            // Belt-and-suspenders: also wipe any website-1 overrides that may
+            // have been re-introduced after migration 058.
+            $write = Mage::getSingleton('core/resource')->getConnection('core_write');
+            $table = Mage::getSingleton('core/resource')->getTableName('core/config_data');
+            $write->delete($table, [
+                'scope = ?'    => 'websites',
+                'scope_id = ?' => 1,
+                'path IN (?)'  => ['smtppro/general/smtp_username', 'smtppro/general/smtp_password'],
+            ]);
+
+            Mage::app()->getCacheInstance()->cleanType('config');
+            Mage::app()->cleanCache();
+        } catch (Exception $e) {
+            $this->_emit(['error' => $e->getMessage(), 'exception' => get_class($e)]);
+            return;
+        }
+
+        $report = $this->_collectConfig();
+        $report['setcreds_result'] = 'OK — credentials saved at default scope and website-1 overrides cleared. Hit /send?to=... to verify.';
+        $this->_emit($report);
+    }
+
     public function sendAction()
     {
         $to = trim((string) $this->getRequest()->getParam('to'));
