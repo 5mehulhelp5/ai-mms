@@ -118,6 +118,102 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
         $this->_emit($report);
     }
 
+    /**
+     * Probe the same mail server's IMAP-over-TLS endpoint with the same
+     * credentials that SMTP is using. cPanel/Exim hosts share one password
+     * across SMTP, IMAP, POP3 and webmail, so this disambiguates "password
+     * actually wrong" from "SMTP-only lockout / SMTP-disabled-for-mailbox".
+     *
+     *   /maildiagnose/imapauth
+     *
+     * IMAP OK   → password is correct; SMTP failure is server-side
+     *             (cPHulk lockout, outgoing-mail disabled for mailbox).
+     * IMAP fail → password Magento has does not match the mailbox.
+     */
+    public function imapauthAction()
+    {
+        $report = $this->_collectConfig();
+        $cfg    = $report['effective_config'];
+        $host   = (string) $cfg['host'];
+        $user   = (string) $cfg['username'];
+        $pass   = (string) Mage::getStoreConfig('smtppro/general/smtp_password');
+
+        $report['imap_auth_test'] = ['host' => $host, 'username' => $user];
+
+        if ($host === '' || $user === '' || $pass === '') {
+            $report['imap_auth_test']['error'] = 'host / username / password missing';
+            $this->_emit($report);
+            return;
+        }
+
+        // Try implicit TLS on 993 first; if that doesn't connect, fall
+        // back to plain 143 with STARTTLS-less LOGIN (cPanel allows it
+        // when "secure connection" is disabled).
+        $candidates = [
+            ['scheme' => 'tls',  'port' => 993],
+            ['scheme' => 'tcp',  'port' => 143],
+        ];
+
+        $attempts = [];
+        foreach ($candidates as $c) {
+            $endpoint = $c['scheme'] . '://' . $host . ':' . $c['port'];
+            $t0 = microtime(true);
+            $errno = 0; $errstr = '';
+            $sock = @stream_socket_client($endpoint, $errno, $errstr, 5,
+                STREAM_CLIENT_CONNECT,
+                stream_context_create(['ssl' => ['verify_peer' => false, 'verify_peer_name' => false]])
+            );
+            if (!$sock) {
+                $attempts[] = ['endpoint' => $endpoint, 'connect' => 'failed', 'error' => $errstr ?: ('errno ' . $errno)];
+                continue;
+            }
+            stream_set_timeout($sock, 5);
+            $banner = trim((string) fgets($sock, 1024));
+
+            // IMAP LOGIN — quote any " or \ in user/pass per RFC 3501.
+            $qUser = '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $user) . '"';
+            $qPass = '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $pass) . '"';
+            fwrite($sock, "a1 LOGIN {$qUser} {$qPass}\r\n");
+
+            $loginResp = '';
+            $deadline = microtime(true) + 5;
+            while (microtime(true) < $deadline) {
+                $line = fgets($sock, 4096);
+                if ($line === false) break;
+                $loginResp .= $line;
+                if (preg_match('/^a1 (OK|NO|BAD)\b/m', $line)) break;
+            }
+            @fwrite($sock, "a2 LOGOUT\r\n");
+            @fclose($sock);
+
+            $verdict = 'unknown';
+            if (preg_match('/^a1 OK\b/m',  $loginResp)) $verdict = 'accepted';
+            if (preg_match('/^a1 NO\b/m',  $loginResp)) $verdict = 'rejected';
+            if (preg_match('/^a1 BAD\b/m', $loginResp)) $verdict = 'bad_request';
+
+            $attempts[] = [
+                'endpoint'    => $endpoint,
+                'banner'      => $banner,
+                'login_reply' => trim($loginResp),
+                'verdict'     => $verdict,
+                'elapsed_ms'  => round((microtime(true) - $t0) * 1000),
+            ];
+
+            if ($verdict === 'accepted' || $verdict === 'rejected') break;
+        }
+
+        $report['imap_auth_test']['attempts'] = $attempts;
+        $accepted = false;
+        foreach ($attempts as $a) {
+            if (isset($a['verdict']) && $a['verdict'] === 'accepted') { $accepted = true; break; }
+        }
+        $report['imap_auth_test']['interpretation'] = $accepted
+            ? 'Password is correct mailbox-side. SMTP rejection is a server-side block (cPHulk lockout, or "outgoing mail" disabled for this mailbox in cPanel > Email Accounts > Restrictions).'
+            : 'Password Magento is sending does not match the mailbox. Re-set the password in cPanel and re-enter the SAME value via /maildiagnose/setcreds.';
+
+        $this->_emit($report);
+    }
+
     private function _collectConfig()
     {
         $store   = Mage::app()->getStore();
