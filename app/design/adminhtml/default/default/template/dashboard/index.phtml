@@ -4170,14 +4170,35 @@ div.dce-value::-webkit-scrollbar-thumb:hover{background:#64748b}
             <?php endif; ?>
 
             <?php
+            // Same parser the view-only developer page uses: prefer the
+            // LSN_DATA JSON marker (full structure), fall back to the
+            // <strong>...LU N: title...</strong> pattern for legacy courses.
             $_lessonTopics = array();
             $_descRaw = (string)$_editCourseData['description'];
-            if ($_descRaw !== '' && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_descRaw, $_ltm)) {
-                foreach ($_ltm[1] as $_lt) {
-                    $_lt = trim(html_entity_decode($_lt), " :\t\n\r\0\x0B");
-                    if ($_lt !== '') $_lessonTopics[] = $_lt;
+            if ($_descRaw !== '' && preg_match('/<!--\s*LSN_DATA:\s*(\[.*?\])\s*-->/s', $_descRaw, $_dlj)) {
+                $_dDecoded = json_decode($_dlj[1], true);
+                if (is_array($_dDecoded)) {
+                    foreach ($_dDecoded as $_t) {
+                        $_lessonTopics[] = array(
+                            'title'   => (string)(isset($_t['title']) ? $_t['title'] : ''),
+                            'subsecs' => isset($_t['subsecs']) && is_array($_t['subsecs']) ? array_values(array_filter($_t['subsecs'], 'strlen'))
+                                       : (isset($_t['subsec']) && $_t['subsec'] !== ''   ? array($_t['subsec']) : array()),
+                            'links'   => isset($_t['links']) && is_array($_t['links']) ? $_t['links'] : array(),
+                        );
+                    }
                 }
             }
+            if (empty($_lessonTopics) && $_descRaw !== ''
+                && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_descRaw, $_ltm)) {
+                foreach ($_ltm[1] as $_lt) {
+                    $_lt = trim(html_entity_decode($_lt), " :\t\n\r\0\x0B");
+                    if ($_lt !== '') {
+                        $_lessonTopics[] = array('title' => $_lt, 'subsecs' => array(), 'links' => array());
+                    }
+                }
+            }
+            $_dceTypeLabels = array('web'=>'Web','doc'=>'Document','yt'=>'YouTube','act'=>'Activity','qz'=>'Quiz');
+            $_dceTypeColors = array('web'=>'#2563eb','doc'=>'#16a34a','yt'=>'#dc2626','act'=>'#f59e0b','qz'=>'#a855f7');
             ?>
             <div class="dce-section" id="lesson">
                 <div class="dce-section-title" style="cursor:pointer;margin-bottom:0;padding-bottom:14px;" onclick="var c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';var cr=this.querySelector('.dce-caret');if(cr)cr.style.transform=c.style.display==='none'?'rotate(180deg)':''">
@@ -4188,15 +4209,58 @@ div.dce-value::-webkit-scrollbar-thumb:hover{background:#64748b}
                 <div style="margin-top:14px;padding-top:14px;border-top:1px solid #334155;">
                     <?php if (!empty($_lessonTopics)): ?>
                         <style>
-                        .dce-topic-card{background:#283548;border:1px solid #384a60;border-radius:10px;padding:16px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+                        .dce-topic-card{background:#283548;border:1px solid #384a60;border-radius:10px;margin-bottom:10px;overflow:hidden}
                         .dce-topic-card:last-child{margin-bottom:0}
+                        .dce-topic-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;cursor:pointer;user-select:none}
+                        .dce-topic-card-head:hover{background:#2f3d52}
                         .dce-topic-card-title{flex:1;font-size:15px;font-weight:700;color:#f1f5f9}
-                        .dce-topic-card-caret{color:#94a3b8;flex-shrink:0}
+                        .dce-topic-card-caret{color:#94a3b8;flex-shrink:0;transition:transform .2s}
+                        .dce-topic-card.open .dce-topic-card-caret{transform:rotate(180deg)}
+                        .dce-topic-card-body{display:none;padding:0 18px 16px;border-top:1px solid #384a60}
+                        .dce-topic-card.open .dce-topic-card-body{display:block}
+                        .dce-topic-subsec{display:flex;align-items:center;gap:10px;padding:10px 0;color:#cbd5e1;font-size:14px;font-weight:600}
+                        .dce-topic-subsec svg{color:#22c55e;flex-shrink:0}
+                        .dce-topic-link{display:flex;align-items:center;gap:10px;background:#1f2a3a;border:1px solid #384a60;border-radius:8px;padding:10px 12px;margin:8px 0;text-decoration:none;color:inherit}
+                        .dce-topic-link:hover{border-color:#60a5fa}
+                        .dce-topic-link-tag{flex-shrink:0;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:800;letter-spacing:.5px;color:#fff;width:48px;text-align:center}
+                        .dce-topic-link-title{flex:1;font-size:13.5px;color:#f1f5f9;font-weight:600}
+                        .dce-topic-link-url{flex-shrink:0;color:#64748b;font-size:11px;font-family:monospace;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+                        .dce-topic-empty{color:#64748b;font-size:13px;font-style:italic;padding:8px 0}
                         </style>
-                        <?php foreach ($_lessonTopics as $_tp): ?>
+                        <?php foreach ($_lessonTopics as $_tp):
+                            $_hasBody = !empty($_tp['subsecs']) || !empty($_tp['links']);
+                        ?>
                         <div class="dce-topic-card">
-                            <div class="dce-topic-card-title"><?php echo htmlspecialchars($_tp) ?></div>
-                            <svg class="dce-topic-card-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                            <div class="dce-topic-card-head" onclick="this.parentNode.classList.toggle('open')">
+                                <div class="dce-topic-card-title"><?php echo htmlspecialchars($_tp['title']) ?></div>
+                                <svg class="dce-topic-card-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
+                            <div class="dce-topic-card-body">
+                                <?php if (!empty($_tp['subsecs'])): foreach ($_tp['subsecs'] as $_ss): ?>
+                                <div class="dce-topic-subsec">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                    <span><?php echo htmlspecialchars($_ss) ?></span>
+                                </div>
+                                <?php endforeach; endif; ?>
+                                <?php if (!empty($_tp['links'])): foreach ($_tp['links'] as $_lnk):
+                                    $_lt = isset($_lnk['type'])  ? strtolower((string)$_lnk['type']) : 'web';
+                                    $_lh = isset($_lnk['url'])   ? (string)$_lnk['url']   : '';
+                                    $_lTitle = isset($_lnk['title']) ? (string)$_lnk['title'] : '';
+                                    if ($_lTitle === '') $_lTitle = $_lh;
+                                    $_lLabel = isset($_dceTypeLabels[$_lt]) ? $_dceTypeLabels[$_lt] : strtoupper($_lt);
+                                    $_lColor = isset($_dceTypeColors[$_lt]) ? $_dceTypeColors[$_lt] : '#475569';
+                                    $_isLink = $_lh !== '';
+                                ?>
+                                <<?php echo $_isLink ? 'a' : 'div' ?> class="dce-topic-link"<?php if ($_isLink): ?> href="<?php echo htmlspecialchars($_lh) ?>" target="_blank" rel="noopener"<?php endif; ?>>
+                                    <span class="dce-topic-link-tag" style="background:<?php echo $_lColor ?>;"><?php echo strtoupper($_lLabel) ?></span>
+                                    <span class="dce-topic-link-title"><?php echo htmlspecialchars($_lTitle) ?></span>
+                                    <?php if ($_isLink): ?><span class="dce-topic-link-url"><?php echo htmlspecialchars($_lh) ?></span><?php endif; ?>
+                                </<?php echo $_isLink ? 'a' : 'div' ?>>
+                                <?php endforeach; endif; ?>
+                                <?php if (!$_hasBody): ?>
+                                <div class="dce-topic-empty">No content for this topic yet.</div>
+                                <?php endif; ?>
+                            </div>
                         </div>
                         <?php endforeach; ?>
                     <?php else: ?>
