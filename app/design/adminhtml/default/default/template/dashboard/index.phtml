@@ -2764,6 +2764,7 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 .lsn-tag-doc{background:#16a34a}
                 .lsn-tag-act{background:#f59e0b}
                 .lsn-tag-qz{background:#a855f7}
+                .lsn-tag-txt{background:#64748b}
                 .lsn-link-title{flex:1;min-width:0;background:transparent;border:none;color:#f1f5f9;font-size:14px;font-weight:600;outline:none;padding:4px 6px;border-radius:4px;font-family:inherit}
                 .lsn-link-title:focus{background:rgba(96,165,250,.1)}
                 .lsn-link-url{flex:1;min-width:0;background:transparent;border:none;color:#cbd5e1;font-size:13px;outline:none;padding:4px 6px;border-radius:4px;font-family:monospace;overflow:hidden;text-overflow:ellipsis}
@@ -2784,16 +2785,32 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 </button>
                 <script>
                 (function(){
-                    // Seed topics from description HTML
-                    var seeded = <?php
-                        $_existing = array();
+                    // Seed topics. Prefer the canonical JSON marker we wrote on
+                    // the previous save (lossless round-trip of subsec / text /
+                    // typed links), falling back to the legacy <strong> parser
+                    // for courses last edited before the visual editor learned
+                    // to persist itself.
+                    var topics = <?php
                         $_loRaw = (string)$_editCourseData['learning_outcomes'];
-                        if ($_loRaw !== '' && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_loRaw, $_lm)) {
-                            foreach ($_lm[1] as $_t) $_existing[] = trim(html_entity_decode($_t), " :\t\n\r\0\x0B");
+                        $_seed = array();
+                        if (preg_match('/<!--\s*LSN_DATA:\s*(\[.*?\])\s*-->/s', $_loRaw, $_lj)) {
+                            $_decoded = json_decode($_lj[1], true);
+                            if (is_array($_decoded)) {
+                                $_seed = $_decoded;
+                            }
                         }
-                        echo json_encode($_existing);
+                        if (empty($_seed) && $_loRaw !== ''
+                            && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_loRaw, $_lm)) {
+                            foreach ($_lm[1] as $_t) {
+                                $_seed[] = array(
+                                    'title'  => trim(html_entity_decode($_t), " :\t\n\r\0\x0B"),
+                                    'subsec' => '',
+                                    'links'  => array(),
+                                );
+                            }
+                        }
+                        echo json_encode($_seed);
                     ?>;
-                    var topics = seeded.map(function(t){ return { title: t, subsec: '', links: [] }; });
 
                     function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
                     function syncJson(){ document.getElementById('lsn-topics-json').value = JSON.stringify(topics); }
@@ -2806,13 +2823,18 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                             box.className = 'lsn-topic' + (t._open ? ' open' : '');
                             var linksHtml = '';
                             (t.links || []).forEach(function(l, li){
-                                var cls = 'lsn-tag-' + (l.type || 'web').toLowerCase();
-                                var tag = (l.type || 'web').toUpperCase();
+                                var type = (l.type || 'web').toLowerCase();
+                                var cls = 'lsn-tag-' + type;
+                                var tag = type === 'txt' ? 'TEXT' : type.toUpperCase();
+                                var titleInput = '<input type="text" class="lsn-link-title" value="' + esc(l.title) + '" placeholder="' + (type === 'txt' ? 'Text' : 'Title') + '" onchange="lsnEditLink(' + ti + ',' + li + ',\'title\',this.value)" />';
+                                var urlInput = type === 'txt'
+                                    ? ''
+                                    : '<input type="text" class="lsn-link-url" value="' + esc(l.url) + '" placeholder="URL" onchange="lsnEditLink(' + ti + ',' + li + ',\'url\',this.value)" />';
                                 linksHtml += '<div class="lsn-link">' +
                                     '<div class="lsn-link-drag"><span></span><span></span><span></span></div>' +
                                     '<span class="lsn-tag ' + cls + '">' + tag + '</span>' +
-                                    '<input type="text" class="lsn-link-title" value="' + esc(l.title) + '" placeholder="Title" onchange="lsnEditLink(' + ti + ',' + li + ',\'title\',this.value)" />' +
-                                    '<input type="text" class="lsn-link-url" value="' + esc(l.url) + '" placeholder="URL" onchange="lsnEditLink(' + ti + ',' + li + ',\'url\',this.value)" />' +
+                                    titleInput +
+                                    urlInput +
                                     '<button type="button" class="lsn-link-del" onclick="lsnDeleteLink(' + ti + ',' + li + ')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>' +
                                 '</div>';
                             });
@@ -2830,6 +2852,7 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                                     '</div>' +
                                     linksHtml +
                                     '<div class="lsn-add-row">' +
+                                        '<button type="button" onclick="lsnAddLink(' + ti + ',\'txt\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Text</button>' +
                                         '<button type="button" onclick="lsnAddLink(' + ti + ',\'web\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Web</button>' +
                                         '<button type="button" onclick="lsnAddLink(' + ti + ',\'doc\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Document</button>' +
                                         '<button type="button" onclick="lsnAddLink(' + ti + ',\'yt\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> YouTube</button>' +
@@ -2871,6 +2894,64 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                         topics[ti].links[li][field] = val;
                         syncJson();
                     };
+
+                    // Persistence: serialise topics into the description field
+                    // before the form submits. The HTML body stays human-readable
+                    // (so anyone editing description directly still sees the
+                    // structure), and a hidden JSON comment lets us round-trip
+                    // exactly on next load.
+                    function serializeTopicsToHtml() {
+                        var typeLabels = { web:'Web', doc:'Document', yt:'YouTube', act:'Activity', qz:'Quiz' };
+                        // Strip transient fields (_open) before persisting.
+                        var clean = topics.map(function(t){
+                            return {
+                                title:  t.title  || '',
+                                subsec: t.subsec || '',
+                                links:  (t.links || []).map(function(l){
+                                    return { type: l.type || 'web', title: l.title || '', url: l.url || '' };
+                                })
+                            };
+                        });
+                        var marker = '<!-- LSN_DATA: ' + JSON.stringify(clean).replace(/-->/g, '--&gt;') + ' -->';
+                        var html = marker + '\n';
+                        clean.forEach(function(t){
+                            html += '<p><strong>' + esc(t.title || 'Topic') + '</strong></p>\n';
+                            if (t.subsec) {
+                                html += '<p><em>' + esc(t.subsec) + '</em></p>\n';
+                            }
+                            if (t.links.length) {
+                                html += '<ul>\n';
+                                t.links.forEach(function(l){
+                                    if (l.type === 'txt') {
+                                        html += '  <li>' + esc(l.title || '') + '</li>\n';
+                                    } else {
+                                        var lbl = typeLabels[l.type] || (l.type || '').toUpperCase();
+                                        var titleText = l.title || l.url || '';
+                                        if (l.url) {
+                                            html += '  <li><a href="' + esc(l.url) + '" target="_blank" rel="noopener">'
+                                                  + esc(titleText) + '</a> <em>[' + lbl + ']</em></li>\n';
+                                        } else {
+                                            html += '  <li>' + esc(titleText) + ' <em>[' + lbl + ']</em></li>\n';
+                                        }
+                                    }
+                                });
+                                html += '</ul>\n';
+                            }
+                        });
+                        return html;
+                    }
+
+                    var dcfForm = document.getElementById('dcf-form');
+                    if (dcfForm) {
+                        dcfForm.addEventListener('submit', function(){
+                            // Empty topics list means the user cleared the editor;
+                            // leave whatever they typed in the description textarea
+                            // alone instead of blanking it.
+                            if (!topics.length) return;
+                            var ta = dcfForm.querySelector('textarea[name="learning_outcomes"]');
+                            if (ta) ta.value = serializeTopicsToHtml();
+                        }, false);
+                    }
 
                     render();
                 })();
