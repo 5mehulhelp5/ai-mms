@@ -223,7 +223,7 @@ $_specialPriceStoreLabel = $this->getProductAttribute('special_price')->getStore
 </span>
 <?php /*echo  $_coreHelper->formatPrice($_finalPrice + ($_finalPrice* 0.09), true); */?>
 
-(GST-inclusive)</div><style>.gst_tax .price { color:grey !important;font-size: 2em !important;}</style>
+(GST-inclusive)</div><style>.gst_tax .price { color:grey !important;font-size: 1em !important;}</style>
 				<?php } endif; ?>
         <?php endif; ?>
     <?php else: /* if ($_finalPrice == $_price): */ ?>
@@ -404,7 +404,7 @@ $_specialPriceStoreLabel = $this->getProductAttribute('special_price')->getStore
                     <?php echo $_coreHelper->formatPrice($_finalPrice, false) ?>
                 </span><?php if($_storeId==1 || $_storeId==7)  { ?><span style='font-weight:bold' class='gst_price'>(GST-exclusive)</span> 
 <span class='gst_price' > <div class="gst_tax">
-<?php echo  $_coreHelper->formatPrice($_finalPrice + ($_finalPrice* 0.09), true); ?></span>(GST-inclusive)</div><style>.gst_tax .price { color:grey !important;font-size: 2em !important;}</style>
+<?php echo  $_coreHelper->formatPrice($_finalPrice + ($_finalPrice* 0.09), true); ?></span>(GST-inclusive)</div><style>.gst_tax .price { color:grey !important;font-size: 1em !important;}</style>
 				<?php } ?>
                 </p>
             <?php endif; ?>
