@@ -52,6 +52,33 @@
                     </mmd_email_validate_customer>
                 </observers>
             </customer_save_before>
+            <sales_order_place_after>
+                <observers>
+                    <mmd_email_send_course_registration>
+                        <type>singleton</type>
+                        <class>mmd_email/observer</class>
+                        <method>sendCourseRegistrationEmail</method>
+                    </mmd_email_send_course_registration>
+                </observers>
+            </sales_order_place_after>
         </events>
+        <template>
+            <email>
+                <mmd_email_course_registration translate="label" module="mmd_email">
+                    <label>Course Registration Confirmation</label>
+                    <file>mmd_email/course_registration.html</file>
+                    <type>html</type>
+                </mmd_email_course_registration>
+            </email>
+        </template>
     </global>
+    <default>
+        <mmd_email>
+            <course_registration>
+                <enabled>1</enabled>
+                <template>mmd_email_course_registration</template>
+                <identity>sales</identity>
+            </course_registration>
+        </mmd_email>
+    </default>
 </config>
