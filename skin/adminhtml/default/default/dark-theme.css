@@ -907,6 +907,24 @@ input.validation-failed, textarea.validation-failed {
 /* Form rows */
 .form-list td, .form-list th { color: var(--t3) !important; }
 .form-list td.scope-label { color: var(--t5) !important; }
+/* Order View info panels — let long emails / store names / addresses
+   wrap inside the box instead of getting clipped by overflow:hidden.
+   Targets the value column on the read-only Order Information /
+   Account Information / Billing Address / Funding panels. */
+.box-left .form-list td.value,
+.box-right .form-list td.value,
+.box-left .form-list td.value strong,
+.box-right .form-list td.value strong,
+.box-left .form-list td.value a,
+.box-right .form-list td.value a {
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+}
+/* Same for the Account Information block markup, which uses
+   <td><strong>email</strong></td> directly without form-list wrappers. */
+.box-left .order-account-information td,
+.box-right .order-account-information td { word-break: break-word !important; white-space: normal !important; }
 /* Checkbox */
 input[type="checkbox"] {
     width: 16px !important;
@@ -915,10 +933,22 @@ input[type="checkbox"] {
 }
 
 /* === 12. Tabs === */
-ul.tabs, ul.tabs a, ul.tabs span,
+ul.tabs, ul.tabs a,
 body ul.tabs, body ul.tabs a {
     background: var(--d4) !important;
     background-image: none !important;
+}
+/* Magento's tab markup wraps the label in <span> alongside empty
+   status spans (.changes / .error). The wrapper span should inherit
+   the tab background, but the empty status spans must stay invisible
+   — otherwise they render as floating filled rectangles next to the
+   tab label. */
+ul.tabs a span { background: transparent !important; background-image: none !important; }
+ul.tabs a span.changed,
+ul.tabs a span.changes,
+ul.tabs a span.error,
+ul.tabs a span.notice {
+    display: none !important;
 }
 ul.tabs a {
     color: var(--t4) !important;
@@ -932,6 +962,76 @@ ul.tabs a.active, ul.tabs a.active span {
     color: var(--blue) !important;
     font-weight: 600 !important;
     border-left: 3px solid var(--blue) !important;
+}
+
+/* === Order View detail — horizontal tabs below the action bar === */
+/* JS (`relocateOrderTabs` in sidebar-nav-v2.js) moves the tabs <ul>
+   out of .side-col and into .main-col-inner right after .content-header.
+   We hide the now-empty .side-col and let .main-col take full width.
+   `is-order-view` lives on <body> via layout XML and on <html> via JS. */
+body.is-order-view .side-col,
+html.is-order-view .side-col { display: none !important; }
+body.is-order-view div.main-col,
+html.is-order-view div.main-col {
+    float: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+/* Render the relocated tabs UL as a horizontal bar with a small gap
+   between the action-buttons row above and the order cards below. */
+body.is-order-view ul#sales_order_view_tabs,
+html.is-order-view ul#sales_order_view_tabs {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    padding: 0 !important;
+    margin: 4px 0 18px 0 !important;
+    background: transparent !important;
+    border-bottom: 2px solid var(--b1) !important;
+    list-style: none !important;
+    width: 100% !important;
+}
+body.is-order-view ul#sales_order_view_tabs li,
+html.is-order-view ul#sales_order_view_tabs li {
+    display: inline-block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    width: auto !important;
+    float: none !important;
+}
+body.is-order-view ul#sales_order_view_tabs li a,
+html.is-order-view ul#sales_order_view_tabs li a {
+    display: inline-block !important;
+    background: var(--d4) !important;
+    color: var(--t4) !important;
+    border: 1px solid var(--b1) !important;
+    border-bottom: none !important;
+    border-radius: 8px 8px 0 0 !important;
+    padding: 10px 18px !important;
+    margin: 0 !important;
+    font-weight: 500 !important;
+    width: auto !important;
+}
+body.is-order-view ul#sales_order_view_tabs li a:hover,
+html.is-order-view ul#sales_order_view_tabs li a:hover {
+    background: var(--d5) !important;
+    color: var(--blue) !important;
+}
+body.is-order-view ul#sales_order_view_tabs li a.active,
+body.is-order-view ul#sales_order_view_tabs li a.active span,
+html.is-order-view ul#sales_order_view_tabs li a.active,
+html.is-order-view ul#sales_order_view_tabs li a.active span {
+    background: var(--d3) !important;
+    color: var(--blue) !important;
+    font-weight: 600 !important;
+    border-left: 1px solid var(--b1) !important;
+    border-bottom: 2px solid var(--d3) !important;
+    margin-bottom: -2px !important;
+    position: relative;
+    z-index: 1;
 }
 /* Horizontal tabs */
 ul.tabs-horiz, body ul.tabs-horiz {

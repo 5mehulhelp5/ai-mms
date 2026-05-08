@@ -2,6 +2,46 @@
  * Sidebar Navigation — Accordion toggle, collapse, hover handler cleanup
  * Uses Prototype.js (loaded globally in Magento admin)
  */
+
+// Stamp <html> with a page-context class as early as possible so CSS
+// scoped to specific pages applies on the very first paint without
+// waiting for dom:loaded. Used by the Order View horizontal-tabs layout.
+(function () {
+    var p = (window.location.pathname || '').toLowerCase();
+    if (p.indexOf('/sales_order/view/') !== -1) {
+        document.documentElement.classList.add('is-order-view');
+    }
+})();
+
+// On Order View detail pages, physically move the tabs UL out of the
+// left rail (.side-col) and into the main column right after the
+// action-buttons row (.content-header). This places the tabs below
+// the Back/Edit/Cancel/... buttons and above the Order / Account
+// info cards — what the user actually expects from "tabs at the top
+// of the page". CSS alone can't reorder across .side-col / .main-col
+// because each column has its own children.
+document.addEventListener('DOMContentLoaded', function relocateOrderTabs() {
+    if (!document.documentElement.classList.contains('is-order-view')) return;
+    var tabs = document.getElementById('sales_order_view_tabs');
+    if (!tabs) return;
+    var mainInner = document.querySelector('.main-col-inner') || document.querySelector('.main-col');
+    if (!mainInner) return;
+    // Insert right after the content-header (action buttons row). If
+    // there's no content-header (some sub-actions render without one),
+    // fall back to the top of the main column.
+    var contentHeader = mainInner.querySelector('.content-header');
+    var anchor = contentHeader || mainInner.firstChild;
+    if (anchor && anchor.nextSibling) {
+        mainInner.insertBefore(tabs, anchor.nextSibling);
+    } else {
+        mainInner.appendChild(tabs);
+    }
+    // Hide the now-empty side-col entirely so it doesn't reserve
+    // vertical space (it still has the "Order View" h3 etc.).
+    var sideCol = document.querySelector('.side-col');
+    if (sideCol) sideCol.style.display = 'none';
+});
+
 document.observe('dom:loaded', function() {
     var sidebar = $('admin-sidebar');
     var toggleBtn = $('sidebar-toggle');
@@ -134,7 +174,19 @@ document.observe('dom:loaded', function() {
     // 7. Advanced Filters Panel
     //    Extract inline tr.filter inputs and build a collapsible panel above each grid
     //    Grid content is loaded via AJAX after dom:loaded, so we wait for it
+    //
+    //    Skip detail-view pages — their inner grids (e.g. order items,
+    //    invoice line items) shouldn't surface stray Filters toggles in
+    //    the page header. Detect via URL: `/view/` or `/edit/` segments.
+    function isDetailViewPage() {
+        var p = (window.location.pathname || '').toLowerCase();
+        return p.indexOf('/view/') !== -1
+            || p.indexOf('/edit/') !== -1
+            || p.indexOf('/new/')  !== -1
+            || p.indexOf('/order_id/') !== -1;
+    }
     function initAdvancedFilters() {
+        if (isDetailViewPage()) return;
         var grids = $$('.grid');
         var anyFilterFound = false;
         grids.each(function(grid) {
@@ -539,7 +591,7 @@ document.observe('dom:loaded', function() {
                 setTimeout(function() {
                     initModernPagination();
                     removeRssLinks();
-                    if ($$('.advanced-filter-panel').length === 0) {
+                    if (!isDetailViewPage() && $$('.advanced-filter-panel').length === 0) {
                         buildFilterPanels();
                     }
                 }, 200);
@@ -1143,8 +1195,31 @@ document.observe('dom:loaded', function() {
         injectGridKPIs();
     }
 
-    // Run on initial load
-    setTimeout(applyGridEnhancements, 500);
+    // Run on initial load. Retries cover slow first paints where the
+    // grid's tbody isn't laid out yet at the 500ms mark — without these,
+    // injectGridKPIs bails at total === 0 and the cards never appear
+    // until a pagination/filter AJAX retriggers it.
+    setTimeout(applyGridEnhancements, 200);
+    setTimeout(applyGridEnhancements, 800);
+    setTimeout(applyGridEnhancements, 1800);
+
+    // Watch for grid rows arriving late (e.g. AJAX-loaded grids that
+    // don't go through Prototype's Ajax.Responders). When the tbody
+    // gains rows after the retries above, inject immediately.
+    if (typeof MutationObserver !== 'undefined') {
+        var kpiObsScheduled = false;
+        var kpiObserver = new MutationObserver(function() {
+            if (kpiObsScheduled) return;
+            kpiObsScheduled = true;
+            setTimeout(function() {
+                kpiObsScheduled = false;
+                applyGridEnhancements();
+            }, 150);
+        });
+        document.querySelectorAll('.grid table.data tbody, [id$="_grid"] tbody').forEach(function(tbody) {
+            kpiObserver.observe(tbody, { childList: true });
+        });
+    }
 
     // Re-run after every AJAX request (covers grid pagination/sort/filter)
     if (typeof Ajax !== 'undefined' && Ajax.Responders) {

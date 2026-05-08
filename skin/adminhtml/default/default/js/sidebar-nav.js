@@ -983,8 +983,31 @@ document.observe('dom:loaded', function() {
         injectGridKPIs();
     }
 
-    // Run on initial load
-    setTimeout(applyGridEnhancements, 500);
+    // Run on initial load. Retries cover slow first paints where the
+    // grid's tbody isn't laid out yet at the 500ms mark — without these,
+    // injectGridKPIs bails at total === 0 and the cards never appear
+    // until a pagination/filter AJAX retriggers it.
+    setTimeout(applyGridEnhancements, 200);
+    setTimeout(applyGridEnhancements, 800);
+    setTimeout(applyGridEnhancements, 1800);
+
+    // Watch for grid rows arriving late (e.g. AJAX-loaded grids that
+    // don't go through Prototype's Ajax.Responders). When the tbody
+    // gains rows after the retries above, inject immediately.
+    if (typeof MutationObserver !== 'undefined') {
+        var kpiObsScheduled = false;
+        var kpiObserver = new MutationObserver(function() {
+            if (kpiObsScheduled) return;
+            kpiObsScheduled = true;
+            setTimeout(function() {
+                kpiObsScheduled = false;
+                applyGridEnhancements();
+            }, 150);
+        });
+        document.querySelectorAll('.grid table.data tbody, [id$="_grid"] tbody').forEach(function(tbody) {
+            kpiObserver.observe(tbody, { childList: true });
+        });
+    }
 
     // Re-run after every AJAX request (covers grid pagination/sort/filter)
     if (typeof Ajax !== 'undefined' && Ajax.Responders) {

@@ -77,6 +77,9 @@
             <action method="addJs"><file>mage/adminhtml/giftmessage.js</file></action>
             <action method="addJs"><file>mage/adminhtml/giftoptions/tooltip.js</file></action>
         </reference>
+        <reference name="root">
+            <action method="addBodyClass"><className>is-order-view</className></action>
+        </reference>
         <reference name="content">
             <block type="adminhtml/sales_order_view" name="sales_order_edit"></block>
         </reference>
