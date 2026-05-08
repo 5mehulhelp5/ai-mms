@@ -2975,19 +2975,34 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                             var ta = dcfForm.querySelector('textarea[name="learning_outcomes"]');
                             if (ta) ta.value = serializeTopicsToHtml();
                         }
-                        // Path 1: native submit (the "Save Changes" type=submit
-                        // button, or pressing Enter in a field) — submit event
-                        // fires.
+
+                        // Three paths cover every way this form can submit:
+                        //
+                        // 1. Native submit event — fires for the type=submit
+                        //    "Save Changes" button and for Enter-in-a-field.
                         dcfForm.addEventListener('submit', flushTopicsToTextarea, false);
-                        // Path 2: programmatic submit (the "Save & Continue"
-                        // onclick calls form.submit() directly, which by spec
-                        // does NOT dispatch the submit event). Monkey-patch
-                        // form.submit so both paths run the serializer.
-                        var nativeSubmit = HTMLFormElement.prototype.submit.bind(dcfForm);
-                        dcfForm.submit = function(){
-                            flushTopicsToTextarea();
-                            return nativeSubmit();
-                        };
+                        // 2. Programmatic form.submit() — used by the
+                        //    "Save & Continue" button. By HTML spec this does
+                        //    NOT dispatch the submit event, so we shadow the
+                        //    prototype method on this instance.
+                        try {
+                            var nativeSubmit = HTMLFormElement.prototype.submit.bind(dcfForm);
+                            dcfForm.submit = function(){
+                                flushTopicsToTextarea();
+                                return nativeSubmit();
+                            };
+                        } catch (e) { /* some browsers refuse the override */ }
+                        // 3. Belt-and-suspenders — attach capture-phase click
+                        //    listeners directly on every save button so even
+                        //    if the prototype shadow above silently fails,
+                        //    serialization still runs before the click's own
+                        //    inline-onclick handler fires.
+                        var saveBtns = document.querySelectorAll(
+                            '.dcf-btn-save, .dcf-btn-save-cont, button[type="submit"].dcf-btn'
+                        );
+                        saveBtns.forEach(function(btn){
+                            btn.addEventListener('click', flushTopicsToTextarea, true);
+                        });
                     }
 
                     render();
