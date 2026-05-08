@@ -4592,19 +4592,39 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         <?php endif; ?>
     </div>
 
-    <!-- DEVELOPER: Lesson (topic cards extracted from description) -->
+    <!-- DEVELOPER: Lesson (collapsible topic cards driven by the LSN_DATA
+         JSON marker the editor writes; falls back to <strong>-only parse
+         for courses last edited before that marker existed) -->
     <?php
     $_devLessonTopics = array();
     try {
         $_devProd = Mage::getModel('catalog/product')->load($_selectedCourse['id']);
         $_descRaw = (string)$_devProd->getData('description');
-        if ($_descRaw !== '' && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_descRaw, $_ltm)) {
+        if ($_descRaw !== '' && preg_match('/<!--\s*LSN_DATA:\s*(\[.*?\])\s*-->/s', $_descRaw, $_lj)) {
+            $_decoded = json_decode($_lj[1], true);
+            if (is_array($_decoded)) {
+                foreach ($_decoded as $_t) {
+                    $_devLessonTopics[] = array(
+                        'title'   => (string)(isset($_t['title'])   ? $_t['title']   : ''),
+                        'subsecs' => isset($_t['subsecs']) && is_array($_t['subsecs']) ? array_values(array_filter($_t['subsecs'], 'strlen'))
+                                   : (isset($_t['subsec']) && $_t['subsec'] !== ''   ? array($_t['subsec']) : array()),
+                        'links'   => isset($_t['links']) && is_array($_t['links']) ? $_t['links'] : array(),
+                    );
+                }
+            }
+        }
+        if (empty($_devLessonTopics) && $_descRaw !== ''
+            && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_descRaw, $_ltm)) {
             foreach ($_ltm[1] as $_lt) {
                 $_lt = trim(html_entity_decode($_lt), " :\t\n\r\0\x0B");
-                if ($_lt !== '') $_devLessonTopics[] = $_lt;
+                if ($_lt !== '') {
+                    $_devLessonTopics[] = array('title' => $_lt, 'subsecs' => array(), 'links' => array());
+                }
             }
         }
     } catch (Exception $e) {}
+    $_lessonTypeLabels = array('web'=>'Web','doc'=>'Document','yt'=>'YouTube','act'=>'Activity','qz'=>'Quiz');
+    $_lessonTypeColors = array('web'=>'#2563eb','doc'=>'#16a34a','yt'=>'#dc2626','act'=>'#f59e0b','qz'=>'#a855f7');
     ?>
     <div class="lcd-section" id="lesson">
         <div class="lcd-section-title" style="cursor:pointer;margin-bottom:0;" onclick="var c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';this.querySelector('.lcd-caret').style.transform=c.style.display==='none'?'rotate(180deg)':''">
@@ -4615,15 +4635,58 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
             <div style="border-top:1px solid #334155;margin-top:14px;padding-top:14px;">
                 <?php if (!empty($_devLessonTopics)): ?>
                 <style>
-                .lcd-topic-card{background:#283548;border:1px solid #384a60;border-radius:10px;padding:16px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+                .lcd-topic-card{background:#283548;border:1px solid #384a60;border-radius:10px;margin-bottom:10px;overflow:hidden}
                 .lcd-topic-card:last-child{margin-bottom:0}
+                .lcd-topic-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;cursor:pointer;user-select:none}
+                .lcd-topic-card-head:hover{background:#2f3d52}
                 .lcd-topic-card-title{flex:1;font-size:15px;font-weight:700;color:#f1f5f9}
-                .lcd-topic-card-caret{color:#94a3b8;flex-shrink:0}
+                .lcd-topic-card-caret{color:#94a3b8;flex-shrink:0;transition:transform .2s}
+                .lcd-topic-card.open .lcd-topic-card-caret{transform:rotate(180deg)}
+                .lcd-topic-card-body{display:none;padding:0 18px 16px;border-top:1px solid #384a60}
+                .lcd-topic-card.open .lcd-topic-card-body{display:block}
+                .lcd-topic-subsec{display:flex;align-items:center;gap:10px;padding:10px 0;color:#cbd5e1;font-size:14px;font-weight:600}
+                .lcd-topic-subsec svg{color:#22c55e;flex-shrink:0}
+                .lcd-topic-link{display:flex;align-items:center;gap:10px;background:#1f2a3a;border:1px solid #384a60;border-radius:8px;padding:10px 12px;margin:8px 0;text-decoration:none;color:inherit}
+                .lcd-topic-link:hover{border-color:#60a5fa}
+                .lcd-topic-link-tag{flex-shrink:0;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:800;letter-spacing:.5px;color:#fff;width:48px;text-align:center}
+                .lcd-topic-link-title{flex:1;font-size:13.5px;color:#f1f5f9;font-weight:600}
+                .lcd-topic-link-url{flex-shrink:0;color:#64748b;font-size:11px;font-family:monospace;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+                .lcd-topic-empty{color:#64748b;font-size:13px;font-style:italic;padding:8px 0}
                 </style>
-                <?php foreach ($_devLessonTopics as $_tp): ?>
-                <div class="lcd-topic-card">
-                    <div class="lcd-topic-card-title"><?php echo htmlspecialchars($_tp) ?></div>
-                    <svg class="lcd-topic-card-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                <?php foreach ($_devLessonTopics as $_idx => $_tp):
+                    $_hasBody = !empty($_tp['subsecs']) || !empty($_tp['links']);
+                ?>
+                <div class="lcd-topic-card" data-lesson-card>
+                    <div class="lcd-topic-card-head" onclick="this.parentNode.classList.toggle('open')">
+                        <div class="lcd-topic-card-title"><?php echo htmlspecialchars($_tp['title']) ?></div>
+                        <svg class="lcd-topic-card-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </div>
+                    <div class="lcd-topic-card-body">
+                        <?php if (!empty($_tp['subsecs'])): foreach ($_tp['subsecs'] as $_ss): ?>
+                        <div class="lcd-topic-subsec">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            <span><?php echo htmlspecialchars($_ss) ?></span>
+                        </div>
+                        <?php endforeach; endif; ?>
+                        <?php if (!empty($_tp['links'])): foreach ($_tp['links'] as $_lnk):
+                            $_lt = isset($_lnk['type'])  ? strtolower((string)$_lnk['type']) : 'web';
+                            $_lh = isset($_lnk['url'])   ? (string)$_lnk['url']   : '';
+                            $_lTitle = isset($_lnk['title']) ? (string)$_lnk['title'] : '';
+                            if ($_lTitle === '') $_lTitle = $_lh;
+                            $_lLabel = isset($_lessonTypeLabels[$_lt]) ? $_lessonTypeLabels[$_lt] : strtoupper($_lt);
+                            $_lColor = isset($_lessonTypeColors[$_lt]) ? $_lessonTypeColors[$_lt] : '#475569';
+                            $_isLink = $_lh !== '';
+                        ?>
+                        <<?php echo $_isLink ? 'a' : 'div' ?> class="lcd-topic-link"<?php if ($_isLink): ?> href="<?php echo htmlspecialchars($_lh) ?>" target="_blank" rel="noopener"<?php endif; ?>>
+                            <span class="lcd-topic-link-tag" style="background:<?php echo $_lColor ?>;"><?php echo strtoupper($_lLabel) ?></span>
+                            <span class="lcd-topic-link-title"><?php echo htmlspecialchars($_lTitle) ?></span>
+                            <?php if ($_isLink): ?><span class="lcd-topic-link-url"><?php echo htmlspecialchars($_lh) ?></span><?php endif; ?>
+                        </<?php echo $_isLink ? 'a' : 'div' ?>>
+                        <?php endforeach; endif; ?>
+                        <?php if (!$_hasBody): ?>
+                        <div class="lcd-topic-empty">No content for this topic yet.</div>
+                        <?php endif; ?>
+                    </div>
                 </div>
                 <?php endforeach; ?>
                 <?php else: ?>
@@ -5002,26 +5065,92 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
          views show stale data unrelated to the actual course (fixed
          2026-05-07). -->
     <?php
+    // Same parser the developer view uses: prefer the LSN_DATA JSON marker
+    // for full structure (subsecs + typed links), fall back to flat
+    // <strong>...LU N: title...</strong> parse for legacy courses.
     $_sharedLessonTopics = array();
     try {
         $_sharedProd = Mage::getModel('catalog/product')->load($_selectedCourse['id']);
         $_sharedDescRaw = (string)$_sharedProd->getData('description');
-        if ($_sharedDescRaw !== '' && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_sharedDescRaw, $_sltm)) {
+        if ($_sharedDescRaw !== '' && preg_match('/<!--\s*LSN_DATA:\s*(\[.*?\])\s*-->/s', $_sharedDescRaw, $_slj)) {
+            $_sDecoded = json_decode($_slj[1], true);
+            if (is_array($_sDecoded)) {
+                foreach ($_sDecoded as $_t) {
+                    $_sharedLessonTopics[] = array(
+                        'title'   => (string)(isset($_t['title']) ? $_t['title'] : ''),
+                        'subsecs' => isset($_t['subsecs']) && is_array($_t['subsecs']) ? array_values(array_filter($_t['subsecs'], 'strlen'))
+                                   : (isset($_t['subsec']) && $_t['subsec'] !== ''   ? array($_t['subsec']) : array()),
+                        'links'   => isset($_t['links']) && is_array($_t['links']) ? $_t['links'] : array(),
+                    );
+                }
+            }
+        }
+        if (empty($_sharedLessonTopics) && $_sharedDescRaw !== ''
+            && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_sharedDescRaw, $_sltm)) {
             foreach ($_sltm[1] as $_lt) {
                 $_lt = trim(html_entity_decode($_lt), " :\t\n\r\0\x0B");
-                if ($_lt !== '') $_sharedLessonTopics[] = $_lt;
+                if ($_lt !== '') {
+                    $_sharedLessonTopics[] = array('title' => $_lt, 'subsecs' => array(), 'links' => array());
+                }
             }
         }
     } catch (Exception $e) {}
+    $_sharedTypeLabels = array('web'=>'Web','doc'=>'Document','yt'=>'YouTube','act'=>'Activity','qz'=>'Quiz');
+    $_sharedTypeColors = array('web'=>'#2563eb','doc'=>'#16a34a','yt'=>'#dc2626','act'=>'#f59e0b','qz'=>'#a855f7');
     ?>
     <div class="lcd-section" id="lesson">
-        <div class="lcd-section-title" style="padding-bottom:14px;border-bottom:2px solid #22d3ee;margin-bottom:4px;">Lesson <svg class="lcd-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg></div>
+        <div class="lcd-section-title" style="padding-bottom:14px;border-bottom:2px solid #22d3ee;margin-bottom:4px;">Lesson</div>
         <?php if (!empty($_sharedLessonTopics)): ?>
-        <?php foreach ($_sharedLessonTopics as $_t): ?>
-        <div class="lcd-topic" style="padding:16px 0;cursor:pointer;" onclick="var c=this.querySelector('.lcd-topic-caret');c.classList.toggle('lcd-caret-open');">
-            <div class="lcd-topic-head" style="margin-bottom:0;">
-                <div class="lcd-topic-title"><?php echo htmlspecialchars($_t) ?></div>
-                <svg class="lcd-topic-caret" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" style="transition:transform .2s;flex-shrink:0;"><polyline points="18 15 12 9 6 15"/></svg>
+        <style>
+        .lcd-shared-topic{background:#283548;border:1px solid #384a60;border-radius:10px;margin-bottom:10px;overflow:hidden}
+        .lcd-shared-topic:last-child{margin-bottom:0}
+        .lcd-shared-topic-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;cursor:pointer;user-select:none}
+        .lcd-shared-topic-head:hover{background:#2f3d52}
+        .lcd-shared-topic-title{flex:1;font-size:15px;font-weight:700;color:#f1f5f9}
+        .lcd-shared-topic-caret{color:#94a3b8;flex-shrink:0;transition:transform .2s}
+        .lcd-shared-topic.open .lcd-shared-topic-caret{transform:rotate(180deg)}
+        .lcd-shared-topic-body{display:none;padding:0 18px 14px;border-top:1px solid #384a60}
+        .lcd-shared-topic.open .lcd-shared-topic-body{display:block}
+        .lcd-shared-subsec{display:flex;align-items:center;gap:10px;padding:9px 0;color:#cbd5e1;font-size:14px;font-weight:600}
+        .lcd-shared-subsec svg{color:#22c55e;flex-shrink:0}
+        .lcd-shared-link{display:flex;align-items:center;gap:10px;background:#1f2a3a;border:1px solid #384a60;border-radius:8px;padding:9px 12px;margin:6px 0;text-decoration:none;color:inherit}
+        .lcd-shared-link:hover{border-color:#60a5fa}
+        .lcd-shared-link-tag{flex-shrink:0;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:800;letter-spacing:.5px;color:#fff;width:48px;text-align:center}
+        .lcd-shared-link-title{flex:1;font-size:13.5px;color:#f1f5f9;font-weight:600}
+        .lcd-shared-empty{color:#64748b;font-size:13px;font-style:italic;padding:8px 0}
+        </style>
+        <?php foreach ($_sharedLessonTopics as $_tp):
+            $_hasBody = !empty($_tp['subsecs']) || !empty($_tp['links']);
+        ?>
+        <div class="lcd-shared-topic">
+            <div class="lcd-shared-topic-head" onclick="this.parentNode.classList.toggle('open')">
+                <div class="lcd-shared-topic-title"><?php echo htmlspecialchars($_tp['title']) ?></div>
+                <svg class="lcd-shared-topic-caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="lcd-shared-topic-body">
+                <?php if (!empty($_tp['subsecs'])): foreach ($_tp['subsecs'] as $_ss): ?>
+                <div class="lcd-shared-subsec">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <span><?php echo htmlspecialchars($_ss) ?></span>
+                </div>
+                <?php endforeach; endif; ?>
+                <?php if (!empty($_tp['links'])): foreach ($_tp['links'] as $_lnk):
+                    $_lt = isset($_lnk['type'])  ? strtolower((string)$_lnk['type']) : 'web';
+                    $_lh = isset($_lnk['url'])   ? (string)$_lnk['url']   : '';
+                    $_lTitle = isset($_lnk['title']) ? (string)$_lnk['title'] : '';
+                    if ($_lTitle === '') $_lTitle = $_lh;
+                    $_lLabel = isset($_sharedTypeLabels[$_lt]) ? $_sharedTypeLabels[$_lt] : strtoupper($_lt);
+                    $_lColor = isset($_sharedTypeColors[$_lt]) ? $_sharedTypeColors[$_lt] : '#475569';
+                    $_isLink = $_lh !== '';
+                ?>
+                <<?php echo $_isLink ? 'a' : 'div' ?> class="lcd-shared-link"<?php if ($_isLink): ?> href="<?php echo htmlspecialchars($_lh) ?>" target="_blank" rel="noopener"<?php endif; ?>>
+                    <span class="lcd-shared-link-tag" style="background:<?php echo $_lColor ?>;"><?php echo strtoupper($_lLabel) ?></span>
+                    <span class="lcd-shared-link-title"><?php echo htmlspecialchars($_lTitle) ?></span>
+                </<?php echo $_isLink ? 'a' : 'div' ?>>
+                <?php endforeach; endif; ?>
+                <?php if (!$_hasBody): ?>
+                <div class="lcd-shared-empty">No content for this topic yet.</div>
+                <?php endif; ?>
             </div>
         </div>
         <?php endforeach; ?>
