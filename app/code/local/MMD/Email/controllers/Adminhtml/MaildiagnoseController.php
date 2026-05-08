@@ -40,7 +40,7 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
             if ($cfg['authentication'] && $cfg['authentication'] !== 'none') {
                 $transportConfig['auth']     = $cfg['authentication'];
                 $transportConfig['username'] = $cfg['username'];
-                $transportConfig['password'] = $this->_decrypt($cfg['password_encrypted']);
+                $transportConfig['password'] = (string) Mage::getStoreConfig('smtppro/general/smtp_password');
             }
             if ($cfg['ssl'] && $cfg['ssl'] !== 'none') {
                 $transportConfig['ssl'] = $cfg['ssl'];
@@ -76,8 +76,12 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
             return Mage::getStoreConfig($path, $storeId);
         };
 
-        $passwordEncrypted = $get('smtppro/general/smtp_password');
-        $passwordPlain     = $passwordEncrypted ? $this->_decrypt($passwordEncrypted) : '';
+        // getStoreConfig() auto-decrypts encrypted backend fields, so the
+        // value here is already plaintext. Don't expose it — mask all but
+        // the first and last char to confirm "we're sending something" without
+        // leaking the actual secret to anyone who can hit /maildiagnose.
+        $passwordPlain = (string) $get('smtppro/general/smtp_password');
+        $passwordMasked = $this->_mask($passwordPlain);
 
         return [
             'now'             => date('c'),
@@ -91,7 +95,7 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
                 'authentication'     => $get('smtppro/general/smtp_authentication'),
                 'username'           => $get('smtppro/general/smtp_username'),
                 'password_length'    => strlen($passwordPlain),
-                'password_encrypted' => $passwordEncrypted,
+                'password_masked'    => $passwordMasked,
                 'from_email'         => $get('trans_email/ident_sales/email'),
                 'from_name'          => $get('trans_email/ident_sales/name'),
                 'queue_usage'        => $get('smtppro/queue/usage'),
@@ -141,13 +145,16 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
         }
     }
 
-    private function _decrypt($value)
+    private function _mask($value)
     {
-        try {
-            return (string) Mage::helper('core')->decrypt($value);
-        } catch (Exception $e) {
+        $len = strlen($value);
+        if ($len === 0) {
             return '';
         }
+        if ($len <= 2) {
+            return str_repeat('*', $len);
+        }
+        return $value[0] . str_repeat('*', $len - 2) . $value[$len - 1];
     }
 
     private function _emit(array $payload)
