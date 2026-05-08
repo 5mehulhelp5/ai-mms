@@ -20,6 +20,17 @@
             <version>1.0.0</version>
         </MMD_Email>
     </modules>
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <mmd_email after="Mage_Adminhtml">MMD_Email_Adminhtml</mmd_email>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
     <global>
         <models>
             <mmd_email>
