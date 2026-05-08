@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_Email>
+            <active>true</active>
+            <codePool>local</codePool>
+            <depends>
+                <Mage_Core/>
+                <Mage_Customer/>
+                <Aschroder_SMTPPro/>
+            </depends>
+        </MMD_Email>
+    </modules>
+</config>

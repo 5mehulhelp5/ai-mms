@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Email — keeps transactional email working without a cron daemon.
+
+  Two responsibilities:
+
+  1. Auto-flush core/email_queue. The Docker image runs Apache only, no
+     crond, so Magento's queued mail (order confirmation, invoice,
+     shipment, etc.) would otherwise sit in the table forever. We
+     rewrite core/email_queue to extend Aschroder_SMTPPro_Model_Email_Queue
+     and trigger send() right after a message is queued — same SMTPPro
+     transport path that cron would have used.
+
+  2. MX-record validation on customer save. Catches typos like
+     @gnail.com / @gmial.com that pass the format-only check.
+-->
+<config>
+    <modules>
+        <MMD_Email>
+            <version>1.0.0</version>
+        </MMD_Email>
+    </modules>
+    <global>
+        <models>
+            <mmd_email>
+                <class>MMD_Email_Model</class>
+            </mmd_email>
+            <core>
+                <rewrite>
+                    <email_queue>MMD_Email_Model_Queue</email_queue>
+                </rewrite>
+            </core>
+        </models>
+        <events>
+            <customer_save_before>
+                <observers>
+                    <mmd_email_validate_customer>
+                        <type>singleton</type>
+                        <class>mmd_email/observer</class>
+                        <method>validateCustomerEmail</method>
+                    </mmd_email_validate_customer>
+                </observers>
+            </customer_save_before>
+        </events>
+    </global>
+</config>
