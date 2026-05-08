@@ -2764,7 +2764,10 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 .lsn-tag-doc{background:#16a34a}
                 .lsn-tag-act{background:#f59e0b}
                 .lsn-tag-qz{background:#a855f7}
-                .lsn-tag-txt{background:#64748b}
+                .lsn-subsec-del{background:transparent;border:none;cursor:pointer;color:#64748b;padding:4px;border-radius:4px;display:flex;flex-shrink:0}
+                .lsn-subsec-del:hover{color:#fb7185}
+                .lsn-add-subsec{background:transparent;border:1px dashed #475569;border-radius:8px;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;padding:8px 12px;display:inline-flex;align-items:center;gap:6px;margin-bottom:14px}
+                .lsn-add-subsec:hover{border-color:#22c55e;color:#22c55e}
                 .lsn-link-title{flex:1;min-width:0;background:transparent;border:none;color:#f1f5f9;font-size:14px;font-weight:600;outline:none;padding:4px 6px;border-radius:4px;font-family:inherit}
                 .lsn-link-title:focus{background:rgba(96,165,250,.1)}
                 .lsn-link-url{flex:1;min-width:0;background:transparent;border:none;color:#cbd5e1;font-size:13px;outline:none;padding:4px 6px;border-radius:4px;font-family:monospace;overflow:hidden;text-overflow:ellipsis}
@@ -2823,18 +2826,13 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                             box.className = 'lsn-topic' + (t._open ? ' open' : '');
                             var linksHtml = '';
                             (t.links || []).forEach(function(l, li){
-                                var type = (l.type || 'web').toLowerCase();
-                                var cls = 'lsn-tag-' + type;
-                                var tag = type === 'txt' ? 'TEXT' : type.toUpperCase();
-                                var titleInput = '<input type="text" class="lsn-link-title" value="' + esc(l.title) + '" placeholder="' + (type === 'txt' ? 'Text' : 'Title') + '" onchange="lsnEditLink(' + ti + ',' + li + ',\'title\',this.value)" />';
-                                var urlInput = type === 'txt'
-                                    ? ''
-                                    : '<input type="text" class="lsn-link-url" value="' + esc(l.url) + '" placeholder="URL" onchange="lsnEditLink(' + ti + ',' + li + ',\'url\',this.value)" />';
+                                var cls = 'lsn-tag-' + (l.type || 'web').toLowerCase();
+                                var tag = (l.type || 'web').toUpperCase();
                                 linksHtml += '<div class="lsn-link">' +
                                     '<div class="lsn-link-drag"><span></span><span></span><span></span></div>' +
                                     '<span class="lsn-tag ' + cls + '">' + tag + '</span>' +
-                                    titleInput +
-                                    urlInput +
+                                    '<input type="text" class="lsn-link-title" value="' + esc(l.title) + '" placeholder="Title" onchange="lsnEditLink(' + ti + ',' + li + ',\'title\',this.value)" />' +
+                                    '<input type="text" class="lsn-link-url" value="' + esc(l.url) + '" placeholder="URL" onchange="lsnEditLink(' + ti + ',' + li + ',\'url\',this.value)" />' +
                                     '<button type="button" class="lsn-link-del" onclick="lsnDeleteLink(' + ti + ',' + li + ')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>' +
                                 '</div>';
                             });
@@ -2846,13 +2844,18 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                                     '<button type="button" class="lsn-topic-btn lsn-del" onclick="lsnDeleteTopic(' + ti + ')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></button>' +
                                 '</div>' +
                                 '<div class="lsn-topic-body">' +
-                                    '<div class="lsn-subsec">' +
-                                        '<div class="lsn-subsec-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>' +
-                                        '<input type="text" class="lsn-subsec-title" value="' + esc(t.subsec) + '" placeholder="Section name" onchange="lsnEditTopic(' + ti + ',\'subsec\',this.value)" />' +
-                                    '</div>' +
+                                    (t.subsecs || []).map(function(s, si){
+                                        return '<div class="lsn-subsec">' +
+                                            '<div class="lsn-subsec-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>' +
+                                            '<input type="text" class="lsn-subsec-title" value="' + esc(s) + '" placeholder="Section name" onchange="lsnEditSubsec(' + ti + ',' + si + ',this.value)" />' +
+                                            ((t.subsecs || []).length > 1
+                                                ? '<button type="button" class="lsn-subsec-del" onclick="lsnDeleteSubsec(' + ti + ',' + si + ')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>'
+                                                : '') +
+                                        '</div>';
+                                    }).join('') +
+                                    '<button type="button" class="lsn-add-subsec" onclick="lsnAddSubsec(' + ti + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Section name</button>' +
                                     linksHtml +
                                     '<div class="lsn-add-row">' +
-                                        '<button type="button" onclick="lsnAddLink(' + ti + ',\'txt\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Text</button>' +
                                         '<button type="button" onclick="lsnAddLink(' + ti + ',\'web\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Web</button>' +
                                         '<button type="button" onclick="lsnAddLink(' + ti + ',\'doc\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Document</button>' +
                                         '<button type="button" onclick="lsnAddLink(' + ti + ',\'yt\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> YouTube</button>' +
@@ -2865,9 +2868,33 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                         syncJson();
                     }
 
+                    // Normalize seed: legacy entries used a single subsec
+                    // string. Convert to subsecs[] so render only has one path.
+                    topics.forEach(function(t){
+                        if (!Array.isArray(t.subsecs)) {
+                            t.subsecs = (t.subsec && String(t.subsec).trim() !== '') ? [t.subsec] : [''];
+                        }
+                        if (t.subsecs.length === 0) t.subsecs = [''];
+                        delete t.subsec;
+                    });
+
                     window.lsnAddTopic = function(){
-                        topics.push({ title: 'Topic ' + (topics.length + 1) + ': New Topic', subsec: '', links: [], _open: true });
+                        topics.push({ title: 'Topic ' + (topics.length + 1) + ': New Topic', subsecs: [''], links: [], _open: true });
                         render();
+                    };
+                    window.lsnAddSubsec = function(ti){
+                        topics[ti].subsecs = topics[ti].subsecs || [''];
+                        topics[ti].subsecs.push('');
+                        render();
+                    };
+                    window.lsnDeleteSubsec = function(ti, si){
+                        topics[ti].subsecs.splice(si, 1);
+                        if (topics[ti].subsecs.length === 0) topics[ti].subsecs = [''];
+                        render();
+                    };
+                    window.lsnEditSubsec = function(ti, si, val){
+                        topics[ti].subsecs[si] = val;
+                        syncJson();
                     };
                     window.lsnDeleteTopic = function(ti){
                         topics.splice(ti, 1);
@@ -2902,12 +2929,13 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                     // exactly on next load.
                     function serializeTopicsToHtml() {
                         var typeLabels = { web:'Web', doc:'Document', yt:'YouTube', act:'Activity', qz:'Quiz' };
-                        // Strip transient fields (_open) before persisting.
+                        // Strip transient fields (_open) and any empty subsec
+                        // strings before persisting.
                         var clean = topics.map(function(t){
                             return {
-                                title:  t.title  || '',
-                                subsec: t.subsec || '',
-                                links:  (t.links || []).map(function(l){
+                                title:   t.title || '',
+                                subsecs: (t.subsecs || []).map(function(s){ return String(s || ''); }).filter(function(s){ return s !== ''; }),
+                                links:   (t.links || []).map(function(l){
                                     return { type: l.type || 'web', title: l.title || '', url: l.url || '' };
                                 })
                             };
@@ -2916,23 +2944,19 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                         var html = marker + '\n';
                         clean.forEach(function(t){
                             html += '<p><strong>' + esc(t.title || 'Topic') + '</strong></p>\n';
-                            if (t.subsec) {
-                                html += '<p><em>' + esc(t.subsec) + '</em></p>\n';
-                            }
+                            t.subsecs.forEach(function(s){
+                                html += '<p><em>' + esc(s) + '</em></p>\n';
+                            });
                             if (t.links.length) {
                                 html += '<ul>\n';
                                 t.links.forEach(function(l){
-                                    if (l.type === 'txt') {
-                                        html += '  <li>' + esc(l.title || '') + '</li>\n';
+                                    var lbl = typeLabels[l.type] || (l.type || '').toUpperCase();
+                                    var titleText = l.title || l.url || '';
+                                    if (l.url) {
+                                        html += '  <li><a href="' + esc(l.url) + '" target="_blank" rel="noopener">'
+                                              + esc(titleText) + '</a> <em>[' + lbl + ']</em></li>\n';
                                     } else {
-                                        var lbl = typeLabels[l.type] || (l.type || '').toUpperCase();
-                                        var titleText = l.title || l.url || '';
-                                        if (l.url) {
-                                            html += '  <li><a href="' + esc(l.url) + '" target="_blank" rel="noopener">'
-                                                  + esc(titleText) + '</a> <em>[' + lbl + ']</em></li>\n';
-                                        } else {
-                                            html += '  <li>' + esc(titleText) + ' <em>[' + lbl + ']</em></li>\n';
-                                        }
+                                        html += '  <li>' + esc(titleText) + ' <em>[' + lbl + ']</em></li>\n';
                                     }
                                 });
                                 html += '</ul>\n';
@@ -2943,14 +2967,27 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
 
                     var dcfForm = document.getElementById('dcf-form');
                     if (dcfForm) {
-                        dcfForm.addEventListener('submit', function(){
-                            // Empty topics list means the user cleared the editor;
-                            // leave whatever they typed in the description textarea
-                            // alone instead of blanking it.
+                        // Empty topics list means the user cleared the editor;
+                        // leave whatever they typed in the description textarea
+                        // alone instead of blanking it.
+                        function flushTopicsToTextarea(){
                             if (!topics.length) return;
                             var ta = dcfForm.querySelector('textarea[name="learning_outcomes"]');
                             if (ta) ta.value = serializeTopicsToHtml();
-                        }, false);
+                        }
+                        // Path 1: native submit (the "Save Changes" type=submit
+                        // button, or pressing Enter in a field) — submit event
+                        // fires.
+                        dcfForm.addEventListener('submit', flushTopicsToTextarea, false);
+                        // Path 2: programmatic submit (the "Save & Continue"
+                        // onclick calls form.submit() directly, which by spec
+                        // does NOT dispatch the submit event). Monkey-patch
+                        // form.submit so both paths run the serializer.
+                        var nativeSubmit = HTMLFormElement.prototype.submit.bind(dcfForm);
+                        dcfForm.submit = function(){
+                            flushTopicsToTextarea();
+                            return nativeSubmit();
+                        };
                     }
 
                     render();
