@@ -1205,21 +1205,41 @@ document.observe('dom:loaded', function() {
 
     // Watch for grid rows arriving late (e.g. AJAX-loaded grids that
     // don't go through Prototype's Ajax.Responders). When the tbody
-    // gains rows after the retries above, inject immediately.
-    if (typeof MutationObserver !== 'undefined') {
-        var kpiObsScheduled = false;
-        var kpiObserver = new MutationObserver(function() {
-            if (kpiObsScheduled) return;
-            kpiObsScheduled = true;
-            setTimeout(function() {
-                kpiObsScheduled = false;
-                applyGridEnhancements();
-            }, 150);
-        });
+    // gains rows after the retries above, inject immediately. Also
+    // re-armable for PJAX swaps where the old tbody is replaced.
+    var kpiObserver = null;
+    var kpiObsScheduled = false;
+    function attachKpiObserver() {
+        if (typeof MutationObserver === 'undefined') return;
+        if (!kpiObserver) {
+            kpiObserver = new MutationObserver(function() {
+                if (kpiObsScheduled) return;
+                kpiObsScheduled = true;
+                setTimeout(function() {
+                    kpiObsScheduled = false;
+                    applyGridEnhancements();
+                }, 150);
+            });
+        }
         document.querySelectorAll('.grid table.data tbody, [id$="_grid"] tbody').forEach(function(tbody) {
             kpiObserver.observe(tbody, { childList: true });
         });
     }
+    attachKpiObserver();
+
+    // PJAX swap (instant-nav.js) replaces the grid wholesale, so the
+    // observer above is now watching detached nodes and the cards we
+    // injected earlier are gone. Re-arm the observer on the new tbody
+    // and rerun the enhancements at the same staggered intervals as
+    // initial load.
+    document.addEventListener('instant-nav:after-swap', function () {
+        [80, 400, 900, 1800].each(function (d) {
+            setTimeout(function () {
+                attachKpiObserver();
+                applyGridEnhancements();
+            }, d);
+        });
+    });
 
     // Re-run after every AJAX request (covers grid pagination/sort/filter)
     if (typeof Ajax !== 'undefined' && Ajax.Responders) {
