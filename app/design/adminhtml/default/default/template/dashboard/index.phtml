@@ -4564,7 +4564,7 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         Course Menu
     </button>
     <?php $_fromPage = (int) Mage::app()->getRequest()->getParam('from_page'); ?>
-    <?php if ($activeRole !== 'developer'): ?>
+    <?php if (!in_array($activeRole, array('developer', 'learner', 'trainer'), true)): ?>
     <a href="<?php echo $_backUrl ?><?php echo $_fromPage > 1 ? '#page' . $_fromPage : '' ?>" class="lcd-back">
         Back to Dashboard
     </a>
