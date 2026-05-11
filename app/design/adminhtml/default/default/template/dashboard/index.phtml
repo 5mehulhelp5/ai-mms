@@ -8388,12 +8388,10 @@ window.csSaveSection = function(section) {
             $_mkCfg = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
             $_mkAk  = (string) $_mkCfg['anthropic_key'];
             $_mkMl  = (string) $_mkCfg['mailerlite_key'];
-            $_mkAkMask = $_mkAk !== ''
-                ? str_repeat('•', max(8, mb_strlen($_mkAk) - 4)) . mb_substr($_mkAk, -4)
-                : 'Not set';
-            $_mkMlMask = $_mkMl !== ''
-                ? str_repeat('•', max(8, mb_strlen($_mkMl) - 4)) . mb_substr($_mkMl, -4)
-                : 'Not set';
+            // Always render exactly 8 dots — never leak the secret's
+            // length. The eye button toggles to reveal the full value.
+            $_mkAkMask = $_mkAk !== '' ? '••••••••' : 'Not set';
+            $_mkMlMask = $_mkMl !== '' ? '••••••••' : 'Not set';
             ?>
 
             <!-- Marketing — Newsletter Builder API keys (collapsed by default,
@@ -8493,15 +8491,10 @@ window.csSaveSection = function(section) {
             $_emCI = (string) Mage::getStoreConfig('mmd_email/google/client_id');
             $_emCS = (string) Mage::getStoreConfig('mmd_email/google/client_secret');
             $_emRT = (string) Mage::getStoreConfig('mmd_email/google/refresh_token');
-            $_mask = function ($v) {
-                $v = (string) $v;
-                if ($v === '') return '';
-                $n = strlen($v);
-                if ($n <= 8) return str_repeat('•', $n);
-                return str_repeat('•', $n - 4) . substr($v, -4);
-            };
-            $_emCSm = $_mask($_emCS);
-            $_emRTm = $_mask($_emRT);
+            // Fixed-width 8-dot mask so the displayed length doesn't
+            // hint at the secret's real length. Eye button toggles full reveal.
+            $_emCSm = $_emCS !== '' ? '••••••••' : '';
+            $_emRTm = $_emRT !== '' ? '••••••••' : '';
             ?>
             <div class="cs-app-card">
                 <div class="cs-app-header" onclick="csToggleApp(this)">
