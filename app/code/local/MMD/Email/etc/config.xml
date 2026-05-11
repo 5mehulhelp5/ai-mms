@@ -32,6 +32,11 @@
         </routers>
     </admin>
     <global>
+        <helpers>
+            <mmd_email>
+                <class>MMD_Email_Helper</class>
+            </mmd_email>
+        </helpers>
         <models>
             <mmd_email>
                 <class>MMD_Email_Model</class>

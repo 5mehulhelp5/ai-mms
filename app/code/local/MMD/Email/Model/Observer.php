@@ -162,15 +162,34 @@ class MMD_Email_Model_Observer
             $identity = (string) Mage::getStoreConfig('mmd_email/course_registration/identity', $storeId);
             if ($identity === '') $identity = 'sales';
 
-            $mailer = Mage::getModel('core/email_template_mailer');
-            $emailInfo = Mage::getModel('core/email_info');
-            $emailInfo->addTo($email, $customerName);
-            $mailer->addEmailInfo($emailInfo);
-            $mailer->setSender($identity);
-            $mailer->setStoreId($storeId);
-            $mailer->setTemplateId($templateCode);
-            $mailer->setTemplateParams($vars);
-            $mailer->send();
+            // Prefer Gmail OAuth2 when the credentials page has been
+            // filled in — that's our actual outbound mail path on the
+            // live site. Falls back to Magento's standard mailer (SMTP
+            // via SMTPPro) for environments where OAuth2 isn't set up.
+            $gmail = Mage::helper('mmd_email/gmail');
+            if ($gmail && $gmail->isConfigured()) {
+                $tpl = Mage::getModel('core/email_template');
+                $tpl->loadDefault($templateCode);
+                // Magento processes both subject and body with the
+                // template variables before we hand them to Gmail.
+                $tpl->setDesignConfig(array('area' => 'frontend', 'store' => $storeId));
+                $tpl->setSenderName(Mage::getStoreConfig('trans_email/ident_' . $identity . '/name', $storeId));
+                $tpl->setSenderEmail(Mage::getStoreConfig('trans_email/ident_' . $identity . '/email', $storeId));
+                $subject = $tpl->getProcessedTemplateSubject($vars);
+                $body    = $tpl->getProcessedTemplate($vars);
+                $fromName = (string) Mage::getStoreConfig('trans_email/ident_' . $identity . '/name', $storeId);
+                $gmail->send($email, $subject, $body, $fromName);
+            } else {
+                $mailer = Mage::getModel('core/email_template_mailer');
+                $emailInfo = Mage::getModel('core/email_info');
+                $emailInfo->addTo($email, $customerName);
+                $mailer->addEmailInfo($emailInfo);
+                $mailer->setSender($identity);
+                $mailer->setStoreId($storeId);
+                $mailer->setTemplateId($templateCode);
+                $mailer->setTemplateParams($vars);
+                $mailer->send();
+            }
 
             $order->setEmailSent(true)->save();
         } catch (Exception $e) {
