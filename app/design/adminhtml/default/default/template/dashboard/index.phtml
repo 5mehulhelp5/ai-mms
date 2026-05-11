@@ -8453,6 +8453,94 @@ window.csSaveSection = function(section) {
                 </div>
             </div>
 
+            <!-- Emails — Gmail OAuth2 credentials for outbound mail -->
+            <?php
+            $_emEU = (string) Mage::getStoreConfig('mmd_email/google/user');
+            $_emCI = (string) Mage::getStoreConfig('mmd_email/google/client_id');
+            $_emCS = (string) Mage::getStoreConfig('mmd_email/google/client_secret');
+            $_emRT = (string) Mage::getStoreConfig('mmd_email/google/refresh_token');
+            $_mask = function ($v) {
+                $v = (string) $v;
+                if ($v === '') return '';
+                $n = strlen($v);
+                if ($n <= 8) return str_repeat('•', $n);
+                return str_repeat('•', $n - 4) . substr($v, -4);
+            };
+            $_emCSm = $_mask($_emCS);
+            $_emRTm = $_mask($_emRT);
+            ?>
+            <div class="cs-app-card">
+                <div class="cs-app-header" onclick="csToggleApp(this)">
+                    <h4>Emails</h4>
+                    <span class="cs-caret">&#9650;</span>
+                </div>
+                <div class="cs-app-body">
+                    <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.5">
+                        Outbound email credentials. Google OAuth2 is used in place of SMTP password because Gmail / Workspace blocks plain-password logins.
+                    </div>
+
+                    <h4 style="font-size:13px;font-weight:700;color:#cbd5e1;margin:0 0 10px 2px;letter-spacing:.3px">Google</h4>
+                    <div style="font-size:12px;font-weight:600;color:#94a3b8;margin:0 0 8px 2px">Gmail</div>
+
+                    <div class="cs-cred-card">
+                        <div style="display:flex;align-items:center">
+                            <h4 style="margin:0;flex:1">Email Configuration (Google OAuth2)</h4>
+                            <?php if ($_emCI !== '' && $_emCS !== '' && $_emRT !== ''): ?>
+                                <span class="cs-status configured">&#9679; Configured</span>
+                            <?php else: ?>
+                                <span class="cs-status disabled" style="background:rgba(148,163,184,.12);color:#94a3b8;border:1px solid rgba(148,163,184,.3);padding:2px 10px;border-radius:6px;font-size:11px">Not set</span>
+                            <?php endif; ?>
+                        </div>
+
+                        <div class="cs-field" data-path="mmd_email/google/user" style="margin-top:10px">
+                            <label>Email User</label>
+                            <div class="cs-val">
+                                <div class="cs-input-masked" style="margin-top:0">
+                                    <span style="color:var(--t1)"><?php echo htmlspecialchars($_emEU) ?: '<span style="color:#64748b">Not set</span>' ?></span>
+                                </div>
+                            </div>
+                            <input type="email" value="<?php echo htmlspecialchars($_emEU) ?>" placeholder="sales@tertiarycourses.com.sg" />
+                        </div>
+
+                        <div class="cs-field" data-path="mmd_email/google/client_id" style="margin-top:10px">
+                            <label>Google Client ID</label>
+                            <div class="cs-val">
+                                <div class="cs-input-masked" style="margin-top:0">
+                                    <span style="color:var(--t1);word-break:break-all"><?php echo htmlspecialchars($_emCI) ?: '<span style="color:#64748b">Not set</span>' ?></span>
+                                </div>
+                            </div>
+                            <input type="text" value="<?php echo htmlspecialchars($_emCI) ?>" placeholder="244747523157-...apps.googleusercontent.com" />
+                        </div>
+
+                        <div class="cs-field" data-path="mmd_email/google/client_secret" style="margin-top:10px">
+                            <label>Google Client Secret</label>
+                            <div class="cs-val">
+                                <div class="cs-input-masked" style="margin-top:0">
+                                    <span><?php echo htmlspecialchars($_emCSm) ?: '<span style="color:#64748b">Not set</span>' ?></span>
+                                    <button type="button" class="cs-eye-btn" onclick="event.preventDefault()">&#128065;</button>
+                                </div>
+                            </div>
+                            <input type="text" value="<?php echo htmlspecialchars($_emCS) ?>" placeholder="GOCSPX-..." />
+                        </div>
+
+                        <div class="cs-field" data-path="mmd_email/google/refresh_token" style="margin-top:10px">
+                            <label>Google Refresh Token</label>
+                            <div class="cs-val">
+                                <div class="cs-input-masked" style="margin-top:0">
+                                    <span><?php echo htmlspecialchars($_emRTm) ?: '<span style="color:#64748b">Not set</span>' ?></span>
+                                    <button type="button" class="cs-eye-btn" onclick="event.preventDefault()">&#128065;</button>
+                                </div>
+                            </div>
+                            <input type="text" value="<?php echo htmlspecialchars($_emRT) ?>" placeholder="1//0g..." />
+                        </div>
+
+                        <div style="font-size:11px;color:#64748b;margin-top:10px;line-height:1.6">
+                            Generate Client ID + Secret at <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#22d3ee">console.cloud.google.com</a> (OAuth 2.0 Client ID, type: Desktop app or Web app). Use the Gmail "Send Mail As" or refresh-token flow to obtain the refresh token. Workspace admins may need to enable the Gmail API.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- LLM -->
             <div class="cs-app-card">
                 <div class="cs-app-header" onclick="csToggleApp(this)">

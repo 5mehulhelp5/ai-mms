@@ -59,7 +59,8 @@ class MMD_RoleManager_Adminhtml_CompanysettingController extends Mage_Adminhtml_
                 // Marketing API keys, and any future scoped settings
                 // we want this generic save endpoint to handle.
                 if (strpos($path, 'mmd_company/')   !== 0
-                    && strpos($path, 'mmd_marketing/') !== 0) {
+                    && strpos($path, 'mmd_marketing/') !== 0
+                    && strpos($path, 'mmd_email/')     !== 0) {
                     continue;
                 }
                 Mage::getConfig()->saveConfig($path, (string) $value, 'default', 0);
