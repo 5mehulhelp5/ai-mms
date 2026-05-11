@@ -2804,11 +2804,14 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 .lsn-link-drag{color:#64748b;cursor:grab;display:flex;flex-direction:column;gap:2px;padding:2px}
                 .lsn-link-drag span{display:block;width:12px;height:2px;background:currentColor;border-radius:1px}
                 .lsn-tag{flex-shrink:0;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#fff;width:40px;text-align:center}
-                .lsn-tag-web{background:#2563eb}
-                .lsn-tag-yt{background:#dc2626}
-                .lsn-tag-doc{background:#16a34a}
-                .lsn-tag-act{background:#f59e0b}
-                .lsn-tag-qz{background:#a855f7}
+                /* Match the colored action-button labels under each
+                   subsection (+ Web / + Document / + YouTube / + Activity
+                   / + Quiz), so saved-link tag pills read consistently. */
+                .lsn-tag-web{background:#60a5fa}   /* blue   */
+                .lsn-tag-doc{background:#fb923c}   /* orange */
+                .lsn-tag-yt {background:#f87171}   /* red    */
+                .lsn-tag-act{background:#c084fc}   /* purple */
+                .lsn-tag-qz {background:#22c55e}   /* green  */
                 .lsn-subsec-del{background:transparent;border:none;cursor:pointer;color:#64748b;padding:4px;border-radius:4px;display:flex;flex-shrink:0}
                 .lsn-subsec-del:hover{color:#fb7185}
                 .lsn-add-subsec{background:transparent;border:1px dashed #475569;border-radius:8px;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;padding:8px 12px;display:inline-flex;align-items:center;gap:6px;margin-bottom:14px}
