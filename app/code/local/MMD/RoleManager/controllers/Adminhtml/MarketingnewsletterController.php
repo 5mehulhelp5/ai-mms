@@ -167,12 +167,12 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             $result['chat_history'] = $history;
             $result['stubbed']      = !empty($reply['stubbed']);
         } catch (Exception $e) {
-            Mage::log('generateAction exception: ' . $e->getMessage() . "\n" . $e->getTraceAsString(), Zend_Log::ERR, 'marketing.log');
+            $this->_writeLog('generateAction exception: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             $result['message'] = $e->getMessage();
         } catch (Throwable $t) {
             // Catches PHP 7+ fatal errors (TypeError, ArgumentCountError,
             // etc.) that wouldn't have been caught by Exception.
-            Mage::log('generateAction throwable: ' . $t->getMessage() . "\n" . $t->getTraceAsString(), Zend_Log::ERR, 'marketing.log');
+            $this->_writeLog('generateAction throwable: ' . get_class($t) . ': ' . $t->getMessage() . "\n" . $t->getTraceAsString());
             $result['message'] = 'Internal error — check var/log/marketing.log';
         }
         return $this->_json($result);
@@ -418,17 +418,28 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         while (ob_get_level() > 0) {
             $stray = ob_get_clean();
             if (is_string($stray) && $stray !== '') {
-                Mage::log(
-                    'MarketingnewsletterController stray output before JSON: '
-                    . substr($stray, 0, 1000),
-                    Zend_Log::WARN,
-                    'marketing.log'
-                );
+                $this->_writeLog('stray output before JSON: ' . substr($stray, 0, 1000));
             }
         }
         $this->getResponse()->setHeader('Content-Type', 'application/json', true);
         $this->getResponse()->clearBody();
         $this->getResponse()->setBody(Mage::helper('core')->jsonEncode($payload));
+    }
+
+    /**
+     * Write to var/log/marketing.log directly via file_put_contents so
+     * we don't depend on Magento's dev/log/active config — that toggle
+     * is off in production, which means Mage::log() silently no-ops and
+     * we lose every error trace. This bypasses that.
+     */
+    protected function _writeLog($msg)
+    {
+        try {
+            $dir = Mage::getBaseDir('log');
+            if (!is_dir($dir)) @mkdir($dir, 0777, true);
+            $line = '[' . date('Y-m-d H:i:s') . '] ' . $msg . "\n";
+            @file_put_contents($dir . DIRECTORY_SEPARATOR . 'marketing.log', $line, FILE_APPEND);
+        } catch (Exception $e) { /* logging must never throw */ }
     }
 
     /**
