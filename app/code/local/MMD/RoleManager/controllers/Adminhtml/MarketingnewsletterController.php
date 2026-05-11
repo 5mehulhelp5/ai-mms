@@ -699,17 +699,38 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             'messages'   => $apiMessages,
         ));
 
-        $client = new Mage_HTTP_Client_Curl();
-        $client->setHeaders(array(
-            'x-api-key'         => $cfg['anthropic_key'],
-            'anthropic-version' => '2023-06-01',
-            'content-type'      => 'application/json',
+        // Use native cURL — Mage_HTTP_Client_Curl::post() runs
+        // http_build_query() on its body argument, which fatals when
+        // given a JSON string. We need the JSON to go through verbatim
+        // with content-type: application/json.
+        $ch = curl_init('https://api.anthropic.com/v1/messages');
+        curl_setopt_array($ch, array(
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $body,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_CONNECTTIMEOUT => 15,
+            CURLOPT_HTTPHEADER     => array(
+                'x-api-key: '         . $cfg['anthropic_key'],
+                'anthropic-version: 2023-06-01',
+                'content-type: application/json',
+            ),
         ));
-        $client->post('https://api.anthropic.com/v1/messages', $body);
-        $rsp = json_decode((string) $client->getBody(), true);
+        $raw  = curl_exec($ch);
+        $err  = curl_error($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($raw === false || $raw === '') {
+            throw new Exception('Anthropic call failed (cURL): ' . ($err ?: 'no response'));
+        }
+        $rsp = json_decode($raw, true);
+        if ($code >= 400) {
+            $apiErr = isset($rsp['error']['message']) ? $rsp['error']['message'] : substr($raw, 0, 300);
+            throw new Exception('Anthropic API ' . $code . ': ' . $apiErr);
+        }
         $text = '';
         if (isset($rsp['content'][0]['text'])) $text = (string) $rsp['content'][0]['text'];
-        if ($text === '') throw new Exception('Empty Claude response: ' . substr((string) $client->getBody(), 0, 200));
+        if ($text === '') throw new Exception('Empty Claude response: ' . substr($raw, 0, 200));
         return array('text' => $text, 'stubbed' => false);
     }
 
@@ -1728,16 +1749,32 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                 'content'      => $html,
             )),
         ));
-        $client = new Mage_HTTP_Client_Curl();
-        $client->setHeaders(array(
-            'authorization' => 'Bearer ' . $cfg['mailerlite_key'],
-            'content-type'  => 'application/json',
-            'accept'        => 'application/json',
+        // Native cURL — same reason as the Anthropic call above:
+        // Mage_HTTP_Client_Curl::post() form-encodes the body, which
+        // breaks JSON APIs.
+        $ch = curl_init('https://connect.mailerlite.com/api/campaigns');
+        curl_setopt_array($ch, array(
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $body,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 60,
+            CURLOPT_CONNECTTIMEOUT => 15,
+            CURLOPT_HTTPHEADER     => array(
+                'authorization: Bearer ' . $cfg['mailerlite_key'],
+                'content-type: application/json',
+                'accept: application/json',
+            ),
         ));
-        $client->post('https://connect.mailerlite.com/api/campaigns', $body);
-        $rsp = json_decode((string) $client->getBody(), true);
+        $raw  = curl_exec($ch);
+        $err  = curl_error($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($raw === false || $raw === '') {
+            throw new Exception('MailerLite call failed (cURL): ' . ($err ?: 'no response'));
+        }
+        $rsp = json_decode($raw, true);
         if (!isset($rsp['data']['id'])) {
-            throw new Exception('MailerLite push failed: ' . substr((string) $client->getBody(), 0, 300));
+            throw new Exception('MailerLite push failed (' . $code . '): ' . substr($raw, 0, 300));
         }
         return (string) $rsp['data']['id'];
     }
