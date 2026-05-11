@@ -124,6 +124,38 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
         $this->_emit($report);
     }
 
+    /**
+     * Inspect what the Anthropic / MailerLite credentials Magento has
+     * cached actually look like (length, prefix/suffix, has whitespace).
+     * Masks the secret in the middle so the page is safe to paste back.
+     */
+    public function marketingcfgAction()
+    {
+        // Clear Magento's config cache so we read the fresh value from DB,
+        // not whatever's stuck in cache from before the user updated it.
+        Mage::app()->getCacheInstance()->cleanType('config');
+
+        $cfg = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
+        $report = ['cache_cleared' => true];
+        foreach (['anthropic_key', 'mailerlite_key', 'anthropic_model', 'from_email', 'from_name'] as $k) {
+            $v = isset($cfg[$k]) ? (string) $cfg[$k] : '';
+            $rawLen = strlen($v);
+            $trim   = trim($v);
+            $report[$k] = [
+                'raw_length'    => $rawLen,
+                'trim_length'   => strlen($trim),
+                'has_whitespace_around' => $rawLen !== strlen($trim),
+                'prefix'        => $trim === '' ? '' : substr($trim, 0, 12),
+                'suffix'        => $trim === '' || strlen($trim) <= 6 ? '' : substr($trim, -6),
+                'masked'        => $trim === '' ? '(empty)' : (strlen($trim) <= 14
+                    ? str_repeat('*', strlen($trim))
+                    : substr($trim, 0, 8) . str_repeat('*', max(0, strlen($trim) - 14)) . substr($trim, -6)),
+            ];
+        }
+        $report['note'] = 'Compare the prefix/suffix of anthropic_key against the key you pasted from console.anthropic.com. Anthropic keys start with "sk-ant-".';
+        $this->_emit($report);
+    }
+
     public function sendAction()
     {
         $to = trim((string) $this->getRequest()->getParam('to'));
