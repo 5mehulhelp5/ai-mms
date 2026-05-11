@@ -167,7 +167,13 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             $result['chat_history'] = $history;
             $result['stubbed']      = !empty($reply['stubbed']);
         } catch (Exception $e) {
+            Mage::log('generateAction exception: ' . $e->getMessage() . "\n" . $e->getTraceAsString(), Zend_Log::ERR, 'marketing.log');
             $result['message'] = $e->getMessage();
+        } catch (Throwable $t) {
+            // Catches PHP 7+ fatal errors (TypeError, ArgumentCountError,
+            // etc.) that wouldn't have been caught by Exception.
+            Mage::log('generateAction throwable: ' . $t->getMessage() . "\n" . $t->getTraceAsString(), Zend_Log::ERR, 'marketing.log');
+            $result['message'] = 'Internal error — check var/log/marketing.log';
         }
         return $this->_json($result);
     }
@@ -388,9 +394,40 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         return Mage::helper('mmd_rolemanager')->getActiveCountryCode();
     }
 
+    /**
+     * Every action in this controller returns JSON. PHP warnings or
+     * notices that leak into the response break the client's r.json()
+     * with errors like "Unexpected token '<', "<br />..." — that's the
+     * format display_errors=On uses. Disable display_errors so anything
+     * that happens during the request is logged via Magento's usual
+     * error log instead of printed inline.
+     */
+    public function preDispatch()
+    {
+        parent::preDispatch();
+        @ini_set('display_errors', 0);
+        @ini_set('html_errors', 0);
+    }
+
     protected function _json($payload)
     {
+        // Drain any output buffers that accumulated before this call —
+        // a stray var_dump, warning, or echo would otherwise prefix the
+        // JSON and corrupt it. Captured content is logged so we can
+        // diagnose what produced it.
+        while (ob_get_level() > 0) {
+            $stray = ob_get_clean();
+            if (is_string($stray) && $stray !== '') {
+                Mage::log(
+                    'MarketingnewsletterController stray output before JSON: '
+                    . substr($stray, 0, 1000),
+                    Zend_Log::WARN,
+                    'marketing.log'
+                );
+            }
+        }
         $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+        $this->getResponse()->clearBody();
         $this->getResponse()->setBody(Mage::helper('core')->jsonEncode($payload));
     }
 
