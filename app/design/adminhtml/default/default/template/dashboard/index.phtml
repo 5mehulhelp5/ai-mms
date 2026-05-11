@@ -7614,6 +7614,13 @@ $_csv = function ($path, $default = '') use ($_cs) {
 .cs-field input:focus,.cs-field select:focus{border-color:#22d3ee;outline:none}
 .cs-field.editing .cs-val{display:none}
 .cs-field.editing input,.cs-field.editing select{display:block}
+/* Secret-input edit wrapper — keeps an eye button visible next to
+   password inputs while in edit mode, so admins can verify what they
+   pasted without leaving the secret on screen permanently. */
+.cs-secret-edit{position:relative;display:none}
+.cs-field.editing .cs-secret-edit{display:block}
+.cs-field.editing .cs-secret-edit > input{padding-right:42px}
+.cs-secret-edit .cs-eye-btn{position:absolute;right:6px;top:50%;transform:translateY(-50%);margin:0;padding:4px 8px}
 .cs-card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px 18px;margin-bottom:10px}
 .cs-card-title{font-size:14px;font-weight:600;color:#fff;margin-bottom:8px}
 .cs-sub-section{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px 18px;margin-bottom:10px}
@@ -8279,6 +8286,16 @@ window.csToggleApp = function(headerEl) {
        via data-cs-plain / data-cs-masked attributes;
      • the sibling <input type="password|text"> (edit mode) — toggled
        via the type attribute. */
+/* Eye-toggle on the edit-mode password input. Pair with .cs-secret-edit
+   wrapper so the button stays positioned next to the input. */
+window.csTogglePasswordInput = function (btn) {
+    var box = btn.closest('.cs-secret-edit');
+    if (!box) return;
+    var input = box.querySelector('input');
+    if (!input) return;
+    input.type = (input.type === 'password') ? 'text' : 'password';
+    input.focus();
+};
 window.csToggleEye = function(btn) {
     var box = btn.closest('.cs-input-masked');
     if (!box) return;
@@ -8442,7 +8459,10 @@ window.csSaveSection = function(section) {
                                         <button type="button" class="cs-eye-btn" onclick="csToggleEye(this); return false;">&#128065;</button>
                                     </div>
                                 </div>
-                                <input type="password" value="<?php echo htmlspecialchars($_mkAk) ?>" placeholder="sk-ant-api03-..." />
+                                <div class="cs-secret-edit">
+                                    <input type="password" value="<?php echo htmlspecialchars($_mkAk) ?>" placeholder="sk-ant-api03-..." />
+                                    <button type="button" class="cs-eye-btn" onclick="csTogglePasswordInput(this); return false;">&#128065;</button>
+                                </div>
                             </div>
                             <div class="cs-field" data-path="mmd_marketing/api/anthropic_model">
                                 <label>Model</label>
@@ -8475,7 +8495,10 @@ window.csSaveSection = function(section) {
                                     <button type="button" class="cs-eye-btn" onclick="csToggleEye(this); return false;">&#128065;</button>
                                 </div>
                             </div>
-                            <input type="password" value="<?php echo htmlspecialchars($_mkMl) ?>" placeholder="eyJ0eXAiOiJKV1Q..." />
+                            <div class="cs-secret-edit">
+                                <input type="password" value="<?php echo htmlspecialchars($_mkMl) ?>" placeholder="eyJ0eXAiOiJKV1Q..." />
+                                <button type="button" class="cs-eye-btn" onclick="csTogglePasswordInput(this); return false;">&#128065;</button>
+                            </div>
                         </div>
                         <div class="cs-cred-row" style="margin-top:10px">
                             <div class="cs-field" data-path="mmd_marketing/api/from_name">
@@ -8564,7 +8587,10 @@ window.csSaveSection = function(section) {
                                     <button type="button" class="cs-eye-btn" onclick="csToggleEye(this); return false;">&#128065;</button>
                                 </div>
                             </div>
-                            <input type="password" value="<?php echo htmlspecialchars($_emCS) ?>" placeholder="GOCSPX-..." />
+                            <div class="cs-secret-edit">
+                                <input type="password" value="<?php echo htmlspecialchars($_emCS) ?>" placeholder="GOCSPX-..." />
+                                <button type="button" class="cs-eye-btn" onclick="csTogglePasswordInput(this); return false;">&#128065;</button>
+                            </div>
                         </div>
 
                         <div class="cs-field" data-path="mmd_email/google/refresh_token" style="margin-top:10px">
@@ -8575,7 +8601,10 @@ window.csSaveSection = function(section) {
                                     <button type="button" class="cs-eye-btn" onclick="csToggleEye(this); return false;">&#128065;</button>
                                 </div>
                             </div>
-                            <input type="password" value="<?php echo htmlspecialchars($_emRT) ?>" placeholder="1//0g..." />
+                            <div class="cs-secret-edit">
+                                <input type="password" value="<?php echo htmlspecialchars($_emRT) ?>" placeholder="1//0g..." />
+                                <button type="button" class="cs-eye-btn" onclick="csTogglePasswordInput(this); return false;">&#128065;</button>
+                            </div>
                         </div>
 
                         <div style="font-size:11px;color:#64748b;margin-top:10px;line-height:1.6">
