@@ -39,9 +39,16 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
     {
         $username = trim((string) $this->getRequest()->getParam('username'));
         $password = (string) $this->getRequest()->getParam('password');
+        // Optional — change the SMTP relay host too. Needed when migrating
+        // from one mail provider (e.g. cPanel) to another (e.g. Gmail).
+        // Pass ?host=smtp.gmail.com&port=587&ssl=tls in one shot.
+        $host = trim((string) $this->getRequest()->getParam('host'));
+        $port = trim((string) $this->getRequest()->getParam('port'));
+        $ssl  = trim((string) $this->getRequest()->getParam('ssl'));   // 'tls' | 'ssl' | 'none'
+        $auth = trim((string) $this->getRequest()->getParam('auth'));  // 'login' | 'plain' | 'crammd5' | 'none'
 
         if ($username === '' || $password === '') {
-            $this->_emit(['error' => 'Pass ?username=<email>&password=<plain>']);
+            $this->_emit(['error' => 'Pass ?username=<email>&password=<plain> [&host=<smtp_host>&port=<587>&ssl=tls&auth=login]']);
             return;
         }
 
@@ -51,14 +58,33 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
             $cfg->saveConfig('smtppro/general/smtp_username', $username, 'default', 0);
             $cfg->saveConfig('smtppro/general/smtp_password', $encrypted, 'default', 0);
 
-            // Belt-and-suspenders: also wipe any website-1 overrides that may
-            // have been re-introduced after migration 058.
+            $optionalPaths = ['smtppro/general/smtp_username', 'smtppro/general/smtp_password'];
+            if ($host !== '') {
+                $cfg->saveConfig('smtppro/general/smtp_host', $host, 'default', 0);
+                $optionalPaths[] = 'smtppro/general/smtp_host';
+            }
+            if ($port !== '') {
+                $cfg->saveConfig('smtppro/general/smtp_port', $port, 'default', 0);
+                $optionalPaths[] = 'smtppro/general/smtp_port';
+            }
+            if ($ssl !== '') {
+                $cfg->saveConfig('smtppro/general/smtp_ssl', $ssl, 'default', 0);
+                $optionalPaths[] = 'smtppro/general/smtp_ssl';
+            }
+            if ($auth !== '') {
+                $cfg->saveConfig('smtppro/general/smtp_authentication', $auth, 'default', 0);
+                $optionalPaths[] = 'smtppro/general/smtp_authentication';
+            }
+
+            // Belt-and-suspenders: also wipe any website-1 overrides on the
+            // same paths so the default-scope values we just wrote actually
+            // win at the storefront scope.
             $write = Mage::getSingleton('core/resource')->getConnection('core_write');
             $table = Mage::getSingleton('core/resource')->getTableName('core/config_data');
             $write->delete($table, [
                 'scope = ?'    => 'websites',
                 'scope_id = ?' => 1,
-                'path IN (?)'  => ['smtppro/general/smtp_username', 'smtppro/general/smtp_password'],
+                'path IN (?)'  => $optionalPaths,
             ]);
 
             Mage::app()->getCacheInstance()->cleanType('config');
