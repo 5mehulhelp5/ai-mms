@@ -129,6 +129,64 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
      * cached actually look like (length, prefix/suffix, has whitespace).
      * Masks the secret in the middle so the page is safe to paste back.
      */
+    /**
+     * One-shot Gmail OAuth2 credential writer. Sister of /setcreds for
+     * SMTP. Paste the four values into the URL and they land in
+     * core_config_data without ever passing through git — keeps GitHub
+     * push protection happy and avoids permanent credential exposure in
+     * commit history.
+     *
+     *   /maildiagnose/setgmail?user=...&client_id=...&client_secret=...&refresh_token=...
+     */
+    public function setgmailAction()
+    {
+        $user         = trim((string) $this->getRequest()->getParam('user'));
+        $clientId     = trim((string) $this->getRequest()->getParam('client_id'));
+        $clientSecret = trim((string) $this->getRequest()->getParam('client_secret'));
+        $refreshToken = trim((string) $this->getRequest()->getParam('refresh_token'));
+
+        $missing = array();
+        if ($user === '')         $missing[] = 'user';
+        if ($clientId === '')     $missing[] = 'client_id';
+        if ($clientSecret === '') $missing[] = 'client_secret';
+        if ($refreshToken === '') $missing[] = 'refresh_token';
+        if (!empty($missing)) {
+            $this->_emit(['error' => 'Missing: ' . implode(', ', $missing) . '. Pass all four: ?user=&client_id=&client_secret=&refresh_token=']);
+            return;
+        }
+
+        try {
+            $cfg = Mage::getConfig();
+            $cfg->saveConfig('mmd_email/google/user',          $user,         'default', 0);
+            $cfg->saveConfig('mmd_email/google/client_id',     $clientId,     'default', 0);
+            $cfg->saveConfig('mmd_email/google/client_secret', $clientSecret, 'default', 0);
+            $cfg->saveConfig('mmd_email/google/refresh_token', $refreshToken, 'default', 0);
+            Mage::app()->getCacheInstance()->cleanType('config');
+            Mage::app()->cleanCache();
+        } catch (Exception $e) {
+            $this->_emit(['error' => $e->getMessage(), 'exception' => get_class($e)]);
+            return;
+        }
+
+        // Try a token-refresh round-trip so we surface scope / credential
+        // problems right here instead of waiting for the next order.
+        $tokenTest = null;
+        try {
+            $token = Mage::helper('mmd_email/gmail')->getAccessToken();
+            $tokenTest = ['ok' => true, 'access_token_length' => strlen((string) $token)];
+        } catch (Exception $e) {
+            $tokenTest = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        $this->_emit([
+            'setgmail_result' => 'OK — Gmail OAuth2 credentials saved at default scope.',
+            'token_test'      => $tokenTest,
+            'note'            => $tokenTest['ok']
+                ? 'Credentials work. Place a test order to verify end-to-end.'
+                : 'Credentials saved but token refresh failed — see token_test.error for the reason (often scope / revoked token).',
+        ]);
+    }
+
     public function marketingcfgAction()
     {
         // Clear Magento's config cache so we read the fresh value from DB,
