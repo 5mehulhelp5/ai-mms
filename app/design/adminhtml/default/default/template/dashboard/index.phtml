@@ -8269,6 +8269,40 @@ window.csToggleApp = function(headerEl) {
         if (caret) caret.classList.add('open');
     }
 };
+/* Eye-toggle on credential fields. Click the 👁 to reveal the saved
+   value, click again to mask it. Operates on:
+     • the static <span> in .cs-input-masked (display mode) — toggled
+       via data-cs-plain / data-cs-masked attributes;
+     • the sibling <input type="password|text"> (edit mode) — toggled
+       via the type attribute. */
+window.csToggleEye = function(btn) {
+    var box = btn.closest('.cs-input-masked');
+    if (!box) return;
+    var span = box.querySelector('span[data-cs-masked]');
+    if (span) {
+        var revealed = span.getAttribute('data-cs-revealed') === '1';
+        if (revealed) {
+            span.textContent = span.getAttribute('data-cs-masked') || '';
+            span.setAttribute('data-cs-revealed', '0');
+        } else {
+            var plain = span.getAttribute('data-cs-plain') || '';
+            span.textContent = plain;
+            span.setAttribute('data-cs-revealed', '1');
+        }
+    }
+    var field = btn.closest('.cs-field');
+    if (field) {
+        var input = field.querySelector('input[type="password"], input[data-cs-secret]');
+        if (input) {
+            if (input.type === 'password') {
+                input.type = 'text';
+                input.setAttribute('data-cs-secret', '1');
+            } else if (input.getAttribute('data-cs-secret') === '1') {
+                input.type = 'password';
+            }
+        }
+    }
+};
 window.csEditSection = function(section) {
     var body = document.getElementById('cs-body-' + section);
     if (!body) return;
@@ -8389,11 +8423,11 @@ window.csSaveSection = function(section) {
                                 <label>API Key</label>
                                 <div class="cs-val">
                                     <div class="cs-input-masked" style="margin-top:0">
-                                        <span><?php echo htmlspecialchars($_mkAkMask) ?></span>
-                                        <button type="button" class="cs-eye-btn" onclick="event.preventDefault()">&#128065;</button>
+                                        <span data-cs-masked="<?php echo htmlspecialchars($_mkAkMask) ?>" data-cs-plain="<?php echo htmlspecialchars($_mkAk) ?>"><?php echo htmlspecialchars($_mkAkMask) ?></span>
+                                        <button type="button" class="cs-eye-btn" onclick="csToggleEye(this); return false;">&#128065;</button>
                                     </div>
                                 </div>
-                                <input type="text" value="<?php echo htmlspecialchars($_mkAk) ?>" placeholder="sk-ant-api03-..." />
+                                <input type="password" value="<?php echo htmlspecialchars($_mkAk) ?>" placeholder="sk-ant-api03-..." />
                             </div>
                             <div class="cs-field" data-path="mmd_marketing/api/anthropic_model">
                                 <label>Model</label>
@@ -8422,11 +8456,11 @@ window.csSaveSection = function(section) {
                             <label>API Token</label>
                             <div class="cs-val">
                                 <div class="cs-input-masked" style="margin-top:0">
-                                    <span><?php echo htmlspecialchars($_mkMlMask) ?></span>
-                                    <button type="button" class="cs-eye-btn" onclick="event.preventDefault()">&#128065;</button>
+                                    <span data-cs-masked="<?php echo htmlspecialchars($_mkMlMask) ?>" data-cs-plain="<?php echo htmlspecialchars($_mkMl) ?>"><?php echo htmlspecialchars($_mkMlMask) ?></span>
+                                    <button type="button" class="cs-eye-btn" onclick="csToggleEye(this); return false;">&#128065;</button>
                                 </div>
                             </div>
-                            <input type="text" value="<?php echo htmlspecialchars($_mkMl) ?>" placeholder="eyJ0eXAiOiJKV1Q..." />
+                            <input type="password" value="<?php echo htmlspecialchars($_mkMl) ?>" placeholder="eyJ0eXAiOiJKV1Q..." />
                         </div>
                         <div class="cs-cred-row" style="margin-top:10px">
                             <div class="cs-field" data-path="mmd_marketing/api/from_name">
@@ -8516,22 +8550,22 @@ window.csSaveSection = function(section) {
                             <label>Google Client Secret</label>
                             <div class="cs-val">
                                 <div class="cs-input-masked" style="margin-top:0">
-                                    <span><?php echo htmlspecialchars($_emCSm) ?: '<span style="color:#64748b">Not set</span>' ?></span>
-                                    <button type="button" class="cs-eye-btn" onclick="event.preventDefault()">&#128065;</button>
+                                    <span data-cs-masked="<?php echo htmlspecialchars($_emCSm) ?>" data-cs-plain="<?php echo htmlspecialchars($_emCS) ?>"><?php echo htmlspecialchars($_emCSm) ?: '<span style="color:#64748b">Not set</span>' ?></span>
+                                    <button type="button" class="cs-eye-btn" onclick="csToggleEye(this); return false;">&#128065;</button>
                                 </div>
                             </div>
-                            <input type="text" value="<?php echo htmlspecialchars($_emCS) ?>" placeholder="GOCSPX-..." />
+                            <input type="password" value="<?php echo htmlspecialchars($_emCS) ?>" placeholder="GOCSPX-..." />
                         </div>
 
                         <div class="cs-field" data-path="mmd_email/google/refresh_token" style="margin-top:10px">
                             <label>Google Refresh Token</label>
                             <div class="cs-val">
                                 <div class="cs-input-masked" style="margin-top:0">
-                                    <span><?php echo htmlspecialchars($_emRTm) ?: '<span style="color:#64748b">Not set</span>' ?></span>
-                                    <button type="button" class="cs-eye-btn" onclick="event.preventDefault()">&#128065;</button>
+                                    <span data-cs-masked="<?php echo htmlspecialchars($_emRTm) ?>" data-cs-plain="<?php echo htmlspecialchars($_emRT) ?>"><?php echo htmlspecialchars($_emRTm) ?: '<span style="color:#64748b">Not set</span>' ?></span>
+                                    <button type="button" class="cs-eye-btn" onclick="csToggleEye(this); return false;">&#128065;</button>
                                 </div>
                             </div>
-                            <input type="text" value="<?php echo htmlspecialchars($_emRT) ?>" placeholder="1//0g..." />
+                            <input type="password" value="<?php echo htmlspecialchars($_emRT) ?>" placeholder="1//0g..." />
                         </div>
 
                         <div style="font-size:11px;color:#64748b;margin-top:10px;line-height:1.6">
