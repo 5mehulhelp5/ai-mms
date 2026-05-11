@@ -99,6 +99,31 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
         $this->_emit($report);
     }
 
+    /**
+     * Tail the marketing.log file as JSON so we can diagnose newsletter
+     * errors without shell access. Default last 80 lines, override with
+     * ?lines=N. Bounded so we never spam huge logs into a JSON response.
+     */
+    public function marketinglogAction()
+    {
+        $path = Mage::getBaseDir('log') . DIRECTORY_SEPARATOR . 'marketing.log';
+        $lines = max(1, min(500, (int) $this->getRequest()->getParam('lines', 80)));
+        $report = [
+            'path'   => $path,
+            'exists' => file_exists($path),
+            'size'   => file_exists($path) ? filesize($path) : 0,
+        ];
+        if ($report['exists']) {
+            $content = @file_get_contents($path);
+            if ($content !== false) {
+                $arr = preg_split("/\r?\n/", $content);
+                $arr = array_slice($arr, -$lines);
+                $report['tail'] = implode("\n", $arr);
+            }
+        }
+        $this->_emit($report);
+    }
+
     public function sendAction()
     {
         $to = trim((string) $this->getRequest()->getParam('to'));
