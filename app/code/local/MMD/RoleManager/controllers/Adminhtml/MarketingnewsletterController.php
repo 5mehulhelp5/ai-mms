@@ -692,45 +692,51 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             }
         }
 
+        $apiKey = trim((string) $cfg['anthropic_key']);
+        $model  = trim((string) $cfg['anthropic_model']);
+        if ($model === '') $model = 'claude-opus-4-7';
+
+        // Route to whichever upstream the saved key belongs to. The user
+        // can paste either a native Anthropic API key or an OpenRouter
+        // key — the controller figures out which.
+        //   sk-ant-api*  → Anthropic Messages API direct.
+        //   sk-or-v*     → OpenRouter chat/completions (proxies Claude).
+        //   sk-ant-oat*  → Claude Code OAuth, can't reach /v1/messages.
+        if (stripos($apiKey, 'sk-or-') === 0) {
+            return $this->_callViaOpenRouter($apiKey, $model, $system, $apiMessages);
+        }
+        return $this->_callViaAnthropic($apiKey, $model, $system, $apiMessages);
+    }
+
+    /**
+     * Send a Messages-API request directly to Anthropic. Used when the
+     * saved key starts with `sk-ant-api...` (or for any non-OpenRouter
+     * key as a default).
+     */
+    protected function _callViaAnthropic($apiKey, $model, $system, array $apiMessages)
+    {
         $body = json_encode(array(
-            'model'      => $cfg['anthropic_model'],
+            'model'      => $model,
             'max_tokens' => 2000,
             'system'     => $system,
             'messages'   => $apiMessages,
         ));
-
-        // Pick the auth + header set based on the key format. Anthropic
-        // issues two token types and they authenticate differently:
-        //   sk-ant-api<NN>-… → standard API key, sent as `x-api-key`.
-        //   sk-ant-oat<NN>-… → Claude Code OAuth token used by the
-        //                       Claude Agent SDK. Needs Bearer auth +
-        //                       the Claude Code beta headers + a UA
-        //                       string that identifies as the SDK so
-        //                       Anthropic's edge accepts the token for
-        //                       /v1/messages calls.
-        $apiKey   = trim((string) $cfg['anthropic_key']);
-        $isOauth  = (stripos($apiKey, 'sk-ant-oat') === 0);
-        $headers  = array(
+        $headers = array(
             'anthropic-version: 2023-06-01',
             'content-type: application/json',
+            'x-api-key: ' . $apiKey,
         );
-        if ($isOauth) {
-            $headers[] = 'Authorization: Bearer ' . $apiKey;
-            // Multiple betas as a single comma-separated header — that's
-            // the format Anthropic's API accepts. claude-code-* is the
-            // beta that lets OAuth tokens reach /v1/messages.
-            $headers[] = 'anthropic-beta: claude-code-20250219,oauth-2025-04-20';
-            $headers[] = 'User-Agent: claude-cli/1.0.119 (external, cli)';
-            $headers[] = 'X-Stainless-Lang: php';
-            $headers[] = 'X-Stainless-Package-Version: 0.40.0';
-        } else {
-            $headers[] = 'x-api-key: ' . $apiKey;
+        // Claude Code OAuth tokens — pivot to Bearer + claude-code beta.
+        if (stripos($apiKey, 'sk-ant-oat') === 0) {
+            $headers = array(
+                'anthropic-version: 2023-06-01',
+                'content-type: application/json',
+                'Authorization: Bearer ' . $apiKey,
+                'anthropic-beta: claude-code-20250219,oauth-2025-04-20',
+                'User-Agent: claude-cli/1.0.119 (external, cli)',
+            );
         }
 
-        // Use native cURL — Mage_HTTP_Client_Curl::post() runs
-        // http_build_query() on its body argument, which fatals when
-        // given a JSON string. We need the JSON to go through verbatim
-        // with content-type: application/json.
         $ch = curl_init('https://api.anthropic.com/v1/messages');
         curl_setopt_array($ch, array(
             CURLOPT_POST           => true,
@@ -749,26 +755,97 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         }
         $rsp = json_decode($raw, true);
         if ($code >= 400) {
-            // Surface as much of Anthropic's actual error body as possible
-            // — they put the human-readable reason in error.message, but
-            // some failure modes return it elsewhere or as plaintext. Fall
-            // back to the raw body when no structured message exists.
             $apiErr = '';
-            if (isset($rsp['error']['message'])) {
-                $apiErr = (string) $rsp['error']['message'];
-            } elseif (isset($rsp['message'])) {
-                $apiErr = (string) $rsp['message'];
-            } elseif (isset($rsp['error']) && is_string($rsp['error'])) {
-                $apiErr = (string) $rsp['error'];
-            }
-            if ($apiErr === '' || $apiErr === 'Error') {
-                $apiErr = substr($raw, 0, 500);
-            }
+            if (isset($rsp['error']['message']))     $apiErr = (string) $rsp['error']['message'];
+            elseif (isset($rsp['message']))          $apiErr = (string) $rsp['message'];
+            elseif (isset($rsp['error']) && is_string($rsp['error'])) $apiErr = (string) $rsp['error'];
+            if ($apiErr === '' || $apiErr === 'Error') $apiErr = substr($raw, 0, 500);
             throw new Exception('Anthropic API ' . $code . ': ' . $apiErr);
         }
         $text = '';
         if (isset($rsp['content'][0]['text'])) $text = (string) $rsp['content'][0]['text'];
         if ($text === '') throw new Exception('Empty Claude response: ' . substr($raw, 0, 200));
+        return array('text' => $text, 'stubbed' => false);
+    }
+
+    /**
+     * Send the same request via OpenRouter, which proxies Claude (and
+     * 100+ other models) through an OpenAI-compatible chat/completions
+     * endpoint. OpenRouter accepts `anthropic/claude-opus-4-7` style
+     * model slugs; if the saved model is the bare Anthropic id
+     * (`claude-opus-4-7`) we prefix it with `anthropic/` for them.
+     */
+    protected function _callViaOpenRouter($apiKey, $model, $system, array $apiMessages)
+    {
+        if (strpos($model, '/') === false && stripos($model, 'claude') === 0) {
+            $orModel = 'anthropic/' . $model;
+        } else {
+            $orModel = $model;
+        }
+
+        // OpenAI / OpenRouter format puts the system prompt as the first
+        // message with role:"system"; rest of the messages are the same
+        // user/assistant pairs Anthropic uses. Drop image blocks since
+        // OpenRouter's text-only chat/completions endpoint can't carry
+        // them — we still describe them in the text body via _callClaude.
+        $messages = array();
+        if ($system !== '') {
+            $messages[] = array('role' => 'system', 'content' => $system);
+        }
+        foreach ($apiMessages as $m) {
+            $content = $m['content'];
+            if (is_array($content)) {
+                $text = '';
+                foreach ($content as $block) {
+                    if (isset($block['type']) && $block['type'] === 'text' && isset($block['text'])) {
+                        $text .= $block['text'];
+                    }
+                }
+                $content = $text;
+            }
+            $messages[] = array('role' => $m['role'], 'content' => (string) $content);
+        }
+
+        $body = json_encode(array(
+            'model'      => $orModel,
+            'max_tokens' => 2000,
+            'messages'   => $messages,
+        ));
+        $headers = array(
+            'Authorization: Bearer ' . $apiKey,
+            'content-type: application/json',
+            'HTTP-Referer: https://ai-mms.tertiaryinfo.tech',
+            'X-Title: AI-MMS Newsletter Builder',
+        );
+
+        $ch = curl_init('https://openrouter.ai/api/v1/chat/completions');
+        curl_setopt_array($ch, array(
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $body,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_CONNECTTIMEOUT => 15,
+            CURLOPT_HTTPHEADER     => $headers,
+        ));
+        $raw  = curl_exec($ch);
+        $err  = curl_error($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($raw === false || $raw === '') {
+            throw new Exception('OpenRouter call failed (cURL): ' . ($err ?: 'no response'));
+        }
+        $rsp = json_decode($raw, true);
+        if ($code >= 400) {
+            $apiErr = isset($rsp['error']['message']) ? (string) $rsp['error']['message']
+                    : (isset($rsp['error']) && is_string($rsp['error']) ? (string) $rsp['error']
+                    : substr($raw, 0, 500));
+            throw new Exception('OpenRouter API ' . $code . ': ' . $apiErr);
+        }
+        $text = '';
+        if (isset($rsp['choices'][0]['message']['content'])) {
+            $text = (string) $rsp['choices'][0]['message']['content'];
+        }
+        if ($text === '') throw new Exception('Empty OpenRouter response: ' . substr($raw, 0, 200));
         return array('text' => $text, 'stubbed' => false);
     }
 
