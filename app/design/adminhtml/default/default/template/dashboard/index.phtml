@@ -8352,6 +8352,22 @@ window.csCancelSection = function(section) {
     if (actions) actions.style.display = 'none';
     var editBtn = document.getElementById('cs-edit-' + section);
     if (editBtn) editBtn.style.display = '';
+    // Re-mask any secret fields the user revealed during this edit
+    // session: snap display-mode masked spans back to their bullet
+    // form, flip edit-mode password inputs back to type=password, and
+    // reset every eye button to the open-eye (masked) icon.
+    body.querySelectorAll('.cs-input-masked span[data-cs-masked]').forEach(function (span) {
+        if (span.getAttribute('data-cs-revealed') === '1') {
+            span.textContent = span.getAttribute('data-cs-masked') || '';
+            span.setAttribute('data-cs-revealed', '0');
+        }
+    });
+    body.querySelectorAll('.cs-secret-edit input').forEach(function (input) {
+        input.type = 'password';
+    });
+    body.querySelectorAll('.cs-eye-btn').forEach(function (btn) {
+        csSetEyeIcon(btn, false);
+    });
 };
 window.csSaveSection = function(section) {
     var body = document.getElementById('cs-body-' + section);
