@@ -8382,10 +8382,23 @@ window.csSaveSection = function(section) {
             // Update the display value
             var valEl = fields[i].querySelector('.cs-val');
             if (valEl) {
-                var linkEl = valEl.querySelector('a');
-                if (linkEl) { linkEl.textContent = input.value; linkEl.href = input.value; }
-                else if (valEl.querySelector('.cs-masked')) { /* keep masked */ }
-                else { valEl.textContent = input.value; }
+                var maskedSpan = valEl.querySelector('span[data-cs-masked]');
+                var linkEl     = valEl.querySelector('a');
+                if (maskedSpan) {
+                    // Secret field — preserve the masked pill structure.
+                    // Stash the new plaintext in data-cs-plain so the eye
+                    // button reveals the latest saved value next time,
+                    // but render the mask text now.
+                    maskedSpan.setAttribute('data-cs-plain', input.value);
+                    maskedSpan.setAttribute('data-cs-revealed', '0');
+                    maskedSpan.textContent = maskedSpan.getAttribute('data-cs-masked') || '';
+                } else if (linkEl) {
+                    linkEl.textContent = input.value; linkEl.href = input.value;
+                } else if (valEl.querySelector('.cs-masked')) {
+                    /* keep masked */
+                } else {
+                    valEl.textContent = input.value;
+                }
             }
         }
     }
