@@ -1963,7 +1963,12 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
             <?php
             $_dcBackSuffix = $_devBackQs !== '' ? '?dev_back=' . urlencode($_devBackQs) : '';
             $_dcViewUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_dc['id'])) . $_dcBackSuffix;
-            $_dcEditUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_dc['id'], 'mode'=>'edit')) . $_dcBackSuffix;
+            // mode=editing jumps straight into the full editor form. The
+            // older mode=edit (read-only summary with its own Edit button)
+            // is still reachable via the Edit Course button on the View
+            // Course page itself, but the Manage Courses card-grid action
+            // skips the intermediate hop entirely.
+            $_dcEditUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_dc['id'], 'mode'=>'editing')) . $_dcBackSuffix;
             ?>
             <div class="dev-card-footer">
                 <a href="<?php echo $_dcViewUrl ?>" class="dev-view-btn">View Course</a>
