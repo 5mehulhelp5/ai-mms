@@ -742,7 +742,21 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         }
         $rsp = json_decode($raw, true);
         if ($code >= 400) {
-            $apiErr = isset($rsp['error']['message']) ? $rsp['error']['message'] : substr($raw, 0, 300);
+            // Surface as much of Anthropic's actual error body as possible
+            // — they put the human-readable reason in error.message, but
+            // some failure modes return it elsewhere or as plaintext. Fall
+            // back to the raw body when no structured message exists.
+            $apiErr = '';
+            if (isset($rsp['error']['message'])) {
+                $apiErr = (string) $rsp['error']['message'];
+            } elseif (isset($rsp['message'])) {
+                $apiErr = (string) $rsp['message'];
+            } elseif (isset($rsp['error']) && is_string($rsp['error'])) {
+                $apiErr = (string) $rsp['error'];
+            }
+            if ($apiErr === '' || $apiErr === 'Error') {
+                $apiErr = substr($raw, 0, 500);
+            }
             throw new Exception('Anthropic API ' . $code . ': ' . $apiErr);
         }
         $text = '';
