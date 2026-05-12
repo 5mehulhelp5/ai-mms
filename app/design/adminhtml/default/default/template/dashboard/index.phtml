@@ -8280,12 +8280,14 @@ window.csToggleApp = function(headerEl) {
         if (caret) caret.classList.add('open');
     }
 };
-/* Eye-toggle on credential fields. Click the 👁 to reveal the saved
-   value, click again to mask it. Operates on:
-     • the static <span> in .cs-input-masked (display mode) — toggled
-       via data-cs-plain / data-cs-masked attributes;
-     • the sibling <input type="password|text"> (edit mode) — toggled
-       via the type attribute. */
+/* Eye-toggle icons. The button starts as a plain open-eye 👁 in
+   the HTML and gets swapped to a clean SVG pair the first time the
+   user interacts. SVGs render consistently across browsers / fonts. */
+var CS_EYE_OPEN  = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+var CS_EYE_OFF   = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+function csSetEyeIcon(btn, revealed) {
+    if (btn) btn.innerHTML = revealed ? CS_EYE_OFF : CS_EYE_OPEN;
+}
 /* Eye-toggle on the edit-mode password input. Pair with .cs-secret-edit
    wrapper so the button stays positioned next to the input. */
 window.csTogglePasswordInput = function (btn) {
@@ -8294,21 +8296,25 @@ window.csTogglePasswordInput = function (btn) {
     var input = box.querySelector('input');
     if (!input) return;
     input.type = (input.type === 'password') ? 'text' : 'password';
+    csSetEyeIcon(btn, input.type === 'text');
     input.focus();
 };
 window.csToggleEye = function(btn) {
     var box = btn.closest('.cs-input-masked');
     if (!box) return;
+    var nowRevealed = false;
     var span = box.querySelector('span[data-cs-masked]');
     if (span) {
         var revealed = span.getAttribute('data-cs-revealed') === '1';
         if (revealed) {
             span.textContent = span.getAttribute('data-cs-masked') || '';
             span.setAttribute('data-cs-revealed', '0');
+            nowRevealed = false;
         } else {
             var plain = span.getAttribute('data-cs-plain') || '';
             span.textContent = plain;
             span.setAttribute('data-cs-revealed', '1');
+            nowRevealed = true;
         }
     }
     var field = btn.closest('.cs-field');
@@ -8323,6 +8329,7 @@ window.csToggleEye = function(btn) {
             }
         }
     }
+    csSetEyeIcon(btn, nowRevealed);
 };
 window.csEditSection = function(section) {
     var body = document.getElementById('cs-body-' + section);
