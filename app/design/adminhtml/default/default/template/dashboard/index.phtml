@@ -2758,15 +2758,23 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                     if (icon) icon.style.transform = anyOpen ? 'rotate(180deg)' : '';
                 }
                 window.lsnToggleAll = function () {
-                    var topics = document.querySelectorAll('#lsn-topics .lsn-topic');
-                    if (!topics.length) return;
+                    var topicEls = document.querySelectorAll('#lsn-topics .lsn-topic');
+                    if (!topicEls.length) return;
                     var anyOpen = false;
-                    for (var i = 0; i < topics.length; i++) {
-                        if (topics[i].classList.contains('open')) { anyOpen = true; break; }
+                    for (var i = 0; i < topicEls.length; i++) {
+                        if (topicEls[i].classList.contains('open')) { anyOpen = true; break; }
                     }
-                    for (var j = 0; j < topics.length; j++) {
-                        if (anyOpen) topics[j].classList.remove('open');
-                        else         topics[j].classList.add('open');
+                    // Write the desired state into the canonical topics[] array
+                    // (via the IIFE-exposed helper) so render() preserves it on
+                    // every subsequent edit / add / delete. Falls back to direct
+                    // class toggling if the helper isn't ready yet.
+                    if (typeof window.lsnSetAllOpen === 'function') {
+                        window.lsnSetAllOpen(!anyOpen);
+                    } else {
+                        for (var j = 0; j < topicEls.length; j++) {
+                            if (anyOpen) topicEls[j].classList.remove('open');
+                            else         topicEls[j].classList.add('open');
+                        }
                     }
                     lsnUpdateCollapseBtn();
                 };
@@ -3094,6 +3102,14 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                     };
                     window.lsnToggleTopic = function(ti){
                         topics[ti]._open = !topics[ti]._open;
+                        render();
+                    };
+                    // Bulk open/close. Writes the flag into the canonical
+                    // topics[] state (not just DOM classes) so subsequent
+                    // edits / adds / deletes don't lose the expanded state
+                    // when render() rebuilds the cards from the array.
+                    window.lsnSetAllOpen = function(open){
+                        for (var i = 0; i < topics.length; i++) topics[i]._open = !!open;
                         render();
                     };
                     window.lsnEditTopic = function(ti, field, val){
