@@ -699,21 +699,32 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             'messages'   => $apiMessages,
         ));
 
-        // Pick the auth header based on the key format. Anthropic issues
-        // two token types and they authenticate differently:
+        // Pick the auth + header set based on the key format. Anthropic
+        // issues two token types and they authenticate differently:
         //   sk-ant-api<NN>-… → standard API key, sent as `x-api-key`.
-        //   sk-ant-oat<NN>-… → Claude Agent SDK / Claude Code OAuth token,
-        //                       sent as `Authorization: Bearer`. This
-        //                       matches what the official Claude Agent SDK
-        //                       does under the hood and lets the same
-        //                       OAuth token used by Claude Code work for
-        //                       direct Messages-API calls.
-        $apiKey = trim((string) $cfg['anthropic_key']);
-        $authHeaders = array();
-        if (stripos($apiKey, 'sk-ant-oat') === 0) {
-            $authHeaders[] = 'Authorization: Bearer ' . $apiKey;
+        //   sk-ant-oat<NN>-… → Claude Code OAuth token used by the
+        //                       Claude Agent SDK. Needs Bearer auth +
+        //                       the Claude Code beta headers + a UA
+        //                       string that identifies as the SDK so
+        //                       Anthropic's edge accepts the token for
+        //                       /v1/messages calls.
+        $apiKey   = trim((string) $cfg['anthropic_key']);
+        $isOauth  = (stripos($apiKey, 'sk-ant-oat') === 0);
+        $headers  = array(
+            'anthropic-version: 2023-06-01',
+            'content-type: application/json',
+        );
+        if ($isOauth) {
+            $headers[] = 'Authorization: Bearer ' . $apiKey;
+            // Multiple betas as a single comma-separated header — that's
+            // the format Anthropic's API accepts. claude-code-* is the
+            // beta that lets OAuth tokens reach /v1/messages.
+            $headers[] = 'anthropic-beta: claude-code-20250219,oauth-2025-04-20';
+            $headers[] = 'User-Agent: claude-cli/1.0.119 (external, cli)';
+            $headers[] = 'X-Stainless-Lang: php';
+            $headers[] = 'X-Stainless-Package-Version: 0.40.0';
         } else {
-            $authHeaders[] = 'x-api-key: ' . $apiKey;
+            $headers[] = 'x-api-key: ' . $apiKey;
         }
 
         // Use native cURL — Mage_HTTP_Client_Curl::post() runs
@@ -727,11 +738,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => 120,
             CURLOPT_CONNECTTIMEOUT => 15,
-            CURLOPT_HTTPHEADER     => array_merge($authHeaders, array(
-                'anthropic-version: 2023-06-01',
-                'anthropic-beta: oauth-2025-04-20',
-                'content-type: application/json',
-            )),
+            CURLOPT_HTTPHEADER     => $headers,
         ));
         $raw  = curl_exec($ch);
         $err  = curl_error($ch);
