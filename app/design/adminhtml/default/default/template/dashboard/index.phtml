@@ -4377,15 +4377,40 @@ div.dce-value::-webkit-scrollbar-thumb:hover{background:#64748b}
             // <strong>...LU N: title...</strong> pattern for legacy courses.
             $_lessonTopics = array();
             $_descRaw = (string)$_editCourseData['description'];
+            // Normalise three shapes into one read-only-friendly form:
+            //   v3 (current JS editor): subsecs = [{title, links: [...]}, ...]
+            //   v2 (older)            : subsecs = ['title', 'title', ...] + topic-level links
+            //   v1 (legacy)           : subsec  = 'title'                  + topic-level links
+            // The view code below expects: subsecs is a list of strings,
+            // and links is a flat list at topic level (links from v3
+            // subsecs are flattened up onto the topic).
             if ($_descRaw !== '' && preg_match('/<!--\s*LSN_DATA:\s*(\[.*?\])\s*-->/s', $_descRaw, $_dlj)) {
                 $_dDecoded = json_decode($_dlj[1], true);
                 if (is_array($_dDecoded)) {
                     foreach ($_dDecoded as $_t) {
+                        $_subsecsRaw = isset($_t['subsecs']) && is_array($_t['subsecs']) ? $_t['subsecs']
+                                     : (isset($_t['subsec']) && is_string($_t['subsec']) && $_t['subsec'] !== '' ? array($_t['subsec']) : array());
+                        $_subTitles = array();
+                        $_subLinks  = array();
+                        foreach ($_subsecsRaw as $_ss) {
+                            if (is_array($_ss)) {
+                                $_sst = (string)(isset($_ss['title']) ? $_ss['title'] : '');
+                                if ($_sst !== '') $_subTitles[] = $_sst;
+                                if (isset($_ss['links']) && is_array($_ss['links'])) {
+                                    foreach ($_ss['links'] as $_sl) {
+                                        if (is_array($_sl)) $_subLinks[] = $_sl;
+                                    }
+                                }
+                            } else {
+                                $_sst = (string)$_ss;
+                                if ($_sst !== '') $_subTitles[] = $_sst;
+                            }
+                        }
+                        $_topicLinks = isset($_t['links']) && is_array($_t['links']) ? $_t['links'] : array();
                         $_lessonTopics[] = array(
                             'title'   => (string)(isset($_t['title']) ? $_t['title'] : ''),
-                            'subsecs' => isset($_t['subsecs']) && is_array($_t['subsecs']) ? array_values(array_filter($_t['subsecs'], 'strlen'))
-                                       : (isset($_t['subsec']) && $_t['subsec'] !== ''   ? array($_t['subsec']) : array()),
-                            'links'   => isset($_t['links']) && is_array($_t['links']) ? $_t['links'] : array(),
+                            'subsecs' => $_subTitles,
+                            'links'   => array_merge($_topicLinks, $_subLinks),
                         );
                     }
                 }
@@ -4870,11 +4895,33 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
             $_decoded = json_decode($_lj[1], true);
             if (is_array($_decoded)) {
                 foreach ($_decoded as $_t) {
+                    // Normalise v1/v2/v3 subsec shapes (see comment in the
+                    // EDIT-mode block — same data model). Flatten any
+                    // per-subsec links onto the topic so the simple
+                    // view-mode template only sees one list.
+                    $_subsecsRaw = isset($_t['subsecs']) && is_array($_t['subsecs']) ? $_t['subsecs']
+                                 : (isset($_t['subsec']) && is_string($_t['subsec']) && $_t['subsec'] !== '' ? array($_t['subsec']) : array());
+                    $_subTitles = array();
+                    $_subLinks  = array();
+                    foreach ($_subsecsRaw as $_ss) {
+                        if (is_array($_ss)) {
+                            $_sst = (string)(isset($_ss['title']) ? $_ss['title'] : '');
+                            if ($_sst !== '') $_subTitles[] = $_sst;
+                            if (isset($_ss['links']) && is_array($_ss['links'])) {
+                                foreach ($_ss['links'] as $_sl) {
+                                    if (is_array($_sl)) $_subLinks[] = $_sl;
+                                }
+                            }
+                        } else {
+                            $_sst = (string)$_ss;
+                            if ($_sst !== '') $_subTitles[] = $_sst;
+                        }
+                    }
+                    $_topicLinks = isset($_t['links']) && is_array($_t['links']) ? $_t['links'] : array();
                     $_devLessonTopics[] = array(
                         'title'   => (string)(isset($_t['title'])   ? $_t['title']   : ''),
-                        'subsecs' => isset($_t['subsecs']) && is_array($_t['subsecs']) ? array_values(array_filter($_t['subsecs'], 'strlen'))
-                                   : (isset($_t['subsec']) && $_t['subsec'] !== ''   ? array($_t['subsec']) : array()),
-                        'links'   => isset($_t['links']) && is_array($_t['links']) ? $_t['links'] : array(),
+                        'subsecs' => $_subTitles,
+                        'links'   => array_merge($_topicLinks, $_subLinks),
                     );
                 }
             }
@@ -5342,11 +5389,30 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
             $_sDecoded = json_decode($_slj[1], true);
             if (is_array($_sDecoded)) {
                 foreach ($_sDecoded as $_t) {
+                    // Same v1/v2/v3 normaliser as the other two blocks.
+                    $_subsecsRaw = isset($_t['subsecs']) && is_array($_t['subsecs']) ? $_t['subsecs']
+                                 : (isset($_t['subsec']) && is_string($_t['subsec']) && $_t['subsec'] !== '' ? array($_t['subsec']) : array());
+                    $_subTitles = array();
+                    $_subLinks  = array();
+                    foreach ($_subsecsRaw as $_ss) {
+                        if (is_array($_ss)) {
+                            $_sst = (string)(isset($_ss['title']) ? $_ss['title'] : '');
+                            if ($_sst !== '') $_subTitles[] = $_sst;
+                            if (isset($_ss['links']) && is_array($_ss['links'])) {
+                                foreach ($_ss['links'] as $_sl) {
+                                    if (is_array($_sl)) $_subLinks[] = $_sl;
+                                }
+                            }
+                        } else {
+                            $_sst = (string)$_ss;
+                            if ($_sst !== '') $_subTitles[] = $_sst;
+                        }
+                    }
+                    $_topicLinks = isset($_t['links']) && is_array($_t['links']) ? $_t['links'] : array();
                     $_sharedLessonTopics[] = array(
                         'title'   => (string)(isset($_t['title']) ? $_t['title'] : ''),
-                        'subsecs' => isset($_t['subsecs']) && is_array($_t['subsecs']) ? array_values(array_filter($_t['subsecs'], 'strlen'))
-                                   : (isset($_t['subsec']) && $_t['subsec'] !== ''   ? array($_t['subsec']) : array()),
-                        'links'   => isset($_t['links']) && is_array($_t['links']) ? $_t['links'] : array(),
+                        'subsecs' => $_subTitles,
+                        'links'   => array_merge($_topicLinks, $_subLinks),
                     );
                 }
             }
