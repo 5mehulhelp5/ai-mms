@@ -772,7 +772,26 @@ function setTrainerActiveNav(which) {
         }
     };
 
+    // Re-run URL-based detection. Called from multiple trigger points
+    // so the active state always reflects the page the user is actually
+    // looking at, even if a stale click handler or BFCache leaves
+    // sessionStorage pointing at the wrong item.
+    function syncFromUrl() {
+        var urlMt = detectMirrorTabFromUrl();
+        if (!urlMt) return;
+        clearAll();
+        applyByMirrorTab(urlMt);
+        mirrorTopTab(urlMt);
+        saveState(urlMt, '');
+    }
+
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
     else attach();
+    // Belt-and-suspenders: re-sync on every state-change moment a stale
+    // session-storage value could lie to us about the current page.
+    window.addEventListener('load',       syncFromUrl);
+    window.addEventListener('hashchange', syncFromUrl);
+    window.addEventListener('popstate',   syncFromUrl);
+    window.addEventListener('pageshow',   syncFromUrl); // covers BFCache restores
 })();
 </script>
