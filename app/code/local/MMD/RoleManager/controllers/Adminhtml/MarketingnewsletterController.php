@@ -166,6 +166,9 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             $result['has_body']     = $parsed['has_body'];
             $result['chat_history'] = $history;
             $result['stubbed']      = !empty($reply['stubbed']);
+            if (!empty($reply['stub_reason'])) {
+                $result['stub_reason'] = $reply['stub_reason'];
+            }
         } catch (Exception $e) {
             $this->_writeLog('generateAction exception: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             $result['message'] = $e->getMessage();
@@ -234,6 +237,77 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             }
             $result['success']       = true;
             $result['newsletter_id'] = $newsletterId;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        return $this->_json($result);
+    }
+
+    /**
+     * Hydrate the UI from a saved draft. Returns the JSON state the
+     * frontend's `mnEditDraft` handler needs to repopulate every part
+     * of the builder: template, picked courses (with display labels),
+     * chat history, body blocks, uploaded reference images. Country-
+     * scoped — drafts from another country are rejected outright.
+     */
+    public function loadAction()
+    {
+        $result = array('success' => false);
+        try {
+            $req = $this->getRequest();
+            $cc  = $this->_currentCountry();
+            $newsletterId = (int) $req->getParam('newsletter_id');
+            if (!$newsletterId) throw new Exception('newsletter_id required');
+
+            $row = $this->_db('read')->fetchRow(
+                "SELECT * FROM " . $this->_tbl()
+              . " WHERE newsletter_id = ? AND country_code = ?",
+                array($newsletterId, $cc)
+            );
+            if (!$row) throw new Exception('Newsletter not found');
+
+            $pids = $this->_normalisePids((string) $row['course_pids']);
+
+            // Resolve sku + name for every picked course so the chips
+            // can re-render without needing a second fetch.
+            $pidNames = array();
+            if (!empty($pids)) {
+                $placeholders = implode(',', array_fill(0, count($pids), '?'));
+                $sql = "SELECT e.entity_id, e.sku,
+                               (SELECT v.value FROM catalog_product_entity_varchar v
+                                WHERE v.entity_id=e.entity_id AND v.attribute_id=71 AND v.store_id=0 LIMIT 1) AS name
+                          FROM catalog_product_entity e
+                         WHERE e.entity_id IN ($placeholders)";
+                foreach ($this->_db('read')->fetchAll($sql, $pids) as $r) {
+                    $pidNames[(int) $r['entity_id']] = ((string) $r['sku']) . ' — ' . ((string) $r['name']);
+                }
+            }
+
+            // Body blocks are stored as JSON with the uploaded images
+            // embedded as `_images`. Split them out so the JS state can
+            // restore both separately.
+            $blocks = json_decode((string) $row['body_blocks'], true);
+            if (!is_array($blocks)) $blocks = array();
+            $images = array();
+            if (isset($blocks['_images']) && is_array($blocks['_images'])) {
+                $images = $blocks['_images'];
+                unset($blocks['_images']);
+            }
+
+            $chat = json_decode((string) $row['chat_history'], true);
+            if (!is_array($chat)) $chat = array();
+
+            $result['success']       = true;
+            $result['newsletter_id'] = (int) $row['newsletter_id'];
+            $result['template_key']  = (string) $row['template_key'];
+            $result['title']         = (string) $row['title'];
+            $result['pids']          = array_map('intval', $pids);
+            $result['pid_names']     = $pidNames;
+            $result['body_blocks']   = $blocks;
+            $result['chat_history']  = $chat;
+            $result['images']        = $images;
+            $result['ai_prompt']     = (string) $row['ai_prompt'];
+            $result['status']        = (string) $row['status'];
         } catch (Exception $e) {
             $result['message'] = $e->getMessage();
         }
@@ -351,6 +425,16 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             $cfg = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
             $mailerLiteId = '';
             $stubbed = empty($cfg['mailerlite_key']);
+
+            // Trace which path the push takes — without this, when the
+            // stub branch is silently taken (because no key in this env)
+            // the user sees a successful response and no log entries,
+            // which looks identical to the "real push silently failed"
+            // case. Log explicitly so the two are distinguishable.
+            $this->_writeLog('pushAction id=' . $newsletterId
+                . ' html_bytes=' . strlen($html)
+                . ' key_present=' . ($stubbed ? 'NO (stub path)' : 'YES (live path)')
+                . ' template=' . (string) $row['template_key']);
 
             if ($stubbed) {
                 $mailerLiteId = 'STUB-' . strtoupper(uniqid());
@@ -702,10 +786,27 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         //   sk-ant-api*  → Anthropic Messages API direct.
         //   sk-or-v*     → OpenRouter chat/completions (proxies Claude).
         //   sk-ant-oat*  → Claude Code OAuth, can't reach /v1/messages.
-        if (stripos($apiKey, 'sk-or-') === 0) {
-            return $this->_callViaOpenRouter($apiKey, $model, $system, $apiMessages);
+        //
+        // When the upstream call fails (rate limit, billing, network),
+        // fall through to the deterministic stub instead of erroring out.
+        // The stub already pulls real course data from the catalog, so
+        // the admin always gets a usable draft — they just lose the
+        // open-ended creativity Claude would add. UI surfaces this via
+        // `stubbed: true` so a "Demo mode (Claude unavailable: <reason>)"
+        // badge can be shown.
+        try {
+            if (stripos($apiKey, 'sk-or-') === 0) {
+                return $this->_callViaOpenRouter($apiKey, $model, $system, $apiMessages);
+            }
+            return $this->_callViaAnthropic($apiKey, $model, $system, $apiMessages);
+        } catch (Exception $e) {
+            $this->_writeLog('Claude upstream failed, falling back to stub: ' . $e->getMessage());
+            return array(
+                'text'         => $this->_stubClaudeResponse($messages, $templateKey, $cc, $pids, $turnImages),
+                'stubbed'      => true,
+                'stub_reason'  => $e->getMessage(),
+            );
         }
-        return $this->_callViaAnthropic($apiKey, $model, $system, $apiMessages);
     }
 
     /**
@@ -1732,7 +1833,8 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         );
 
         $allowed = array(
-            'course_promo' => 'course-promo.phtml',
+            'course_promo'    => 'course-promo.phtml',
+            'visual_showcase' => 'visual-showcase.phtml',
         );
         $file = isset($allowed[$key]) ? $allowed[$key] : $allowed['course_promo'];
         $path = Mage::getBaseDir('design')
@@ -1851,8 +1953,115 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         );
     }
 
+    /**
+     * Walks the rendered HTML for base64 `data:image/...` URIs (in
+     * `<img src="…">` attributes and inline `background-image:url(…)`
+     * styles), writes each one as a real file under media/marketing/,
+     * and replaces the URI with the public URL. Returns the modified
+     * HTML.
+     *
+     * Reason: MailerLite's HTML content field caps around 1MB; full-
+     * resolution image uploads embedded as base64 blow past that and
+     * MailerLite silently truncates the body. Hosting them by URL
+     * keeps the email body small AND makes the images reachable from
+     * the recipient's mail client when the email is delivered.
+     *
+     * Files are named deterministically by content hash so re-pushes
+     * of the same draft don't pile up duplicate copies on disk.
+     */
+    protected function _persistDataUrisAsHostedImages($html)
+    {
+        $dir = Mage::getBaseDir('media') . DIRECTORY_SEPARATOR . 'marketing';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        $publicBase = rtrim(Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_MEDIA), '/') . '/marketing/';
+
+        $persistOne = function ($extRaw, $b64) use ($dir, $publicBase) {
+            $ext = strtolower($extRaw);
+            if ($ext === 'jpeg') $ext = 'jpg';
+            $bin = base64_decode($b64);
+            if ($bin === false || strlen($bin) < 16) {
+                // Decode failed — keep the original data URI so the
+                // local preview still renders. MailerLite will reject
+                // it but at least we tried.
+                return null;
+            }
+            $name = substr(md5($bin), 0, 16) . '.' . $ext;
+            $path = $dir . DIRECTORY_SEPARATOR . $name;
+            if (!file_exists($path)) {
+                @file_put_contents($path, $bin);
+            }
+            return $publicBase . $name;
+        };
+
+        // <img src="data:image/...;base64,...">
+        $html = preg_replace_callback(
+            '#src="data:image/(png|jpe?g|gif|webp);base64,([^"]+)"#i',
+            function ($m) use ($persistOne) {
+                $url = $persistOne($m[1], $m[2]);
+                return $url ? 'src="' . $url . '"' : $m[0];
+            },
+            $html
+        );
+        // background-image:url('data:image/...;base64,...')
+        $html = preg_replace_callback(
+            "#background-image\s*:\s*url\(['\"]?data:image/(png|jpe?g|gif|webp);base64,([^'\")]+)['\"]?\)#i",
+            function ($m) use ($persistOne) {
+                $url = $persistOne($m[1], $m[2]);
+                return $url ? "background-image:url('" . $url . "')" : $m[0];
+            },
+            $html
+        );
+        // Also handle <table background="data:...">
+        $html = preg_replace_callback(
+            '#background="data:image/(png|jpe?g|gif|webp);base64,([^"]+)"#i',
+            function ($m) use ($persistOne) {
+                $url = $persistOne($m[1], $m[2]);
+                return $url ? 'background="' . $url . '"' : $m[0];
+            },
+            $html
+        );
+        return $html;
+    }
+
     protected function _pushToMailerLite(array $cfg, $subject, $html)
     {
+        // MailerLite legally requires an unsubscribe merge tag in every
+        // campaign body — and silently rejects HTML content that's
+        // missing it, leaving the campaign shell created but with an
+        // empty editor preview (the symptom that triggered this fix).
+        // We inject a minimal unsubscribe + view-in-browser footer just
+        // before </body> if the template didn't already include the
+        // merge tags itself.
+        if (stripos($html, '{$unsubscribe}') === false) {
+            $footer = '<div style="text-align:center;font-size:11px;color:#94a3b8;padding:24px 16px;font-family:Arial,sans-serif;line-height:1.6;">'
+                    . 'You\'re receiving this because you signed up for updates.<br>'
+                    . '<a href="{$unsubscribe}" style="color:#94a3b8;">Unsubscribe</a> &middot; '
+                    . '<a href="{$url}" style="color:#94a3b8;">View in browser</a>'
+                    . '</div>';
+            if (stripos($html, '</body>') !== false) {
+                $html = str_ireplace('</body>', $footer . '</body>', $html);
+            } else {
+                $html .= $footer;
+            }
+        }
+
+        // Persist uploaded reference images to the public media folder
+        // and rewrite their src/background-image URLs to the hosted
+        // URL. Reason: MailerLite's content field is limited to ~1MB,
+        // and base64 data URIs for full-resolution uploads (2-5MB each)
+        // blow past that — the body gets silently dropped and the
+        // editor shows "Email has no content." Hosting the images
+        // shrinks the HTML by 99%+ and lets MailerLite (and the email
+        // recipient's client) load them by URL. On production this
+        // works end-to-end; on localhost the URLs are set but won't
+        // load externally — that's expected for local testing.
+        $beforeBytes = strlen($html);
+        $html = $this->_persistDataUrisAsHostedImages($html);
+        $this->_writeLog('MailerLite push: hosted images, HTML ' . $beforeBytes . ' -> ' . strlen($html) . ' bytes');
+
+        // ---- Step 1: create the campaign shell with HTML content ----
         $body = json_encode(array(
             'name'             => $subject,
             'language_id'      => 1,
@@ -1884,6 +2093,7 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         $err  = curl_error($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+        $this->_writeLog('MailerLite create response (' . $code . '): ' . substr((string) $raw, 0, 1500));
         if ($raw === false || $raw === '') {
             throw new Exception('MailerLite call failed (cURL): ' . ($err ?: 'no response'));
         }
@@ -1891,7 +2101,49 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         if (!isset($rsp['data']['id'])) {
             throw new Exception('MailerLite push failed (' . $code . '): ' . substr($raw, 0, 300));
         }
-        return (string) $rsp['data']['id'];
+        $campaignId = (string) $rsp['data']['id'];
+
+        // ---- Step 2: force-update via PUT /api/campaigns/{id}. The
+        // create call usually accepts content, but on first push or
+        // when MailerLite silently drops oversize bodies the editor
+        // preview can come up empty. PUT is a FULL REPLACE in
+        // MailerLite's API — every top-level field that was required
+        // for create is required again here (name, language_id, type,
+        // emails). Sending only `emails` returns 422 "name field is
+        // required".
+        $patchBody = json_encode(array(
+            'name'        => $subject,
+            'language_id' => 1,
+            'type'        => 'regular',
+            'emails'      => array(array(
+                'subject'   => $subject,
+                'from_name' => $cfg['from_name'],
+                'from'      => $cfg['from_email'],
+                'content'   => $html,
+            )),
+        ));
+        $ch2 = curl_init('https://connect.mailerlite.com/api/campaigns/' . urlencode($campaignId));
+        curl_setopt_array($ch2, array(
+            CURLOPT_CUSTOMREQUEST  => 'PUT',
+            CURLOPT_POSTFIELDS     => $patchBody,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 60,
+            CURLOPT_CONNECTTIMEOUT => 15,
+            CURLOPT_HTTPHEADER     => array(
+                'authorization: Bearer ' . $cfg['mailerlite_key'],
+                'content-type: application/json',
+                'accept: application/json',
+            ),
+        ));
+        $raw2  = curl_exec($ch2);
+        $code2 = (int) curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+        curl_close($ch2);
+        $this->_writeLog('MailerLite content PUT response (' . $code2 . '): ' . substr((string) $raw2, 0, 800));
+        // Don't throw on PUT failure — the campaign still exists, the
+        // user can open it in MailerLite and fix manually. Just surface
+        // the log entry.
+
+        return $campaignId;
     }
 
     protected function _isAllowed()

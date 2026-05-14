@@ -1,0 +1,361 @@
+<?php
+/**
+ * Email template — Visual Showcase.
+ *
+ * Image-driven, color-blocked layout. Uploaded reference images are
+ * used as backgrounds (with semi-transparent color overlays for text
+ * legibility), and when 2+ images are present they overlap in a
+ * collage band. Falls back gracefully to color blocks alone when no
+ * images are uploaded.
+ *
+ * Sections (top-to-bottom):
+ *   1. Hero — first reference image as full-bleed background, with a
+ *      tinted gradient overlay so the course title stays readable in
+ *      large knockout type.
+ *   2. Tagline bar — bold color strip with body_block_1.
+ *   3. Image collage — uses 2nd and 3rd reference images (or repeats
+ *      the 1st if only one was uploaded) in an offset/overlapping
+ *      pair. On clients that strip absolute positioning the images
+ *      stack side-by-side instead.
+ *   4. What you'll learn — bold color background with semi-transparent
+ *      image watermark behind numbered cards.
+ *   5. Pricing band — third reference image as side accent.
+ *   6. CTA — full-width image with dark gradient + glowing button.
+ *   7. Footer — bold color band with contact info.
+ *
+ * Expected $vars are the same set the controller passes to every
+ * marketing template — see course-promo.phtml for the full list.
+ */
+
+$v = function ($k, $default = '') use ($vars) { return isset($vars[$k]) ? $vars[$k] : $default; };
+
+$design  = $v('design', array());
+$palette = isset($design['palette']) ? $design['palette'] : array(
+    'primary' => '#d4276e', 'dark' => '#7c1741', 'accent' => '#2bc4d4',
+    'yellow' => '#ffc83d', 'sub' => '#e63946',
+);
+$primary = $palette['primary'];
+$dark    = $palette['dark'];
+$accent  = $palette['accent'];
+$yellow  = $palette['yellow'];
+
+// Perceived luminance (ITU-R BT.601 weighting). Used to pick a text
+// colour that stays readable on whatever the palette throws at us —
+// e.g. the `crimson-cream` palette has a pale accent (#fef3c7), so the
+// tagline strip needs DARK text on it, not white.
+$luma = function ($hex) {
+    $hex = ltrim((string) $hex, '#');
+    if (strlen($hex) === 3) {
+        $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+    }
+    if (strlen($hex) !== 6) return 0;
+    $r = hexdec(substr($hex, 0, 2));
+    $g = hexdec(substr($hex, 2, 2));
+    $b = hexdec(substr($hex, 4, 2));
+    return (int) (0.299 * $r + 0.587 * $g + 0.114 * $b);
+};
+$onAccent = $luma($accent) > 160 ? $dark    : '#ffffff';
+$onYellow = $luma($yellow) > 160 ? $dark    : '#ffffff';
+$onPrimary= $luma($primary)> 160 ? $dark    : '#ffffff';
+
+$courses     = $v('courses', array());
+$first       = !empty($courses) ? $courses[0] : null;
+$courseTitle = $first && !empty($first['name']) ? $first['name'] : $v('title', 'Newsletter');
+$courseUrl   = $first && !empty($first['url'])  ? $first['url']  : $v('cta_url', '#');
+
+$courseDates = '';
+if ($first) {
+    $startTs = !empty($first['start_date']) ? strtotime($first['start_date']) : 0;
+    $endTs   = !empty($first['end_date'])   ? strtotime($first['end_date'])   : $startTs;
+    if ($startTs && $endTs) {
+        if (date('Y-m-d', $startTs) === date('Y-m-d', $endTs)) {
+            $courseDates = strtoupper(date('j M Y', $startTs));
+        } else {
+            $courseDates = strtoupper(date('j', $startTs) . ' &ndash; ' . date('j M Y', $endTs));
+        }
+    }
+}
+
+$tagline = trim((string) $v('body_block_1'));
+
+$bullets = array();
+foreach (preg_split('/\R+/', (string) $v('body_block_2')) as $ln) {
+    $ln = trim(preg_replace('/^[-*\x{2022}]\s*/u', '', $ln));
+    if ($ln !== '') $bullets[] = $ln;
+}
+$bullets = array_slice($bullets, 0, 4);
+
+$pricing = array();
+foreach (preg_split('/\R+/', (string) $v('body_block_3')) as $ln) {
+    if (strpos($ln, '|') === false) continue;
+    list($lbl, $pr) = array_map('trim', explode('|', $ln, 2));
+    if ($lbl !== '' && $pr !== '') $pricing[] = array('label' => $lbl, 'price' => $pr);
+}
+$pricing = array_slice($pricing, 0, 4);
+
+// Build data-URI image sources from the uploaded reference images so
+// the rendered HTML is self-contained (works in inbox without external
+// hosting). _renderTemplate already validated media_type + data.
+$images = array();
+foreach ((array) $v('images', array()) as $img) {
+    if (empty($img['data']) || empty($img['media_type'])) continue;
+    $images[] = 'data:' . $img['media_type'] . ';base64,' . $img['data'];
+}
+// Helper — pick the i-th image, repeating the last available one when
+// the user uploaded fewer images than the template wants to show.
+$imgAt = function ($i) use ($images, $primary, $dark) {
+    if (empty($images)) {
+        // No image uploaded — return an inline SVG color block so the
+        // section still renders without a broken image icon.
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">'
+             . '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
+             . '<stop offset="0%" stop-color="' . $primary . '"/>'
+             . '<stop offset="100%" stop-color="' . $dark . '"/>'
+             . '</linearGradient></defs>'
+             . '<rect width="600" height="400" fill="url(#g)"/></svg>';
+        return 'data:image/svg+xml;base64,' . base64_encode($svg);
+    }
+    return $images[$i % count($images)];
+};
+
+$heroImg     = $imgAt(0);
+$collageImgA = $imgAt(1);
+$collageImgB = $imgAt(2);
+$ctaImg      = $imgAt(0); // re-use hero for CTA so the brand stays cohesive
+
+$fromName  = (string) $v('from_name',  'Tertiary Infotech Academy');
+$fromEmail = (string) $v('from_email', 'enquiry@tertiaryinfotech.com');
+$country   = (string) $v('country',    '');
+$ctaLabel  = strtoupper((string) $v('cta_label', 'REGISTER'));
+
+$h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
+?>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title><?php echo $h($v('subject', 'Newsletter')); ?></title>
+</head>
+<body style="margin:0;padding:0;background:#0f172a;font-family:Helvetica,Arial,sans-serif;color:#0f172a;">
+<?php if ($v('preview_text', '') !== ''): ?>
+<div style="display:none;font-size:1px;color:#0f172a;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">
+<?php echo $h($v('preview_text')); ?>
+</div>
+<?php endif; ?>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0f172a;">
+<tr><td align="center">
+
+<table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;max-width:640px;">
+
+<!-- 1. HERO with background image and overlay text -->
+<tr><td style="position:relative;padding:0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" background="<?php echo $h($heroImg); ?>"
+       style="background-image:url('<?php echo $h($heroImg); ?>');background-size:cover;background-position:center;background-color:<?php echo $h($dark); ?>;">
+<tr><td style="padding:0;">
+<!--[if mso]>
+<v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:640px;height:380px;">
+<v:fill type="frame" src="<?php echo $h($heroImg); ?>" color="<?php echo $h($dark); ?>"/>
+<v:textbox inset="0,0,0,0">
+<![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+       style="background:linear-gradient(135deg,rgba(15,23,42,0.88) 0%,rgba(<?php echo hexdec(substr($dark,1,2)).','.hexdec(substr($dark,3,2)).','.hexdec(substr($dark,5,2)); ?>,0.78) 100%);">
+<tr><td style="padding:64px 56px 56px 56px;color:#ffffff;min-height:380px;">
+<?php if ($courseDates): ?>
+<div style="display:inline-block;background:<?php echo $h($yellow); ?>;color:<?php echo $h($onYellow); ?>;font-size:11px;font-weight:800;letter-spacing:2px;padding:8px 14px;border-radius:2px;margin-bottom:20px;text-transform:uppercase;"><?php echo $courseDates; ?></div>
+<?php endif; ?>
+<div style="font-family:Georgia,'Times New Roman',serif;font-size:14px;font-style:italic;color:#ffffff;opacity:0.9;letter-spacing:3px;text-transform:uppercase;margin-bottom:12px;"><?php echo $h($fromName); ?></div>
+<div style="font-size:42px;line-height:1.05;font-weight:900;color:#ffffff;letter-spacing:-1px;text-shadow:0 2px 12px rgba(0,0,0,0.4);max-width:480px;"><?php echo $h($courseTitle); ?></div>
+<?php if ($tagline): ?>
+<div style="margin-top:24px;font-size:18px;line-height:1.45;color:#ffffff;opacity:0.95;max-width:440px;text-shadow:0 1px 6px rgba(0,0,0,0.4);"><?php echo $h($tagline); ?></div>
+<?php endif; ?>
+<div style="margin-top:36px;">
+<a href="<?php echo $h($courseUrl); ?>" style="display:inline-block;background:<?php echo $h($yellow); ?>;color:<?php echo $h($onYellow); ?>;font-size:13px;font-weight:900;letter-spacing:3px;padding:16px 32px;text-decoration:none;border-radius:0;text-transform:uppercase;"><?php echo $h($ctaLabel); ?> &rarr;</a>
+</div>
+</td></tr>
+</table>
+<!--[if mso]>
+</v:textbox>
+</v:rect>
+<![endif]-->
+</td></tr>
+</table>
+</td></tr>
+
+<!-- 2. Bold tagline strip — text color adapts to accent luminance so
+     it stays readable across every palette (e.g. pale-accent palettes
+     get dark text, saturated accents get white). -->
+<?php if ($tagline): ?>
+<tr><td style="padding:0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:<?php echo $h($accent); ?>;">
+<tr><td align="center" style="padding:28px 40px;color:<?php echo $h($onAccent); ?>;font-size:22px;font-weight:800;line-height:1.3;letter-spacing:-0.3px;">
+&laquo;&nbsp;<?php echo $h($tagline); ?>&nbsp;&raquo;
+</td></tr>
+</table>
+</td></tr>
+<?php endif; ?>
+
+<!-- 3. Image collage band — two images in a clean diagonal overlap -->
+<?php if (count($images) >= 1): ?>
+<tr><td bgcolor="<?php echo $h($dark); ?>" style="background:<?php echo $h($dark); ?>;padding:0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td width="280" valign="middle" style="padding:48px 0 48px 48px;">
+<!-- Collage wrapper: 232 × 250, sized to fit within the 280px column
+     minus 48px left padding. Both images positioned within these
+     bounds so they never spill into the text column. -->
+<div style="position:relative;width:232px;height:250px;">
+<!-- Back image: anchored top-left -->
+<img src="<?php echo $h($collageImgA); ?>" width="180" height="180" alt=""
+     style="display:block;position:absolute;top:0;left:0;width:180px;height:180px;object-fit:cover;border:0;outline:none;box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+<!-- Front image: anchored bottom-right, with yellow border to pop -->
+<img src="<?php echo $h($collageImgB); ?>" width="150" height="130" alt=""
+     style="display:block;position:absolute;bottom:0;right:0;width:150px;height:130px;object-fit:cover;border:4px solid <?php echo $h($yellow); ?>;outline:none;box-shadow:0 8px 24px rgba(0,0,0,0.5);">
+</div>
+<!--[if mso | IE]>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td>
+<img src="<?php echo $h($collageImgA); ?>" width="180" height="180" alt="" style="display:block;border:0;">
+</td></tr><tr><td style="padding-top:8px;">
+<img src="<?php echo $h($collageImgB); ?>" width="150" height="130" alt="" style="display:block;border:0;">
+</td></tr></table>
+<![endif]-->
+</td>
+<td valign="middle" style="padding:48px 48px 48px 32px;color:#ffffff;">
+<div style="font-family:Georgia,'Times New Roman',serif;font-size:12px;font-style:italic;color:<?php echo $h($yellow); ?>;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;">What's Inside</div>
+<div style="font-size:26px;font-weight:900;line-height:1.2;color:#ffffff;margin-bottom:16px;letter-spacing:-0.5px;">
+<?php echo $h(!empty($bullets[0]) ? $bullets[0] : 'Deep, hands-on learning.'); ?>
+</div>
+<div style="font-size:14px;line-height:1.6;color:rgba(255,255,255,0.85);">
+<?php echo $h(!empty($bullets[1]) ? $bullets[1] : 'Real outcomes you can apply right after the course.'); ?>
+</div>
+</td>
+</tr>
+</table>
+</td></tr>
+<?php endif; ?>
+
+<!-- 4. What you'll learn — color block with image watermark -->
+<?php if (!empty($bullets)): ?>
+<tr><td style="padding:0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+       background="<?php echo $h($imgAt(1)); ?>"
+       style="background-image:url('<?php echo $h($imgAt(1)); ?>');background-size:cover;background-position:center;background-color:<?php echo $h($primary); ?>;">
+<tr><td style="padding:0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+       style="background:linear-gradient(180deg,rgba(<?php echo hexdec(substr($primary,1,2)).','.hexdec(substr($primary,3,2)).','.hexdec(substr($primary,5,2)); ?>,0.95) 0%,rgba(<?php echo hexdec(substr($dark,1,2)).','.hexdec(substr($dark,3,2)).','.hexdec(substr($dark,5,2)); ?>,0.97) 100%);">
+<tr><td style="padding:56px;">
+
+<div style="text-align:center;margin-bottom:36px;">
+<div style="display:inline-block;background:<?php echo $h($yellow); ?>;color:<?php echo $h($onYellow); ?>;font-size:11px;font-weight:800;letter-spacing:3px;padding:6px 14px;text-transform:uppercase;">What You'll Learn</div>
+</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<?php foreach ($bullets as $i => $bullet): $num = sprintf('%02d', $i + 1); ?>
+<tr><td style="padding:0 0 18px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:rgba(255,255,255,0.08);border-left:4px solid <?php echo $h($yellow); ?>;">
+<tr>
+<td width="80" align="center" valign="middle" style="padding:18px 0;color:<?php echo $h($yellow); ?>;font-size:36px;font-weight:900;font-family:Georgia,'Times New Roman',serif;line-height:1;letter-spacing:-1px;"><?php echo $num; ?></td>
+<td valign="middle" style="padding:18px 24px 18px 8px;color:#ffffff;font-size:16px;line-height:1.5;font-weight:500;"><?php echo $h($bullet); ?></td>
+</tr>
+</table>
+</td></tr>
+<?php endforeach; ?>
+</table>
+
+</td></tr>
+</table>
+</td></tr>
+</table>
+</td></tr>
+<?php endif; ?>
+
+<!-- 5. Pricing band with side image accent -->
+<?php if (!empty($pricing)): ?>
+<tr><td bgcolor="#ffffff" style="padding:0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td width="220" valign="middle" style="padding:0;">
+<img src="<?php echo $h($imgAt(2)); ?>" width="220" height="320" alt="" style="display:block;width:220px;height:320px;object-fit:cover;border:0;">
+</td>
+<td valign="middle" style="padding:48px 48px 48px 32px;background:#fef3c7;">
+<div style="font-family:Georgia,'Times New Roman',serif;font-size:12px;font-style:italic;color:<?php echo $h($dark); ?>;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Investment</div>
+<div style="font-size:26px;font-weight:900;color:#0f172a;line-height:1.1;margin-bottom:24px;letter-spacing:-0.5px;">Course Fees</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<?php foreach ($pricing as $p): ?>
+<tr>
+<td style="padding:10px 0;border-bottom:1px dashed rgba(124,23,65,0.25);color:#0f172a;font-size:14px;font-weight:600;"><?php echo $h($p['label']); ?></td>
+<td align="right" style="padding:10px 0;border-bottom:1px dashed rgba(124,23,65,0.25);color:<?php echo $h($primary); ?>;font-size:18px;font-weight:900;letter-spacing:-0.3px;"><?php echo $h($p['price']); ?></td>
+</tr>
+<?php endforeach; ?>
+</table>
+</td>
+</tr>
+</table>
+</td></tr>
+<?php endif; ?>
+
+<!-- 6. Big CTA with image background -->
+<tr><td style="padding:0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+       background="<?php echo $h($ctaImg); ?>"
+       style="background-image:url('<?php echo $h($ctaImg); ?>');background-size:cover;background-position:center;background-color:<?php echo $h($dark); ?>;">
+<tr><td style="padding:0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+       style="background:linear-gradient(135deg,rgba(<?php echo hexdec(substr($dark,1,2)).','.hexdec(substr($dark,3,2)).','.hexdec(substr($dark,5,2)); ?>,0.95) 0%,rgba(0,0,0,0.78) 100%);">
+<tr><td align="center" style="padding:64px 48px;color:#ffffff;">
+<div style="font-family:Georgia,'Times New Roman',serif;font-size:14px;font-style:italic;color:<?php echo $h($yellow); ?>;letter-spacing:3px;text-transform:uppercase;margin-bottom:18px;">Take the next step</div>
+<div style="font-size:34px;font-weight:900;line-height:1.15;color:#ffffff;letter-spacing:-0.8px;max-width:480px;margin:0 auto 32px auto;text-shadow:0 2px 8px rgba(0,0,0,0.4);">Ready to start? Your seat is waiting.</div>
+<a href="<?php echo $h($courseUrl); ?>" style="display:inline-block;background:<?php echo $h($yellow); ?>;color:<?php echo $h($onYellow); ?>;font-size:14px;font-weight:900;letter-spacing:3px;padding:20px 48px;text-decoration:none;text-transform:uppercase;box-shadow:0 8px 24px rgba(0,0,0,0.3);"><?php echo $h($ctaLabel); ?> NOW &rarr;</a>
+<?php if ($courseDates): ?>
+<div style="margin-top:24px;font-size:12px;color:rgba(255,255,255,0.8);letter-spacing:2px;text-transform:uppercase;">Next intake: <?php echo $courseDates; ?></div>
+<?php endif; ?>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</td></tr>
+
+<!-- 7. Coloured accent strip above the standard footer — keeps the
+     Visual Showcase brand cue while the white footer below carries
+     the legally-required contact + unsubscribe info that's identical
+     to every other Tertiary Infotech newsletter. -->
+<tr><td bgcolor="<?php echo $h($primary); ?>" style="background:<?php echo $h($primary); ?>;padding:0;line-height:0;font-size:0;height:6px;">&nbsp;</td></tr>
+
+<!-- Footer — socials + contact (same content as Course Promo template) -->
+<tr><td style="padding:24px 24px 8px;text-align:center;background:#ffffff;color:#374151;font-size:12px;line-height:1.6;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto 14px;">
+    <tr>
+      <td style="padding:0 6px;"><a href="https://facebook.com/" style="display:inline-block;width:32px;height:32px;background:#1877f2;color:#ffffff;text-align:center;line-height:32px;font-size:15px;font-weight:900;text-decoration:none;border-radius:4px;">f</a></td>
+      <td style="padding:0 6px;"><a href="https://linkedin.com/" style="display:inline-block;width:32px;height:32px;background:#0a66c2;color:#ffffff;text-align:center;line-height:32px;font-size:13px;font-weight:900;text-decoration:none;border-radius:4px;">in</a></td>
+      <td style="padding:0 6px;"><a href="https://youtube.com/" style="display:inline-block;width:32px;height:32px;background:#ff0000;color:#ffffff;text-align:center;line-height:32px;font-size:13px;font-weight:900;text-decoration:none;border-radius:4px;">&#9658;</a></td>
+    </tr>
+  </table>
+  <div style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:6px;"><?php echo $h($fromName); ?></div>
+  <div>&#128231; <a href="mailto:<?php echo $h($fromEmail); ?>" style="color:#374151;text-decoration:none;"><?php echo $h($fromEmail); ?></a></div>
+  <div>&#9742; +65 6100 0613</div>
+  <div>&#128205; 12 Woodlands Square, #07-85/86/87, Woods Square Tower 1, Singapore 737715</div>
+</td></tr>
+
+<tr><td style="padding:14px 24px 6px;text-align:center;color:#6b7280;font-size:11px;font-style:italic;background:#ffffff;">
+  Copyright &copy; <?php echo date('Y'); ?> <?php echo $h($fromName); ?>. All rights reserved.
+</td></tr>
+
+<tr><td style="padding:0 24px 16px;text-align:center;color:#6b7280;font-size:11px;line-height:1.5;background:#ffffff;">
+  You received this email due to your previous attendance or inquiry about our courses.<br>
+  To stop receiving our newsletters, click 'Unsubscribe'.<br>
+  <a href="{$unsubscribe}" style="color:#374151;text-decoration:underline;">Unsubscribe</a>
+  &nbsp;|&nbsp;
+  <a href="{$update_profile}" style="color:#374151;text-decoration:underline;">Update Preferences</a>
+</td></tr>
+
+<tr><td style="padding:14px 24px;border-top:1px solid #e5e7eb;text-align:center;color:#6b7280;font-size:11px;background:#ffffff;">
+  Tertiary Infotech Academy is SSG ATO, PEI and EduTech Service Provider.
+</td></tr>
+
+</table>
+
+</td></tr>
+</table>
+</body>
+</html>
