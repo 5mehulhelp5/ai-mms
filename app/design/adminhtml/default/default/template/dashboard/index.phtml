@@ -12939,11 +12939,16 @@ document.addEventListener('keydown', function (ev) {
         if (suffix) suffix.textContent = ' — ' + role;
     }
 
-    // Trainer sub-view switcher (My Classes <-> Ed Tools)
-    // Only effective when current role is Learner/Trainer; otherwise no-op.
+    // Trainer / Learner sub-view switcher. The early bailout used to
+    // read localStorage('adminViewAs') and silently no-op when the
+    // value wasn't 'Trainer' or 'Learner' — but that's exactly the
+    // state on a fresh browser (no localStorage) or right after a
+    // role switch, which made the top-bar Billing / Certificate clicks
+    // appear to do nothing (preventDefault had already blocked the
+    // href navigation). Source the role from the server-side session
+    // instead so it's correct from the very first click.
     function showTrainerSubPanel(name) {
-        var current = 'Admin';
-        try { var s = localStorage.getItem('adminViewAs'); if (s) current = s; } catch(e) {}
+        var current = <?php echo json_encode((string)$_roleLabel) ?>;
         if (current !== 'Trainer' && current !== 'Learner') return;
 
         // Hide ALL panels first, then show only the requested sub-panel
