@@ -5730,12 +5730,16 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
             var sub = subMap[tab] || 'classes';
             if (window.showTrainerSubPanel) window.showTrainerSubPanel(sub);
             var bar = document.getElementById('header-trn-tabs');
-            if (!bar) return;
-            var btns = bar.querySelectorAll('.header-trn-tab');
-            for (var i = 0; i < btns.length; i++) {
-                if (btns[i].getAttribute('data-trn-tab') === tab) btns[i].classList.add('active');
-                else btns[i].classList.remove('active');
+            if (bar) {
+                var btns = bar.querySelectorAll('.header-trn-tab');
+                for (var i = 0; i < btns.length; i++) {
+                    if (btns[i].getAttribute('data-trn-tab') === tab) btns[i].classList.add('active');
+                    else btns[i].classList.remove('active');
+                }
             }
+            // Sync the sidebar's active state + URL hash so a refresh
+            // restores the same view. menu.phtml exposes mmdSyncActiveNav.
+            if (window.mmdSyncActiveNav) window.mmdSyncActiveNav(tab);
         };
         </script>
         <?php endif; ?>

@@ -743,6 +743,35 @@ function setTrainerActiveNav(which) {
         }
     }
 
+    // Public entry point. The dashboard's top-bar Billing / Certificate /
+    // My Classes onclick handlers call showTrainerSubPanel() to swap the
+    // visible panel WITHOUT navigating (event.preventDefault is fired),
+    // and hsLnrSetActive() to flip the top tab. Without this the sidebar
+    // is left out of the loop — it still highlights whatever the last
+    // sidebar click pointed at, so sidebar / top bar / main content
+    // disagree until the next page load. Exposing this lets the top-bar
+    // handlers also push the active state into the sidebar in the same
+    // synchronous burst, and updates the URL hash so refresh restores
+    // the same view.
+    window.mmdSyncActiveNav = function (mirrorTab) {
+        if (!mirrorTab) return;
+        clearAll();
+        applyByMirrorTab(mirrorTab);
+        mirrorTopTab(mirrorTab);
+        saveState(mirrorTab, '');
+        // Mirror the panel choice back into the URL so a refresh on
+        // /dashboard/ continues showing the same sub-panel. Skipped
+        // for 'profile' which is a separate page (system_account) and
+        // doesn't share the dashboard hash space.
+        var hashMap = { billing:'#billing', certhistory:'#certhistory',
+                        myclasses:'#classes', classes:'#classes',
+                        edtools:'#edtools', genai:'#genai' };
+        var path = (window.location.pathname || '').toLowerCase();
+        if (path.indexOf('/dashboard') >= 0 && hashMap[mirrorTab] !== undefined) {
+            try { history.replaceState(null, '', window.location.pathname + hashMap[mirrorTab]); } catch (e) {}
+        }
+    };
+
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
     else attach();
 })();
