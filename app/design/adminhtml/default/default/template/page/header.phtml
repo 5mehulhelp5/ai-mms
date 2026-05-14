@@ -295,13 +295,13 @@ $roleIcons = array(
     ?>
     <style>
     .header-lnr-tabs{display:flex;gap:2px;align-items:center;flex:1;justify-content:center;margin:0 24px}
-    a.header-lnr-tab,a.header-lnr-tab:hover,a.header-lnr-tab:focus,a.header-lnr-tab:active{background:transparent !important;border:none !important;border-bottom:2px solid transparent !important;color:#ffffff !important;padding:14px 16px !important;font-size:14px !important;font-weight:600 !important;cursor:pointer !important;display:inline-flex !important;align-items:center !important;gap:8px !important;border-radius:0 !important;text-decoration:none !important;text-transform:none !important;line-height:normal !important;transition:color .15s,border-color .15s !important}
-    a.header-lnr-tab:hover{color:#ffffff !important;opacity:.85}
-    a.header-lnr-tab.active,a.header-lnr-tab.active:hover{color:#22d3ee !important;border-bottom-color:#22d3ee !important;opacity:1}
+    a.header-lnr-tab,a.header-lnr-tab:hover,a.header-lnr-tab:focus,a.header-lnr-tab:active{background:transparent !important;border:none !important;border-bottom:2px solid transparent !important;color:#ffffff !important;padding:14px 16px !important;font-size:14px !important;font-weight:600 !important;cursor:pointer !important;display:inline-flex !important;align-items:center !important;gap:8px !important;border-radius:6px 6px 0 0 !important;text-decoration:none !important;text-transform:none !important;line-height:normal !important;transition:color .15s,background .15s,border-color .15s !important}
+    a.header-lnr-tab:hover{color:#ffffff !important;opacity:1}
+    a.header-lnr-tab.active,a.header-lnr-tab.active:hover{color:#22d3ee !important;background:rgba(34,211,238,0.12) !important;border-bottom-color:#22d3ee !important;opacity:1}
     a.header-lnr-tab svg{width:18px;height:18px;flex-shrink:0}
     </style>
     <div class="header-lnr-tabs" id="header-lnr-tabs">
-        <a href="<?php echo $_lnrDashUrl ?>" class="header-lnr-tab active" data-lnr-tab="myclasses" onclick="if(window.showTrainerSubPanel && !document.getElementById('dash-panel-course-detail')){event.preventDefault();window.showTrainerSubPanel('classes');hsLnrSetActive('myclasses');}">
+        <a href="<?php echo $_lnrDashUrl ?>" class="header-lnr-tab" data-lnr-tab="myclasses" onclick="if(window.showTrainerSubPanel && !document.getElementById('dash-panel-course-detail')){event.preventDefault();window.showTrainerSubPanel('classes');hsLnrSetActive('myclasses');}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
             <span>My Classes</span>
         </a>
@@ -340,13 +340,13 @@ $roleIcons = array(
     <?php $_dashUrl = $this->getUrl('adminhtml/dashboard'); ?>
     <style>
     .header-trn-tabs{display:flex;gap:2px;align-items:center;flex:1;justify-content:center;margin:0 24px}
-    a.header-trn-tab,a.header-trn-tab:hover,a.header-trn-tab:focus,a.header-trn-tab:active{background:transparent !important;border:none !important;border-bottom:2px solid transparent !important;color:#ffffff !important;padding:14px 16px !important;font-size:14px !important;font-weight:600 !important;cursor:pointer !important;display:inline-flex !important;align-items:center !important;gap:8px !important;border-radius:0 !important;text-decoration:none !important;text-transform:none !important;line-height:normal !important;transition:color .15s,border-color .15s !important}
-    a.header-trn-tab:hover{color:#ffffff !important;opacity:.85}
-    a.header-trn-tab.active,a.header-trn-tab.active:hover{color:#22d3ee !important;border-bottom-color:#22d3ee !important;opacity:1}
+    a.header-trn-tab,a.header-trn-tab:hover,a.header-trn-tab:focus,a.header-trn-tab:active{background:transparent !important;border:none !important;border-bottom:2px solid transparent !important;color:#ffffff !important;padding:14px 16px !important;font-size:14px !important;font-weight:600 !important;cursor:pointer !important;display:inline-flex !important;align-items:center !important;gap:8px !important;border-radius:6px 6px 0 0 !important;text-decoration:none !important;text-transform:none !important;line-height:normal !important;transition:color .15s,background .15s,border-color .15s !important}
+    a.header-trn-tab:hover{color:#ffffff !important;opacity:1}
+    a.header-trn-tab.active,a.header-trn-tab.active:hover{color:#22d3ee !important;background:rgba(34,211,238,0.12) !important;border-bottom-color:#22d3ee !important;opacity:1}
     a.header-trn-tab svg{width:18px;height:18px;flex-shrink:0}
     </style>
     <div class="header-trn-tabs" id="header-trn-tabs">
-        <a href="<?php echo $_dashUrl ?>#myclasses" class="header-trn-tab active" data-trn-tab="myclasses" onclick="if(window.trnTopbarSwitch && !document.getElementById('dash-panel-course-detail')){event.preventDefault();trnTopbarSwitch('myclasses');}">
+        <a href="<?php echo $_dashUrl ?>#myclasses" class="header-trn-tab" data-trn-tab="myclasses" onclick="if(window.trnTopbarSwitch && !document.getElementById('dash-panel-course-detail')){event.preventDefault();trnTopbarSwitch('myclasses');}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
             <span>My Classes</span>
         </a>
