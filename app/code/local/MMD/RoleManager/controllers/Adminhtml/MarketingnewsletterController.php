@@ -142,29 +142,36 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             // acknowledgment while the body parser only sees the
             // structured newsletter content.
             $parsed = $this->_parseAssistantReply($reply['text']);
-            $blocks = $this->_splitIntoBlocks($parsed['body']);
-
-            // Design seed — by default deterministic from the picked
-            // course(s), so each course gets its own consistent visual
-            // identity (same palette + hero + card style every time you
-            // open it). When the admin explicitly asks for a different
-            // look ("change the colors", "new design", "re-roll"), we
-            // pick a fresh random seed instead.
-            if ($this->_looksLikeDesignReroll($prompt) || empty($coursePids)) {
-                $blocks['_design_seed'] = mt_rand(1, 2147483647);
-            } else {
-                $sorted = $coursePids;
-                sort($sorted);
-                $seed = (int) (crc32(implode(',', $sorted)) & 0x7fffffff);
-                $blocks['_design_seed'] = $seed > 0 ? $seed : 1;
-            }
 
             $result['success']      = true;
             $result['reply']        = $reply['text']; // raw, kept for compat
             $result['ack']          = $parsed['ack']; // chat-pane acknowledgment
-            $result['body_blocks']  = $blocks;
             $result['has_body']     = $parsed['has_body'];
             $result['chat_history'] = $history;
+
+            // Only build / return body_blocks when the assistant actually
+            // produced newsletter content (===NEWSLETTER=== marker was
+            // present). In chat mode the existing draft body stays put,
+            // so the UI must not overwrite body_blocks with empty data.
+            if ($parsed['has_body']) {
+                $blocks = $this->_splitIntoBlocks($parsed['body']);
+
+                // Design seed — by default deterministic from the picked
+                // course(s), so each course gets its own consistent visual
+                // identity (same palette + hero + card style every time
+                // you open it). When the admin explicitly asks for a
+                // different look ("change the colors", "new design",
+                // "re-roll"), we pick a fresh random seed instead.
+                if ($this->_looksLikeDesignReroll($prompt) || empty($coursePids)) {
+                    $blocks['_design_seed'] = mt_rand(1, 2147483647);
+                } else {
+                    $sorted = $coursePids;
+                    sort($sorted);
+                    $seed = (int) (crc32(implode(',', $sorted)) & 0x7fffffff);
+                    $blocks['_design_seed'] = $seed > 0 ? $seed : 1;
+                }
+                $result['body_blocks'] = $blocks;
+            }
             $result['stubbed']      = !empty($reply['stubbed']);
             if (!empty($reply['stub_reason'])) {
                 $result['stub_reason'] = $reply['stub_reason'];
@@ -747,7 +754,20 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                 . "Write friendly, on-brand email-newsletter copy in plain "
                 . "text (no HTML, no markdown headings). When the admin "
                 . "attaches reference images, treat them as design / brand "
-                . "cues and echo their tone in the copy. Template: {$templateKey}.";
+                . "cues and echo their tone in the copy. Template: {$templateKey}.\n\n"
+                . "CHAT MODE — IMPORTANT EXCEPTION: When the admin's message is a "
+                . "question, a clarification, casual conversation, or a request "
+                . "for advice / explanation that isn't asking you to draft or "
+                . "revise newsletter copy (e.g. 'what does WSQ stand for?', "
+                . "'should I add an early-bird discount?', 'how do you usually "
+                . "structure these?', 'hi', 'thanks'), respond conversationally "
+                . "as a helpful marketing assistant. Do NOT include the "
+                . "===NEWSLETTER=== marker or any newsletter blocks in chat "
+                . "responses — the existing draft body should stay untouched. "
+                . "Use the marker ONLY when the admin is actually asking you to "
+                . "generate or revise newsletter content. Default to chat mode "
+                . "when in doubt; the admin can always say 'now write the "
+                . "newsletter' to switch back to drafting.";
 
         // Convert internal history shape → Anthropic API shape. Each turn
         // can carry images (initial brief or later attachments). When a
@@ -1774,10 +1794,14 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
                 'has_body' => $body !== '',
             );
         }
+        // No marker → chat-only response (the admin asked a question or
+        // chatted off-topic). The whole reply is the chat acknowledgment;
+        // the existing draft body stays untouched. The system prompt tells
+        // Claude to omit the marker in this case.
         return array(
-            'ack'      => '',
-            'body'     => $text,
-            'has_body' => $text !== '',
+            'ack'      => $text,
+            'body'     => '',
+            'has_body' => false,
         );
     }
 
