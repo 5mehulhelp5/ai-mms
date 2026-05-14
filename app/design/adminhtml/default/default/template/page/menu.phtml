@@ -640,6 +640,28 @@ function setTrainerActiveNav(which) {
         try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}') || {}; } catch (e) { return {}; }
     }
 
+    // Inspect the URL + hash and decide which mirror-tab key matches
+    // the page the user is actually looking at. This is what keeps the
+    // sidebar / top bar / main-page content in sync — without it we'd
+    // be relying purely on sessionStorage (the last thing clicked),
+    // which goes stale the moment the user navigates by URL, browser
+    // back/forward, or a deep link.
+    function detectMirrorTabFromUrl() {
+        var path = (window.location.pathname || '').toLowerCase();
+        var hash = (window.location.hash || '').toLowerCase();
+        if (path.indexOf('/system_account') >= 0) return 'profile';
+        if (path.indexOf('/dashboard') >= 0) {
+            if (hash === '#billing')     return 'billing';
+            if (hash === '#certhistory') return 'certhistory';
+            if (hash === '#edtools')     return 'edtools';
+            if (hash === '#genai')       return 'genai';
+            // No specific hash → dashboard's default for learner/trainer
+            // is the My Classes panel.
+            return 'myclasses';
+        }
+        return '';
+    }
+
     // When a sidebar item carries `data-mirror-tab="X"`, clicking it
     // should also activate the matching top-bar tab (either learner or
     // trainer style) so the two stay visually in sync. Looks up by the
@@ -694,15 +716,31 @@ function setTrainerActiveNav(which) {
             });
         });
 
-        // Restore persisted active state on page load. Prefer the
-        // data-mirror-tab key (stable across renders) and fall back to
-        // href matching. Either way, also mirror to the top bar.
-        var s = readState();
+        // On page load, the active state must reflect the page the
+        // user is actually looking at — sidebar, top bar, and main
+        // content all stay in sync. Detection order:
+        //   1. URL/hash (most authoritative — survives navigations,
+        //      direct links, browser back/forward).
+        //   2. sessionStorage data-mirror-tab (recent click hint).
+        //   3. sessionStorage href fallback (for items without a
+        //      mirror-tab attribute).
         clearAll();
+        var urlMt = detectMirrorTabFromUrl();
         var applied = false;
-        if (s.mt) applied = applyByMirrorTab(s.mt) || applied;
-        if (!applied && s.href) applied = applyByHref(s.href) || applied;
-        if (s.mt) mirrorTopTab(s.mt);
+        if (urlMt) {
+            applied = applyByMirrorTab(urlMt) || applied;
+            mirrorTopTab(urlMt);
+            // URL won — also refresh sessionStorage so future page
+            // loads start from the correct baseline.
+            saveState(urlMt, '');
+        } else {
+            var s = readState();
+            if (s.mt) {
+                applied = applyByMirrorTab(s.mt) || applied;
+                mirrorTopTab(s.mt);
+            }
+            if (!applied && s.href) applyByHref(s.href);
+        }
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
