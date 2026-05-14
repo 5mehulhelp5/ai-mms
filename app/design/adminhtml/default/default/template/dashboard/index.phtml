@@ -13109,6 +13109,16 @@ document.addEventListener('keydown', function (ev) {
             showTrainerSubPanel('billing');
             return;
         }
+        if ((qsPanel === 'certhistory' || hash === '#certhistory')
+            && (role === 'Learner' || role === 'Trainer')) {
+            showTrainerSubPanel('certhistory');
+            return;
+        }
+        if ((qsPanel === 'classes' || hash === '#classes')
+            && (role === 'Learner' || role === 'Trainer')) {
+            showTrainerSubPanel('classes');
+            return;
+        }
 
         // No specific panel requested — show the role's default panel.
         showPanel(role);
