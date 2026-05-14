@@ -10,20 +10,30 @@ class MMD_EmailLogin_Model_Resource_User extends Mage_Admin_Model_Resource_User
     public function loadByUsername($identifier)
     {
         $adapter = $this->_getReadAdapter();
+        $lower = strtolower((string) $identifier);
 
-        // If it looks like an email, try email first
+        // If it looks like an email, try email first (case-insensitive)
         if (strpos($identifier, '@') !== false) {
             $select = $adapter->select()
                 ->from($this->getMainTable())
-                ->where('email = :id')
+                ->where('LOWER(email) = :id')
                 ->limit(1);
-            $row = $adapter->fetchRow($select, ['id' => $identifier]);
+            $row = $adapter->fetchRow($select, ['id' => $lower]);
             if ($row) {
                 return $row;
             }
         }
 
-        // Fall back to original username lookup
+        // Case-insensitive username lookup as fallback
+        $select = $adapter->select()
+            ->from($this->getMainTable())
+            ->where('LOWER(username) = :id')
+            ->limit(1);
+        $row = $adapter->fetchRow($select, ['id' => $lower]);
+        if ($row) {
+            return $row;
+        }
+
         return parent::loadByUsername($identifier);
     }
 }
