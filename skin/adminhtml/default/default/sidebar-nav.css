@@ -385,6 +385,24 @@ body button.sidebar-toggle:hover {
     box-shadow: none !important;
 }
 
+/* Footer pinned at the bottom of every page (right pane). Mirrors the
+   LMS-TMS "Powered by Tertiary Infotech Academy Pte Ltd © YYYY" line
+   so every role / page in the admin has consistent footer branding. */
+.admin-page-footer {
+    padding: 18px 24px;
+    text-align: center;
+    font-size: 13px;
+    color: #94a3b8;
+    border-top: 1px solid rgba(148,163,184,0.12);
+    background: transparent;
+    margin-top: auto;
+    flex-shrink: 0;
+}
+.admin-page-footer strong {
+    color: #cbd5e1;
+    font-weight: 600;
+}
+
 /* Sidebar version text (pinned at the bottom) */
 .sidebar-version {
     padding: 10px 16px;
