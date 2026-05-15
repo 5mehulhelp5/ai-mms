@@ -272,4 +272,11 @@
     window.addEventListener('pageshow', function(e){
         if (e.persisted) finishBar();
     });
+
+    // Public hook so non-click navigation (e.g. the role switcher's
+    // XHR success handler) can swap content via PJAX instead of doing
+    // a full window.location.href reload. The role switcher used to
+    // assign location.href which always full-loaded the new page —
+    // exposing pjaxNavigate lets it reuse the fast-swap path.
+    window.instantNavGoTo = function (url) { pjaxNavigate(url, {}); };
 })();

@@ -428,7 +428,16 @@ function switchRole(btn) {
         try {
             var resp = JSON.parse(xhr.responseText);
             if (resp.success && resp.redirect) {
-                window.location.href = resp.redirect;
+                // Use PJAX (instant-nav) for the post-switch navigation
+                // so it feels as snappy as clicking a sidebar link —
+                // content swaps without a full document reload. Falls
+                // back to a hard navigation if PJAX isn't available
+                // (e.g. CSS/JS still loading on a very first page hit).
+                if (window.instantNavGoTo) {
+                    window.instantNavGoTo(resp.redirect);
+                } else {
+                    window.location.href = resp.redirect;
+                }
             }
         } catch(e) {
             window.location.reload();
