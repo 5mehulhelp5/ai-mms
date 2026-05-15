@@ -1993,6 +1993,79 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
      * Files are named deterministically by content hash so re-pushes
      * of the same draft don't pile up duplicate copies on disk.
      */
+    /**
+     * Re-encode every base64 data-URI image in the HTML to a small
+     * JPEG (resized to fit a max dimension, quality ~72) and put it
+     * back as a data URI. This keeps the email fully self-contained —
+     * no external URL that could be unreachable — so the images render
+     * in MailerLite's editor/preview and in the recipient's inbox
+     * regardless of whether the push came from localhost or production.
+     *
+     * Raw phone-camera uploads are 2-6MB each; base64 of that blows
+     * past MailerLite's ~1MB content cap. Compressed they're ~80-180KB
+     * each (~110-240KB base64), so 3-4 of them stay well under the cap.
+     *
+     * SVG fallbacks (data:image/svg+xml, used when no image uploaded)
+     * are intentionally NOT matched here — they're already tiny and
+     * GD can't rasterise them anyway.
+     */
+    protected function _compressDataUrisForEmail($html, $maxDim = 1000, $quality = 72)
+    {
+        if (!function_exists('imagecreatefromstring')) {
+            return $html; // GD missing — leave as-is, hosting fallback will handle it
+        }
+
+        $shrink = function ($b64) use ($maxDim, $quality) {
+            $bin = base64_decode($b64);
+            if ($bin === false || strlen($bin) < 64) return null;
+            $img = @imagecreatefromstring($bin);
+            if ($img === false) return null;
+
+            $w = imagesx($img);
+            $h = imagesy($img);
+            if ($w < 1 || $h < 1) { imagedestroy($img); return null; }
+
+            // Scale down only — never upscale a small image.
+            $scale = min(1.0, $maxDim / max($w, $h));
+            $nw = max(1, (int) round($w * $scale));
+            $nh = max(1, (int) round($h * $scale));
+
+            $canvas = imagecreatetruecolor($nw, $nh);
+            // JPEG has no alpha — flatten any transparency onto white so
+            // a transparent PNG doesn't come out black.
+            $white = imagecolorallocate($canvas, 255, 255, 255);
+            imagefilledrectangle($canvas, 0, 0, $nw, $nh, $white);
+            imagecopyresampled($canvas, $img, 0, 0, 0, 0, $nw, $nh, $w, $h);
+
+            ob_start();
+            imagejpeg($canvas, null, $quality);
+            $out = ob_get_clean();
+            imagedestroy($img);
+            imagedestroy($canvas);
+
+            if ($out === false || $out === '') return null;
+            return 'data:image/jpeg;base64,' . base64_encode($out);
+        };
+
+        $reSrc = function ($m) use ($shrink) {
+            $d = $shrink($m[2]);
+            return $d ? 'src="' . $d . '"' : $m[0];
+        };
+        $reBg = function ($m) use ($shrink) {
+            $d = $shrink($m[2]);
+            return $d ? "background-image:url('" . $d . "')" : $m[0];
+        };
+        $reAttr = function ($m) use ($shrink) {
+            $d = $shrink($m[2]);
+            return $d ? 'background="' . $d . '"' : $m[0];
+        };
+
+        $html = preg_replace_callback('#src="data:image/(png|jpe?g|gif|webp);base64,([^"]+)"#i', $reSrc, $html);
+        $html = preg_replace_callback("#background-image\s*:\s*url\(['\"]?data:image/(png|jpe?g|gif|webp);base64,([^'\")]+)['\"]?\)#i", $reBg, $html);
+        $html = preg_replace_callback('#background="data:image/(png|jpe?g|gif|webp);base64,([^"]+)"#i', $reAttr, $html);
+        return $html;
+    }
+
     protected function _persistDataUrisAsHostedImages($html)
     {
         $dir = Mage::getBaseDir('media') . DIRECTORY_SEPARATOR . 'marketing';
@@ -2071,19 +2144,37 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
             }
         }
 
-        // Persist uploaded reference images to the public media folder
-        // and rewrite their src/background-image URLs to the hosted
-        // URL. Reason: MailerLite's content field is limited to ~1MB,
-        // and base64 data URIs for full-resolution uploads (2-5MB each)
-        // blow past that — the body gets silently dropped and the
-        // editor shows "Email has no content." Hosting the images
-        // shrinks the HTML by 99%+ and lets MailerLite (and the email
-        // recipient's client) load them by URL. On production this
-        // works end-to-end; on localhost the URLs are set but won't
-        // load externally — that's expected for local testing.
+        // Image strategy — keep the email self-contained when possible.
+        //
+        // 1. First, compress every embedded image (resize + JPEG) and
+        //    keep it as a base64 data URI. A self-contained email shows
+        //    its images everywhere — MailerLite's editor/preview AND the
+        //    recipient's inbox — no matter where the push originated
+        //    (localhost or production). This is what the user wants:
+        //    "view the images after it is being pushed to MailerLite".
+        //
+        // 2. MailerLite's content field caps around 1MB. If the
+        //    compressed result is still over a safe budget (some users
+        //    upload many large images), fall back to hosting the images
+        //    as files and referencing them by URL — that keeps the body
+        //    tiny so MailerLite still accepts it (images then resolve on
+        //    production; on localhost they won't, but the body is at
+        //    least intact).
         $beforeBytes = strlen($html);
-        $html = $this->_persistDataUrisAsHostedImages($html);
-        $this->_writeLog('MailerLite push: hosted images, HTML ' . $beforeBytes . ' -> ' . strlen($html) . ' bytes');
+        $compressed  = $this->_compressDataUrisForEmail($html);
+        $SAFE_BUDGET = 950000; // ~950KB — under MailerLite's ~1MB cap
+
+        if (strlen($compressed) <= $SAFE_BUDGET) {
+            $html = $compressed;
+            $this->_writeLog('MailerLite push: embedded compressed images, HTML '
+                . $beforeBytes . ' -> ' . strlen($html) . ' bytes (self-contained)');
+        } else {
+            $html = $this->_persistDataUrisAsHostedImages($compressed);
+            $this->_writeLog('MailerLite push: compressed still '
+                . strlen($compressed) . 'B (> ' . $SAFE_BUDGET
+                . '), fell back to hosted images, HTML '
+                . $beforeBytes . ' -> ' . strlen($html) . ' bytes');
+        }
 
         // ---- Step 1: create the campaign shell with HTML content ----
         $body = json_encode(array(
