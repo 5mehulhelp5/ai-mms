@@ -595,33 +595,26 @@ function setTrainerActiveNav(which) {
     }
 }
 
-// Click-to-highlight for all sidebar items. The PHP no longer applies
-// any active class on render — instead, clicking an item adds the
-// .active class (which the CSS paints translucent cyan) and persists
-// the choice in sessionStorage so the highlight survives the page
-// navigation that the click triggers. We store BOTH the data-mirror-tab
-// (when present — most reliable since it doesn't change across page
-// renders) AND the href (fallback for items without a mirror tab).
+// Click-to-highlight for all sidebar items. PHP no longer applies any
+// active class on render. The active state is derived purely from the
+// URL: detectMirrorTabFromUrl() inspects window.location.pathname/hash
+// and decides which sidebar item + top tab should be highlighted, and
+// that runs on every page-load-shaped moment (DOMContentLoaded, load,
+// hashchange, popstate, pageshow). Click handlers add the same class
+// immediately for instant visual feedback before navigation completes.
 (function () {
-    var STORAGE_KEY = 'mmd_sidebar_active_v3';
-    // Clean up any legacy storage keys from earlier versions of this
-    // script so stale entries can't fight the new logic.
+    // Wipe any legacy sessionStorage keys from earlier iterations of
+    // this script — they're no longer read, but leaving them in place
+    // could confuse anyone inspecting state during a debug session.
     try {
         sessionStorage.removeItem('mmd_sidebar_active_href');
         sessionStorage.removeItem('mmd_sidebar_active_v2');
+        sessionStorage.removeItem('mmd_sidebar_active_v3');
     } catch (e) {}
 
     function clearAll() {
         var els = document.querySelectorAll('.lms-nav-item.active, .tools-group-toggle.active');
         for (var i = 0; i < els.length; i++) els[i].classList.remove('active');
-    }
-
-    function applyByHref(href) {
-        if (!href) return false;
-        var matches = document.querySelectorAll('.lms-nav-item[href="' + href + '"]');
-        if (!matches.length) return false;
-        for (var i = 0; i < matches.length; i++) matches[i].classList.add('active');
-        return true;
     }
 
     function applyByMirrorTab(mt) {
@@ -630,14 +623,6 @@ function setTrainerActiveNav(which) {
         if (!match) return false;
         match.classList.add('active');
         return true;
-    }
-
-    function saveState(mt, href) {
-        try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ mt: mt || '', href: href || '' })); } catch (e) {}
-    }
-
-    function readState() {
-        try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}') || {}; } catch (e) { return {}; }
     }
 
     // Inspect the URL + hash and decide which mirror-tab key matches
@@ -685,61 +670,34 @@ function setTrainerActiveNav(which) {
     }
 
     function attach() {
-        // Plain link items: a.lms-nav-item — clicking adds active +
-        // saves state before navigation completes.
+        // Click handlers give immediate visual feedback (highlight the
+        // clicked item) just before the browser navigates. The actual
+        // source of truth is the URL — when the page reloads,
+        // detectMirrorTabFromUrl() decides what's active. So we don't
+        // need to persist anything across navigations.
         document.querySelectorAll('a.lms-nav-item').forEach(function (a) {
             a.addEventListener('click', function () {
-                var mt = a.getAttribute('data-mirror-tab') || '';
-                saveState(mt, a.getAttribute('href') || '');
                 clearAll();
                 a.classList.add('active');
-                mirrorTopTab(mt);
+                mirrorTopTab(a.getAttribute('data-mirror-tab') || '');
             });
         });
-        // Group toggles (div.tools-group-toggle) — these don't navigate
-        // by themselves; they just open the dropdown. Mark them active
-        // on click and mirror to top bar if applicable.
         document.querySelectorAll('.tools-group-toggle').forEach(function (t) {
             t.addEventListener('click', function () {
-                var mt = t.getAttribute('data-mirror-tab') || '';
-                if (mt) saveState(mt, '');
                 clearAll();
                 t.classList.add('active');
-                mirrorTopTab(mt);
-            });
-        });
-        // Sub-items inside an open tools-group also persist the click
-        // so the parent group + sub-item read on next page load.
-        document.querySelectorAll('a.tools-sub-item').forEach(function (a) {
-            a.addEventListener('click', function () {
-                saveState('', a.getAttribute('href') || '');
+                mirrorTopTab(t.getAttribute('data-mirror-tab') || '');
             });
         });
 
-        // On page load, the active state must reflect the page the
-        // user is actually looking at — sidebar, top bar, and main
-        // content all stay in sync. Detection order:
-        //   1. URL/hash (most authoritative — survives navigations,
-        //      direct links, browser back/forward).
-        //   2. sessionStorage data-mirror-tab (recent click hint).
-        //   3. sessionStorage href fallback (for items without a
-        //      mirror-tab attribute).
+        // On page load, active state is derived purely from the URL —
+        // no sessionStorage to go stale, no "last clicked" memory to
+        // disagree with the page the user is actually looking at.
         clearAll();
         var urlMt = detectMirrorTabFromUrl();
-        var applied = false;
         if (urlMt) {
-            applied = applyByMirrorTab(urlMt) || applied;
+            applyByMirrorTab(urlMt);
             mirrorTopTab(urlMt);
-            // URL won — also refresh sessionStorage so future page
-            // loads start from the correct baseline.
-            saveState(urlMt, '');
-        } else {
-            var s = readState();
-            if (s.mt) {
-                applied = applyByMirrorTab(s.mt) || applied;
-                mirrorTopTab(s.mt);
-            }
-            if (!applied && s.href) applyByHref(s.href);
         }
     }
 
@@ -758,7 +716,6 @@ function setTrainerActiveNav(which) {
         clearAll();
         applyByMirrorTab(mirrorTab);
         mirrorTopTab(mirrorTab);
-        saveState(mirrorTab, '');
         // Mirror the panel choice back into the URL so a refresh on
         // /dashboard/ continues showing the same sub-panel. Skipped
         // for 'profile' which is a separate page (system_account) and
@@ -782,16 +739,27 @@ function setTrainerActiveNav(which) {
         clearAll();
         applyByMirrorTab(urlMt);
         mirrorTopTab(urlMt);
-        saveState(urlMt, '');
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
     else attach();
-    // Belt-and-suspenders: re-sync on every state-change moment a stale
-    // session-storage value could lie to us about the current page.
+    // Belt-and-suspenders: re-sync on every state-change moment that
+    // could leave the wrong item highlighted.
     window.addEventListener('load',       syncFromUrl);
     window.addEventListener('hashchange', syncFromUrl);
     window.addEventListener('popstate',   syncFromUrl);
     window.addEventListener('pageshow',   syncFromUrl); // covers BFCache restores
+    // CRITICAL: the admin uses instant-nav.js (PJAX) which swaps page
+    // content without firing DOMContentLoaded again. The custom
+    // `instant-nav:after-swap` event is dispatched after each swap, so
+    // we re-run URL detection here too — otherwise clicking sidebar /
+    // top-tab links leaves the active highlight stuck on whatever was
+    // last visually set by the click handler, even after the URL has
+    // moved on to a different page.
+    document.addEventListener('instant-nav:after-swap', function () {
+        // Click handlers need to be re-attached to the freshly-swapped
+        // sidebar DOM, and the URL-derived active state re-applied.
+        attach();
+    });
 })();
 </script>
