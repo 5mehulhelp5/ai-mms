@@ -66,10 +66,14 @@
         var a = e.target.closest && e.target.closest('a');
         if (!a || hoverTimers.has(a)) return;
         if (!isSafeForPrefetch(a)) return;
+        // Kick off prefetch nearly immediately on hover so the response
+        // is in the browser cache by the time the user actually clicks.
+        // Was 65ms (too cautious) — 15ms still avoids spurious prefetches
+        // from cursor movement but starts the network request sooner.
         var t = setTimeout(function(){
             prefetch(a.href);
             hoverTimers.delete(a);
-        }, 65);
+        }, 15);
         hoverTimers.set(a, t);
     }, { passive: true });
     document.addEventListener('mouseout', function(e){
@@ -100,14 +104,19 @@
         b.style.opacity = '1';
         b.style.width = '0%';
         b.offsetWidth; // force layout flush so the next transition starts from 0
-        b.style.transition = 'width 8s cubic-bezier(0.1, 0.5, 0.1, 1), opacity 0.3s';
+        // 3s ease (was 8s) — the bar feels snappy on typical 200-500ms
+        // PJAX loads instead of crawling along while the page is already
+        // ready. Still caps at 92% so finishBar can complete the last 8%.
+        b.style.transition = 'width 3s cubic-bezier(0.1, 0.5, 0.1, 1), opacity 0.3s';
         b.style.width = '92%';
     }
     function finishBar(){
         if (!bar) return;
-        bar.style.transition = 'width 0.2s ease-out, opacity 0.4s ease-out';
+        // 0.1s finish (was 0.2s) and 0.2s fade-out (was 0.4s) — the bar
+        // gets out of the way as soon as content lands.
+        bar.style.transition = 'width 0.1s ease-out, opacity 0.2s ease-out';
         bar.style.width = '100%';
-        setTimeout(function(){ if (bar) bar.style.opacity = '0'; }, 180);
+        setTimeout(function(){ if (bar) bar.style.opacity = '0'; }, 100);
     }
 
     // ---------- 3. PJAX swap ----------
