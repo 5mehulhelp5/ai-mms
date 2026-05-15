@@ -24,6 +24,14 @@ SetEnvIf Host ^(www\.)?tertiaryinfotech\.edu\.sg$ MAGE_RUN_TYPE=store
 RewriteCond %{HTTP_HOST} ^tertiaryinfotech\.edu\.sg$ [NC]
 RewriteRule ^(.*)$ https://www.tertiaryinfotech.edu.sg/$1 [L,R=301]
 
+## tertiarycourses.com.ng → Nigeria store view
+SetEnvIf Host ^(www\.)?tertiarycourses\.com\.ng$ MAGE_RUN_CODE=nigeria
+SetEnvIf Host ^(www\.)?tertiarycourses\.com\.ng$ MAGE_RUN_TYPE=store
+
+## Redirect non-www to www for tertiarycourses.com.ng
+RewriteCond %{HTTP_HOST} ^tertiarycourses\.com\.ng$ [NC]
+RewriteRule ^(.*)$ https://www.tertiarycourses.com.ng/$1 [L,R=301]
+
 ############################################
 ## uncomment these lines for CGI mode
 ## make sure to specify the correct cgi php binary file name
