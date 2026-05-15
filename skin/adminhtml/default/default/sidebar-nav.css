@@ -353,7 +353,7 @@ body .sidebar-nav #nav {
     justify-content: flex-end;
     padding: 8px 12px;
     flex-shrink: 0;
-    border-bottom: 1px solid rgba(148,163,184,0.12);
+    border-bottom: 2px solid rgba(148,163,184,0.22);
 }
 .sidebar-toggle,
 button.sidebar-toggle,
@@ -1808,12 +1808,18 @@ body button.pagination-btn span {
 }
 
 /* === Learner / Trainer / Admin Sidebar Navigation === */
+/* The PHP renders a <div class="sidebar-section-label">TOOLS</div> between
+   the main sidebar items (My Classes etc.) and the collapsible tool
+   groups. We don't show the label text itself, but we DO want a hairline
+   rule there so My Classes is visibly separated from the Ed Tools /
+   Project Mgt / etc. group toggles below — matching the LMS-TMS layout. */
 .sidebar-section-label {
-    padding: 8px 22px 6px !important;
+    padding: 0 !important;
     font-size: 0 !important;
     height: 0 !important;
     overflow: hidden !important;
-    margin: 0 !important;
+    margin: 12px 16px !important;
+    border-top: 2px solid rgba(148,163,184,0.22) !important;
 }
 .lms-nav-item {
     display: flex !important;
