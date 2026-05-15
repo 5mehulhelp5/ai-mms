@@ -115,8 +115,7 @@
 /* === 4. Sidebar Nav — Vertical Menu === */
 .sidebar-nav {
     flex: 1;
-    padding: 2px 0;
-    padding-bottom: 50px;
+    padding: 16px 0 50px 0;
     overflow-y: auto;
     overflow-x: hidden;
     min-height: 0;
@@ -1818,8 +1817,18 @@ body button.pagination-btn span {
     font-size: 0 !important;
     height: 0 !important;
     overflow: hidden !important;
-    margin: 12px 16px !important;
+    margin: 16px 16px !important;
     border-top: 2px solid rgba(148,163,184,0.22) !important;
+}
+/* The very first section label in each role sidebar (the "MENU" header
+   at the top) sits directly under the collapse-arrow row — and that row
+   already draws its own border-bottom, so a second line right below it
+   reads as a double-rule. Suppress the top-border on first-child labels
+   so only the "TOOLS" divider mid-sidebar (which is NOT first-child)
+   keeps its line. */
+.sidebar-section-label:first-child {
+    border-top: none !important;
+    margin: 0 !important;
 }
 .lms-nav-item {
     display: flex !important;
