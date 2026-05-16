@@ -1117,6 +1117,55 @@ document.observe('dom:loaded', function() {
         setTimeout(injectHeaderSelectAll, delay);
     });
 
+    // Processing overlay — show a spinner while a mass-action submit
+    // (reindex, flush, mass-update) is in flight. Magento submits the form
+    // synchronously and the page navigates, so we show the overlay on
+    // click and let the navigation tear it down naturally.
+    function buildOverlay(label) {
+        var ov = document.createElement('div');
+        ov.className = 'mmd-processing-overlay';
+        var stack = document.createElement('div');
+        stack.className = 'mmd-spinner-stack';
+        var spin = document.createElement('div');
+        spin.className = 'mmd-spinner';
+        var lbl = document.createElement('div');
+        lbl.className = 'mmd-spinner-label';
+        lbl.textContent = label || 'Processing…';
+        stack.appendChild(spin);
+        stack.appendChild(lbl);
+        ov.appendChild(stack);
+        return ov;
+    }
+    function wireMassactionSpinner() {
+        document.querySelectorAll('[id$="_massaction"] button, .massaction button').forEach(function (btn) {
+            if (btn.__mmdSpinnerWired) return;
+            btn.__mmdSpinnerWired = true;
+            btn.addEventListener('click', function () {
+                // Only show on grids where there's actually a selection,
+                // otherwise Magento's JS alerts "no items selected" and
+                // doesn't navigate — overlay would hang. Check selection
+                // count by looking at the visible counter (<strong> in the
+                // toolbar) — it ticks as the user clicks rows.
+                var massDiv = btn.closest('[id$="_massaction"], .massaction');
+                if (massDiv) {
+                    var count = massDiv.querySelector('strong');
+                    if (count && /^\s*0\s*$/.test(count.textContent)) return;
+                }
+                // Label by action: Reindex/Flush/Refresh → use that verb.
+                var sel = massDiv && massDiv.querySelector('select');
+                var verb = 'Processing';
+                if (sel && sel.options[sel.selectedIndex]) {
+                    var optText = sel.options[sel.selectedIndex].text.trim();
+                    if (optText) verb = optText;
+                }
+                document.body.appendChild(buildOverlay(verb + '…'));
+            });
+        });
+    }
+    [300, 1000, 2200].forEach(function (delay) {
+        setTimeout(wireMassactionSpinner, delay);
+    });
+
     // Inject KPI summary cards above grid tables
     function injectGridKPIs() {
         // Find all grids on the page

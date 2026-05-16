@@ -1475,18 +1475,35 @@ body button.pagination-btn span {
     font-size: 11px !important;
     border-radius: 5px !important;
 }
+/* Mass-action Submit: compact 24px, danger gradient. Mass-action submits
+   are always destructive (reindex, flush, delete, mass-update) — red is
+   the consistent semantic across every grid (cache, index, sales,
+   customers, etc.). Specificity bumped to button.scalable so it beats
+   §18's primary-gradient rule. */
 .admin-main .massaction button,
 .admin-main .massaction button.scalable,
 .admin-main [id$="_massaction"] button,
 .admin-main [id$="_massaction"] button.scalable {
     min-height: 24px !important;
     height: 24px !important;
-    padding: 0 10px !important;
+    padding: 0 12px !important;
     margin: 0 !important;
     font-size: 11px !important;
     font-weight: 600 !important;
     border-radius: 5px !important;
     line-height: 1 !important;
+    background: var(--btn-danger) !important;
+    background-image: var(--btn-danger) !important;
+    border: 0 !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+.admin-main .massaction button:hover,
+.admin-main .massaction button.scalable:hover,
+.admin-main [id$="_massaction"] button:hover,
+.admin-main [id$="_massaction"] button.scalable:hover {
+    background: var(--btn-danger-hover) !important;
+    background-image: var(--btn-danger-hover) !important;
 }
 /* Drop the Select All / Unselect All / Select Visible / Unselect Visible
    text links and their separators — the grid header checkbox already
@@ -2023,18 +2040,37 @@ body button.pagination-btn span {
 .tools-group.open > .tools-group-toggle .tools-caret { transform: rotate(180deg); opacity: 0.8; }
 .tools-group-items {
     display: none; padding-left: 18px; border-left: 1px solid rgba(100,116,139,0.25); margin-left: 32px;
-    padding-top: 8px; padding-bottom: 8px;
+    padding-top: 4px; padding-bottom: 4px;
 }
 .tools-group.open > .tools-group-items { display: block; }
 .tools-sub-item {
     display: flex !important; align-items: center !important; gap: 12px !important;
-    padding: 10px 18px !important; color: #94a3b8 !important; font-size: 13px !important;
+    padding: 7px 14px !important; color: #94a3b8 !important; font-size: 13px !important;
     font-weight: 500 !important;
     text-decoration: none !important; transition: color 0.15s ease, background 0.15s ease !important;
     cursor: pointer !important; line-height: 1.4 !important; border-radius: 6px !important;
 }
 .tools-sub-item:hover { color: #258bb6 !important; background: rgba(255,255,255,0.04) !important; }
 .tools-sub-item svg { flex-shrink: 0; opacity: 0.6; width: 18px !important; height: 18px !important; }
+
+/* Nested sub-group inside .tools-group-items (e.g. Manage Currency → Rates/Symbols).
+   The toggle should read as a normal sub-item, not a top-level group toggle. */
+.tools-subgroup { margin: 0 !important; }
+.tools-subgroup > .tools-group-toggle {
+    padding: 7px 14px !important;
+    font-size: 13px !important;
+    width: 100% !important;
+}
+.tools-subgroup > .tools-group-toggle .tools-caret {
+    width: 12px !important; height: 12px !important;
+}
+.tools-subgroup > .tools-group-items {
+    margin-left: 14px !important;
+    padding-left: 12px !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
 .tools-sub-label {
     padding: 10px 16px 4px !important; color: #475569 !important;
     font-size: 11px !important; font-weight: 600 !important;
@@ -3106,4 +3142,262 @@ body.adminhtml-cache-index .admin-main table.form-list td button:hover,
 body.adminhtml-cache-index .admin-main table.form-list td button.scalable:hover {
     background: var(--btn-danger-hover) !important;
     background-image: var(--btn-danger-hover) !important;
+}
+
+/* === 25. Index Management — same compact treatment as Cache === */
+/* sidebar-nav-v2.js skips #indexer_processes_grid_table for KPI cards,
+   per-row Actions injection and checkbox-column hiding. These rules
+   restore the native mass-action workflow (Select All + Actions +
+   Submit) and apply the same tight Cache-page layout — scoped to
+   body.adminhtml-process-list so nothing else is affected. */
+
+body.adminhtml-process-list .admin-main .grid {
+    overflow: visible !important;
+}
+body.adminhtml-process-list .admin-main .grid .hor-scroll,
+body.adminhtml-process-list .admin-main .grid > table {
+    overflow-x: auto !important;
+    max-width: 100% !important;
+}
+body.adminhtml-process-list .admin-main .grid table,
+body.adminhtml-process-list .admin-main #indexer_processes_grid_table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto !important;
+}
+
+/* Compact rows */
+body.adminhtml-process-list .admin-main .grid th,
+body.adminhtml-process-list .admin-main .grid tr.headings th {
+    padding: 7px 12px !important;
+    font-size: 11px !important;
+    color: #7dd3fc !important;
+    text-shadow: none !important;
+}
+body.adminhtml-process-list .admin-main .grid td,
+body.adminhtml-process-list .admin-main .grid tbody tr td,
+body.adminhtml-process-list .admin-main .grid tbody tr:nth-child(even) td,
+body.adminhtml-process-list .admin-main .grid tbody tr:nth-child(odd) td {
+    padding: 6px 12px !important;
+    font-size: 12.5px !important;
+    line-height: 1.4 !important;
+    white-space: nowrap !important;
+    color: #cbd5e1 !important;
+}
+body.adminhtml-process-list .admin-main .grid td:nth-child(3) {
+    white-space: normal !important;
+}
+
+/* Restore + reveal the mass-action checkbox column */
+body.adminhtml-process-list .admin-main #indexer_processes_grid_table th:first-child,
+body.adminhtml-process-list .admin-main #indexer_processes_grid_table td:first-child,
+body.adminhtml-process-list .admin-main #indexer_processes_grid_table col:first-child {
+    display: table-cell !important;
+    width: 38px !important;
+    text-align: center !important;
+}
+body.adminhtml-process-list .admin-main #indexer_processes_grid_table col:first-child {
+    display: table-column !important;
+}
+body.adminhtml-process-list .admin-main #indexer_processes_grid_table input[type="checkbox"] {
+    width: 16px !important;
+    height: 16px !important;
+    accent-color: #258bb6 !important;
+    opacity: 1 !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    -webkit-appearance: auto !important;
+    appearance: auto !important;
+    border: 1px solid #475569 !important;
+}
+
+/* Mass-action toolbar — slim self-contained card, Submit hugs right */
+body.adminhtml-process-list .admin-main .grid .massaction,
+body.adminhtml-process-list .admin-main .massaction,
+body.adminhtml-process-list .admin-main #indexer_processes_grid_massaction {
+    display: block !important;
+    background: var(--d4) !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 10px !important;
+    padding: 6px 4px 6px 12px !important;
+    margin-bottom: 12px !important;
+}
+body.adminhtml-process-list .admin-main [id$="_massaction"] + .grid {
+    border-radius: 10px !important;
+    border-top: 1px solid var(--b1) !important;
+}
+body.adminhtml-process-list .admin-main table.massaction,
+body.adminhtml-process-list .admin-main table.massaction tbody {
+    display: block !important;
+    width: 100% !important;
+}
+body.adminhtml-process-list .admin-main table.massaction tr {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    width: 100% !important;
+    min-height: 0 !important;
+}
+body.adminhtml-process-list .admin-main table.massaction td {
+    padding: 0 !important;
+    border: none !important;
+    background: none !important;
+    flex: 0 0 auto !important;
+}
+body.adminhtml-process-list .admin-main table.massaction td:last-child {
+    margin-left: auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+body.adminhtml-process-list .admin-main .massaction a {
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    color: #7dd3fc !important;
+    text-decoration: none !important;
+}
+body.adminhtml-process-list .admin-main .massaction a:hover {
+    color: #bae6fd !important;
+    text-decoration: underline !important;
+}
+body.adminhtml-process-list .admin-main .massaction .separator {
+    color: #475569 !important;
+    margin: 0 4px !important;
+}
+body.adminhtml-process-list .admin-main .massaction strong {
+    color: #e2e8f0 !important;
+    font-weight: 700 !important;
+}
+body.adminhtml-process-list .admin-main .massaction label,
+body.adminhtml-process-list .admin-main .massaction .nowrap {
+    color: #cbd5e1 !important;
+}
+body.adminhtml-process-list .admin-main .massaction .entry-edit,
+body.adminhtml-process-list .admin-main .massaction .right,
+body.adminhtml-process-list .admin-main .massaction .entry-edit form,
+body.adminhtml-process-list .admin-main .massaction .field-row {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+}
+body.adminhtml-process-list .admin-main .massaction label {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: #94a3b8 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+    margin: 0 !important;
+}
+body.adminhtml-process-list .admin-main .massaction select {
+    min-height: 24px !important;
+    height: 24px !important;
+    padding: 0 8px !important;
+    min-width: 120px !important;
+    font-size: 12px !important;
+    background: var(--d6) !important;
+    border: 1px solid var(--b2) !important;
+    border-radius: 7px !important;
+    color: #e2e8f0 !important;
+}
+
+/* Status badges — one clean pill */
+body.adminhtml-process-list .admin-main .grid td .cell-status,
+body.adminhtml-process-list .admin-main .grid td .grid-severity-notice span,
+body.adminhtml-process-list .admin-main .grid td span[class*="grid-severity"] {
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+body.adminhtml-process-list .admin-main .grid td .grid-severity-notice,
+body.adminhtml-process-list .admin-main .grid td .grid-severity-major,
+body.adminhtml-process-list .admin-main .grid td .grid-severity-critical,
+body.adminhtml-process-list .admin-main .grid td span[class*="grid-severity"] {
+    display: inline-block !important;
+    padding: 3px 12px !important;
+    border-radius: 999px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.4px !important;
+    text-transform: uppercase !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+body.adminhtml-process-list .admin-main .grid td .grid-severity-notice {
+    background: rgba(34,197,94,0.15) !important;
+    color: #4ade80 !important;
+}
+body.adminhtml-process-list .admin-main .grid td .grid-severity-major {
+    background: rgba(245,158,11,0.15) !important;
+    color: #fbbf24 !important;
+}
+body.adminhtml-process-list .admin-main .grid td .grid-severity-critical {
+    background: rgba(239,68,68,0.15) !important;
+    color: #f87171 !important;
+}
+
+/* Compact section header, kill the empty content-header card and stray <br> */
+body.adminhtml-process-list .admin-main h3 {
+    font: 700 12px/1.4 ui-sans-serif, system-ui, sans-serif !important;
+    color: var(--t4) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.6px !important;
+    padding: 4px 0 !important;
+    margin: 0 !important;
+}
+body.adminhtml-process-list .admin-main .content-header {
+    background: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 8px 0 4px !important;
+    box-shadow: none !important;
+}
+body.adminhtml-process-list .admin-main > br,
+body.adminhtml-process-list .admin-main .entry-edit > br,
+body.adminhtml-process-list .admin-main br {
+    display: none !important;
+}
+
+/* === Processing overlay ===
+   Shown while a mass-action submit is in flight (reindex, flush, etc).
+   Toggled by the .mmd-processing class on <body> in sidebar-nav-v2.js. */
+.mmd-processing-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(11, 17, 32, 0.65);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+    pointer-events: all;
+}
+.mmd-processing-overlay .mmd-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid rgba(255, 255, 255, 0.18);
+    border-top-color: var(--brand-2);
+    border-radius: 50%;
+    animation: mmd-spin 0.8s linear infinite;
+}
+.mmd-processing-overlay .mmd-spinner-label {
+    color: #e2e8f0;
+    font: 600 13px/1.4 ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.3px;
+    margin-top: 14px;
+}
+.mmd-processing-overlay .mmd-spinner-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+@keyframes mmd-spin {
+    to { transform: rotate(360deg); }
 }
