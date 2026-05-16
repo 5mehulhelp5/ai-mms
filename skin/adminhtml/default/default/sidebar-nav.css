@@ -3178,8 +3178,8 @@ body.adminhtml-cache-index .admin-main table.form-list td {
     vertical-align: middle !important;
     background: transparent !important;
 }
-/* Flush buttons are destructive (clear data) — use the danger gradient
-   per the skill's button rule. Compact 28px height. */
+/* Flush buttons — single-blue rule. Confirmation lives in the Magento
+   confirm() dialog, not in the button colour. Compact 28px height. */
 body.adminhtml-cache-index .admin-main table.form-list td button,
 body.adminhtml-cache-index .admin-main table.form-list td input[type="button"],
 body.adminhtml-cache-index .admin-main table.form-list td button.scalable {
@@ -3188,15 +3188,15 @@ body.adminhtml-cache-index .admin-main table.form-list td button.scalable {
     padding: 2px 14px !important;
     font-size: 12px !important;
     margin: 0 12px 0 0 !important;
-    background: var(--btn-danger) !important;
-    background-image: var(--btn-danger) !important;
+    background: var(--btn-primary) !important;
+    background-image: var(--btn-primary) !important;
     border: 0 !important;
     color: #fff !important;
 }
 body.adminhtml-cache-index .admin-main table.form-list td button:hover,
 body.adminhtml-cache-index .admin-main table.form-list td button.scalable:hover {
-    background: var(--btn-danger-hover) !important;
-    background-image: var(--btn-danger-hover) !important;
+    background: var(--btn-primary-hover) !important;
+    background-image: var(--btn-primary-hover) !important;
 }
 
 /* === 25. Index Management — same compact treatment as Cache === */
@@ -3566,9 +3566,9 @@ body.adminhtml-sales_order_status-index .row-delete-btn svg {
     color: var(--blue) !important;
 }
 .row-delete-btn:hover {
-    background: rgba(239, 68, 68, 0.12);
-    border-color: var(--red);
-    color: var(--red) !important;
+    background: rgba(101, 183, 213, 0.16);
+    border-color: var(--btn-sky);
+    color: var(--btn-sky) !important;
 }
 .row-edit-btn svg,
 .row-delete-btn svg { display: block; }
