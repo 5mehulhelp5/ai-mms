@@ -37,8 +37,9 @@
     --brand: #2563eb;            /* Tertiary admin primary accent */
     --brand-2: #3b82f6;
     --ring: rgba(96,165,250,0.45);   /* focus-visible ring */
-    --btn-primary: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
-    --btn-primary-hover: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+    /* Match the massaction Submit pill — light blue gradient. */
+    --btn-primary: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+    --btn-primary-hover: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
     --btn-success: linear-gradient(180deg, #10b981 0%, #059669 100%);
     --btn-success-hover: linear-gradient(180deg, #059669 0%, #047857 100%);
     --btn-danger: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
@@ -843,17 +844,17 @@ button.add-image span, button.add-widget span, button.add-variable span {
     padding: 0 !important;
     color: #fff !important;
 }
-/* SINGLE-COLOR BUTTON PALETTE — every admin button is the same blue.
-   No red (delete/cancel), no green (add/success). One color only. */
+/* SINGLE-COLOR BUTTON PALETTE — every admin button is the same blue
+   as the massaction Submit pill. No red, no green, no other accents. */
 button.delete, button.scalable.delete, button.fail, button.cancel,
 button.add, button.scalable.add, button.success {
-    background: var(--blue2) !important;
-    box-shadow: 0 2px 4px rgba(37,99,235,0.3) !important;
+    background: linear-gradient(180deg, var(--blue) 0%, var(--blue2) 100%) !important;
+    box-shadow: 0 2px 4px rgba(96,165,250,0.3) !important;
 }
 button.delete:hover, button.cancel:hover, button.fail:hover,
 button.add:hover, button.success:hover {
-    background: var(--blue3) !important;
-    box-shadow: 0 4px 8px rgba(37,99,235,0.4) !important;
+    background: linear-gradient(180deg, var(--blue2) 0%, var(--blue3) 100%) !important;
+    box-shadow: 0 4px 8px rgba(96,165,250,0.4) !important;
 }
 button.add span, button.add span span,
 button.delete span, button.cancel span,
