@@ -1,0 +1,11 @@
+/* Cache Management backend page — size only.
+   Color comes from the single-blue rule in sidebar-nav.css §16. */
+body.adminhtml-cache-index .admin-main #cache_grid_massaction button {
+    min-height: 42px !important;
+    height: 42px !important;
+    padding: 0 24px !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    border-radius: 8px !important;
+}

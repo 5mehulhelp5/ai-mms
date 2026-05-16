@@ -1496,8 +1496,8 @@ body .admin-main [id$="_massaction"] input[type="submit"] {
     font-weight: 600 !important;
     border-radius: 999px !important;
     line-height: 1 !important;
-    background: linear-gradient(180deg, var(--blue) 0%, var(--blue2) 100%) !important;
-    background-image: linear-gradient(180deg, var(--blue) 0%, var(--blue2) 100%) !important;
+    background: var(--btn-primary) !important;
+    background-image: var(--btn-primary) !important;
     border: 0 !important;
     color: #fff !important;
     box-shadow: none !important;
@@ -1513,8 +1513,8 @@ body .admin-main [id$="_massaction"] button:hover,
 body .admin-main [id$="_massaction"] button.scalable:hover,
 body .admin-main [id$="_massaction"] button[type="submit"]:hover,
 body .admin-main [id$="_massaction"] input[type="submit"]:hover {
-    background: linear-gradient(180deg, var(--blue2) 0%, var(--blue3) 100%) !important;
-    background-image: linear-gradient(180deg, var(--blue2) 0%, var(--blue3) 100%) !important;
+    background: var(--btn-primary-hover) !important;
+    background-image: var(--btn-primary-hover) !important;
     transform: none !important;
     box-shadow: none !important;
 }
