@@ -1359,12 +1359,50 @@ body button.pagination-btn span {
     background: var(--d4) !important;
     border: 1px solid var(--b1) !important;
     border-radius: 10px 10px 0 0 !important;
-    padding: 10px 16px !important;
+    padding: 6px 12px !important;
     margin-bottom: 0 !important;
     overflow: visible !important;
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
+}
+/* 16a. Flatten the nested fieldset Magento wraps around Actions+Submit —
+   it ships with --d3 bg + 20px padding which renders as a doubled gray
+   panel-in-a-panel. Skill rule: "no nested panel box". */
+.admin-main [id$="_massaction"] fieldset,
+.admin-main table.massaction fieldset,
+.admin-main .massaction fieldset,
+.admin-main .massaction form,
+.admin-main .massaction form > div {
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+}
+/* 16b. Selection links (Select All / Unselect All / Select Visible / etc.)
+   render as plain blue links — not buttons. Removes the dark pill the
+   global `a` styles were giving them, makes the row visually compact. */
+.admin-main [id$="_massaction"] a,
+.admin-main table.massaction a,
+.admin-main .massaction a {
+    background: transparent !important;
+    background-image: none !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-weight: 500 !important;
+    line-height: 1.4 !important;
+}
+/* 16c. Tighter inline gaps between Select All | Unselect All | ... */
+.admin-main table.massaction td:first-child,
+.admin-main .massaction .massaction-actions-left {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    flex-wrap: wrap !important;
 }
 /* The table.massaction inside the wrapper */
 .admin-main table.massaction,
@@ -1465,66 +1503,106 @@ body button.pagination-btn span {
     text-align: right !important;
 }
 
-/* === 18. Buttons Refinement === */
+/* === 18. Buttons — modern design system ===
+   One consistent button language across the whole admin. See
+   .claude/skills/backend-design/SKILL.md for the rules behind this. */
 .admin-main button,
 .admin-main button.scalable,
-.admin-main .form-button {
+.admin-main .form-button,
+.admin-main input[type="submit"] {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 7px;
     white-space: nowrap;
     vertical-align: middle;
-    min-height: 36px !important;
-    padding: 7px 18px !important;
+    min-height: 38px !important;
+    padding: 8px 20px !important;
     font-size: 13px !important;
     font-weight: 600 !important;
-    border-radius: 8px !important;
-    transition: all 0.15s ease !important;
+    line-height: 1 !important;
+    letter-spacing: 0.2px !important;
+    border: 1px solid transparent !important;
+    border-radius: 9px !important;
+    transition: background 0.16s ease, box-shadow 0.16s ease,
+                transform 0.08s ease, border-color 0.16s ease !important;
     cursor: pointer !important;
 }
-/* Primary (default) */
+.admin-main button:active,
+.admin-main button.scalable:active,
+.admin-main .form-button:active {
+    transform: translateY(1px) !important;
+}
+.admin-main button:focus-visible,
+.admin-main button.scalable:focus-visible,
+.admin-main .form-button:focus-visible {
+    outline: none !important;
+    box-shadow: 0 0 0 3px var(--ring) !important;
+}
+/* Primary (default) — brand gradient + soft elevation */
 .admin-main button,
-.admin-main button.scalable {
-    background: var(--blue3) !important;
+.admin-main button.scalable,
+.admin-main input[type="submit"] {
+    background: var(--btn-primary) !important;
     color: #fff !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3),
+                0 0 0 1px rgba(96,165,250,0.12) inset !important;
 }
 .admin-main button:hover,
-.admin-main button.scalable:hover {
-    background: var(--blue2) !important;
-    transform: translateY(-1px) !important;
+.admin-main button.scalable:hover,
+.admin-main input[type="submit"]:hover {
+    background: var(--btn-primary-hover) !important;
+    box-shadow: 0 3px 10px rgba(37,99,235,0.35) !important;
 }
-/* Add / Success */
+/* Add / Save / Success */
 .admin-main button.add,
 .admin-main button.scalable.add,
+.admin-main button.save,
 .admin-main button.success {
-    background: var(--green2) !important;
+    background: var(--btn-success) !important;
 }
 .admin-main button.add:hover,
+.admin-main button.save:hover,
 .admin-main button.success:hover {
-    background: var(--green) !important;
+    background: var(--btn-success-hover) !important;
+    box-shadow: 0 3px 10px rgba(5,150,105,0.35) !important;
 }
-/* Delete / Cancel */
+/* Delete / Cancel — destructive */
 .admin-main button.delete,
 .admin-main button.cancel {
-    background: var(--red2) !important;
+    background: var(--btn-danger) !important;
 }
 .admin-main button.delete:hover,
 .admin-main button.cancel:hover {
-    background: var(--red) !important;
+    background: var(--btn-danger-hover) !important;
+    box-shadow: 0 3px 10px rgba(220,38,38,0.35) !important;
 }
-/* Back / Secondary */
-.admin-main button.back {
-    background: var(--d5) !important;
+/* Back / Secondary — quiet outline button */
+.admin-main button.back,
+.admin-main button.secondary {
+    background: transparent !important;
     border: 1px solid var(--b2) !important;
-    color: var(--t3) !important;
+    color: var(--t2) !important;
+    box-shadow: none !important;
 }
 .admin-main button.back span,
-.admin-main button.back span span {
-    color: var(--t3) !important;
+.admin-main button.back span span,
+.admin-main button.secondary span {
+    color: var(--t2) !important;
 }
-.admin-main button.back:hover {
-    background: var(--d6) !important;
+.admin-main button.back:hover,
+.admin-main button.secondary:hover {
+    background: var(--d4) !important;
+    border-color: var(--b3) !important;
+    box-shadow: none !important;
+}
+.admin-main button:disabled,
+.admin-main button.disabled,
+.admin-main button[disabled] {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+    transform: none !important;
 }
 /* Button spans — kill all legacy bg images */
 .admin-main button span,
@@ -2689,4 +2767,219 @@ button.filter-search-btn span {
     position: relative;
     top: 2px;
     margin-left: 4px;
+}
+
+/* === 24. Cache Management — restore native checkbox grid === */
+/* The global grid overhaul (section 14) hides the mass-action column,
+   collapses rows into the per-row "Actions" dropdown pattern, and clips
+   the table to the page width. Cache Management needs the real Magento
+   workflow back: a checkbox per row, Select All, and Actions→Submit.
+   sidebar-nav-v2.js skips #cache_grid_table so the column survives;
+   these rules make it compact, full-width and visible in dark mode.
+   Scoped to body.adminhtml-cache-index so no other grid is affected. */
+
+/* Let the grid show its full width instead of clipping the Status
+   column — horizontal scroll if it overflows, no forced min-width. */
+body.adminhtml-cache-index .admin-main .grid {
+    overflow: visible !important;
+}
+body.adminhtml-cache-index .admin-main .grid .hor-scroll,
+body.adminhtml-cache-index .admin-main .grid > table {
+    overflow-x: auto !important;
+    max-width: 100% !important;
+}
+body.adminhtml-cache-index .admin-main .grid table,
+body.adminhtml-cache-index .admin-main #cache_grid_table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto !important;
+}
+
+/* Compact rows — one entry per row, tight padding, no wrapping */
+body.adminhtml-cache-index .admin-main .grid th,
+body.adminhtml-cache-index .admin-main .grid tr.headings th {
+    padding: 7px 12px !important;
+    font-size: 11px !important;
+    color: #7dd3fc !important;
+    text-shadow: none !important;
+}
+body.adminhtml-cache-index .admin-main .grid td,
+body.adminhtml-cache-index .admin-main .grid tbody tr td,
+body.adminhtml-cache-index .admin-main .grid tbody tr:nth-child(even) td,
+body.adminhtml-cache-index .admin-main .grid tbody tr:nth-child(odd) td {
+    padding: 6px 12px !important;
+    font-size: 12.5px !important;
+    line-height: 1.4 !important;
+    white-space: nowrap !important;
+    color: #cbd5e1 !important;
+}
+body.adminhtml-cache-index .admin-main .grid td:nth-child(2) {
+    white-space: normal !important;
+}
+
+/* Restore + reveal the mass-action checkbox column */
+body.adminhtml-cache-index .admin-main #cache_grid_table th:first-child,
+body.adminhtml-cache-index .admin-main #cache_grid_table td:first-child,
+body.adminhtml-cache-index .admin-main #cache_grid_table col:first-child {
+    display: table-cell !important;
+    width: 38px !important;
+    text-align: center !important;
+}
+body.adminhtml-cache-index .admin-main #cache_grid_table col:first-child {
+    display: table-column !important;
+}
+body.adminhtml-cache-index .admin-main #cache_grid_table input[type="checkbox"] {
+    width: 16px !important;
+    height: 16px !important;
+    accent-color: #258bb6 !important;
+    opacity: 1 !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    -webkit-appearance: auto !important;
+    appearance: auto !important;
+    border: 1px solid #475569 !important;
+}
+
+/* Bring back the native mass-action bar (Select All / Actions / Submit) */
+body.adminhtml-cache-index .admin-main .grid .massaction,
+body.adminhtml-cache-index .admin-main .massaction,
+body.adminhtml-cache-index .admin-main #cache_grid_massaction {
+    display: block !important;
+    background: var(--d4) !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 10px 10px 0 0 !important;
+    padding: 10px 16px !important;
+}
+body.adminhtml-cache-index .admin-main .massaction a {
+    color: #7dd3fc !important;
+}
+body.adminhtml-cache-index .admin-main .massaction label,
+body.adminhtml-cache-index .admin-main .massaction .nowrap {
+    color: #cbd5e1 !important;
+}
+
+/* Professional, self-contained toolbar — a single slim card detached
+   from the grid (own margin + full radius), one flat row, links left,
+   Actions/Submit right with no clunky inner panel. Overrides section
+   16's tall space-between layout and the seamless-connect for the
+   cache page only. */
+body.adminhtml-cache-index .admin-main #cache_grid_massaction {
+    padding: 8px 16px !important;
+    margin-bottom: 12px !important;
+    border-radius: 10px !important;
+    border: 1px solid var(--b1) !important;
+    background: var(--d4) !important;
+}
+/* Restore the grid as its own card (undo seamless connect) */
+body.adminhtml-cache-index .admin-main [id$="_massaction"] + .grid {
+    border-radius: 10px !important;
+    border-top: 1px solid var(--b1) !important;
+}
+body.adminhtml-cache-index .admin-main table.massaction,
+body.adminhtml-cache-index .admin-main table.massaction tbody {
+    display: block !important;
+    width: 100% !important;
+}
+body.adminhtml-cache-index .admin-main table.massaction tr {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    width: 100% !important;
+    min-height: 0 !important;
+}
+body.adminhtml-cache-index .admin-main table.massaction td {
+    padding: 0 !important;
+    border: none !important;
+    background: none !important;
+    flex: 0 0 auto !important;
+}
+body.adminhtml-cache-index .admin-main table.massaction td:last-child {
+    margin-left: auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+/* Selection links — quieter, professional */
+body.adminhtml-cache-index .admin-main .massaction a {
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    color: #7dd3fc !important;
+    text-decoration: none !important;
+}
+body.adminhtml-cache-index .admin-main .massaction a:hover {
+    color: #bae6fd !important;
+    text-decoration: underline !important;
+}
+body.adminhtml-cache-index .admin-main .massaction .separator {
+    color: #475569 !important;
+    margin: 0 4px !important;
+}
+body.adminhtml-cache-index .admin-main .massaction #cache_grid_massaction-count,
+body.adminhtml-cache-index .admin-main .massaction strong {
+    color: #e2e8f0 !important;
+    font-weight: 700 !important;
+}
+/* Flatten the inner Actions/Submit panel completely */
+body.adminhtml-cache-index .admin-main .massaction .entry-edit,
+body.adminhtml-cache-index .admin-main .massaction .right,
+body.adminhtml-cache-index .admin-main .massaction .entry-edit form,
+body.adminhtml-cache-index .admin-main .massaction .field-row {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+}
+body.adminhtml-cache-index .admin-main .massaction label {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: #94a3b8 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+    margin: 0 !important;
+}
+body.adminhtml-cache-index .admin-main .massaction select {
+    min-height: 30px !important;
+    height: 30px !important;
+    padding: 4px 10px !important;
+    min-width: 150px !important;
+    font-size: 12px !important;
+    background: var(--d6) !important;
+    border: 1px solid var(--b2) !important;
+    border-radius: 7px !important;
+    color: #e2e8f0 !important;
+}
+/* Status badges — flatten the doubled pill/rectangle into one clean
+   pill (the native cell-status span + our pill were stacking). */
+body.adminhtml-cache-index .admin-main .grid td .cell-status,
+body.adminhtml-cache-index .admin-main .grid td .grid-severity-notice span,
+body.adminhtml-cache-index .admin-main .grid td span[class*="grid-severity"] {
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+body.adminhtml-cache-index .admin-main .grid td .grid-severity-notice,
+body.adminhtml-cache-index .admin-main .grid td .grid-severity-major,
+body.adminhtml-cache-index .admin-main .grid td span[class*="grid-severity"] {
+    display: inline-block !important;
+    padding: 3px 12px !important;
+    border-radius: 999px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.4px !important;
+    text-transform: uppercase !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+body.adminhtml-cache-index .admin-main .grid td .grid-severity-notice {
+    background: rgba(34,197,94,0.15) !important;
+    color: #4ade80 !important;
+}
+body.adminhtml-cache-index .admin-main .grid td .grid-severity-major {
+    background: rgba(245,158,11,0.15) !important;
+    color: #fbbf24 !important;
 }
