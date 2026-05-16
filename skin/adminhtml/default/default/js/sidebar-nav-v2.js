@@ -1109,7 +1109,13 @@ document.observe('dom:loaded', function() {
             headerCell.style.textAlign = 'center';
         });
     }
-    setTimeout(injectHeaderSelectAll, 200);
+    // Run on multiple checkpoints — some Magento grids (Index Management,
+    // long-running reports) render their tbody after the initial DOM tick,
+    // so a single 200ms timer misses them. The function is idempotent
+    // (skips cells that already contain a checkbox) so re-running is safe.
+    [200, 800, 2000].forEach(function (delay) {
+        setTimeout(injectHeaderSelectAll, delay);
+    });
 
     // Inject KPI summary cards above grid tables
     function injectGridKPIs() {
