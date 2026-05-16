@@ -30,6 +30,19 @@
     --red2: #dc2626;
     --yellow: #fbbf24;
     --orange: #f97316;
+
+    /* --- Brand & button design tokens ---
+       Single source of truth for the admin button system.
+       Documented in .claude/skills/backend-design/SKILL.md */
+    --brand: #2563eb;            /* Tertiary admin primary accent */
+    --brand-2: #3b82f6;
+    --ring: rgba(96,165,250,0.45);   /* focus-visible ring */
+    --btn-primary: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    --btn-primary-hover: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+    --btn-success: linear-gradient(180deg, #10b981 0%, #059669 100%);
+    --btn-success-hover: linear-gradient(180deg, #059669 0%, #047857 100%);
+    --btn-danger: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+    --btn-danger-hover: linear-gradient(180deg, #dc2626 0%, #b91c1c 100%);
 }
 
 /* === 2. Global Reset for Dark === */
@@ -1189,26 +1202,71 @@ dl.accordion dd, .accordion-body { background: var(--d3) !important; border: 1px
 /* Page head */
 .page-head { background: var(--d3) !important; background-image: none !important; border-bottom: 1px solid var(--b1) !important; }
 
-/* === 19. Status Badges === */
-.grid-severity-notice, .grid-severity-minor {
-    background: rgba(16,185,129,0.15) !important;
-    color: #34d399 !important;
-    border: 1px solid rgba(52,211,153,0.3) !important;
-    border-radius: 20px !important;
-    padding: 3px 12px !important;
-    font-size: 11px !important;
-    font-weight: 600 !important;
-    display: inline-block !important;
+/* === 19. Status Badges ===
+   Magento 1 emits .grid-severity-* with an inner <span> whose legacy
+   boxes.css applies the bg_notifications.gif sprite at 100% offset —
+   the right edge leaks through as a "torn-ticket" notch on top of any
+   pill we style on the parent. Reset the inner span first, then style
+   the outer as one clean pill. Same fix is already applied scoped to
+   adminhtml-cache-index in sidebar-nav.css (last block); this is the
+   global version covering every grid. Token-based, no raw hex. */
+
+/* 19a. Flatten the legacy inner sprite span on every severity. */
+.grid-severity-notice span,
+.grid-severity-minor span,
+.grid-severity-major span,
+.grid-severity-critical span,
+.cell-status,
+.cell-status span {
+    background: none !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    border: 0 !important;
+    color: inherit !important;
+    font: inherit !important;
+    line-height: 1 !important;
+    height: auto !important;
+    margin: 0 !important;
+    display: inline !important;
 }
-.grid-severity-major, .grid-severity-critical {
-    background: rgba(239,68,68,0.15) !important;
-    color: #f87171 !important;
-    border: 1px solid rgba(248,113,113,0.3) !important;
-    border-radius: 20px !important;
-    padding: 3px 12px !important;
-    font-size: 11px !important;
-    font-weight: 600 !important;
+
+/* 19b. Pill base — one shape for all severities. */
+.grid-severity-notice,
+.grid-severity-minor,
+.grid-severity-major,
+.grid-severity-critical {
     display: inline-block !important;
+    background-image: none !important;
+    background-repeat: no-repeat !important;
+    border-radius: 999px !important;
+    padding: 3px 12px !important;
+    font: 700 11px/1.4 ui-sans-serif, system-ui, sans-serif !important;
+    letter-spacing: 0.4px !important;
+    text-transform: uppercase !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    box-shadow: none !important;
+    height: auto !important;
+    margin: 0 !important;
+}
+
+/* 19c. Semantic colours — token-based, ~15% tint + solid text, tinted ring. */
+.grid-severity-notice,
+.grid-severity-minor {
+    background: rgba(16, 185, 129, 0.15) !important;   /* --green */
+    color: var(--green) !important;
+    border: 1px solid rgba(16, 185, 129, 0.35) !important;
+}
+.grid-severity-major {
+    background: rgba(251, 191, 36, 0.15) !important;   /* --yellow */
+    color: var(--yellow) !important;
+    border: 1px solid rgba(251, 191, 36, 0.35) !important;
+}
+.grid-severity-critical {
+    background: rgba(239, 68, 68, 0.15) !important;    /* --red */
+    color: var(--red) !important;
+    border: 1px solid rgba(239, 68, 68, 0.35) !important;
 }
 
 /* === 20. Grid Image Thumbnails === */
