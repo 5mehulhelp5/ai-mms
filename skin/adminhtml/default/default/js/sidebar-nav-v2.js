@@ -884,6 +884,12 @@ document.observe('dom:loaded', function() {
 
         var injectedAny = false;
         tables.forEach(function(table) {
+            // Leave the Cache Management grid on its native mass-action
+            // workflow (Select All + Actions + Submit). Skipping it here
+            // means injectedAny stays false and unhideMassactionFallback()
+            // restores the original bar.
+            if (table.id === 'cache_grid_table') return;
+            if (table.id === 'indexer_processes_grid_table') return;
             // Add ACTIONS header
             var headings = table.querySelector('tr.headings');
             if (headings && !headings.querySelector('.row-actions-th')) {
@@ -1004,6 +1010,11 @@ document.observe('dom:loaded', function() {
     function removeCheckboxColumn() {
         var tables = document.querySelectorAll('.grid table.data');
         tables.forEach(function(table) {
+            // Keep the native checkbox column on the Cache Management grid —
+            // bulk select/refresh/flush there depends on the real
+            // mass-action checkboxes (see scoped CSS in sidebar-nav.css).
+            if (table.id === 'cache_grid_table') return;
+            if (table.id === 'indexer_processes_grid_table') return;
             // Only hide the first column if it's actually a checkbox column.
             // Detect by inspecting the first body row: if its first cell has
             // an <input type="checkbox">, then the entire first column (head
@@ -1029,6 +1040,66 @@ document.observe('dom:loaded', function() {
         });
     }
 
+    // Inject a "select all" checkbox into the header of any grid whose
+    // first column is mass-action checkboxes but whose header cell is
+    // empty. Replaces the 4 Select All / Unselect All text links in the
+    // toolbar with the more familiar header-checkbox toggle.
+    function injectHeaderSelectAll() {
+        var tables = document.querySelectorAll('.grid table.data');
+        tables.forEach(function (table) {
+            var firstBodyRow = table.querySelector('tbody tr');
+            if (!firstBodyRow || !firstBodyRow.children.length) return;
+            var firstBodyCell = firstBodyRow.children[0];
+            if (!firstBodyCell || !firstBodyCell.querySelector('input[type="checkbox"]')) return;
+            var headerRow = table.querySelector('thead tr');
+            if (!headerRow || !headerRow.children.length) return;
+            var headerCell = headerRow.children[0];
+            if (!headerCell) return;
+            // If Magento already rendered a select-all checkbox there, leave it.
+            if (headerCell.querySelector('input[type="checkbox"]')) return;
+
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'mmd-select-all';
+            cb.title = 'Select all';
+            cb.style.cursor = 'pointer';
+            cb.addEventListener('change', function () {
+                var rows = table.querySelectorAll('tbody tr');
+                rows.forEach(function (row) {
+                    var rowCb = row.querySelector('input[type="checkbox"]');
+                    if (!rowCb || rowCb.disabled) return;
+                    if (rowCb.checked === cb.checked) return;
+                    rowCb.checked = cb.checked;
+                    // Fire change so Magento's massaction object updates the
+                    // "N items selected" counter and its internal selection set.
+                    var evt = document.createEvent('HTMLEvents');
+                    evt.initEvent('change', true, false);
+                    rowCb.dispatchEvent(evt);
+                    // Also fire native click handler if present (Magento attaches
+                    // onclick="varienGridMassaction.setCheckbox(this)" inline).
+                    if (typeof rowCb.onclick === 'function') {
+                        rowCb.onclick.call(rowCb);
+                    }
+                });
+            });
+            // Keep header checkbox in sync if user toggles individual rows.
+            table.addEventListener('change', function (e) {
+                if (!e.target || e.target === cb) return;
+                if (e.target.type !== 'checkbox') return;
+                if (!table.contains(e.target)) return;
+                var rowCbs = table.querySelectorAll('tbody input[type="checkbox"]');
+                if (!rowCbs.length) return;
+                var all = true;
+                rowCbs.forEach(function (rc) { if (!rc.checked) all = false; });
+                cb.checked = all;
+            });
+            headerCell.innerHTML = '';
+            headerCell.appendChild(cb);
+            headerCell.style.textAlign = 'center';
+        });
+    }
+    setTimeout(injectHeaderSelectAll, 200);
+
     // Inject KPI summary cards above grid tables
     function injectGridKPIs() {
         // Find all grids on the page
@@ -1051,6 +1122,10 @@ document.observe('dom:loaded', function() {
 
             var table = grid.querySelector('table.data') || grid.querySelector('table');
             if (!table || !table.querySelector('tbody')) return;
+            // No KPI summary cards on Cache Management — the grid speaks
+            // for itself and the cards just add vertical clutter there.
+            if (table.id === 'cache_grid_table') return;
+            if (table.id === 'indexer_processes_grid_table') return;
 
             var rows = table.querySelectorAll('tbody tr');
             var total = 0, statusCounts = {};
