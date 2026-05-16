@@ -28,7 +28,14 @@
 <config>
     <modules>
         <Mage_PageCache>
-            <active>true</active>
+            <!-- Disabled: Mage_PageCache is a Magento Enterprise module
+                 (external full-page-cache / Varnish integration). OpenMage 1.x
+                 LTS doesn't ship the code, so the declaration was dangling —
+                 it tried to load a missing module on every request and added
+                 a 4th "Flush External Page Cache" button stub that never
+                 actually rendered. If we ever need Varnish/CDN cache busting
+                 from admin, build it as a custom MMD module instead. -->
+            <active>false</active>
             <codePool>core</codePool>
             <depends>
                 <Mage_Core/>
