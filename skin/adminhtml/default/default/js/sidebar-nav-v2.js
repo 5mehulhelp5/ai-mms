@@ -1109,13 +1109,48 @@ document.observe('dom:loaded', function() {
             headerCell.style.textAlign = 'center';
         });
     }
-    // Run on multiple checkpoints — some Magento grids (Index Management,
-    // long-running reports) render their tbody after the initial DOM tick,
-    // so a single 200ms timer misses them. The function is idempotent
-    // (skips cells that already contain a checkbox) so re-running is safe.
+    // Run immediately + on a few checkpoints for grids that paint late.
+    injectHeaderSelectAll();
     [200, 800, 2000].forEach(function (delay) {
         setTimeout(injectHeaderSelectAll, delay);
     });
+    // Also re-run whenever the DOM changes — Magento's grid AJAX (filter,
+    // sort, paginate) replaces table.data with fresh HTML, which wipes any
+    // checkbox we injected. A MutationObserver on document.body catches:
+    //   • grids that render >2s after page load (heavy reports)
+    //   • grids that reload via AJAX after the user filters/sorts
+    //   • any other DOM mutation that touches a .grid table.data
+    // injectHeaderSelectAll is idempotent (skips cells that already have a
+    // checkbox), so being called repeatedly is harmless. Throttled so a
+    // burst of mutations only triggers one re-run.
+    (function () {
+        if (typeof MutationObserver !== 'function') return;
+        var pending = false;
+        var obs = new MutationObserver(function (records) {
+            // Only react if a record involves a grid table.
+            var relevant = records.some(function (r) {
+                if (!r.addedNodes) return false;
+                for (var i = 0; i < r.addedNodes.length; i++) {
+                    var n = r.addedNodes[i];
+                    if (n.nodeType !== 1) continue;
+                    if (n.matches && (n.matches('.grid table.data') || n.querySelector('.grid table.data'))) {
+                        return true;
+                    }
+                    if (n.matches && (n.matches('tbody, thead, tr') && n.closest && n.closest('.grid table.data'))) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            if (!relevant || pending) return;
+            pending = true;
+            requestAnimationFrame(function () {
+                pending = false;
+                injectHeaderSelectAll();
+            });
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+    })();
 
     // Processing overlay — show a spinner while a mass-action submit
     // (reindex, flush, mass-update) is in flight. Magento submits the form
@@ -1166,8 +1201,12 @@ document.observe('dom:loaded', function() {
         setTimeout(wireMassactionSpinner, delay);
     });
 
-    // Inject KPI summary cards above grid tables
+    // Inject KPI summary cards above grid tables.
+    // Restricted to the Dashboard — every other backend page renders bare
+    // grids without the KPI summary clutter.
     function injectGridKPIs() {
+        if (!document.body.classList.contains('adminhtml-dashboard-index')) return;
+
         // Find all grids on the page
         var grids = document.querySelectorAll('.grid, .grid-container, [id$="_grid"]');
         if (grids.length === 0) return;
