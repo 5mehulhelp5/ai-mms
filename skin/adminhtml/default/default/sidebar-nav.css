@@ -1467,25 +1467,38 @@ body button.pagination-btn span {
     margin: 0 6px 0 0 !important;
 }
 .admin-main .massaction select {
-    min-width: 130px !important;
+    min-width: 120px !important;
     max-width: 200px !important;
-    height: 28px !important;
-    min-height: 28px !important;
-    padding: 2px 8px !important;
-    font-size: 12px !important;
-    border-radius: 6px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    padding: 0 8px !important;
+    font-size: 11px !important;
+    border-radius: 5px !important;
 }
 .admin-main .massaction button,
 .admin-main .massaction button.scalable,
 .admin-main [id$="_massaction"] button,
 .admin-main [id$="_massaction"] button.scalable {
-    min-height: 28px !important;
-    height: 28px !important;
-    padding: 2px 14px !important;
+    min-height: 24px !important;
+    height: 24px !important;
+    padding: 0 10px !important;
     margin: 0 !important;
-    font-size: 12px !important;
-    border-radius: 6px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    border-radius: 5px !important;
     line-height: 1 !important;
+}
+/* Drop the Select All / Unselect All / Select Visible / Unselect Visible
+   text links and their separators — the grid header checkbox already
+   does "select all visible" natively. Keep the "N items selected" count
+   on the left though (the <strong>N</strong> + trailing text node). */
+.admin-main .massaction td:first-child a,
+.admin-main .massaction td:first-child .separator,
+.admin-main [id$="_massaction"] td:first-child a,
+.admin-main [id$="_massaction"] td:first-child .separator,
+.admin-main table.massaction td:first-child a,
+.admin-main table.massaction td:first-child .separator {
+    display: none !important;
 }
 /* Make the right-cluster wrapper inside td:last-child also have no trailing
    padding/margin, so Submit's right edge hits the wrapper's right padding (4px)
@@ -2976,10 +2989,10 @@ body.adminhtml-cache-index .admin-main .massaction label {
     margin: 0 !important;
 }
 body.adminhtml-cache-index .admin-main .massaction select {
-    min-height: 30px !important;
-    height: 30px !important;
-    padding: 4px 10px !important;
-    min-width: 150px !important;
+    min-height: 24px !important;
+    height: 24px !important;
+    padding: 0 8px !important;
+    min-width: 120px !important;
     font-size: 12px !important;
     background: var(--d6) !important;
     border: 1px solid var(--b2) !important;
