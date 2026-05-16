@@ -1064,22 +1064,33 @@ document.observe('dom:loaded', function() {
             cb.title = 'Select all';
             cb.style.cursor = 'pointer';
             cb.addEventListener('change', function () {
+                // Prefer Magento's native selectAll/unselectAll on the
+                // grid's massaction JS object — it updates the internal
+                // selection set, the "N items selected" counter, and any
+                // dependent UI in one call. The object name follows the
+                // toolbar id: e.g. #cache_grid_massaction → window['cache_grid_massactionJsObject'].
+                var massDiv = document.querySelector('[id$="_massaction"]');
+                var massObj = massDiv && window[massDiv.id + 'JsObject'];
+                if (massObj) {
+                    if (cb.checked && typeof massObj.selectAll === 'function') {
+                        massObj.selectAll();
+                        return;
+                    }
+                    if (!cb.checked && typeof massObj.unselectAll === 'function') {
+                        massObj.unselectAll();
+                        return;
+                    }
+                }
+                // Fallback for grids without a varienGridMassaction object:
+                // simulate a click on each row checkbox that needs to flip.
+                // .click() triggers both the inline onclick handler and the
+                // native change event, so Magento's selection state updates
+                // exactly as if the user had clicked manually.
                 var rows = table.querySelectorAll('tbody tr');
                 rows.forEach(function (row) {
                     var rowCb = row.querySelector('input[type="checkbox"]');
                     if (!rowCb || rowCb.disabled) return;
-                    if (rowCb.checked === cb.checked) return;
-                    rowCb.checked = cb.checked;
-                    // Fire change so Magento's massaction object updates the
-                    // "N items selected" counter and its internal selection set.
-                    var evt = document.createEvent('HTMLEvents');
-                    evt.initEvent('change', true, false);
-                    rowCb.dispatchEvent(evt);
-                    // Also fire native click handler if present (Magento attaches
-                    // onclick="varienGridMassaction.setCheckbox(this)" inline).
-                    if (typeof rowCb.onclick === 'function') {
-                        rowCb.onclick.call(rowCb);
-                    }
+                    if (rowCb.checked !== cb.checked) rowCb.click();
                 });
             });
             // Keep header checkbox in sync if user toggles individual rows.
