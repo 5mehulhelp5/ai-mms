@@ -3036,6 +3036,13 @@ body.adminhtml-cache-index .admin-main table:has(> tbody > tr > td > h3) {
     margin: 8px 0 4px !important;
     box-shadow: none !important;
 }
+/* Magento's additional.phtml has a literal <br/> before the section header
+   which adds ~16px of empty space. Kill it inside admin-main on this page. */
+body.adminhtml-cache-index .admin-main > br,
+body.adminhtml-cache-index .admin-main .entry-edit > br,
+body.adminhtml-cache-index .admin-main br {
+    display: none !important;
+}
 
 /* Flush-buttons rows: no card, no dividers, very tight stack. */
 body.adminhtml-cache-index .admin-main table.form-list {
@@ -3055,11 +3062,23 @@ body.adminhtml-cache-index .admin-main table.form-list td {
     vertical-align: middle !important;
     background: transparent !important;
 }
+/* Flush buttons are destructive (clear data) — use the danger gradient
+   per the skill's button rule. Compact 28px height. */
 body.adminhtml-cache-index .admin-main table.form-list td button,
-body.adminhtml-cache-index .admin-main table.form-list td input[type="button"] {
+body.adminhtml-cache-index .admin-main table.form-list td input[type="button"],
+body.adminhtml-cache-index .admin-main table.form-list td button.scalable {
     min-height: 28px !important;
     height: 28px !important;
     padding: 2px 14px !important;
     font-size: 12px !important;
     margin: 0 12px 0 0 !important;
+    background: var(--btn-danger) !important;
+    background-image: var(--btn-danger) !important;
+    border: 0 !important;
+    color: #fff !important;
+}
+body.adminhtml-cache-index .admin-main table.form-list td button:hover,
+body.adminhtml-cache-index .admin-main table.form-list td button.scalable:hover {
+    background: var(--btn-danger-hover) !important;
+    background-image: var(--btn-danger-hover) !important;
 }
