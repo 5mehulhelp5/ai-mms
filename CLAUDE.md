@@ -115,9 +115,13 @@ Current state: all roles temporarily inherit the "Administrators" ACL group (ful
 
 | Skill | When to use |
 |-------|-------------|
-| **php-pro** | Writing / reviewing PHP — strict typing, PSR-12, PHPStan, typed DTOs, DI, PHPUnit. |
+| **openmage-code-reviewer** | Reviewing OpenMage 1.x / MMD module code — local-codepool, ACL, migration patterns specific to this repo. Not Magento 2. |
+| **openmage-module-developer** | Scaffolding a new MMD module — controllers, models, observers, class rewrites, migrations. |
+| **openmage-frontend-developer** | Customer-facing storefront work — Ultimo theme, layout XML, phtml, Prototype/jQuery, hreflang. |
+| **backend-design** | Styling or reviewing any adminhtml UI — design tokens, buttons, grids, toolbars, badges. Use to keep the dark admin theme visually consistent. |
+| **seo-audit** | Multi-country (SG/MY/GH/NG) SEO audit — hreflang, indexability, Core Web Vitals, schema for course pages. |
+| **lead-magnets** | Planning lead-magnet content for course sales — SkillsFuture/HRDC hooks, course syllabus PDFs, trial classes. |
+| **add-country-store** | Wiring a new country domain to its Magento store view — .htaccess block, base_url migration, Coolify + DNS handoff, all in the SG/MY/GH/NG/BT/IN shape. |
 | **mysql** | Schema design, indexing, query tuning, migrations, transactions. |
 | **web-accessibility** | Building / reviewing UI for a11y — WCAG 2.1, ARIA, contrast, keyboard nav. |
-| **create-github-action-workflow-specification** | Writing / modifying GitHub Actions workflows. |
 | **find-skills** | Discovering and installing new skills via `npx skills find [query]`. |
-| **add-country-store** | Wiring a new country domain to its Magento store view — .htaccess block, base_url migration, Coolify + DNS handoff, all in the SG/MY/GH/NG/BT/IN shape. |
