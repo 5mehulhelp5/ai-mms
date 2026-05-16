@@ -1448,6 +1448,7 @@ body button.pagination-btn span {
 .admin-main table.massaction td:last-child {
     flex-shrink: 0;
     margin-left: auto !important;
+    padding: 0 !important;
     display: inline-flex !important;
     align-items: center !important;
     gap: 6px !important;
@@ -1481,9 +1482,20 @@ body button.pagination-btn span {
     min-height: 28px !important;
     height: 28px !important;
     padding: 2px 14px !important;
+    margin: 0 !important;
     font-size: 12px !important;
     border-radius: 6px !important;
     line-height: 1 !important;
+}
+/* Make the right-cluster wrapper inside td:last-child also have no trailing
+   padding/margin, so Submit's right edge hits the wrapper's right padding (4px)
+   directly. Defends against fieldset / form / .entry-edit / .field-row variants. */
+.admin-main table.massaction td:last-child > *,
+.admin-main [id$="_massaction"] .entry-edit,
+.admin-main [id$="_massaction"] .entry-edit form,
+.admin-main [id$="_massaction"] fieldset {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
 }
 .admin-main .massaction .entry-edit {
     background: transparent !important;
