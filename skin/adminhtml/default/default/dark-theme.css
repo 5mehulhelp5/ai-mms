@@ -734,20 +734,56 @@ img[src*="calendar"]:hover, img[src*="cal_"]:hover { opacity: 1 !important; }
     color: var(--t3) !important;
 }
 
-/* === 8. Mass Action Bar === */
+/* === 8. Mass Action Bar (AI-LMS-TMS segmented pill group) === */
 .massaction, .massaction-box,
 body .massaction {
-    background: var(--d4) !important;
+    background: var(--d2) !important;
     background-image: none !important;
     border: 1px solid var(--b1) !important;
-    border-radius: 8px !important;
-    padding: 10px 16px !important;
+    border-radius: 10px !important;
+    padding: 10px 14px !important;
     color: var(--t3) !important;
     margin-bottom: 0 !important;
 }
 .massaction label { color: var(--t3) !important; }
-.massaction td { border-top: none !important; }
-.massaction a { color: var(--blue) !important; font-size: 12px; }
+.massaction td { border-top: none !important; vertical-align: middle !important; }
+
+/* Hide the literal "|" separators — pills don't need them */
+.massaction .separator { display: none !important; }
+
+/* Select-all family links as pill buttons on an inset track */
+.massaction td:first-child {
+    background: var(--d0) !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 8px !important;
+    padding: 4px !important;
+    white-space: nowrap !important;
+}
+.massaction a {
+    display: inline-block !important;
+    color: var(--t2) !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    text-decoration: none !important;
+    padding: 6px 12px !important;
+    margin: 0 2px !important;
+    border-radius: 6px !important;
+    background: var(--d3) !important;
+    transition: background-color .15s ease, color .15s ease !important;
+}
+.massaction a:hover {
+    background: var(--blue2) !important;
+    color: #fff !important;
+    opacity: 1 !important;
+}
+.massaction td:first-child {
+    font-size: 12px !important;
+    color: var(--t4) !important;
+}
+.massaction td:first-child strong {
+    color: var(--t1) !important;
+    margin-left: 6px !important;
+}
 .massaction select { min-width: 180px !important; }
 .massaction .entry-edit { background: transparent !important; border: none !important; margin: 0 !important; padding: 0 !important; }
 
