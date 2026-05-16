@@ -59,15 +59,36 @@ into a component rule.
 
 One language everywhere. Don't restyle buttons per page.
 
-- **Primary** (default `button`, `button.scalable`, `input[type=submit]`): `--btn-primary` gradient, white text, soft elevation. Hover lifts the gradient + blue glow shadow.
-- **Success** (`.add`, `.save`, `.success`): `--btn-success`.
-- **Danger** (`.delete`, `.cancel`): `--btn-danger`.
-- **Secondary/Back** (`.back`, `.secondary`): transparent, `--b2` outline, `--t2` text — quiet, never competes with primary.
-- Shared: `min-height:38px`, `padding:8px 20px`, `border-radius:9px`, `font-weight:600`, `:active` press (`translateY(1px)`), `:focus-visible` ring (`--ring`), disabled = `opacity:0.5` + `not-allowed`.
+### Three sizes, three jobs
 
-Rules: exactly **one primary** per action area; destructive actions use Danger;
-icons go inside the button via the existing `gap`. Magento wraps labels in nested
-`<span>` — kill legacy span backgrounds (already handled in §18), don't re-add.
+| Variant | Where it appears | Size | Shape | Color |
+|---------|------------------|------|-------|-------|
+| **Page action** (default §18) | Page-level Save / Cancel / Add New | `min-height: 38px`, `padding: 8px 20px`, `font: 13px/1`, `border-radius: 9px` | Rounded rect | Per semantic class (see below) |
+| **Toolbar / mass-action Submit** (§16) | Inside `.massaction` and `[id$="_massaction"]` toolbars on every grid | `height: 24px`, `padding: 0 14px`, `font: 11px/1`, `border-radius: 999px` | **Full pill** | Light blue gradient (`--blue` → `--blue2`) on hover (`--blue2` → `--blue3`) |
+| **Pagination / row action** | Pagination bar, per-row dropdown trigger | `padding: 4px 10px`, `font: 11px`, `border-radius: 6px` | Rounded rect | Quiet (`--d4` bg, `--b2` border) |
+
+The toolbar Submit is **the same shape and size on every grid** — cache, index management, sales orders, customers, all of it. If a grid Submit looks different from the others, that's a bug, not a design choice. Don't write per-grid Submit overrides; the §16 rule already covers them via `.admin-main .massaction button.scalable` (specificity 3 — beats §18's 2-class rule, so no need to fight order in the cascade).
+
+### Semantic color classes (page-action variant)
+
+- **Primary** (default `button`, `button.scalable`, `input[type=submit]`): `--btn-primary` gradient, white text, soft elevation.
+- **Success** (`.add`, `.save`, `.success`): `--btn-success`.
+- **Danger** (`.delete`, `.cancel`, "Flush" / "Reset" / "Delete" header actions): `--btn-danger`.
+- **Secondary/Back** (`.back`, `.secondary`): transparent, `--b2` outline, `--t2` text — quiet, never competes with primary.
+
+### Shared rules
+
+- Exactly **one primary** per action area.
+- Destructive page-level actions use `--btn-danger` (cache flush header buttons, delete).
+- Toolbar Submit always uses the light-blue pill — mass-actions are routine "go" operations, not alarm-level destructive (the data is already there, you're just refreshing it).
+- `:active` press uses `translateY(1px)`.
+- `:focus-visible` ring uses `--ring`.
+- Disabled = `opacity: 0.5` + `cursor: not-allowed`.
+- Magento wraps labels in nested `<span>` — kill legacy span backgrounds (already handled in §18 and §16), don't re-add.
+
+### Processing state
+
+When a mass-action Submit kicks off a long-running operation (reindex, cache flush, mass-update), show the `.mmd-processing-overlay` full-screen scrim with a spinner + the action label (e.g. "Reindex Data…"). Wired in `sidebar-nav-v2.js::wireMassactionSpinner` — auto-attaches to every `[id$="_massaction"] button` and uses the selected action label as the spinner caption. Skips when the "N items selected" counter shows 0 (Magento alerts and won't navigate; overlay would hang). Page navigation tears the overlay down naturally.
 
 ## Grids, toolbars, badges
 
