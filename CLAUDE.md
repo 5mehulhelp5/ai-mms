@@ -120,3 +120,4 @@ Current state: all roles temporarily inherit the "Administrators" ACL group (ful
 | **web-accessibility** | Building / reviewing UI for a11y — WCAG 2.1, ARIA, contrast, keyboard nav. |
 | **create-github-action-workflow-specification** | Writing / modifying GitHub Actions workflows. |
 | **find-skills** | Discovering and installing new skills via `npx skills find [query]`. |
+| **add-country-store** | Wiring a new country domain to its Magento store view — .htaccess block, base_url migration, Coolify + DNS handoff, all in the SG/MY/GH/NG/BT/IN shape. |
