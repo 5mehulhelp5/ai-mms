@@ -1354,12 +1354,14 @@ body button.pagination-btn span {
 }
 
 /* === 16. Mass Action Bar Overhaul === */
-/* Target the massaction wrapper div (e.g. #cache_grid_massaction) */
+/* Target the massaction wrapper div (e.g. #cache_grid_massaction).
+   Asymmetric padding: 12px left for breathing room before the selection
+   links, 4px right so the Submit button sits flush with the toolbar edge. */
 .admin-main [id$="_massaction"] {
     background: var(--d4) !important;
     border: 1px solid var(--b1) !important;
     border-radius: 10px 10px 0 0 !important;
-    padding: 6px 12px !important;
+    padding: 6px 4px 6px 12px !important;
     margin-bottom: 0 !important;
     overflow: visible !important;
     height: auto !important;
@@ -1416,7 +1418,7 @@ body button.pagination-btn span {
     position: static !important;
     overflow: visible !important;
     border-collapse: separate !important;
-    border-spacing: 6px 4px !important;
+    border-spacing: 0 !important;
     box-shadow: none !important;
     height: auto !important;
     min-height: 0 !important;
@@ -1472,12 +1474,16 @@ body button.pagination-btn span {
     font-size: 12px !important;
     border-radius: 6px !important;
 }
-.admin-main .massaction button {
+.admin-main .massaction button,
+.admin-main .massaction button.scalable,
+.admin-main [id$="_massaction"] button,
+.admin-main [id$="_massaction"] button.scalable {
     min-height: 28px !important;
     height: 28px !important;
     padding: 2px 14px !important;
     font-size: 12px !important;
     border-radius: 6px !important;
+    line-height: 1 !important;
 }
 .admin-main .massaction .entry-edit {
     background: transparent !important;
@@ -3016,9 +3022,13 @@ body.adminhtml-cache-index .admin-main h3 {
     margin: 0 !important;
 }
 
-/* Flatten only the layout table that wraps the bare <h3> section title. */
+/* Flatten the .content-header wrapper above "Additional Cache Management"
+   (Magento's additional.phtml wraps the H3 in a bordered box that reads as
+   an empty card here) and the layout table inside it. */
+body.adminhtml-cache-index .admin-main .content-header,
 body.adminhtml-cache-index .admin-main table:has(> tbody > tr > td > h3) {
     background: transparent !important;
+    background-image: none !important;
     border: 0 !important;
     border-radius: 0 !important;
     padding: 0 !important;
@@ -3026,8 +3036,7 @@ body.adminhtml-cache-index .admin-main table:has(> tbody > tr > td > h3) {
     box-shadow: none !important;
 }
 
-/* Flush-buttons rows: NO card. Just stacked rows on the page background,
-   --b1 hairline between rows. Maximises horizontal density. */
+/* Flush-buttons rows: no card, no dividers, very tight stack. */
 body.adminhtml-cache-index .admin-main table.form-list {
     background: transparent !important;
     border: 0 !important;
@@ -3036,11 +3045,12 @@ body.adminhtml-cache-index .admin-main table.form-list {
     margin: 0 0 12px !important;
     width: 100% !important;
 }
+body.adminhtml-cache-index .admin-main table.form-list tr,
 body.adminhtml-cache-index .admin-main table.form-list tr + tr {
-    border-top: 1px solid var(--b1) !important;
+    border: 0 !important;
 }
 body.adminhtml-cache-index .admin-main table.form-list td {
-    padding: 6px 0 !important;
+    padding: 2px 0 !important;
     vertical-align: middle !important;
     background: transparent !important;
 }
