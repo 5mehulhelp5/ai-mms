@@ -1445,25 +1445,39 @@ body button.pagination-btn span {
 }
 .admin-main table.massaction td:last-child {
     flex-shrink: 0;
+    margin-left: auto !important;
     display: inline-flex !important;
-    align-items: center;
-    gap: 8px;
+    align-items: center !important;
+    gap: 6px !important;
 }
 .admin-main table.massaction a {
     color: var(--blue) !important;
     font-size: 13px !important;
 }
+/* Actions+Submit cluster — quiet "Actions" label, tight gap, small submit. */
+.admin-main .massaction label,
+.admin-main [id$="_massaction"] label {
+    font: 600 12px/1.4 ui-sans-serif, system-ui, sans-serif !important;
+    color: var(--t4) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+    margin: 0 6px 0 0 !important;
+}
 .admin-main .massaction select {
-    min-width: 140px !important;
-    max-width: 220px;
-    min-height: 32px !important;
-    padding: 4px 8px !important;
+    min-width: 130px !important;
+    max-width: 200px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    padding: 2px 8px !important;
     font-size: 12px !important;
+    border-radius: 6px !important;
 }
 .admin-main .massaction button {
-    min-height: 32px !important;
-    padding: 4px 14px !important;
+    min-height: 28px !important;
+    height: 28px !important;
+    padding: 2px 14px !important;
     font-size: 12px !important;
+    border-radius: 6px !important;
 }
 .admin-main .massaction .entry-edit {
     background: transparent !important;
@@ -2982,4 +2996,59 @@ body.adminhtml-cache-index .admin-main .grid td .grid-severity-notice {
 body.adminhtml-cache-index .admin-main .grid td .grid-severity-major {
     background: rgba(245,158,11,0.15) !important;
     color: #fbbf24 !important;
+}
+
+/* === Additional Cache Management — compact section header + tight rows.
+   Magento renders the section title as a bare <h3> (no class) inside a
+   layout <table> sitting above a .form-list of flush buttons. Globally
+   <h3> is 26px; here we want a small uppercase section label like the
+   legacy orange theme. Tokens only — --t4 muted label, --b1 separator,
+   --d3 card. Wrapper-table reset uses :has() so it only matches the
+   bare title table, never .form-list / .grid / .massaction. */
+
+/* Section label */
+body.adminhtml-cache-index .admin-main h3 {
+    font: 700 12px/1.4 ui-sans-serif, system-ui, sans-serif !important;
+    color: var(--t4) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.6px !important;
+    padding: 4px 0 !important;
+    margin: 0 !important;
+}
+
+/* Flatten only the layout table that wraps the bare <h3> section title. */
+body.adminhtml-cache-index .admin-main table:has(> tbody > tr > td > h3) {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 8px 0 4px !important;
+    box-shadow: none !important;
+}
+
+/* Flush-buttons rows: NO card. Just stacked rows on the page background,
+   --b1 hairline between rows. Maximises horizontal density. */
+body.adminhtml-cache-index .admin-main table.form-list {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin: 0 0 12px !important;
+    width: 100% !important;
+}
+body.adminhtml-cache-index .admin-main table.form-list tr + tr {
+    border-top: 1px solid var(--b1) !important;
+}
+body.adminhtml-cache-index .admin-main table.form-list td {
+    padding: 6px 0 !important;
+    vertical-align: middle !important;
+    background: transparent !important;
+}
+body.adminhtml-cache-index .admin-main table.form-list td button,
+body.adminhtml-cache-index .admin-main table.form-list td input[type="button"] {
+    min-height: 28px !important;
+    height: 28px !important;
+    padding: 2px 14px !important;
+    font-size: 12px !important;
+    margin: 0 12px 0 0 !important;
 }

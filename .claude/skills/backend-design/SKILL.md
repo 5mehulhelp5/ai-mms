@@ -10,6 +10,24 @@ new colors, paddings, or button styles per-page.** Everything routes through one
 token set and a small number of component rules. New admin UI must reuse them so
 the panel stays consistent.
 
+## Density preference — compact, not airy
+
+Strongly prefer **compact** layouts. Admin users are power users who want
+high information density and short mouse travel — not a marketing landing
+page. When in doubt, smaller is better.
+
+Defaults to use unless there's a specific reason otherwise:
+
+- **Buttons in toolbars / action rows**: `height: 28px`, `padding: 2px 14px`, `font-size: 12px`, `border-radius: 6px`. (Page-level Save/Cancel primary buttons stay at the bigger §18 size — those are deliberate emphasis.)
+- **Selects / dropdowns in toolbars**: `height: 28px`, `padding: 2px 8px`, `font-size: 12px`, `border-radius: 6px`. Match button height exactly so they sit on the same baseline.
+- **Section sub-headers** (bare `<h3>` like "Additional Cache Management"): `font: 700 12px/1.4`, `--t4`, `uppercase`, `letter-spacing: 0.6px`. Not a 26px title.
+- **Form-list / stacked-rows panels**: prefer **no card wrapper** — just rows sitting on the page background with a `1px var(--b1)` hairline between them (`tr + tr { border-top }`). Reach for a card (`--d3` bg + border + radius) only when the panel needs to stand apart from neighbouring content.
+- **Toolbar / massaction row padding**: `6px 12px` on the wrapper, `gap: 6px` between Actions+select+Submit, `gap: 14px` between selection links.
+- **Grid rows**: `6-10px` cell padding, never more.
+- **Labels next to inputs**: 12px muted (`--t4`), small `margin-right` (~6px) — they're metadata, not headings.
+
+Anti-pattern: wrapping every section in a `--d3` card with 16-20px padding "for visual separation". On a dense admin page this stacks into nested-panel mush. Stack tightly, separate with thin lines, use a card only when truly needed.
+
 ## Where things live
 
 | File | Role |
@@ -57,6 +75,28 @@ icons go inside the button via the existing `gap`. Magento wraps labels in neste
 - **Mass-action / toolbar:** slim self-contained card, **detached** from the grid (own `margin-bottom` + full radius — don't fuse it to the grid header), single flat flex row, selection links left, Actions+Submit right with **no nested panel box**. Controls ~`30px` tall. The global rule is `sidebar-nav.css` §16; the trap is that Magento wraps Actions+Submit in a bare `<fieldset>` (no class) and the right `<td>` may contain `<form>` / nested `<div>`s that pick up `--d3` bg + 20px padding from the generic admin form rules, rendering as a doubled gray panel-in-a-panel. §16a flattens every `[id$="_massaction"] fieldset`, `.massaction fieldset`, `.massaction form`, `.massaction form > div` (transparent bg, no border, no padding). §16b strips the dark-pill background off `.massaction a` so Select All / Unselect All / Select Visible / Unselect Visible render as plain blue links — they're navigation, not buttons. §16c sets the selection-links `td` to `inline-flex; gap:14px;`. Wrapper padding stays tight at `6px 12px`. Pattern reference: the `body.adminhtml-cache-index` block at the end of `sidebar-nav.css`.
 - **Status badges:** one clean pill — `padding:3px 12px`, `border-radius:999px`, tinted bg at ~15% alpha + solid semantic text color, 1px tinted ring at ~35% alpha. Token map: `notice`/`minor` → `--green`, `major` → `--yellow`, `critical` → `--red`. The global rule lives at `dark-theme.css` §19. **Don't style only the outer `.grid-severity-*`** — Magento 1's legacy `boxes.css` applies the `bg_notifications.gif` sprite to the inner `<span>` at `background-position: 100%`, and the right edge of that sprite is a serrated/torn shape that leaks through as notched edges on the pill. §19a flattens the inner span first (`.grid-severity-* span`, `.cell-status`, `.cell-status span` → `background:none`, `padding:0`, `border:0`); §19b/§19c then style the pill on the outer. If you add a new severity class, extend §19a's selector list too — otherwise the sprite re-appears.
 - **KPI cards:** only where genuinely useful. The JS auto-injects them on grids via generic heuristics — opt a grid out (like `cache_grid_table`) when the labels would be wrong or the cards just add clutter.
+
+## Section headers inside admin pages
+
+Magento often emits a sub-section title as a bare `<h3>` (no class) inside a
+layout `<table>` — the cache page's "Additional Cache Management" is the
+canonical example. The global `h3` is 26px, designed for page titles, and
+looks enormous as a sub-section label.
+
+Pattern: scope to the body class, set `<h3>` to a small uppercase muted
+label (`font: 700 12px/1.4 …; color: var(--t4); text-transform:uppercase;
+letter-spacing:0.6px`), and flatten the wrapper table with
+`table:has(> tbody > tr > td > h3)` — `:has()` is widely supported and
+precisely matches only the title-bearing layout table, not adjacent
+`.form-list` / `.grid` / `.massaction` tables. See the
+`body.adminhtml-cache-index` block at the end of `sidebar-nav.css`.
+
+For the `.form-list` of action rows beneath (flush buttons + descriptions),
+treat it as one card: `--d3` bg, `--b1` outer border, `border-radius:10px`,
+`overflow:hidden`, and use `tr + tr { border-top: 1px solid var(--b1) }`
+for hairline separators instead of `tr { border-bottom: ... }` (avoids
+ambiguity with `:last-child`). Buttons inside such rows shrink to
+~30px height to keep the panel compact.
 
 ## Per-page overrides
 
