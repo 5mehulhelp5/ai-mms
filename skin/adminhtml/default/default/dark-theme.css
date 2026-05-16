@@ -250,8 +250,8 @@ body .header-top {
 /* Content header */
 .content-header, .content-header-floating {
     background: transparent !important;
-    border-bottom: 1px solid var(--b1) !important;
-    padding: 16px 0 !important;
+    border-bottom: none !important;
+    padding: 8px 0 !important;
 }
 .content-header h3, .content-header h3.icon-head {
     color: var(--t1) !important;
@@ -686,7 +686,7 @@ body .grid input.input-text,
 .grid input.input-text,
 .grid select,
 .grid input[type="text"] {
-    background: var(--d6) !important;
+    background: transparent !important;
     background-image: none !important;
     border: 2px solid var(--b2) !important;
     color: var(--t1) !important;
@@ -843,33 +843,29 @@ button.add-image span, button.add-widget span, button.add-variable span {
     padding: 0 !important;
     color: #fff !important;
 }
-/* Delete / Cancel */
-button.delete, button.scalable.delete, button.fail, button.cancel {
-    background: var(--red2) !important;
-    box-shadow: 0 2px 4px rgba(220,38,38,0.3) !important;
+/* SINGLE-COLOR BUTTON PALETTE — every admin button is the same blue.
+   No red (delete/cancel), no green (add/success). One color only. */
+button.delete, button.scalable.delete, button.fail, button.cancel,
+button.add, button.scalable.add, button.success {
+    background: var(--blue2) !important;
+    box-shadow: 0 2px 4px rgba(37,99,235,0.3) !important;
 }
-button.delete:hover, button.cancel:hover, button.fail:hover {
-    background: var(--red) !important;
-    box-shadow: 0 4px 8px rgba(220,38,38,0.4) !important;
+button.delete:hover, button.cancel:hover, button.fail:hover,
+button.add:hover, button.success:hover {
+    background: var(--blue3) !important;
+    box-shadow: 0 4px 8px rgba(37,99,235,0.4) !important;
 }
-/* Back */
+button.add span, button.add span span,
+button.delete span, button.cancel span,
+button.success span { color: #fff !important; }
+/* Back — outline with blue accent (not gray) */
 button.back {
-    background: var(--d5) !important;
-    border: 1px solid var(--b2) !important;
+    background: transparent !important;
+    border: 1px solid var(--blue) !important;
     box-shadow: none !important;
 }
-button.back span, button.back span span { color: var(--t3) !important; }
-button.back:hover { background: var(--d6) !important; }
-/* Add / Success */
-button.add, button.scalable.add, button.success {
-    background: var(--green2) !important;
-    box-shadow: 0 2px 4px rgba(5,150,105,0.3) !important;
-}
-button.add:hover, button.success:hover {
-    background: var(--green) !important;
-    box-shadow: 0 4px 8px rgba(5,150,105,0.4) !important;
-}
-button.add span, button.add span span { color: #fff !important; }
+button.back span, button.back span span { color: var(--blue) !important; }
+button.back:hover { background: rgba(96, 165, 250, 0.12) !important; }
 /* Disabled */
 button.disabled, button.disabled:hover {
     background: var(--d6) !important;
@@ -885,7 +881,7 @@ input[type="number"], input[type="url"], input[type="search"],
 textarea, select, .input-text,
 body input[type="text"], body input[type="password"],
 body textarea, body select, body .input-text {
-    background: var(--d5) !important;
+    background: transparent !important;
     background-image: none !important;
     border: 2px solid var(--b2) !important;
     color: var(--t1) !important;
@@ -1446,3 +1442,293 @@ dl.accordion dd, .accordion-body { background: var(--d3) !important; border: 1px
     font-size: 11px !important;
     border-top: 1px solid var(--b1) !important;
 }
+
+/* === Currency Symbols page — merge header + table into one container === */
+body.adminhtml-system-currencysymbol-index .content-header,
+body.adminhtml-system_currency-index .content-header {
+    background: var(--d2) !important;
+    border: 1px solid var(--b1) !important;
+    border-bottom: none !important;
+    border-radius: 12px 12px 0 0 !important;
+    margin: 0 !important;
+    padding: 14px 18px !important;
+    box-shadow: none !important;
+}
+body.adminhtml-system-currencysymbol-index #currency_symbols_form .entry-edit,
+body.adminhtml-system_currency-index .entry-edit,
+body.adminhtml-system_currency-index form .entry-edit {
+    margin-top: 0 !important;
+    border-top: none !important;
+}
+body.adminhtml-system-currencysymbol-index #currency_symbols_form .fieldset.fieldset-wide,
+body.adminhtml-system_currency-index .fieldset,
+body.adminhtml-system_currency-index .fieldset.fieldset-wide {
+    border-top: none !important;
+    border-radius: 0 0 12px 12px !important;
+    margin-top: 0 !important;
+}
+body.adminhtml-system-currencysymbol-index #currency_symbols_form .entry-edit-head,
+body.adminhtml-system_currency-index .entry-edit-head,
+body.adminhtml-system-currencysymbol-index #currency_symbols_form .fieldset > .legend,
+body.adminhtml-system_currency-index .fieldset > .legend,
+body.adminhtml-system-currencysymbol-index #currency_symbols_form hr,
+body.adminhtml-system_currency-index hr {
+    display: none !important;
+}
+
+/* Currency Rates — kill the gray wash on rate inputs */
+body.adminhtml-system_currency-index input.input-text,
+body.adminhtml-system_currency-index input[type="text"] {
+    background: transparent !important;
+    background-image: none !important;
+    color: var(--t1) !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: var(--t1) !important;
+    max-width: 320px !important;
+    border: 2px solid var(--b2) !important;
+}
+body.adminhtml-system_currency-index input.input-text:focus,
+body.adminhtml-system_currency-index input[type="text"]:focus {
+    background: rgba(96, 165, 250, 0.06) !important;
+}
+body.adminhtml-system_currency-index .grid table.data td,
+body.adminhtml-system_currency-index .grid table.data th {
+    padding: 6px 12px !important;
+}
+
+/* === Admin user edit — professional card design + role chips === */
+body.adminhtml-permissions-user-edit #page_tabs,
+body.adminhtml-permissions-user-new #page_tabs,
+body.adminhtml-permissions-user-edit .tabs,
+body.adminhtml-permissions-user-new .tabs,
+body.adminhtml-permissions-user-edit .side-col,
+body.adminhtml-permissions-user-new .side-col,
+body.adminhtml-permissions-user-edit .nav-bar-side,
+body.adminhtml-permissions-user-new .nav-bar-side {
+    display: none !important;
+}
+body.adminhtml-permissions-user-edit .main-col,
+body.adminhtml-permissions-user-new .main-col {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+}
+body.adminhtml-permissions-user-edit .columns,
+body.adminhtml-permissions-user-new .columns {
+    display: block !important;
+}
+body.adminhtml-permissions-user-edit .ui-tabs-panel,
+body.adminhtml-permissions-user-new .ui-tabs-panel {
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+}
+
+/* Constrain the form to a focused card width — feels like the modal mock. */
+body.adminhtml-permissions-user-edit .main-col-inner,
+body.adminhtml-permissions-user-new .main-col-inner {
+    max-width: 720px !important;
+    margin: 0 auto !important;
+}
+
+body.adminhtml-permissions-user-edit #edit_form .entry-edit,
+body.adminhtml-permissions-user-new #edit_form .entry-edit {
+    background: var(--d2) !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 12px !important;
+    padding: 18px 22px 12px !important;
+    margin: 0 !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35) !important;
+}
+body.adminhtml-permissions-user-edit #edit_form .entry-edit-head,
+body.adminhtml-permissions-user-new #edit_form .entry-edit-head {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 0 12px !important;
+    margin: 0 0 12px !important;
+    border-bottom: 1px solid var(--b1) !important;
+}
+body.adminhtml-permissions-user-edit #edit_form .entry-edit-head h4,
+body.adminhtml-permissions-user-new #edit_form .entry-edit-head h4 {
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    color: var(--t1) !important;
+    letter-spacing: 0.2px !important;
+}
+body.adminhtml-permissions-user-edit #edit_form fieldset.form-list,
+body.adminhtml-permissions-user-new #edit_form fieldset.form-list,
+body.adminhtml-permissions-user-edit #edit_form .fieldset,
+body.adminhtml-permissions-user-new #edit_form .fieldset {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+body.adminhtml-permissions-user-edit #edit_form table.form-list,
+body.adminhtml-permissions-user-new #edit_form table.form-list {
+    width: 100% !important;
+}
+body.adminhtml-permissions-user-edit #edit_form table.form-list td,
+body.adminhtml-permissions-user-new #edit_form table.form-list td {
+    padding: 7px 8px !important;
+    line-height: 1.4 !important;
+    vertical-align: middle !important;
+    border: none !important;
+    background: transparent !important;
+}
+body.adminhtml-permissions-user-edit #edit_form table.form-list td.label,
+body.adminhtml-permissions-user-new #edit_form table.form-list td.label,
+body.adminhtml-permissions-user-edit #edit_form table.form-list td.label label,
+body.adminhtml-permissions-user-new #edit_form table.form-list td.label label {
+    white-space: nowrap !important;
+    width: 180px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    color: var(--t4) !important;
+}
+body.adminhtml-permissions-user-edit #edit_form input.input-text,
+body.adminhtml-permissions-user-new #edit_form input.input-text,
+body.adminhtml-permissions-user-edit #edit_form select,
+body.adminhtml-permissions-user-new #edit_form select {
+    width: 100% !important;
+    max-width: 460px !important;
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+    background: var(--d4) !important;
+    border: 1px solid var(--b2) !important;
+    border-radius: 8px !important;
+    color: var(--t1) !important;
+}
+body.adminhtml-permissions-user-edit #edit_form input.input-text:focus,
+body.adminhtml-permissions-user-new #edit_form input.input-text:focus,
+body.adminhtml-permissions-user-edit #edit_form select:focus,
+body.adminhtml-permissions-user-new #edit_form select:focus {
+    border-color: var(--brand-2) !important;
+    box-shadow: 0 0 0 3px var(--ring) !important;
+    outline: none !important;
+}
+body.adminhtml-permissions-user-edit #edit_form .form-list > legend,
+body.adminhtml-permissions-user-new #edit_form .form-list > legend,
+body.adminhtml-permissions-user-edit #edit_form hr,
+body.adminhtml-permissions-user-new #edit_form hr {
+    display: none !important;
+}
+
+/* Header row: title + button bar. Buttons get the "modal footer" treatment. */
+body.adminhtml-permissions-user-edit .content-header h3,
+body.adminhtml-permissions-user-new .content-header h3 {
+    font-size: 20px !important;
+    font-weight: 700 !important;
+}
+body.adminhtml-permissions-user-edit .content-header button.back,
+body.adminhtml-permissions-user-new .content-header button.back {
+    background: transparent !important;
+    border: 1px solid var(--b2) !important;
+    color: var(--t2) !important;
+    box-shadow: none !important;
+    padding: 8px 18px !important;
+}
+body.adminhtml-permissions-user-edit .content-header button.back:hover,
+body.adminhtml-permissions-user-new .content-header button.back:hover {
+    background: var(--d4) !important;
+    color: var(--t1) !important;
+    transform: none !important;
+}
+body.adminhtml-permissions-user-edit .content-header button.save,
+body.adminhtml-permissions-user-new .content-header button.save {
+    background: var(--btn-primary) !important;
+    background-image: var(--btn-primary) !important;
+    padding: 8px 22px !important;
+}
+
+/* === Role chip multi-toggle === */
+.mmd-role-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 4px 0;
+}
+.mmd-role-chip {
+    --chip: #6b7280;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1.5px solid var(--chip);
+    color: var(--chip);
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color .15s ease, color .15s ease, transform .1s ease;
+}
+.mmd-role-chip input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    height: 0;
+}
+.mmd-role-chip__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--chip);
+    display: inline-block;
+    flex-shrink: 0;
+}
+.mmd-role-chip:hover {
+    background: color-mix(in srgb, var(--chip) 12%, transparent);
+}
+.mmd-role-chip.is-active {
+    background: color-mix(in srgb, var(--chip) 18%, transparent);
+    color: var(--t1);
+    box-shadow: 0 0 0 1px var(--chip) inset;
+}
+.mmd-role-chip.is-active .mmd-role-chip__dot {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--chip) 30%, transparent);
+}
+.mmd-role-chips__hint {
+    margin: 10px 0 0 !important;
+    font-size: 11px !important;
+    color: var(--t4) !important;
+}
+
+/* === Currency Symbols page — drop the gray "disabled" wash + compact rows === */
+body.adminhtml-system-currencysymbol-index #currency_symbols_form .grid input.input-text,
+body.adminhtml-system-currencysymbol-index #currency_symbols_form .grid input.input-text[disabled],
+body.adminhtml-system-currencysymbol-index #currency_symbols_form .grid input.input-text:disabled,
+body.adminhtml-system-currencysymbol-index #currency_symbols_form input.input-text,
+body.adminhtml-system-currencysymbol-index #currency_symbols_form input.input-text[disabled],
+body.adminhtml-system-currencysymbol-index #currency_symbols_form input.input-text:disabled {
+    background: transparent !important;
+    background-image: none !important;
+    background-color: transparent !important;
+    color: var(--t1) !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: var(--t1) !important;
+    padding: 5px 10px !important;
+    font-size: 13px !important;
+    width: auto !important;
+    max-width: 320px !important;
+    border: 2px solid var(--b2) !important;
+}
+body.adminhtml-system-currencysymbol-index #currency_symbols_form input.input-text:focus {
+    background: var(--d5) !important;
+    background-color: var(--d5) !important;
+}
+#currency_symbols_form .grid table.data td,
+#currency_symbols_form .grid table.data th {
+    padding: 4px 10px !important;
+    line-height: 1.3 !important;
+}
+#currency_symbols_form .grid table.data td.label {
+    white-space: nowrap !important;
+}
+#currency_symbols_form .grid table.data tr { height: auto !important; }
+#currency_symbols_form .fieldset { padding: 8px 12px !important; }
+#currency_symbols_form label.inherit { font-size: 12px !important; color: var(--t3) !important; }

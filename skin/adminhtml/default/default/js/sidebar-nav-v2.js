@@ -1186,6 +1186,9 @@ document.observe('dom:loaded', function() {
                     var count = massDiv.querySelector('strong');
                     if (count && /^\s*0\s*$/.test(count.textContent)) return;
                 }
+                // Index Management runs mass-action in a hidden iframe so
+                // the admin can keep working — skip the blocking overlay.
+                if (document.body.classList.contains('adminhtml-process-list')) return;
                 // Label by action: Reindex/Flush/Refresh → use that verb.
                 var sel = massDiv && massDiv.querySelector('select');
                 var verb = 'Processing';
@@ -1199,6 +1202,91 @@ document.observe('dom:loaded', function() {
     }
     [300, 1000, 2200].forEach(function (delay) {
         setTimeout(wireMassactionSpinner, delay);
+    });
+
+    // Background mass-action on Index Management — reindex can take a
+    // while, and freezing the whole admin while it runs is unfriendly.
+    // Redirect the mass-action form to a hidden iframe so the page stays
+    // alive; show a non-blocking toast that updates when the iframe loads.
+    function wireIndexBackgroundReindex() {
+        if (!document.body.classList.contains('adminhtml-process-list')) return;
+        var form = document.querySelector('form[id$="_massaction-form"]');
+        if (!form || form.__mmdBgWired) return;
+        var massDiv = form.closest('[id$="_massaction"], .massaction');
+        if (!massDiv) return;
+        form.__mmdBgWired = true;
+
+        var frame = document.getElementById('mmd-bg-frame');
+        if (!frame) {
+            frame = document.createElement('iframe');
+            frame.id = 'mmd-bg-frame';
+            frame.name = 'mmd-bg-frame';
+            frame.style.cssText = 'position:absolute;width:0;height:0;border:0;left:-9999px;top:-9999px;';
+            document.body.appendChild(frame);
+        }
+        form.setAttribute('target', 'mmd-bg-frame');
+
+        function showToast(text, kind) {
+            var t = document.getElementById('mmd-bg-toast');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'mmd-bg-toast';
+                t.className = 'mmd-bg-toast';
+                document.body.appendChild(t);
+            }
+            t.className = 'mmd-bg-toast' + (kind ? ' is-' + kind : '');
+            t.innerHTML = '<span class="mmd-bg-toast-dot"></span><span class="mmd-bg-toast-text"></span>';
+            t.querySelector('.mmd-bg-toast-text').textContent = text;
+            t.classList.add('is-visible');
+        }
+        function hideToastSoon() {
+            var t = document.getElementById('mmd-bg-toast');
+            if (!t) return;
+            setTimeout(function () { t.classList.remove('is-visible'); }, 4000);
+        }
+
+        // Magento's varienGridMassaction.apply() calls form.submit()
+        // programmatically — which does NOT fire the 'submit' event. Wrap
+        // the native submit() method so we run before the actual POST.
+        var submitBtn = massDiv.querySelector('button');
+        var submitLabel = submitBtn && submitBtn.querySelector('span span');
+        var origLabelText = submitLabel ? submitLabel.textContent : '';
+
+        function setButtonProcessing(on) {
+            if (!submitBtn) return;
+            if (on) {
+                submitBtn.classList.add('mmd-btn-processing');
+                submitBtn.disabled = true;
+                if (submitLabel) submitLabel.textContent = 'Processing…';
+            } else {
+                submitBtn.classList.remove('mmd-btn-processing');
+                submitBtn.disabled = false;
+                if (submitLabel) submitLabel.textContent = origLabelText || 'Submit';
+            }
+        }
+
+        var origSubmit = form.submit.bind(form);
+        form.submit = function () {
+            var sel = massDiv.querySelector('select');
+            var verb = 'Mass action';
+            if (sel && sel.options[sel.selectedIndex]) {
+                verb = sel.options[sel.selectedIndex].text.trim() || verb;
+            }
+            showToast(verb + ' running in background — you can keep working', 'running');
+            setButtonProcessing(true);
+            frame.onload = function () {
+                showToast(verb + ' complete', 'done');
+                hideToastSoon();
+                setButtonProcessing(false);
+                if (window.indexer_processes_grid && typeof indexer_processes_grid.reload === 'function') {
+                    try { indexer_processes_grid.reload(); } catch (e) {}
+                }
+            };
+            return origSubmit();
+        };
+    }
+    [300, 1000, 2200].forEach(function (delay) {
+        setTimeout(wireIndexBackgroundReindex, delay);
     });
 
     // Inject KPI summary cards above grid tables.
@@ -1366,12 +1454,92 @@ document.observe('dom:loaded', function() {
         });
     }
 
+    // For grids without a massaction bar (e.g. System → Permissions →
+    // Users / Roles), Magento makes the whole row clickable to navigate
+    // to the edit page. That's invisible — users don't know rows are
+    // clickable, and there's no obvious delete affordance. Inject an
+    // ACTIONS column with explicit Edit + Delete buttons, derived from
+    // the row's existing title="…/edit/…" URL.
+    function injectEditDeleteActions() {
+        document.querySelectorAll('.grid table.data').forEach(function (table) {
+            // Skip grids that already got the massaction-based dropdowns,
+            // or that opt out explicitly.
+            if (table.id === 'cache_grid_table') return;
+            if (table.id === 'indexer_processes_grid_table') return;
+            if (table.querySelector('.row-action-wrap')) return;
+            if (table.querySelector('.row-edit-actions')) return;
+
+            // Sample a real data row to confirm rows are edit-linked.
+            var dataRows = [];
+            table.querySelectorAll('tbody tr').forEach(function (r) {
+                if (r.classList.contains('headings') || r.classList.contains('filter')) return;
+                dataRows.push(r);
+            });
+            if (!dataRows.length) return;
+            var sampleTitle = dataRows[0].getAttribute('title') || '';
+            if (sampleTitle.indexOf('/edit/') === -1) return;
+
+            // Header
+            var headings = table.querySelector('tr.headings');
+            if (headings && !headings.querySelector('.row-edit-th')) {
+                var th = document.createElement('th');
+                th.className = 'row-edit-th';
+                th.textContent = 'ACTIONS';
+                th.style.cssText = 'text-align:center !important; width:120px;';
+                headings.appendChild(th);
+            }
+            var filterRow = table.querySelector('tr.filter');
+            if (filterRow && !filterRow.querySelector('.row-edit-filter')) {
+                var ftd = document.createElement('td');
+                ftd.className = 'row-edit-filter';
+                filterRow.appendChild(ftd);
+            }
+
+            dataRows.forEach(function (row) {
+                var editUrl = row.getAttribute('title');
+                if (!editUrl || editUrl.indexOf('/edit/') === -1) return;
+                var deleteUrl = editUrl.replace('/edit/', '/delete/');
+
+                var td = document.createElement('td');
+                td.className = 'row-edit-actions';
+                td.style.cssText = 'text-align:center; white-space:nowrap;';
+
+                var edit = document.createElement('a');
+                edit.href = editUrl;
+                edit.className = 'row-edit-btn';
+                edit.title = 'Edit';
+                edit.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+                edit.onclick = function (e) { e.stopPropagation(); };
+
+                var del = document.createElement('a');
+                del.href = deleteUrl;
+                del.className = 'row-delete-btn';
+                del.title = 'Delete';
+                del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
+                del.onclick = function (e) {
+                    e.stopPropagation();
+                    if (!confirm('Delete this record? This cannot be undone.')) {
+                        e.preventDefault();
+                        return false;
+                    }
+                };
+
+                td.appendChild(edit);
+                td.appendChild(del);
+                row.appendChild(td);
+                // Row-click navigation still works — these buttons stop
+                // propagation so a button click doesn't double-fire it.
+            });
+        });
+    }
+
     // Apply all grid enhancements
     function applyGridEnhancements() {
         // Remove old KPI cards first
         document.querySelectorAll('.grid-kpi-cards').forEach(function(el) { el.remove(); });
         removeCheckboxColumn();
         injectRowActions();
+        injectEditDeleteActions();
         injectGridKPIs();
     }
 

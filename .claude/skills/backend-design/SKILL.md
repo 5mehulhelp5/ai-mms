@@ -71,16 +71,20 @@ The toolbar Submit is **the same shape and size on every grid** — cache, index
 
 ### Semantic color classes (page-action variant)
 
-- **Primary** (default `button`, `button.scalable`, `input[type=submit]`): `--btn-primary` gradient, white text, soft elevation.
-- **Success** (`.add`, `.save`, `.success`): `--btn-success`.
-- **Danger** (`.delete`, `.cancel`, "Flush" / "Reset" / "Delete" header actions): `--btn-danger`.
-- **Secondary/Back** (`.back`, `.secondary`): transparent, `--b2` outline, `--t2` text — quiet, never competes with primary.
+**HARD RULE: every backend button is the same blue.** One color across the entire admin — no red, no green, no orange, no other accents. The Tertiary admin uses contrast, weight, and placement (not hue) for emphasis. A grid full of multi-color buttons reads as a kiosk; the admin is a workbench.
+
+- **Primary** (default `button`, `button.scalable`, `input[type=submit]`): `--btn-primary` (blue), white text, soft elevation.
+- **Save / Add / Success** (`.add`, `.save`, `.success`): `--btn-primary` (blue) — same as primary.
+- **Delete / Cancel** (`.delete`, `.cancel`, "Flush" / "Reset" / "Delete" header actions): **also `--btn-primary` (blue).** Confirmation is handled by a `confirm()` dialog or destructive copy ("Delete record? This cannot be undone."), not by colour. The `--btn-danger` token still exists in `dark-theme.css` for legacy reasons but **must not appear on a button**.
+- **Secondary / Back** (`.back`, `.secondary`): transparent fill with a `var(--blue)` outline and `var(--blue)` text. Hover fills with `rgba(96,165,250,0.12)`. Not gray.
+
+If you find yourself reaching for red, green, orange, or yellow on a button, that's the bug — pick blue. The legacy `--btn-success` and `--btn-danger` tokens remain in `dark-theme.css` only for status pills (badge tints), never buttons.
 
 ### Shared rules
 
 - Exactly **one primary** per action area.
-- Destructive page-level actions use `--btn-danger` (cache flush header buttons, delete).
-- Toolbar Submit always uses the light-blue pill — mass-actions are routine "go" operations, not alarm-level destructive (the data is already there, you're just refreshing it).
+- Destructive page-level actions (Delete, Flush, Reset, Cancel) use the **same blue** as everything else — gate them with a `confirm()` prompt or strong copy, never a red button.
+- Toolbar Submit uses the same light-blue pill — consistent with every other button on the page.
 - `:active` press uses `translateY(1px)`.
 - `:focus-visible` ring uses `--ring`.
 - Disabled = `opacity: 0.5` + `cursor: not-allowed`.
@@ -119,6 +123,21 @@ for hairline separators instead of `tr { border-bottom: ... }` (avoids
 ambiguity with `:last-child`). Buttons inside such rows shrink to
 ~30px height to keep the panel compact.
 
+## Hard rule: NO gray backgrounds on inputs or table cells
+
+**Banned across the entire admin.** The legacy Magento "gray pill" input
+(`background: #4b5563 / --d5`) and any gray fill on `<td>` or `<input>` are
+forbidden — they clash with the dark page surface and read as disabled even
+when they're not. The matrix on Manage Currency Rates was the worst offender;
+it's now flat.
+
+Rules:
+
+- **Inputs** (`.input-text`, `<input type=text|password|email|number|url>`, `<textarea>`) are **transparent** with a `1px var(--b2)` border. Focus gets a faint blue wash (`rgba(96,165,250,0.06)`) — never a gray fill. Readonly/disabled keep the transparent background and switch the text to `--t4`.
+- **Table cells** (`<td>`, including zebra striping) are transparent. Row separation comes from `1px var(--b1)` hairlines on `tr`, not from alternating gray backgrounds. The canonical rule lives in `sidebar-nav.css` §20 (the `.admin-main .input-text` block); per-page overrides must keep `background: transparent !important` for inputs.
+- **No new exceptions.** If you find yourself reaching for `background: var(--d4)`/`--d5` on a `<td>` or an `<input>`, that's the bug — pick a border, a hover ring, or a card wrapper instead.
+- When adding a new admin page or overriding a core template, scope inputs explicitly: `body.<route> .grid input.input-text { background: transparent !important; }`. The global rule already handles it, but cached/merged CSS (`media/css/HASH.css`) sometimes lags — explicit per-page rules survive the cache.
+
 ## Per-page overrides
 
 When a core Magento admin page needs different behavior from the global
@@ -134,4 +153,5 @@ Keep overrides in a clearly commented, numbered section at the end of
 2. Buttons use the semantic classes; one primary per area.
 3. Interactive elements have a `--ring` `:focus-visible` state.
 4. New override is body-class/id scoped and won't leak to other grids.
-5. Verified in the dark theme at the actual page (hard-refresh; no build/cache).
+5. **No gray backgrounds** on `<input>`, `<textarea>`, or `<td>` — transparent + border only. (See "Hard rule" section above.)
+6. Verified in the dark theme at the actual page. CSS/JS merging is on in admin — after editing `sidebar-nav.css`, flush **System → Cache Management → JavaScript/CSS Cache** before hard-refresh, or the bundled `media/css/HASH.css` will still serve the old rules.

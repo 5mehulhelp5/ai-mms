@@ -771,9 +771,9 @@ body.sidebar-collapsed .admin-main {
     justify-content: space-between;
     gap: 16px;
     flex-wrap: wrap;
-    padding: 0 0 20px 0 !important;
-    margin-bottom: 20px !important;
-    border-bottom: 1px solid var(--b1) !important;
+    padding: 0 0 8px 0 !important;
+    margin-bottom: 8px !important;
+    border-bottom: none !important;
     background: transparent !important;
 }
 .admin-main .content-header table,
@@ -1651,46 +1651,43 @@ body .admin-main [id$="_massaction"] button span span span {
     background: var(--btn-primary-hover) !important;
     box-shadow: 0 3px 10px rgba(37,99,235,0.35) !important;
 }
-/* Add / Save / Success */
+/* SINGLE-COLOR RULE: every backend button uses the same blue.
+   No red for delete/cancel, no green for success, no other colors.
+   Outline (back/secondary) keeps a blue accent instead of gray. */
 .admin-main button.add,
 .admin-main button.scalable.add,
 .admin-main button.save,
-.admin-main button.success {
-    background: var(--btn-success) !important;
+.admin-main button.success,
+.admin-main button.delete,
+.admin-main button.cancel {
+    background: var(--btn-primary) !important;
+    color: #fff !important;
 }
 .admin-main button.add:hover,
 .admin-main button.save:hover,
-.admin-main button.success:hover {
-    background: var(--btn-success-hover) !important;
-    box-shadow: 0 3px 10px rgba(5,150,105,0.35) !important;
-}
-/* Delete / Cancel — destructive */
-.admin-main button.delete,
-.admin-main button.cancel {
-    background: var(--btn-danger) !important;
-}
+.admin-main button.success:hover,
 .admin-main button.delete:hover,
 .admin-main button.cancel:hover {
-    background: var(--btn-danger-hover) !important;
-    box-shadow: 0 3px 10px rgba(220,38,38,0.35) !important;
+    background: var(--btn-primary-hover) !important;
+    box-shadow: 0 3px 10px rgba(37,99,235,0.35) !important;
 }
-/* Back / Secondary — quiet outline button */
+/* Back / Secondary — quiet outline, blue-tinted (not gray) */
 .admin-main button.back,
 .admin-main button.secondary {
     background: transparent !important;
-    border: 1px solid var(--b2) !important;
-    color: var(--t2) !important;
+    border: 1px solid var(--blue) !important;
+    color: var(--blue) !important;
     box-shadow: none !important;
 }
 .admin-main button.back span,
 .admin-main button.back span span,
 .admin-main button.secondary span {
-    color: var(--t2) !important;
+    color: var(--blue) !important;
 }
 .admin-main button.back:hover,
 .admin-main button.secondary:hover {
-    background: var(--d4) !important;
-    border-color: var(--b3) !important;
+    background: rgba(96, 165, 250, 0.12) !important;
+    border-color: var(--blue) !important;
     box-shadow: none !important;
 }
 .admin-main button:disabled,
@@ -1751,7 +1748,9 @@ body .admin-main [id$="_massaction"] button span span span {
 .admin-main textarea,
 .admin-main select,
 .admin-main .input-text {
-    background: var(--d5) !important;
+    /* Hard rule: NEVER gray. Inputs are flat on the dark background with
+       a thin border — gray pill backgrounds are banned in this admin. */
+    background: transparent !important;
     border: 1px solid var(--b2) !important;
     color: var(--t1) !important;
     border-radius: 8px !important;
@@ -1759,7 +1758,28 @@ body .admin-main [id$="_massaction"] button span span span {
     font-size: 13px !important;
     min-height: 38px !important;
     box-sizing: border-box !important;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease !important;
+}
+/* Focus surfaces a faint blue wash — never gray. */
+.admin-main input[type="text"]:focus,
+.admin-main input[type="password"]:focus,
+.admin-main input[type="email"]:focus,
+.admin-main input[type="number"]:focus,
+.admin-main input[type="url"]:focus,
+.admin-main textarea:focus,
+.admin-main .input-text:focus {
+    background: rgba(96, 165, 250, 0.06) !important;
+}
+/* Readonly/disabled stay transparent — soft text, no gray pill. */
+.admin-main .input-text[readonly],
+.admin-main .input-text[disabled],
+.admin-main .input-text.input-text-disabled,
+.admin-main input[readonly],
+.admin-main input[disabled] {
+    background: transparent !important;
+    color: var(--t4, #64748b) !important;
+    border-color: var(--b1) !important;
+    cursor: default !important;
 }
 .admin-main input:focus,
 .admin-main select:focus,
@@ -3435,4 +3455,240 @@ body.adminhtml-process-list .admin-main br {
 }
 @keyframes mmd-spin {
     to { transform: rotate(360deg); }
+}
+
+/* Background mass-action toast — non-blocking status pill shown while a
+   reindex (or other index-grid mass action) runs in a hidden iframe. */
+.mmd-bg-toast {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: rgba(15, 23, 42, 0.96);
+    color: #e2e8f0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    font: 600 13px/1.2 ui-sans-serif, system-ui, sans-serif;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+}
+.mmd-bg-toast.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+.mmd-bg-toast .mmd-bg-toast-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--brand-2, #60a5fa);
+    box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.6);
+    animation: mmd-bg-pulse 1.4s ease-in-out infinite;
+}
+.mmd-bg-toast.is-done .mmd-bg-toast-dot {
+    background: #10b981;
+    animation: none;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.18);
+}
+@keyframes mmd-bg-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.55); }
+    50%      { box-shadow: 0 0 0 6px rgba(96, 165, 250, 0); }
+}
+
+/* Order Statuses grid — compact single-line rows. */
+body.adminhtml-sales_order_status-index .admin-main .grid table.data td,
+body.adminhtml-sales_order_status-index .admin-main .grid table.data tbody tr td,
+body.adminhtml-sales_order_status-index .admin-main .grid table.data tbody tr:nth-child(even) td,
+body.adminhtml-sales_order_status-index .admin-main .grid table.data tbody tr:nth-child(odd) td,
+body.adminhtml-sales_order_status-index .admin-main .grid table.data th,
+body.adminhtml-sales_order_status-index .admin-main .grid table.data tr.headings th {
+    padding: 3px 10px !important;
+    line-height: 1.25 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    vertical-align: middle !important;
+    font-size: 12px !important;
+}
+body.adminhtml-sales_order_status-index .admin-main .grid table.data tr,
+body.adminhtml-sales_order_status-index .admin-main .grid table.data tbody tr {
+    height: auto !important;
+}
+body.adminhtml-sales_order_status-index .admin-main .grid table.data a {
+    line-height: 1.25 !important;
+}
+body.adminhtml-sales_order_status-index .row-edit-actions {
+    padding: 2px 8px !important;
+    gap: 4px !important;
+}
+body.adminhtml-sales_order_status-index .row-edit-btn,
+body.adminhtml-sales_order_status-index .row-delete-btn {
+    width: 22px !important;
+    height: 22px !important;
+}
+body.adminhtml-sales_order_status-index .row-edit-btn svg,
+body.adminhtml-sales_order_status-index .row-delete-btn svg {
+    width: 12px;
+    height: 12px;
+}
+
+/* Per-row Edit / Delete icon buttons — injected on grids without a
+   massaction bar (Permissions Users/Roles, etc.) by sidebar-nav-v2.js. */
+.row-edit-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 4px 10px !important;
+}
+.row-edit-btn,
+.row-delete-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--b2);
+    background: transparent;
+    color: var(--t2);
+    text-decoration: none !important;
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.row-edit-btn:hover {
+    background: rgba(96, 165, 250, 0.12);
+    border-color: var(--blue);
+    color: var(--blue) !important;
+}
+.row-delete-btn:hover {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: var(--red);
+    color: var(--red) !important;
+}
+.row-edit-btn svg,
+.row-delete-btn svg { display: block; }
+
+/* Submit button in its "Processing…" state — inline spinner + dimmed. */
+button.mmd-btn-processing,
+button.mmd-btn-processing[disabled] {
+    opacity: 0.85 !important;
+    cursor: progress !important;
+    padding-left: 32px !important;
+    position: relative !important;
+}
+button.mmd-btn-processing::before {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    margin-top: -7px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: mmd-spin 0.7s linear infinite;
+}
+
+/* === 26. Manage Currency Rates — simple transparent table === */
+/* Plain table on the page background: no card chrome, no gray pill
+   inputs. Empty inputs are transparent so the page bg reads through;
+   only a thin border outlines the cell. */
+
+body.adminhtml-system_currency-index .admin-main .grid {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+}
+body.adminhtml-system_currency-index .admin-main .grid > table,
+body.adminhtml-system_currency-index .admin-main .grid table {
+    background: transparent !important;
+    border-collapse: collapse !important;
+}
+body.adminhtml-system_currency-index .admin-main .grid th,
+body.adminhtml-system_currency-index .admin-main .grid tr.headings th {
+    padding: 5px 10px !important;
+    background: transparent !important;
+    border: 0 !important;
+    text-shadow: none !important;
+}
+body.adminhtml-system_currency-index .admin-main .grid td,
+body.adminhtml-system_currency-index .admin-main .grid tbody tr td,
+body.adminhtml-system_currency-index .admin-main .grid tbody tr:nth-child(even) td,
+body.adminhtml-system_currency-index .admin-main .grid tbody tr:nth-child(odd) td {
+    padding: 3px 8px !important;
+    background: transparent !important;
+    border: 0 !important;
+}
+body.adminhtml-system_currency-index .admin-main .grid.currency-rate-list table {
+    width: auto !important;
+    min-width: 360px !important;
+}
+body.adminhtml-system_currency-index .admin-main .grid.currency-rate-list th {
+    padding: 6px 14px !important;
+    font-size: 11px !important;
+    letter-spacing: 0.5px !important;
+    text-transform: uppercase !important;
+    color: var(--t3, #94a3b8) !important;
+    border-bottom: 1px solid var(--b1) !important;
+}
+body.adminhtml-system_currency-index .admin-main .grid.currency-rate-list td {
+    padding: 4px 14px !important;
+    vertical-align: middle !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+}
+body.adminhtml-system_currency-index .admin-main .grid.currency-rate-list tr.is-self td {
+    opacity: 0.55 !important;
+}
+body.adminhtml-system_currency-index .admin-main .grid.currency-rate-list td strong {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+    font-size: 12px !important;
+    color: var(--t2, #cbd5e1) !important;
+    letter-spacing: 0.5px !important;
+}
+body.adminhtml-system_currency-index .admin-main .grid.currency-rate-list input.input-text,
+body.adminhtml-system_currency-index .admin-main .grid.currency-rate-list input[type="text"] {
+    width: 96px !important;
+    min-width: 0 !important;
+    height: 26px !important;
+    min-height: 26px !important;
+    padding: 0 8px !important;
+    margin: 0 !important;
+    font: 600 12px/24px ui-monospace, SFMono-Regular, Menlo, monospace !important;
+    text-align: right !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    border-radius: 4px !important;
+    color: var(--t1) !important;
+    box-shadow: none !important;
+    transition: border-color 0.12s ease, background 0.12s ease !important;
+}
+body.adminhtml-system_currency-index .admin-main .grid.currency-rate-list input.input-text:hover {
+    border-color: var(--b2) !important;
+}
+body.adminhtml-system_currency-index .admin-main .grid.currency-rate-list input.input-text:focus {
+    border-color: var(--blue) !important;
+    background: rgba(96, 165, 250, 0.08) !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+body.adminhtml-system_currency-index .admin-main .grid.currency-rate-list input.input-text-disabled,
+body.adminhtml-system_currency-index .admin-main .grid.currency-rate-list input.input-text[readonly] {
+    background: transparent !important;
+    color: var(--t4, #64748b) !important;
+    border-color: transparent !important;
+    cursor: default !important;
+}
+body.adminhtml-system_currency-index .admin-main .grid.currency-rate-list .old-rate {
+    display: inline-block;
+    margin-left: 10px;
+    font-size: 11px;
+    color: var(--t4, #64748b);
 }
