@@ -1475,35 +1475,35 @@ body button.pagination-btn span {
     font-size: 11px !important;
     border-radius: 5px !important;
 }
-/* Mass-action Submit: compact 24px, danger gradient. Mass-action submits
-   are always destructive (reindex, flush, delete, mass-update) — red is
-   the consistent semantic across every grid (cache, index, sales,
-   customers, etc.). Specificity bumped to button.scalable so it beats
-   §18's primary-gradient rule. */
+/* Mass-action Submit: compact 24px, light-blue gradient. Visually same
+   pill shape as the page-header "Flush & Apply Updates" button on the
+   cache page, just lighter. Light blue reads as a "go" action without
+   the alarm-bell intensity of the red header flush buttons. */
 .admin-main .massaction button,
 .admin-main .massaction button.scalable,
 .admin-main [id$="_massaction"] button,
 .admin-main [id$="_massaction"] button.scalable {
     min-height: 24px !important;
     height: 24px !important;
-    padding: 0 12px !important;
+    padding: 0 14px !important;
     margin: 0 !important;
     font-size: 11px !important;
     font-weight: 600 !important;
-    border-radius: 5px !important;
+    border-radius: 999px !important;
     line-height: 1 !important;
-    background: var(--btn-danger) !important;
-    background-image: var(--btn-danger) !important;
+    background: linear-gradient(180deg, var(--blue) 0%, var(--blue2) 100%) !important;
+    background-image: linear-gradient(180deg, var(--blue) 0%, var(--blue2) 100%) !important;
     border: 0 !important;
     color: #fff !important;
     box-shadow: none !important;
+    letter-spacing: 0.2px !important;
 }
 .admin-main .massaction button:hover,
 .admin-main .massaction button.scalable:hover,
 .admin-main [id$="_massaction"] button:hover,
 .admin-main [id$="_massaction"] button.scalable:hover {
-    background: var(--btn-danger-hover) !important;
-    background-image: var(--btn-danger-hover) !important;
+    background: linear-gradient(180deg, var(--blue2) 0%, var(--blue3) 100%) !important;
+    background-image: linear-gradient(180deg, var(--blue2) 0%, var(--blue3) 100%) !important;
 }
 /* Drop the Select All / Unselect All / Select Visible / Unselect Visible
    text links and their separators — the grid header checkbox already
