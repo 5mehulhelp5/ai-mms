@@ -1234,6 +1234,110 @@ html.is-order-view ul#sales_order_view_tabs li a.active span {
     position: relative;
     z-index: 1;
 }
+/* === Order View — COMPACT density (match standard Magento size) ===
+   The global dark-theme card/button/font rules inflate this page well
+   beyond Magento's default. Scope a tighter set to body.is-order-view
+   ONLY (every other admin page keeps the roomier styling). Values
+   chosen to mirror stock Magento admin order-view density. */
+body.is-order-view .content-header h3,
+html.is-order-view .content-header h3,
+body.is-order-view .content-header h3.icon-head,
+html.is-order-view .content-header h3.icon-head {
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    line-height: 1.25 !important;
+    margin: 0 0 6px !important;
+}
+/* Action buttons row (Back / Edit / Cancel / Send Email / …) */
+body.is-order-view .content-header button,
+html.is-order-view .content-header button,
+body.is-order-view .content-buttons button,
+html.is-order-view .content-buttons button,
+body.is-order-view .content-header .form-button,
+html.is-order-view .content-header .form-button {
+    padding: 5px 12px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    border-radius: 5px !important;
+    box-shadow: none !important;
+}
+body.is-order-view .content-buttons,
+html.is-order-view .content-buttons { gap: 6px !important; }
+/* Cards / panels */
+body.is-order-view .entry-edit,
+html.is-order-view .entry-edit,
+body.is-order-view .box-left,
+html.is-order-view .box-left,
+body.is-order-view .box-right,
+html.is-order-view .box-right,
+body.is-order-view .box,
+html.is-order-view .box {
+    border-radius: 8px !important;
+    margin-bottom: 12px !important;
+    box-shadow: none !important;
+}
+/* Section header bars inside the order view */
+body.is-order-view .entry-edit-head,
+html.is-order-view .entry-edit-head,
+body.is-order-view .box-head,
+html.is-order-view .box-head {
+    padding: 8px 12px !important;
+    min-height: 0 !important;
+}
+body.is-order-view .entry-edit-head h4,
+html.is-order-view .entry-edit-head h4,
+body.is-order-view .box-head h4,
+html.is-order-view .box-head h4,
+body.is-order-view .box-head h3,
+html.is-order-view .box-head h3 {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+}
+/* Read-only info rows (Order Date / Status / Account / Billing …) */
+body.is-order-view .fieldset,
+html.is-order-view .fieldset,
+body.is-order-view fieldset.np,
+html.is-order-view fieldset.np { padding: 10px 14px !important; }
+body.is-order-view .form-list td,
+html.is-order-view .form-list td,
+body.is-order-view .form-list th,
+html.is-order-view .form-list th {
+    padding: 4px 10px 4px 0 !important;
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+}
+body.is-order-view .order-account-information td,
+html.is-order-view .order-account-information td {
+    padding: 4px 10px 4px 0 !important;
+    font-size: 12px !important;
+}
+/* Items Ordered grid + Order Totals — compact cells */
+body.is-order-view .grid table.data th,
+html.is-order-view .grid table.data th,
+body.is-order-view .grid table.data td,
+html.is-order-view .grid table.data td,
+body.is-order-view .order-totals td,
+html.is-order-view .order-totals td,
+body.is-order-view .order-totals th,
+html.is-order-view .order-totals th {
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+}
+/* Tighter tab bar */
+body.is-order-view ul#sales_order_view_tabs li a,
+html.is-order-view ul#sales_order_view_tabs li a {
+    padding: 7px 14px !important;
+    font-size: 12px !important;
+}
+body.is-order-view ul#sales_order_view_tabs,
+html.is-order-view ul#sales_order_view_tabs { margin: 4px 0 12px 0 !important; }
+/* Comments History box compact */
+body.is-order-view #order_history_block textarea,
+html.is-order-view #order_history_block textarea { min-height: 60px !important; font-size: 12px !important; }
+
 /* Horizontal tabs */
 ul.tabs-horiz, body ul.tabs-horiz {
     background: none !important;
