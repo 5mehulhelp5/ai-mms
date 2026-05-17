@@ -34,7 +34,6 @@
     <catalog_product_view>
         <reference name="head">
             <action method="addItem" ifconfig="mmd_catalog/customoptions/enabled"><type>js_css</type><name>mmd/lightbox/css/lightbox.css</name><params/></action>
-            <action method="addItem" ifconfig="mmd_catalog/customoptions/enabled"><type>js_css</type><name>mmd/lightbox/css/lightbox-ie.css</name><params/><if>lt IE 8</if></action>
             <action method="addItem" ifconfig="mmd_catalog/customoptions/enabled"><type>js</type><name>mmd/lightbox/js/lightbox.js</name><params/><if/></action>
         </reference>
         <reference name="product.info.options">

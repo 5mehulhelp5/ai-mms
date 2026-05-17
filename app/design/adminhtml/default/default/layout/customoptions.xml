@@ -35,7 +35,6 @@
     <adminhtml_catalog_product_edit>    
         <reference name="head">
             <action method="addItem" ifconfig="mmd_catalog/customoptions/enabled"><type>js_css</type><name>mmd/lightbox/css/lightbox.css</name><params/></action>
-            <action method="addItem" ifconfig="mmd_catalog/customoptions/enabled"><type>js_css</type><name>mmd/lightbox/css/lightbox-ie.css</name><params/><if>lt IE 8</if></action>
             <action method="addItem" ifconfig="mmd_catalog/customoptions/enabled"><type>js</type><name>mmd/lightbox/js/lightbox.js</name><params/><if/></action>
             
             <action method="addItem" ifconfig="mmd_catalog/customoptions/enabled"><type>js</type><name>jscolor/jscolor.js</name><params/><if/></action>
@@ -54,7 +53,6 @@
             <action method="removeItem"><type>js</type><name>tbt/enhancedgrid/egsupplemental.js</name></action> 
             <action method="removeItem"><type>js</type><name>tbt/enhancedgrid/customfunctions/catalog_products.js</name></action>
             <action method="addItem"><type>js_css</type><name>mmd/lightbox/css/lightbox.css</name><params/></action>
-            <action method="addItem"><type>js_css</type><name>mmd/lightbox/css/lightbox-ie.css</name><params/><if>lt IE 8</if></action>
             <action method="addItem"><type>js</type><name>mmd/lightbox/js/lightbox.js</name><params/><if/></action>
             
             <action method="addItem"><type>js</type><name>jscolor/jscolor.js</name><params/><if/></action>

@@ -30,7 +30,6 @@
     <default>
         <reference name="head">
             <action method="addCss"><name>xmlconnect/boxes.css</name></action>
-            <action method="addItem"><type>skin_css</type><name>xmlconnect/iestyles.css</name><params/><if>lte IE 8</if></action>
         </reference>
     </default>
 
