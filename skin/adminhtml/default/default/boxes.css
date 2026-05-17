@@ -128,9 +128,9 @@
 .grid                           { border-bottom:0; padding-bottom:.5em; }
 .grid table                     { width:100%; border:1px solid #cbd3d4; border-bottom:none; }
 .grid table.border              { border:1px solid #cbd3d4; }
-.grid tbody                     { background:#fff; }    /* Zebra odd-row */
-.grid tr.even, .grid tr.even tr { background:#f6f6f6; } /* Zebra even-row */
-.grid tr.on-mouse               { background:#fcf5dd; cursor:pointer; } /* Rows mouse-over */
+.grid tbody                     { background:transparent; } /* Zebra odd-row — dark theme uses transparent */
+.grid tr.even, .grid tr.even tr { background:transparent; } /* Zebra even-row — same */
+.grid tr.on-mouse               { background:transparent; cursor:pointer; color:#65b7d5; } /* Rows mouse-over — sky-blue text, no fill */
 .grid tr.invalid                { background-color:#f5d6c7; }
 .grid th, .grid td              { padding:2px 4px 2px 4px; }
 .grid th                        { white-space:nowrap; }
@@ -406,7 +406,7 @@ select.multiselect option       { padding:3px 4px; border-bottom:1px solid #ddd;
 .multi-input                    { margin-bottom:8px; } /* Example: Address fields with 2 input lines */
 .grid tr .form-list tr          { background:#fff !important; } /* Follows grid row background-color */
 .grid tr.even .form-list tr     { background:#f6f6f6 !important; } /* Follows grid row background-color */
-.grid tr.on-mouse .form-list tr { background:#fcf5dd !important; } /* Follows grid row background-color */
+.grid tr.on-mouse .form-list tr { background:transparent !important; } /* No cream fill */
 .grid tr .form-list             { margin:8px 0; }
 .field-row                      { display:block; margin-bottom:5px; }
 span.delete-image,
@@ -568,7 +568,7 @@ td.divider              { font-size:1px; line-height:0; }
 .wrapper-popup { min-width:750px; }
 .header { background:url(images/header_top_bg.gif) repeat-x #425e66; text-align:right; }
 .middle { min-height:450px; background:url(images/simple_container_bg.gif) repeat-x #fff; padding:23px 27px 0 27px; }
-.middle-popup { border-bottom:3px solid #fff; background:url(images/middle_bg.gif) repeat-x 0 100% #fff; padding:0 0 0 0; background:yellow; }
+.middle-popup { border-bottom:3px solid #fff; background:url(images/middle_bg.gif) repeat-x 0 100% #fff; padding:0 0 0 0; }
 .container-collapsed { padding:1.8em 2.2em 1.8em 2em; padding-top:0; }
 .columns {background:url(images/side_col_bg.gif) repeat-y 217px 0; }
 
@@ -1196,7 +1196,7 @@ input.downloads { width:6.5em !important; }
 .address-list .btn-remove-address       { right:27px; }
 .address-list li                        { position:relative; padding:12px 14px; cursor:pointer; border-top:1px solid #e6e6e6; background:url(images/address_list_li.gif) repeat; }
 .address-list li.on                     { background:#e7efef; }
-.address-list li.over                   { background-color:#fcf5dd; }
+.address-list li.over                   { background-color:transparent; color:#65b7d5; }
 .address-list li table                  { width:100%; }
 .delete-address                         { float:right; margin:0 0 10px 10px; }
 .address-type .address-type-line        { display:block; margin:2px 0; }
@@ -1396,7 +1396,7 @@ ul.super-product-attributes { padding-left:15px; }
 .uploader .file-row-info .file-info-name  { font-weight:bold; }
 .uploader .file-row .progress-text { float:right; font-weight:bold; }
 .uploader .file-row .delete-button { float:right; }
-.uploader .progress { border:1px solid #f0e6b7; background-color:#feffcc; }
+.uploader .progress { border:1px solid rgba(101,183,213,0.3); background-color:rgba(101,183,213,0.12); }
 .uploader .error { border:1px solid #aa1717; background-color:#ffe6de; }
 .uploader .error .progress-text { padding-right:10px; }
 .uploader .complete { border:1px solid #90c898; background-color:#e5ffed; }
