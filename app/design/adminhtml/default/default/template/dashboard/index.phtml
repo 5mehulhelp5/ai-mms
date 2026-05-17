@@ -7428,6 +7428,167 @@ $_csv = function ($path, $default = '') use ($_cs) {
     </div>
     <hr class="cs-divider"/>
 
+    <!-- Section: API Summary -->
+    <?php
+    $_apiBase = rtrim((string) Mage::getStoreConfig('web/unsecure/base_url', 0), '/');
+    if ($_apiBase === '') { $_apiBase = 'https://www.tertiarycourses.com.sg'; }
+    $_apiKaelReview    = $_apiBase . '/kael_review_api.php';
+    // DB key (stored via this UI) wins. Env var is the fallback the
+    // server-side endpoint accepts when the DB row is empty.
+    $_apiKaelReviewKey    = (string) Mage::getStoreConfig('mmd_company/api/kael_review_key', 0);
+    $_apiKaelReviewKeyEnv = (string) getenv('KAEL_REVIEW_API_KEY');
+    if ($_apiKaelReviewKey === '' && $_apiKaelReviewKeyEnv !== '' && $_apiKaelReviewKeyEnv !== 'CHANGE_ME') {
+        $_apiKaelReviewKey = $_apiKaelReviewKeyEnv;
+    }
+    $_apiKaelReviewKeyMask = $_apiKaelReviewKey !== ''
+        ? str_repeat('•', 8) . ' ' . substr($_apiKaelReviewKey, -4)
+        : '(not set — click Edit to create one)';
+    ?>
+    <div class="cs-section" data-section="api_summary">
+        <div class="cs-section-head" onclick="csToggleSection(this)">
+            <h2>API Summary</h2>
+            <span class="cs-caret">&#9650;</span>
+            <button id="cs-edit-api_summary" class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('api_summary')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+        </div>
+        <div class="cs-section-body" id="cs-body-api_summary">
+            <div style="color:#94a3b8;font-size:12px;line-height:1.5;margin-bottom:14px">
+                Outward-facing HTTP APIs exposed by this site. Use these for
+                programmatic posting from external automations (e.g. the Kael
+                review bot). Click <strong>Edit</strong> above to paste or
+                rotate the secret keys.
+            </div>
+
+            <!-- API: Kael Review -->
+            <div class="cs-card">
+                <div class="cs-card-title" style="display:flex;align-items:center;gap:10px">
+                    <span>Kael Review API</span>
+                    <span class="cs-status enabled" style="font-size:10px">ACTIVE</span>
+                    <span style="margin-left:auto;font-size:11px;color:#64748b">POST · application/json</span>
+                </div>
+                <div style="font-size:12px;color:#94a3b8;margin:4px 0 10px">
+                    Programmatically submit an auto-approved product review with optional original timestamp.
+                </div>
+
+                <table style="width:100%;border-collapse:collapse;font-size:12px">
+                    <tr>
+                        <td style="padding:6px 0;color:#64748b;width:130px;vertical-align:top">Endpoint</td>
+                        <td style="padding:6px 0;color:var(--t1);font-family:monospace;word-break:break-all">
+                            <span id="kael-review-url"><?php echo htmlspecialchars($_apiKaelReview) ?></span>
+                            <button type="button"
+                                    style="margin-left:8px;background:#0f172a;border:1px solid #334155;color:#94a3b8;font-size:11px;padding:2px 8px;border-radius:4px;cursor:pointer"
+                                    onclick="(function(){var el=document.getElementById('kael-review-url');var r=document.createRange();r.selectNode(el);window.getSelection().removeAllRanges();window.getSelection().addRange(r);document.execCommand('copy');window.getSelection().removeAllRanges();})()">Copy</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 0;color:#64748b;vertical-align:top">Auth header</td>
+                        <td style="padding:6px 0;color:var(--t1);font-family:monospace">
+                            X-Api-Key:
+                            <span class="cs-field" data-path="mmd_company/api/kael_review_key" style="display:inline-block;vertical-align:middle;margin-left:6px">
+                                <span class="cs-val">
+                                    <span class="cs-input-masked" style="display:inline-flex;align-items:center;gap:6px;background:#0f172a;border:1px solid #334155;border-radius:4px;padding:3px 8px">
+                                        <span data-cs-masked="<?php echo htmlspecialchars($_apiKaelReviewKeyMask, ENT_QUOTES) ?>"
+                                              data-cs-plain="<?php echo htmlspecialchars($_apiKaelReviewKey, ENT_QUOTES) ?>"
+                                              data-cs-revealed="0"
+                                              style="color:#e2e8f0;font-size:12px"><?php echo htmlspecialchars($_apiKaelReviewKeyMask) ?></span>
+                                        <?php if ($_apiKaelReviewKey !== ''): ?>
+                                            <button type="button" class="cs-eye-btn"
+                                                    style="background:transparent;border:0;color:#94a3b8;cursor:pointer;padding:0;display:inline-flex"
+                                                    onclick="csToggleEye(this)" title="Reveal / hide">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                            </button>
+                                        <?php endif; ?>
+                                    </span>
+                                </span>
+                                <span class="cs-secret-edit" style="align-items:center;gap:6px;background:#0f172a;border:1px solid #334155;border-radius:4px;padding:3px 8px">
+                                    <input type="password" autocomplete="off" spellcheck="false"
+                                           placeholder="Paste new API key…"
+                                           value="<?php echo htmlspecialchars($_apiKaelReviewKey, ENT_QUOTES) ?>"
+                                           style="background:transparent;border:0;color:#e2e8f0;font-family:monospace;font-size:12px;min-width:280px;outline:none"/>
+                                    <button type="button" class="cs-eye-btn"
+                                            style="background:transparent;border:0;color:#94a3b8;cursor:pointer;padding:0;display:inline-flex"
+                                            onclick="csTogglePasswordInput(this)" title="Show / hide while typing">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    </button>
+                                </span>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 0;color:#64748b;vertical-align:top">Rate limit</td>
+                        <td style="padding:6px 0;color:var(--t1)">None (intended for trusted backend use only)</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 0;color:#64748b;vertical-align:top">Idempotency</td>
+                        <td style="padding:6px 0;color:var(--t1)">Each call creates a new <code>review_id</code>; callers must dedupe their own queue</td>
+                    </tr>
+                </table>
+
+                <div style="margin-top:14px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Request body</div>
+                <pre style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:12px;color:#e2e8f0;font-size:12px;overflow-x:auto;margin:6px 0 0">{
+  "product_id":  1362,
+  "nickname":    "John Tan",
+  "title":       "Average Rating: 4.7/5",
+  "detail":      "Great course, very informative!",
+  "ratings":     { "1": 5, "2": 5, "5": 4 },
+  "created_at":  "2026-04-10 04:00:17",   // optional, MySQL DATETIME / ISO 8601 — defaults to NOW()
+  "store_id":    1,                        // optional, int — defaults to current store
+  "customer_id": null                      // optional, int — defaults to null (guest review)
+}</pre>
+
+                <div style="margin-top:14px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Rating IDs (multi-criteria form)</div>
+                <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+                    <tr><td style="padding:4px 0;color:#94a3b8;width:30px"><code>1</code></td><td style="padding:4px 0;color:var(--t1)">Do you find the course meets your expectation? (1-5 stars)</td></tr>
+                    <tr><td style="padding:4px 0;color:#94a3b8"><code>2</code></td><td style="padding:4px 0;color:var(--t1)">Do you find the trainer knowledgeable? (1-5 stars)</td></tr>
+                    <tr><td style="padding:4px 0;color:#94a3b8"><code>5</code></td><td style="padding:4px 0;color:var(--t1)">How do you find the training environment? (1-5 stars)</td></tr>
+                </table>
+
+                <div style="margin-top:14px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Success response (HTTP 200)</div>
+                <pre style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:12px;color:#e2e8f0;font-size:12px;overflow-x:auto;margin:6px 0 0">{
+  "success":    true,
+  "review_id":  22863,
+  "created_at": "2026-04-10 04:00:17",
+  "store_id":   1,
+  "message":    "Review created and approved"
+}</pre>
+
+                <div style="margin-top:14px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Error responses</div>
+                <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+                    <tr><td style="padding:4px 0;color:#94a3b8;width:50px"><code>400</code></td><td style="padding:4px 0;color:var(--t1)">Invalid JSON, missing required field, or invalid <code>created_at</code></td></tr>
+                    <tr><td style="padding:4px 0;color:#94a3b8"><code>401</code></td><td style="padding:4px 0;color:var(--t1)">Missing or invalid <code>X-Api-Key</code></td></tr>
+                    <tr><td style="padding:4px 0;color:#94a3b8"><code>404</code></td><td style="padding:4px 0;color:var(--t1)"><code>product_id</code> not found</td></tr>
+                    <tr><td style="padding:4px 0;color:#94a3b8"><code>405</code></td><td style="padding:4px 0;color:var(--t1)">Non-POST method</td></tr>
+                    <tr><td style="padding:4px 0;color:#94a3b8"><code>500</code></td><td style="padding:4px 0;color:var(--t1)">Server error (detail in response body)</td></tr>
+                </table>
+
+                <div style="margin-top:14px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">cURL example</div>
+                <pre style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:12px;color:#e2e8f0;font-size:12px;overflow-x:auto;margin:6px 0 0">curl -X POST '<?php echo htmlspecialchars($_apiKaelReview) ?>' \
+  -H 'Content-Type: application/json' \
+  -H 'X-Api-Key: $KAEL_REVIEW_API_KEY' \
+  -d '{
+    "product_id":  1362,
+    "nickname":    "John Tan",
+    "title":       "Average Rating: 4.7/5",
+    "detail":      "Great course, very informative!",
+    "ratings":     {"1": 5, "2": 5, "5": 4},
+    "created_at":  "2026-04-10 04:00:17"
+  }'</pre>
+
+                <div style="margin-top:12px;font-size:11px;color:#64748b">
+                    Implementation: <code>kael_review_api.php</code> at site root. Full docs: <code>docs/kael-review-api.md</code>.
+                </div>
+            </div>
+
+            <div id="cs-actions-api_summary" style="display:none;margin-top:14px;">
+                <button class="cs-save-btn" onclick="csSaveSection('api_summary')">Save API Key</button>
+                <button class="cs-cancel-btn" onclick="csCancelSection('api_summary')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <hr class="cs-divider"/>
+
     <!-- Section: Appearance -->
     <div class="cs-section" data-section="appearance">
         <div class="cs-section-head" onclick="csToggleSection(this)">
