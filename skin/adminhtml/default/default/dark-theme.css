@@ -1220,12 +1220,16 @@ ul.tabs a.active, ul.tabs a.active span {
 }
 
 /* === Order View detail — horizontal tabs below the action bar === */
-/* JS (`relocateOrderTabs` in sidebar-nav-v2.js) moves the tabs <ul>
-   out of .side-col and into .main-col-inner right after .content-header.
-   We hide the now-empty .side-col and let .main-col take full width.
-   `is-order-view` lives on <body> via layout XML and on <html> via JS. */
-body.is-order-view .side-col,
-html.is-order-view .side-col { display: none !important; }
+/* NOTE: the old unconditional `is-order-view .side-col {display:none}`
+   was REMOVED. It hid .side-col purely from the URL-derived
+   is-order-view class — before/regardless of whether the order
+   content was actually relocated out of it. After the 5692f911
+   refactor introduced the generic, JS-gated `body.has-relocated-tabs
+   .side-col {display:none}` (only applied AFTER relocation succeeds),
+   the legacy unconditional rule blanked the entire order-view page
+   whenever relocation didn't fire as the old code expected. We now
+   defer entirely to `has-relocated-tabs`: if relocation fails the
+   side-col stays visible (degraded layout) instead of a blank page. */
 
 /* Generic: any edit page where ul.tabs has been relocated out of
    .side-col into .main-col-inner. Renders as a horizontal tab strip
