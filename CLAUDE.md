@@ -4,7 +4,21 @@ Guidance for Claude Code when working in this repository.
 
 ## Project Overview
 
-OpenMage 1.x (Magento 1 LTS v20.12.3) customized as an LMS/TMS (Learning/Training Management System) for Tertiary Courses Singapore. PHP 8.2, MySQL 5.7, Apache, Docker. Deployed to Coolify; local dev via `docker-compose`.
+OpenMage 1.x (Magento 1 LTS v20.12.3) customized as a Course Registration + LMS (Learning Management) system for **Tertiary Infotech Academy**. PHP 8.2, MySQL 5.7, Apache, Docker. Deployed to Coolify; local dev via `docker-compose`.
+
+**Business reality — keep this in mind for every change:**
+
+- **All products are courses** (instructor-led trainings, workshops, certifications). There is **no physical inventory and no shipping**. Stock, weight, dimensions, shipping methods, tracking numbers, and similar Magento concepts do not apply — if a feature surfaces them, hide / disable / repurpose them rather than wiring them up.
+- **All deliveries are virtual or classroom-based** (in-person classroom, live online, or hybrid). The "shopping" flow is really a course-registration flow; prefer renaming labels to match (e.g. "Order" → "Registration", "Customer" → "Learner") rather than fighting the underlying schema.
+- **Multi-country operation** with one Magento install and one shared course catalog. Each country is a Magento website / store view with its own domain, currency, language defaults, and pricing:
+  - 🇸🇬 Singapore — `tertiarycourses.com.sg` (default website)
+  - 🇲🇾 Malaysia — `tertiarycourses.com.my`
+  - 🇳🇬 Nigeria — `tertiarycourses.com.ng`
+  - 🇬🇭 Ghana — `tertiarycourses.com.gh`
+  - 🇧🇹 Bhutan — `tertiarycourses.bt`
+  - 🇮🇳 India — `tertiarycourses.co.in`
+- **Country-specific funding hooks** matter for marketing & checkout: SG SkillsFuture / WSQ / IBF, MY HRDC. Don't strip these references when refactoring storefront templates.
+- **The admin panel is rebranded** as "Tertiary Infotech Academy — Magento Management System". Treat the admin as a TMS for instructors + operations staff, not a generic e-commerce backoffice.
 
 ## Development Commands
 
