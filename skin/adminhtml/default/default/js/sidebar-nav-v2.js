@@ -42,6 +42,192 @@ document.addEventListener('DOMContentLoaded', function relocateOrderTabs() {
     if (sideCol) sideCol.style.display = 'none';
 });
 
+// Helper: register a handler to run on initial DOMContentLoaded AND on
+// every instant-nav PJAX swap (instant-nav.js doesn't refire
+// DOMContentLoaded, so plain listeners miss the new page entirely).
+function onPageReady(fn) {
+    document.addEventListener('DOMContentLoaded', fn);
+    document.addEventListener('instant-nav:after-swap', fn);
+}
+
+// Generic: relocate any varienTabs ul.tabs sitting in .side-col into
+// the top of .main-col-inner, then hide the side-col so the page is a
+// 2-column layout (global sidebar + main). Old Magento puts a section
+// nav in the side-col, which gives us a 3rd column on edit pages —
+// not what we want.
+//
+// Skip:
+//  - Categories admin (.side-col holds the category tree, not tabs)
+//  - Already-handled Order View (handled above with its own logic)
+onPageReady(function relocateSideColTabs() {
+    var body = document.body;
+    if (/adminhtml-catalog-category|catalog-categories|is-order-view/.test(body.className)) return;
+    if (document.documentElement.classList.contains('is-order-view')) return;
+
+    var sideCol = document.querySelector('.side-col');
+    if (!sideCol) return;
+    var tabsList = sideCol.querySelector('ul.tabs');
+    if (!tabsList) return;
+
+    var mainInner = document.querySelector('.main-col-inner') || document.querySelector('.main-col');
+    if (!mainInner) return;
+
+    // Some pages wrap the tabs in a container with header text — keep
+    // just the <ul> so the relocated bar stays clean.
+    var anchor = mainInner.querySelector('.content-header');
+    var nextNode = anchor && anchor.nextSibling ? anchor.nextSibling : null;
+    if (nextNode) {
+        mainInner.insertBefore(tabsList, nextNode);
+    } else {
+        mainInner.appendChild(tabsList);
+    }
+    tabsList.classList.add('tabs-relocated');
+    body.classList.add('has-relocated-tabs');
+    sideCol.style.display = 'none';
+});
+
+// Phase 2: System → Configuration uses dl.accordion in .side-col instead
+// of ul.tabs. Relocate the whole accordion to the top of .main-col-inner
+// as a horizontal section bar (dt headers as pills, active dd's sub-items
+// as a second row). Keeps the existing accordion JS untouched — we only
+// reflow the markup.
+onPageReady(function relocateConfigAccordion() {
+    var body = document.body;
+    if (!/adminhtml-system-config/.test(body.className)) return;
+    var sideCol = document.querySelector('.side-col');
+    if (!sideCol) return;
+    var dl = sideCol.querySelector('dl.accordion');
+    if (!dl) return;
+    var mainInner = document.querySelector('.main-col-inner') || document.querySelector('.main-col');
+    if (!mainInner) return;
+
+    var anchor = mainInner.querySelector('.content-header');
+    var nextNode = anchor && anchor.nextSibling ? anchor.nextSibling : null;
+    if (nextNode) {
+        mainInner.insertBefore(dl, nextNode);
+    } else {
+        mainInner.appendChild(dl);
+    }
+    dl.classList.add('accordion-relocated');
+    body.classList.add('has-relocated-accordion');
+    sideCol.style.display = 'none';
+});
+
+// Phase 3+4: Categories tree and Permissions Roles tree live in .side-col.
+// They are interactive pickers, not navigation, so they can't be hidden
+// outright. Wrap the side-col in a slide-in overlay panel and inject a
+// toggle button into the content-header. Main column expands to full
+// width when the overlay is closed.
+onPageReady(function wrapSideColTree() {
+    var body = document.body;
+    var isCategories = /adminhtml-catalog-category|catalog-categories/.test(body.className);
+    var isRolesEdit  = /adminhtml-permissions-role-(edit|new)/.test(body.className);
+    if (!isCategories && !isRolesEdit) return;
+    var sideCol = document.querySelector('.side-col');
+    if (!sideCol) return;
+    // Only convert if there's a tree/picker in the side-col
+    var hasTree = sideCol.querySelector('#tree-div, .tree, .categories-side-col, #permissionRolesAcl, #role_users');
+    if (!hasTree && !sideCol.querySelector('.entry-edit')) return;
+
+    sideCol.classList.add('side-col-overlay');
+    body.classList.add('has-overlay-sidecol');
+
+    // Toggle button — insert into the MAIN column's content-header, NOT
+    // any header nested inside a side-col. Categories admin has multiple
+    // content-headers and the side-col one is also under .main-col. The
+    // main-col header may be added by JS after DOMContentLoaded, so we
+    // retry a few times.
+    // Categories page re-renders the form's content-header on every
+    // category selection, which wipes any button we placed there. Use
+    // a dedicated, persistent wrapper at the top of .main-col-inner
+    // instead — it survives form re-renders and PJAX swaps.
+    function placeToggle() {
+        if (document.querySelector('.side-col-overlay-toggle')) return true;
+        var mainInner = document.querySelector('.main-col-inner') || document.querySelector('.main-col');
+        if (!mainInner) return false;
+        var wrap = document.createElement('div');
+        wrap.className = 'side-col-overlay-toggle-wrap';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'side-col-overlay-toggle';
+        btn.textContent = isCategories ? 'Browse Categories' : 'Edit Resources';
+        btn.addEventListener('click', function () {
+            body.classList.toggle('side-col-overlay-open');
+        });
+        wrap.appendChild(btn);
+        mainInner.insertBefore(wrap, mainInner.firstChild);
+        return true;
+    }
+    placeToggle();
+    // Belt-and-braces in case the wrap gets clobbered by category form JS.
+    setTimeout(placeToggle, 800);
+    setTimeout(placeToggle, 2000);
+
+    // Click-outside / Esc closes
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') body.classList.remove('side-col-overlay-open');
+    });
+    document.addEventListener('click', function (e) {
+        if (!body.classList.contains('side-col-overlay-open')) return;
+        if (sideCol.contains(e.target)) return;
+        if (e.target.classList && e.target.classList.contains('side-col-overlay-toggle')) return;
+        body.classList.remove('side-col-overlay-open');
+    });
+});
+
+// Phase 5: Reports often put their filter form in .side-col. Move the
+// form to the top of .main-col-inner so the page becomes 2-col.
+onPageReady(function relocateReportsFilter() {
+    var body = document.body;
+    if (!/adminhtml-report-/.test(body.className)) return;
+    var sideCol = document.querySelector('.side-col');
+    if (!sideCol) return;
+    var form = sideCol.querySelector('form, fieldset');
+    if (!form) return;
+    var mainInner = document.querySelector('.main-col-inner') || document.querySelector('.main-col');
+    if (!mainInner) return;
+
+    var anchor = mainInner.querySelector('.content-header');
+    var nextNode = anchor && anchor.nextSibling ? anchor.nextSibling : null;
+    // Move the whole side-col content node (entry-edit wrapper if present)
+    var moveNode = sideCol.querySelector('.entry-edit') || form;
+    if (nextNode) {
+        mainInner.insertBefore(moveNode, nextNode);
+    } else {
+        mainInner.appendChild(moveNode);
+    }
+    moveNode.classList.add('reports-filter-relocated');
+    body.classList.add('has-relocated-reports-filter');
+    sideCol.style.display = 'none';
+});
+
+// Phase 7: catch-all fallback — any remaining .side-col that didn't
+// match a known pattern (no ul.tabs, no dl.accordion, no tree, no form,
+// no overlay marker). Hide it so the page becomes 2-col. Run AFTER the
+// pattern-specific handlers above (DOMContentLoaded order).
+onPageReady(function hideUnhandledSideCol() {
+    var body = document.body;
+    // Skip pages already processed
+    if (body.classList.contains('has-relocated-tabs')) return;
+    if (body.classList.contains('has-relocated-accordion')) return;
+    if (body.classList.contains('has-overlay-sidecol')) return;
+    if (body.classList.contains('has-relocated-reports-filter')) return;
+    if (document.documentElement.classList.contains('is-order-view')) return;
+    if (/adminhtml-catalog-category|catalog-categories/.test(body.className)) return;
+
+    var sideCols = document.querySelectorAll('.side-col');
+    if (!sideCols.length) return;
+    var anyHidden = false;
+    sideCols.forEach(function (sc) {
+        // Don't hide an empty placeholder or a side-col that's already
+        // managed (e.g. has explicit width or display).
+        if (sc.children.length === 0) return;
+        sc.style.display = 'none';
+        anyHidden = true;
+    });
+    if (anyHidden) body.classList.add('has-hidden-sidecol');
+});
+
 document.observe('dom:loaded', function() {
     var sidebar = $('admin-sidebar');
     var toggleBtn = $('sidebar-toggle');
@@ -890,6 +1076,9 @@ document.observe('dom:loaded', function() {
             // restores the original bar.
             if (table.id === 'cache_grid_table') return;
             if (table.id === 'indexer_processes_grid_table') return;
+            // Invoices grid has its own merged View+PDF icon column
+            // (see consolidateInvoiceActions below).
+            if (table.id === 'sales_invoice_grid_table') return;
             // Add ACTIONS header
             var headings = table.querySelector('tr.headings');
             if (headings && !headings.querySelector('.row-actions-th')) {
@@ -1466,6 +1655,9 @@ document.observe('dom:loaded', function() {
             // or that opt out explicitly.
             if (table.id === 'cache_grid_table') return;
             if (table.id === 'indexer_processes_grid_table') return;
+            // CMS pages grid has its own merged Preview+Edit+Delete cell —
+            // handled by consolidateCmsPageActions() below.
+            if (table.id === 'cmsPageGrid_table') return;
             if (table.querySelector('.row-action-wrap')) return;
             if (table.querySelector('.row-edit-actions')) return;
 
@@ -1533,6 +1725,215 @@ document.observe('dom:loaded', function() {
         });
     }
 
+    // CMS Pages grid: merge the renderer-provided "Preview" link column
+    // with Edit + Delete into a single Actions cell, all rendered as
+    // icons. Skips the generic injectEditDeleteActions path above.
+    // Find the index of a header column by its visible text.
+    function findColumnIndex(table, headerText) {
+        var headings = table.querySelector('tr.headings');
+        if (!headings) return -1;
+        var ths = headings.querySelectorAll('th');
+        for (var i = 0; i < ths.length; i++) {
+            if (ths[i].textContent.trim() === headerText) return i;
+        }
+        return -1;
+    }
+
+    // CMS Pages "Store View" column renders the full Website → Store → Store
+    // View hierarchy on three lines, which bloats every row. Rename the
+    // column to "Branch" and reduce each cell to just the deepest level
+    // (the actual storefront the page belongs to), with " Store View"
+    // stripped so it matches the Registrations branch labels.
+    function simplifyCmsPageStoreColumn() {
+        var table = document.getElementById('cmsPageGrid_table');
+        if (!table) return;
+        var idx = findColumnIndex(table, 'Store View');
+        if (idx === -1) return;
+        var headings = table.querySelector('tr.headings');
+        var ths = headings.querySelectorAll('th');
+        ths[idx].innerHTML = '<span class="nobr">Branch</span>';
+
+        table.querySelectorAll('tbody tr').forEach(function (row) {
+            if (row.classList.contains('headings') || row.classList.contains('filter')) return;
+            var cells = row.querySelectorAll('td');
+            if (!cells[idx]) return;
+            var cell = cells[idx];
+            if (cell.dataset.branchSimplified === '1') return;
+            // The renderer outputs lines like "Main Website / Main Website Store
+            // / Singapore Store View" separated by <br>. Pick the last non-empty
+            // line, which is always the leaf store view.
+            var raw = cell.innerHTML.replace(/<\/?[^>]+>/g, '\n');
+            var lines = raw.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+            var leaf = lines.length ? lines[lines.length - 1] : '';
+            leaf = leaf.replace(/\s*Store View\s*$/i, '');
+            cell.textContent = leaf;
+            cell.dataset.branchSimplified = '1';
+        });
+    }
+
+    function consolidateCmsPageActions() {
+        var table = document.getElementById('cmsPageGrid_table');
+        if (!table) return;
+        // Re-run on AJAX reloads — if the data rows changed but our flag
+        // is still set, the merged cells are stale and need rebuilding.
+        var firstRow = table.querySelector('tbody tr:not(.headings):not(.filter)');
+        if (firstRow && !firstRow.querySelector('.row-edit-actions')) {
+            table.dataset.cmsActionsMerged = '';
+        }
+        if (table.dataset.cmsActionsMerged === '1') return;
+
+        var headings = table.querySelector('tr.headings');
+        if (!headings) return;
+        var ths = headings.querySelectorAll('th');
+        if (!ths.length) return;
+        // Last column is the renderer-driven "Action" column.
+        var lastTh = ths[ths.length - 1];
+        lastTh.innerHTML = '<span class="nobr">Actions</span>';
+        lastTh.style.textAlign = 'center';
+        lastTh.style.width = '110px';
+
+        var filterRow = table.querySelector('tr.filter');
+        if (filterRow) {
+            var filterCells = filterRow.querySelectorAll('th, td');
+            if (filterCells.length) {
+                filterCells[filterCells.length - 1].innerHTML = '';
+            }
+        }
+
+        var iconEye    = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+        var iconEdit   = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+        var iconDelete = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
+
+        var dataRows = table.querySelectorAll('tbody tr');
+        dataRows.forEach(function (row) {
+            if (row.classList.contains('headings') || row.classList.contains('filter')) return;
+            var cells = row.querySelectorAll('td');
+            if (!cells.length) return;
+            var actionCell = cells[cells.length - 1];
+            var editUrl = row.getAttribute('title') || '';
+            var previewLink = actionCell.querySelector('a[target="_blank"]');
+            var previewUrl = previewLink ? previewLink.getAttribute('href') : '';
+            var deleteUrl = editUrl.indexOf('/edit/') !== -1 ? editUrl.replace('/edit/', '/delete/') : '';
+
+            actionCell.innerHTML = '';
+            actionCell.className = 'row-edit-actions';
+            actionCell.style.cssText = 'text-align:center; white-space:nowrap;';
+
+            if (previewUrl) {
+                var preview = document.createElement('a');
+                preview.href = previewUrl;
+                preview.target = '_blank';
+                preview.className = 'row-edit-btn';
+                preview.title = 'Preview';
+                preview.innerHTML = iconEye;
+                preview.onclick = function (e) { e.stopPropagation(); };
+                actionCell.appendChild(preview);
+            }
+            if (editUrl) {
+                var edit = document.createElement('a');
+                edit.href = editUrl;
+                edit.className = 'row-edit-btn';
+                edit.title = 'Edit';
+                edit.innerHTML = iconEdit;
+                edit.onclick = function (e) { e.stopPropagation(); };
+                actionCell.appendChild(edit);
+            }
+            if (deleteUrl) {
+                var del = document.createElement('a');
+                del.href = deleteUrl;
+                del.className = 'row-delete-btn';
+                del.title = 'Delete';
+                del.innerHTML = iconDelete;
+                del.onclick = function (e) {
+                    e.stopPropagation();
+                    if (!confirm('Delete this page? This cannot be undone.')) {
+                        e.preventDefault();
+                        return false;
+                    }
+                };
+                actionCell.appendChild(del);
+            }
+        });
+        table.dataset.cmsActionsMerged = '1';
+    }
+
+    // Invoices grid: merge the renderer-provided "View" link column with
+    // a per-row "Print PDF" icon into a single Actions cell, all rendered
+    // as icons. Hides the legacy "Actions ▾" dropdown for this grid
+    // (skipped explicitly in injectRowActions above).
+    function consolidateInvoiceActions() {
+        var table = document.getElementById('sales_invoice_grid_table');
+        if (!table) return;
+
+        // Re-run on AJAX reloads if rows lost their merged cell.
+        var firstRow = table.querySelector('tbody tr:not(.headings):not(.filter)');
+        if (firstRow && !firstRow.querySelector('.row-edit-actions')) {
+            table.dataset.invoiceActionsMerged = '';
+        }
+        if (table.dataset.invoiceActionsMerged === '1') return;
+
+        var headings = table.querySelector('tr.headings');
+        if (!headings) return;
+        var ths = headings.querySelectorAll('th');
+        if (!ths.length) return;
+
+        // The last column is the native "Action" column (View link).
+        var lastTh = ths[ths.length - 1];
+        lastTh.innerHTML = '<span class="nobr">Actions</span>';
+        lastTh.style.textAlign = 'center';
+        lastTh.style.width = '110px';
+
+        var filterRow = table.querySelector('tr.filter');
+        if (filterRow) {
+            var filterCells = filterRow.querySelectorAll('th, td');
+            if (filterCells.length) {
+                filterCells[filterCells.length - 1].innerHTML = '';
+            }
+        }
+
+        var iconEye = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+        var iconPdf = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>';
+
+        var dataRows = table.querySelectorAll('tbody tr');
+        dataRows.forEach(function (row) {
+            if (row.classList.contains('headings') || row.classList.contains('filter')) return;
+            var cells = row.querySelectorAll('td');
+            if (!cells.length) return;
+            var actionCell = cells[cells.length - 1];
+
+            // Derive view URL from existing renderer link; PDF URL is the
+            // same controller with /print/ in place of /view/.
+            var viewLink = actionCell.querySelector('a');
+            var viewUrl  = viewLink ? viewLink.getAttribute('href') : '';
+            var pdfUrl   = viewUrl ? viewUrl.replace('/view/', '/print/') : '';
+
+            actionCell.innerHTML = '';
+            actionCell.className = 'row-edit-actions';
+            actionCell.style.cssText = 'text-align:center; white-space:nowrap;';
+
+            if (viewUrl) {
+                var view = document.createElement('a');
+                view.href = viewUrl;
+                view.className = 'row-edit-btn';
+                view.title = 'View';
+                view.innerHTML = iconEye;
+                view.onclick = function (e) { e.stopPropagation(); };
+                actionCell.appendChild(view);
+            }
+            if (pdfUrl) {
+                var pdf = document.createElement('a');
+                pdf.href = pdfUrl;
+                pdf.target = '_blank';
+                pdf.className = 'row-edit-btn';
+                pdf.title = 'Print PDF';
+                pdf.innerHTML = iconPdf;
+                pdf.onclick = function (e) { e.stopPropagation(); };
+                actionCell.appendChild(pdf);
+            }
+        });
+        table.dataset.invoiceActionsMerged = '1';
+    }
+
     // Apply all grid enhancements
     function applyGridEnhancements() {
         // Remove old KPI cards first
@@ -1540,6 +1941,9 @@ document.observe('dom:loaded', function() {
         removeCheckboxColumn();
         injectRowActions();
         injectEditDeleteActions();
+        simplifyCmsPageStoreColumn();
+        consolidateCmsPageActions();
+        consolidateInvoiceActions();
         injectGridKPIs();
     }
 
@@ -1691,4 +2095,34 @@ document.observe('dom:loaded', function() {
     }
 
     setTimeout(transformProductOptions, 600);
+});
+
+// CMS Pages — inject a single search input above the grid, wired to the
+// existing Title column filter so Enter triggers Magento's grid search.
+document.addEventListener('DOMContentLoaded', function injectCmsPagesSearch() {
+    if (!/adminhtml-cms-page-index/.test(document.body.className)) return;
+    var titleInput = document.querySelector('.grid tr.filter input[name="title"]');
+    if (!titleInput) return;
+    var gridContainer = titleInput.closest('.grid');
+    if (!gridContainer || document.querySelector('.cms-grid-search-wrap')) return;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'cms-grid-search-wrap';
+    var input = document.createElement('input');
+    input.type = 'search';
+    input.placeholder = 'Search pages by title…';
+    input.value = titleInput.value || '';
+    wrap.appendChild(input);
+    gridContainer.parentNode.insertBefore(wrap, gridContainer);
+
+    function applyFilter() {
+        titleInput.value = input.value;
+        if (typeof cmsPageGrid !== 'undefined' && cmsPageGrid && cmsPageGrid.doFilter) {
+            cmsPageGrid.doFilter();
+        }
+    }
+    input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); applyFilter(); }
+    });
+    input.addEventListener('search', applyFilter);
 });
