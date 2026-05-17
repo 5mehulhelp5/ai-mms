@@ -6968,6 +6968,67 @@ $_csv = function ($path, $default = '') use ($_cs) {
     </div>
     <hr class="cs-divider"/>
 
+    <!-- Section: SG Funding Discounts -->
+    <div class="cs-section" data-section="sg_funding">
+        <div class="cs-section-head" onclick="csToggleSection(this)">
+            <h2>SG Funding Discounts</h2>
+            <span class="cs-caret">&#9650;</span>
+            <button class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('sg_funding')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit
+            </button>
+        </div>
+        <div class="cs-section-body" id="cs-body-sg_funding">
+            <?php
+            // Discount percentages applied to the storefront "Funding
+            // Eligibility" custom-option radios on SG products. The
+            // storefront JS reads these via window.MMD_SG_FUNDING and
+            // matches each radio by its label text.
+            $_csFundA40  = isset($_cs['mmd_company/sg_funding/above_40']) && $_cs['mmd_company/sg_funding/above_40'] !== '' ? $_cs['mmd_company/sg_funding/above_40'] : '70';
+            $_csFundB40  = isset($_cs['mmd_company/sg_funding/below_40']) && $_cs['mmd_company/sg_funding/below_40'] !== '' ? $_cs['mmd_company/sg_funding/below_40'] : '50';
+            $_csFundPR   = isset($_cs['mmd_company/sg_funding/pr'])       && $_cs['mmd_company/sg_funding/pr']       !== '' ? $_cs['mmd_company/sg_funding/pr']       : '50';
+            $_csFundNonSg= isset($_cs['mmd_company/sg_funding/non_sg'])   && $_cs['mmd_company/sg_funding/non_sg']   !== '' ? $_cs['mmd_company/sg_funding/non_sg']   : '0';
+            $_csFundSme  = isset($_cs['mmd_company/sg_funding/sme'])      && $_cs['mmd_company/sg_funding/sme']      !== '' ? $_cs['mmd_company/sg_funding/sme']      : '70';
+            ?>
+            <div class="cs-row-2">
+                <div class="cs-field" data-path="mmd_company/sg_funding/above_40">
+                    <label>Singaporean above 40 yrs old (%)</label>
+                    <div class="cs-val"><?php echo htmlspecialchars($_csFundA40) ?>%</div>
+                    <input type="number" min="0" max="100" value="<?php echo htmlspecialchars($_csFundA40, ENT_QUOTES) ?>"/>
+                </div>
+                <div class="cs-field" data-path="mmd_company/sg_funding/below_40">
+                    <label>Singaporean below 40 yrs old (%)</label>
+                    <div class="cs-val"><?php echo htmlspecialchars($_csFundB40) ?>%</div>
+                    <input type="number" min="0" max="100" value="<?php echo htmlspecialchars($_csFundB40, ENT_QUOTES) ?>"/>
+                </div>
+            </div>
+            <div class="cs-row-2">
+                <div class="cs-field" data-path="mmd_company/sg_funding/pr">
+                    <label>Singapore PR (%)</label>
+                    <div class="cs-val"><?php echo htmlspecialchars($_csFundPR) ?>%</div>
+                    <input type="number" min="0" max="100" value="<?php echo htmlspecialchars($_csFundPR, ENT_QUOTES) ?>"/>
+                </div>
+                <div class="cs-field" data-path="mmd_company/sg_funding/non_sg">
+                    <label>Non Singaporean (%)</label>
+                    <div class="cs-val"><?php echo htmlspecialchars($_csFundNonSg) ?>%</div>
+                    <input type="number" min="0" max="100" value="<?php echo htmlspecialchars($_csFundNonSg, ENT_QUOTES) ?>"/>
+                </div>
+            </div>
+            <div class="cs-row-2">
+                <div class="cs-field" data-path="mmd_company/sg_funding/sme">
+                    <label>SME (Singaporean/PR Direct Hire) (%)</label>
+                    <div class="cs-val"><?php echo htmlspecialchars($_csFundSme) ?>%</div>
+                    <input type="number" min="0" max="100" value="<?php echo htmlspecialchars($_csFundSme, ENT_QUOTES) ?>"/>
+                </div>
+            </div>
+            <div id="cs-actions-sg_funding" style="display:none;margin-top:10px;">
+                <button class="cs-save-btn" onclick="csSaveSection('sg_funding')">Save</button>
+                <button class="cs-cancel-btn" onclick="csCancelSection('sg_funding')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <hr class="cs-divider"/>
+
     <!-- Section: Integrations -->
     <div class="cs-section" data-section="integrations">
         <div class="cs-section-head" onclick="csToggleSection(this)">

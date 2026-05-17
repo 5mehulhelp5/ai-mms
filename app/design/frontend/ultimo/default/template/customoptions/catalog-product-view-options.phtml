@@ -28,10 +28,22 @@
  * @package    MMD_CustomOptions
  * @author     MMD Dev Team
  */
-$getSymbol = Mage::app()->getLocale()->currency(Mage::app()->getStore()->getCurrentCurrencyCode())->getSymbol(); 
+$getSymbol = Mage::app()->getLocale()->currency(Mage::app()->getStore()->getCurrentCurrencyCode())->getSymbol();
 $_options = Mage::helper('core')->decorateArray($this->getOptions());
 $helper = $this->helper('customoptions');
 $coreHelper = $this->helper('core');
+
+// SG funding discounts driven from Company Settings (mmd_company/sg_funding/*).
+// Storefront JS uses MMD_SG_FUNDING as a fallback when the matched radio's
+// option-value has price=0 in catalog_product_option_type_price — so admins
+// can manage discounts centrally without touching each product.
+$_mmdSgFunding = array(
+    'singaporean above 40 yrs old'      => (float) Mage::getStoreConfig('mmd_company/sg_funding/above_40'),
+    'singaporean below 40 yrs old'      => (float) Mage::getStoreConfig('mmd_company/sg_funding/below_40'),
+    'singapore pr'                      => (float) Mage::getStoreConfig('mmd_company/sg_funding/pr'),
+    'non singaporean'                   => (float) Mage::getStoreConfig('mmd_company/sg_funding/non_sg'),
+    'sme (singaporean/pr direct hire)'  => (float) Mage::getStoreConfig('mmd_company/sg_funding/sme'),
+);
 
 if (count($_options) || ((string)Mage::getConfig()->getModuleConfig('OrganicInternet_SimpleConfigurableProducts')->active == 'true' && $this->getProduct()->isConfigurable())) { ?>
     <style type="text/css">
@@ -57,6 +69,25 @@ if (count($_options) || ((string)Mage::getConfig()->getModuleConfig('OrganicInte
     </style>
     <script type="text/javascript">
         //<![CDATA[
+        // SG funding discounts — map of normalised option label → percent.
+        // Driven by Company Settings → SG Funding Discounts. Used as a
+        // fallback when an option-value has no price in
+        // catalog_product_option_type_price.
+        var MMD_SG_FUNDING = <?php echo json_encode($_mmdSgFunding); ?>;
+        var MMD_SG_FUNDING_LABELS = {};
+        (function(){
+            for (var k in MMD_SG_FUNDING) {
+                if (MMD_SG_FUNDING.hasOwnProperty(k)) {
+                    MMD_SG_FUNDING_LABELS[k] = MMD_SG_FUNDING[k];
+                }
+            }
+        })();
+        // Look up a discount percent for a radio by its visible label text.
+        function mmdSgFundingPercent(labelText) {
+            if (!labelText) return 0;
+            var key = labelText.toString().toLowerCase().replace(/\s+/g, ' ').trim();
+            return MMD_SG_FUNDING_LABELS[key] || 0;
+        }
         var optionFileUpload = {
             productForm : $('product_addtocart_form'),
             formAction : '',
@@ -245,6 +276,22 @@ if (count($_options) || ((string)Mage::getConfig()->getModuleConfig('OrganicInte
                         if (element.type == 'radio') {
                             if (element.checked && typeof(configOptions[element.getValue()])!='undefined') {
                                 if ($('options_'+optionId+'_qty')) optionQty = parseInt($('options_'+optionId+'_qty').value); else optionQty = 1;
+                                // SG funding override: if option-value has
+                                // price=0 in DB but its label matches a
+                                // Company-Setting funding row, inject the
+                                // configured percent so the discount applies
+                                // without touching the option-template module.
+                                var _mmdLabel = configOptions[element.getValue()]['title'] || '';
+                                if (!_mmdLabel) {
+                                    var _lbl = document.querySelector('label[for="' + element.id + '"]');
+                                    if (_lbl) _mmdLabel = _lbl.textContent;
+                                }
+                                var _mmdPct = mmdSgFundingPercent(_mmdLabel);
+                                if (_mmdPct > 0 && parseFloat(configOptions[element.getValue()]['price']) == 0) {
+                                    configOptions[element.getValue()]['price'] = _mmdPct;
+                                    configOptions[element.getValue()]['price_type'] = 'percent';
+                                    element.setAttribute('data-type', 'percent');
+                                }
                                 price += this.getOptionPriceByQty(parseFloat(configOptions[element.getValue()]['price']), configOptions[element.getValue()]['price_type'], optionQty, optionId, element.value);
 
 
@@ -750,6 +797,28 @@ if (count($_options) || ((string)Mage::getConfig()->getModuleConfig('OrganicInte
                 oldPriceEl = $('old-price-'+optionsPrice.productId+'_clone');
                 if (oldPriceEl) oldPriceEl.id = oldPriceEl.id + '_absolute';
             <?php } ?>
+            // Annotate each radio label with its SG funding discount.
+            // No-op for labels that don't match a configured funding row,
+            // so other custom-option groups (Mode of Training, dates, etc.)
+            // are untouched.
+            try {
+                var radios = document.querySelectorAll('input.product-custom-option[type="radio"]');
+                for (var i = 0; i < radios.length; i++) {
+                    var r = radios[i];
+                    if (r.getAttribute('data-mmd-funding-annotated')) continue;
+                    var lbl = document.querySelector('label[for="' + r.id + '"]');
+                    if (!lbl) continue;
+                    var pct = mmdSgFundingPercent(lbl.textContent);
+                    if (pct > 0) {
+                        var badge = document.createElement('span');
+                        badge.className = 'mmd-funding-badge';
+                        badge.style.cssText = 'margin-left:8px;padding:2px 6px;border-radius:3px;background:#d9eafd;color:#1f4f8b;font-size:12px;font-weight:600;';
+                        badge.textContent = pct + '% off';
+                        lbl.appendChild(badge);
+                        r.setAttribute('data-mmd-funding-annotated', '1');
+                    }
+                }
+            } catch (e) {}
         });
 
      <?php if ($helper->isDependentEnabled()) { ?>
