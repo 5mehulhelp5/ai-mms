@@ -1969,6 +1969,64 @@ document.observe('dom:loaded', function() {
         table.dataset.invoiceActionsMerged = '1';
     }
 
+    // Final pass: on every grid, if both a renderer-driven "Action"
+    // column (text links: View / Edit / etc.) AND a JS-injected
+    // "ACTIONS" column (icon buttons) exist, drop the Action column —
+    // single Actions cell with icons only.
+    function mergeDuplicateActionColumns() {
+        document.querySelectorAll('.grid table.data').forEach(function (table) {
+            if (table.dataset.actionsMerged === '1') return;
+            var headings = table.querySelector('tr.headings');
+            if (!headings) return;
+            var ths = headings.querySelectorAll('th');
+
+            // Locate the indexes of both columns.
+            var textActionIdx = -1;
+            var iconActionIdx = -1;
+            for (var i = 0; i < ths.length; i++) {
+                var label = (ths[i].textContent || '').trim();
+                if (label === 'Action' && textActionIdx === -1) {
+                    textActionIdx = i;
+                } else if ((label === 'ACTIONS' || label === 'Actions') && iconActionIdx === -1) {
+                    iconActionIdx = i;
+                }
+            }
+
+            // Need both to merge.
+            if (textActionIdx === -1 || iconActionIdx === -1) return;
+            if (textActionIdx === iconActionIdx) return;
+
+            // Rename the icon column to "Actions" (sentence case) and drop
+            // the text Action column entirely (header, filter cell, body
+            // cells). Iterate rows by index of the text column — easier
+            // than tracking after a header removal.
+            ths[iconActionIdx].innerHTML = '<span class="nobr">Actions</span>';
+
+            // Remove text Action column from header.
+            ths[textActionIdx].remove();
+
+            // Remove the same column from filter row.
+            var filterRow = table.querySelector('tr.filter');
+            if (filterRow) {
+                var fcells = filterRow.querySelectorAll('th, td');
+                if (fcells[textActionIdx]) {
+                    fcells[textActionIdx].remove();
+                }
+            }
+
+            // Remove from each data row.
+            table.querySelectorAll('tbody tr').forEach(function (row) {
+                if (row.classList.contains('headings') || row.classList.contains('filter')) return;
+                var cells = row.querySelectorAll('td');
+                if (cells[textActionIdx]) {
+                    cells[textActionIdx].remove();
+                }
+            });
+
+            table.dataset.actionsMerged = '1';
+        });
+    }
+
     // Apply all grid enhancements
     function applyGridEnhancements() {
         // Remove old KPI cards first
@@ -1979,6 +2037,7 @@ document.observe('dom:loaded', function() {
         simplifyCmsPageStoreColumn();
         consolidateCmsPageActions();
         consolidateInvoiceActions();
+        mergeDuplicateActionColumns();
         injectGridKPIs();
     }
 
