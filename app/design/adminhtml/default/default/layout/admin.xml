@@ -88,6 +88,9 @@
         </reference>
     </adminhtml_dashboard_index>
     <adminhtml_cache_index>
+        <reference name="head">
+            <action method="addCss"><name>cache-management.css</name></action>
+        </reference>
         <reference name="content">
             <block type="adminhtml/cache" name="cache"></block>
             <block type="adminhtml/cache_additional" name="cache.additional" template="system/cache/additional.phtml"></block>

@@ -35,8 +35,9 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     ftp \
     opcache
 
-# Enable Apache modules
-RUN a2enmod rewrite headers expires deflate
+# Enable Apache modules. brotli gives ~20% smaller text payloads vs gzip;
+# .htaccess already has AddOutputFilterByType BROTLI_COMPRESS rules.
+RUN a2enmod rewrite headers expires deflate brotli
 
 # Set Apache DocumentRoot and AllowOverride
 ENV APACHE_DOCUMENT_ROOT=/var/www/html
