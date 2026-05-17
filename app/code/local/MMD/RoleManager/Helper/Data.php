@@ -101,8 +101,37 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
      * Create New Class panels so each market's admin sees their own
      * catalog instead of the global SG-only view.
      */
+    /**
+     * Resolution order:
+     *   1. Active branch tab (MMD_Branchscope) — only if the user has
+     *      explicitly picked one (store_id 1..7). store_id 0 (All) is
+     *      treated as "no override" and falls through to the email
+     *      heuristic so AJAX endpoints don't end up unscoped.
+     *   2. Email prefix admin.<cc>@ → country code.
+     *   3. Singapore default.
+     */
     public function getActiveCountryCode()
     {
+        // 1. Branchscope session pick wins ONLY if the user explicitly
+        //    picked a branch (URL ?store= or stored session value). The
+        //    Branchscope default of Singapore is not enough to override
+        //    an admin.my@... email — only a deliberate click does that.
+        try {
+            if (Mage::getConfig()->getNode('global/helpers/branchscope')) {
+                $bs = Mage::helper('branchscope');
+                if ($bs->hasExplicitChoice()) {
+                    $storeId = (int) $bs->getActiveStoreId();
+                    $reverse = array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'IN');
+                    if ($storeId > 0 && isset($reverse[$storeId])) {
+                        return $reverse[$storeId];
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            // Fall through to email heuristic.
+        }
+
+        // 2. Email prefix.
         $user = Mage::getSingleton('admin/session')->getUser();
         if (!$user) return 'SG';
         $email = strtolower((string) $user->getEmail());
@@ -111,6 +140,8 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
             $valid = array('SG', 'MY', 'GH', 'NG', 'BT', 'IN');
             if (in_array($cc, $valid, true)) return $cc;
         }
+
+        // 3. Default.
         return 'SG';
     }
 

@@ -10,22 +10,27 @@ class MMD_Enhancedsalesgrid_Model_Observer
         $select = $collection->getSelect();
 
         // Branch (store) filter for the Registrations grid.
-        // Default = Singapore (store_id 1); ?branch=all disables the filter.
-        // Applied here (load-before) so it covers the grid render AND any
-        // other code path that loads this collection on the registrations page.
-        $req = Mage::app()->getRequest();
+        // Resolution order: ?store= URL param > admin session > Singapore (1).
+        // ?store=0 means "All Store Views" (no filter).
+        // Legacy ?branch= bookmarks still work via the alias below.
+        $req   = Mage::app()->getRequest();
         $route = $req->getRouteName() . '/' . $req->getControllerName() . '/' . $req->getActionName();
         if (strpos($route, 'adminhtml/sales_order/') === 0) {
+            // Backwards-compat: translate legacy ?branch= into ?store= on the
+            // request object so the helper (and downstream code) sees one
+            // canonical param. ?branch=all → ?store=0.
             $rawBranch = $req->getParam('branch', null);
-            if ($rawBranch === null) {
-                $branch = '1';
-            } elseif ((string) $rawBranch === 'all') {
-                $branch = '';
-            } else {
-                $branch = (string) $rawBranch;
+            if ($rawBranch !== null && $req->getParam('store', null) === null) {
+                if ((string) $rawBranch === 'all') {
+                    $req->setParam('store', 0);
+                } elseif (ctype_digit((string) $rawBranch)) {
+                    $req->setParam('store', (int) $rawBranch);
+                }
             }
-            if ($branch !== '' && ctype_digit($branch)) {
-                $select->where('main_table.store_id = ?', (int) $branch);
+
+            $storeId = (int) Mage::helper('branchscope')->getActiveStoreId();
+            if ($storeId > 0) {
+                $select->where('main_table.store_id = ?', $storeId);
             }
         }
 

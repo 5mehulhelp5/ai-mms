@@ -3,6 +3,19 @@
    here so the browser caches them once instead of re-parsing on every
    dashboard load. Scoped via main.xml to load only on adminhtml_dashboard_index. */
 
+/* === Global branch-pill strip (MMD_Branchscope) ===
+   Rendered at the top of <content> on every store-scoped admin page.
+   Matches the look of the existing dashboard/registrations pills. */
+.mmd-branchscope-pills{
+    padding: 20px 32px 0;
+    background: var(--d1, #0b1220);
+    margin: 0 !important;
+}
+.mmd-branchscope-pills + *{
+    /* Prevent following content from clinging to the strip — only when
+       the next block doesn't bring its own padding. */
+}
+
 
 /* --- Block 1 (template line 1337) --- */
 /* ---- Admin schedule dashboard ---- */

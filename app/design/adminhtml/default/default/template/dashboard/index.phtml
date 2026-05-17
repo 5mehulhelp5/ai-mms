@@ -280,8 +280,14 @@ endif; // end if (admin || training_provider)
 // Heaviest set of queries on the page: aggregate orders, sales, recent
 // searches across stores. Only Super Admin sees this panel. Skip for
 // everyone else.
-$storeId       = (int) $this->getRequest()->getParam('store', 0);
-$countryFilter = $this->getRequest()->getParam('country', '');
+// Resolve store + country from the global branch tabs (MMD_Branchscope).
+// $storeId is read via the helper so the active branch (URL ?store=,
+// otherwise session, otherwise Singapore) drives all queries on this
+// panel. $countryFilter is derived from the same store id so the
+// existing billing-address country filters stay correct.
+$storeId       = (int) Mage::helper('branchscope')->getActiveStoreId();
+$_storeToCc    = array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'IN', 7 => 'IT');
+$countryFilter = isset($_storeToCc[$storeId]) ? $_storeToCc[$storeId] : '';
 $countryTabs   = array('' => 'ALL','SG' => 'Singapore','MY' => 'Malaysia','GH' => 'Ghana','NG' => 'Nigeria','BT' => 'Bhutan','IN' => 'India','IT' => 'Infotech');
 $countryStoreId = 0;
 $ordersByCountry = $recentSearches = $recentRequests = array();
@@ -1477,14 +1483,7 @@ if ($_selectedCourseId) {
 <?php /* ===== PANEL 2: Super Admin — Charts / Revenue ===== */ ?>
 <div id="dash-panel-superadmin" style="display:none;">
 <div class="dashboard-modern">
-    <div class="country-tabs">
-        <?php foreach ($countryTabs as $code => $label):
-            $isActive = ($countryFilter === $code);
-            $tabUrl   = $this->getUrl('*/*/*', array('country' => $code ?: null));
-        ?>
-        <a href="<?php echo $tabUrl ?>" class="country-tab <?php echo $isActive ? 'active' : '' ?>"><?php echo $this->escapeHtml($label) ?></a>
-        <?php endforeach; ?>
-    </div>
+    <?php /* Inline country tabs retired — see global MMD_Branchscope pills. */ ?>
     <div class="kpi-cards">
         <div class="kpi-card kpi-orders">
             <div class="kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></div>
@@ -1534,11 +1533,40 @@ $_devIbf = 0; $_devUnfunded = 0;
 $_devCourses = array();
 $_devPageSize = 12;
 $_devCurPage = max(1, (int) Mage::app()->getRequest()->getParam('dev_page', 1));
-// Default the dev-dashboard country tab to the logged-in admin's
-// country (admin.my → Malaysia, admin.gh → Ghana, etc.). Falls back to
-// Singapore for accounts that don't match the admin.<cc>@ pattern.
-$_devCountryDefault = Mage::helper('mmd_rolemanager')->getActiveCountryName();
-$_devCountry        = Mage::app()->getRequest()->getParam('dev_country', $_devCountryDefault);
+// The dashboard's "branch" is now driven by the global branch tabs
+// (MMD_Branchscope) which use ?store=N. We translate the active store
+// back into a country NAME so the existing 80+ SQL queries below that
+// key off $_devCountry keep working untouched.
+//
+// Legacy ?dev_country=Singapore bookmarks are still honoured: if the
+// URL has dev_country= but no store=, we map it back to a store id and
+// stash it on the session so navigation away picks up the same branch.
+$_devStoreToCountry = array(
+    0 => 'All',
+    1 => 'Singapore',
+    2 => 'Malaysia',
+    3 => 'Ghana',
+    4 => 'Nigeria',
+    5 => 'Bhutan',
+    6 => 'India',
+    7 => 'Infotech',
+);
+$_devCountryToStore = array_flip($_devStoreToCountry);
+
+$_devReq           = Mage::app()->getRequest();
+$_devLegacyCountry = (string) $_devReq->getParam('dev_country', '');
+if ($_devLegacyCountry !== '' && $_devReq->getParam('store', null) === null
+        && isset($_devCountryToStore[$_devLegacyCountry])) {
+    // Sync the legacy param into the canonical ?store= for the helper +
+    // session, so subsequent navigation respects the user's choice.
+    $_devReq->setParam('store', $_devCountryToStore[$_devLegacyCountry]);
+    Mage::helper('branchscope')->persistFromRequest();
+}
+
+$_devActiveStoreId = (int) Mage::helper('branchscope')->getActiveStoreId();
+$_devCountry       = isset($_devStoreToCountry[$_devActiveStoreId])
+    ? $_devStoreToCountry[$_devActiveStoreId]
+    : 'All';
 $_devFilterType = (string) Mage::app()->getRequest()->getParam('dev_type', '');
 $_devFilterQuery = trim((string) Mage::app()->getRequest()->getParam('dev_q', ''));
 // Courseware filter:
@@ -1744,16 +1772,8 @@ endif; // end if ($activeRole === 'developer') — closes the $_devCollection bl
 <div id="dash-panel-developer" style="display:none;">
 <div class="dev-wrap">
     <h1 class="dev-title">Manage Courses</h1>
-    <div class="dev-country-tabs">
-        <?php
-        $_devBaseCountryUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
-        foreach ($_devAllowedCountries as $_ctry):
-            $_ctryUrl = $_devBaseCountryUrl . '?dev_country=' . urlencode($_ctry);
-            $_ctryClass = 'dev-country-btn' . ($_ctry === $_devCountry ? ' active' : '');
-        ?>
-        <a href="<?php echo $_ctryUrl ?>" class="<?php echo $_ctryClass ?>" style="text-decoration:none !important;"><?php echo htmlspecialchars($_ctry) ?></a>
-        <?php endforeach; ?>
-    </div>
+    <?php /* Inline pills retired — branch selection lives in the global
+              MMD_Branchscope strip at the top of <content>. */ ?>
     <h2 style="font-size:22px;font-weight:700;color:#f1f5f9;margin:18px 0 14px;display:flex;align-items:baseline;gap:10px;">
         Total Courses
         <span style="color:#22d3ee;font-weight:800;"><?php echo number_format($_devTotalAll) ?></span>

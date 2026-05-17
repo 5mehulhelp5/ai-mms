@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<!--
+    Branch pills (rewritten store_switcher block) render in ONE consistent
+    location: as the first child of `content` on every store-scoped admin
+    page. The block's _toHtml() checks isStoreScopedRoute() so non-scoped
+    pages (Permissions, System → Cache, etc.) receive nothing.
+
+    Native inline store_switcher blocks (in catalog.xml, sales.xml,
+    newsletter.xml, report.xml, admin.xml dashboard) are removed below to
+    avoid duplicate pill strips. The block rewrite still kicks in for any
+    code that calls them programmatically, but they no longer render in
+    the toolbar/left-column where core layout originally placed them.
+-->
+<layout>
+    <default>
+        <reference name="head">
+            <action method="addCss"><name>admin-dashboard.css</name></action>
+        </reference>
+        <reference name="content">
+            <block type="branchscope/store_switcher"
+                   name="mmd.branch.pills.global"
+                   before="-"/>
+        </reference>
+    </default>
+
+    <!-- Catalog -->
+    <adminhtml_catalog_product_index>
+        <reference name="products_list"><action method="unsetChild"><name>store_switcher</name></action></reference>
+    </adminhtml_catalog_product_index>
+    <adminhtml_catalog_product_edit>
+        <reference name="left"><action method="unsetChild"><name>store_switcher</name></action></reference>
+    </adminhtml_catalog_product_edit>
+
+    <!-- Dashboard -->
+    <adminhtml_dashboard_index>
+        <reference name="dashboard"><action method="unsetChild"><name>store_switcher</name></action></reference>
+    </adminhtml_dashboard_index>
+</layout>
