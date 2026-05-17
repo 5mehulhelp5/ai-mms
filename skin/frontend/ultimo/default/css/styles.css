@@ -3,7 +3,7 @@
 
 * { margin:0; padding:0; }
 html { font-size:16px; /* Fix for Opera */ }
-body          {	font:75%/150% Arial, Helvetica, sans-serif; background-color:#fff; color:#333; text-align:center; }
+body          {	font:100%/150% Arial, Helvetica, sans-serif; background-color:#fff; color:#333; text-align:center; }
 #root-wrapper {}
 
 img           { border:0; vertical-align:top; max-width:100%; }
