@@ -17,6 +17,8 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     unzip \
     curl \
+    brotli \
+    gzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Configure and install PHP extensions
@@ -74,6 +76,17 @@ RUN composer install --no-dev --no-interaction --optimize-autoloader
 # fix survives composer install.
 RUN sed -i 's|<active>true</active>|<active>false</active>|' \
     /var/www/html/app/etc/modules/Cm_RedisSession.xml
+
+# Precompress static text assets so Apache serves the .br/.gz sibling directly
+# (see .htaccess rewrite). Build-time quality 11/9 beats per-request quality 4-5
+# and saves CPU on every hit. Skip already-compressed siblings and small files.
+RUN find /var/www/html/skin /var/www/html/js \
+        \( -name '*.css' -o -name '*.js' -o -name '*.svg' \) \
+        -type f -size +1k \
+        ! -name '*.br' ! -name '*.gz' \
+        -print0 2>/dev/null \
+    | xargs -0 -P 4 -I {} sh -c 'brotli -kfq 11 "{}" 2>/dev/null; gzip -9kf "{}" 2>/dev/null' \
+    || true
 
 # Save build timestamp as version
 RUN date -u '+%d-%m-%Y %H:%M' > /var/www/html/version.txt
