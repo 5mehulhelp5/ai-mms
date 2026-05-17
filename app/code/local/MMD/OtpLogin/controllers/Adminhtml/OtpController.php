@@ -173,19 +173,30 @@ class MMD_OtpLogin_Adminhtml_OtpController extends Mage_Adminhtml_Controller_Act
             $adminSession->setUser($user);
             $adminSession->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
 
-            // Fire events so RoleManager observer picks up the login
-            Mage::dispatchEvent('admin_user_authenticate_after', array(
-                'username' => $user->getUsername(),
-                'password' => '',
-                'user'     => $user,
-                'result'   => true,
+            // Fire the same event Magento's password login fires so
+            // RoleManager picks up the roles, sets needsRoleSelect, and
+            // the predispatch observer can redirect multi-role users
+            // to the role-selection page. The original code dispatched
+            // `admin_user_authenticate_after` here, but RoleManager
+            // listens on `admin_session_user_login_success` — so the
+            // OTP path was silently bypassing the role flow and
+            // dumping users straight on the dashboard with whatever
+            // ACL they had.
+            Mage::dispatchEvent('admin_session_user_login_success', array(
+                'user' => $user,
             ));
 
             // Refresh ACL after RoleManager may have changed it
             $adminSession->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
 
+            // Multi-role users need to land on the role-select page.
+            // Single-role users get the dashboard. RoleManager's
+            // onAdminLogin sets `needsRoleSelect` accordingly.
+            $needsRoleSelect = (bool) $adminSession->getNeedsRoleSelect();
             $result['success']  = true;
-            $result['redirect'] = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
+            $result['redirect'] = $needsRoleSelect
+                ? Mage::helper('adminhtml')->getUrl('adminhtml/roleselect/index')
+                : Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
         } catch (Exception $e) {
             Mage::logException($e);
             $result['message'] = 'Login failed. Please try again.';
