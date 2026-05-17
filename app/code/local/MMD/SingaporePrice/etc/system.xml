@@ -1,0 +1,87 @@
+<?xml version="1.0"?>
+<!--
+  MMD_SingaporePrice → adds a "SG Funding Discounts" section under
+  System → Configuration → Mage Mobile Design so admins can edit the
+  five funding-discount percentages without going through the
+  Dashboard's Company Setting panel. The same paths
+  (mmd_company/sg_funding/*) drive the storefront price formula and
+  the cart price model.
+-->
+<config>
+    <tabs>
+        <mmd>
+            <label>Mage Mobile Design</label>
+            <sort_order>999</sort_order>
+        </mmd>
+    </tabs>
+    <sections>
+        <mmd_company translate="label" module="mmd_singaporeprice">
+            <class>separator-top</class>
+            <label>SG Funding Discounts</label>
+            <tab>mmd</tab>
+            <frontend_type>text</frontend_type>
+            <sort_order>50</sort_order>
+            <show_in_default>1</show_in_default>
+            <show_in_website>0</show_in_website>
+            <show_in_store>0</show_in_store>
+            <groups>
+                <sg_funding translate="label">
+                    <label>Singapore Funding Eligibility Discount %</label>
+                    <comment>Percentages applied to the storefront "Funding Eligibility" radios on SG / Infotech products. Editing here updates Fee on every TGS-* WSQ course page in real time (storefront JS reads these via window.MMD_SG_PRICING).</comment>
+                    <frontend_type>text</frontend_type>
+                    <sort_order>10</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>0</show_in_website>
+                    <show_in_store>0</show_in_store>
+                    <fields>
+                        <above_40 translate="label">
+                            <label>Singaporean above 40 yrs old (%)</label>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>10</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                            <comment>0–100. Default 70.</comment>
+                        </above_40>
+                        <below_40 translate="label">
+                            <label>Singaporean below 40 yrs old (%)</label>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>20</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                            <comment>0–100. Default 50.</comment>
+                        </below_40>
+                        <pr translate="label">
+                            <label>Singapore PR (%)</label>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>30</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                            <comment>0–100. Default 50.</comment>
+                        </pr>
+                        <non_sg translate="label">
+                            <label>Non Singaporean (%)</label>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>40</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                            <comment>0–100. Default 0 (no discount).</comment>
+                        </non_sg>
+                        <sme translate="label">
+                            <label>SME (Singaporean/PR Direct Hire) (%)</label>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>50</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>0</show_in_website>
+                            <show_in_store>0</show_in_store>
+                            <comment>0–100. Default 70.</comment>
+                        </sme>
+                    </fields>
+                </sg_funding>
+            </groups>
+        </mmd_company>
+    </sections>
+</config>
