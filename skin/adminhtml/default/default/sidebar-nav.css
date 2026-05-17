@@ -2106,6 +2106,13 @@ body .admin-main [id$="_massaction"] button span span span {
     cursor: pointer !important; line-height: 1.4 !important; border-radius: 6px !important;
 }
 .tools-sub-item:hover { color: #258bb6 !important; background: rgba(255,255,255,0.04) !important; }
+.tools-sub-item.active,
+.tools-sub-item.active:hover {
+    color: #258bb6 !important;
+    background: rgba(37,139,182,0.12) !important;
+    font-weight: 600 !important;
+    box-shadow: inset 3px 0 0 #258bb6 !important;
+}
 .tools-sub-item svg { flex-shrink: 0; opacity: 0.6; width: 18px !important; height: 18px !important; }
 
 /* Nested sub-group inside .tools-group-items (e.g. Manage Currency → Rates/Symbols).

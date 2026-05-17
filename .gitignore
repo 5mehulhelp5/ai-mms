@@ -70,6 +70,7 @@ info.php*
 
 # Environment-specific config (contains credentials)
 /app/etc/local.xml
+/docker-compose.override.yml
 
 # Composer cache (composer.lock is tracked for reproducible builds)
 

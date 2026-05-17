@@ -8352,14 +8352,49 @@ $_csv = function ($path, $default = '') use ($_cs) {
 window.csToggleSection = function(headEl) {
     var body = headEl.nextElementSibling;
     var caret = headEl.querySelector('.cs-caret');
-    if (body.classList.contains('open')) {
-        body.classList.remove('open');
-        if (caret) caret.classList.remove('open');
-    } else {
+    var willOpen = !body.classList.contains('open');
+    if (willOpen) {
+        // Accordion: close every other section first.
+        var section = headEl.closest ? headEl.closest('.cs-section') : null;
+        var openBodies = document.querySelectorAll('.cs-section-body.open');
+        for (var i = 0; i < openBodies.length; i++) {
+            var ob = openBodies[i];
+            if (section && ob.parentNode === section) { continue; }
+            ob.classList.remove('open');
+            var prevHead = ob.previousElementSibling;
+            if (prevHead) {
+                var c = prevHead.querySelector('.cs-caret');
+                if (c) { c.classList.remove('open'); }
+            }
+        }
         body.classList.add('open');
         if (caret) caret.classList.add('open');
+    } else {
+        body.classList.remove('open');
+        if (caret) caret.classList.remove('open');
     }
 };
+
+// On initial load, expand every section so all features are visible.
+// First user click switches into accordion mode (one-at-a-time).
+(function () {
+    function csExpandAll() {
+        var bodies = document.querySelectorAll('.cs-section-body');
+        for (var i = 0; i < bodies.length; i++) {
+            bodies[i].classList.add('open');
+            var head = bodies[i].previousElementSibling;
+            if (head) {
+                var caret = head.querySelector('.cs-caret');
+                if (caret) { caret.classList.add('open'); }
+            }
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', csExpandAll);
+    } else {
+        csExpandAll();
+    }
+})();
 window.csToggleApp = function(headerEl) {
     var body = headerEl.nextElementSibling;
     var caret = headerEl.querySelector('.cs-caret');

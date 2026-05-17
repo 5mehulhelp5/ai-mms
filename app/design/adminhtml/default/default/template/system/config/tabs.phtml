@@ -28,12 +28,17 @@
     <h3><?php echo $this->getTitle() ?></h3>
 <?php endif ?>
 <?php if($this->getTabs()): ?>
-<ul id="<?php echo $this->getId() ?>" class="tabs config-tabs">
+<ul id="<?php echo $this->getId() ?>" class="tabs config-tabs config-accordion">
 <?php foreach ($this->getTabs() as $_tab): ?>
     <?php if($_tab->getSections()): ?>
-    <li <?php if ($_tab->getClass()): ?>class="<?php echo $_tab->getClass() ?>"<?php endif ?>>
+    <?php
+        $_isActiveTab = ($_tab->getId() == $this->getActiveTab());
+        // Always render every group expanded — accordion only kicks in once the user clicks a header.
+        $_liClasses = trim(($_tab->getClass() ? $_tab->getClass() . ' ' : '') . 'accordion-open');
+    ?>
+    <li<?php if ($_liClasses): ?> class="<?php echo $_liClasses ?>"<?php endif ?>>
         <dl>
-        <dt class="label" style=""><?php echo $_tab->getLabel() ?></dt>
+        <dt class="label accordion-toggle" role="button" tabindex="0" aria-expanded="true"><?php echo $_tab->getLabel() ?></dt>
         <?php $_iterator = 1; ?>
         <?php foreach ($_tab->getSections() as $_section): ?>
             <dd>
@@ -50,4 +55,66 @@
     <?php endif; ?>
 <?php endforeach; ?>
 </ul>
+<script type="text/javascript">
+//<![CDATA[
+(function () {
+    var root = document.getElementById('<?php echo $this->getId() ?>');
+    if (!root) { return; }
+    var items = root.querySelectorAll('li');
+    function closeAll(except) {
+        for (var i = 0; i < items.length; i++) {
+            if (items[i] === except) { continue; }
+            items[i].classList.remove('accordion-open');
+            var t = items[i].querySelector('.accordion-toggle');
+            if (t) { t.setAttribute('aria-expanded', 'false'); }
+        }
+    }
+    function toggle(li) {
+        var isOpen = li.classList.contains('accordion-open');
+        if (isOpen) {
+            // Just collapse this one; leave siblings alone.
+            li.classList.remove('accordion-open');
+        } else {
+            // True accordion: close other open groups, then open this one.
+            closeAll(li);
+            li.classList.add('accordion-open');
+        }
+        var t = li.querySelector('.accordion-toggle');
+        if (t) { t.setAttribute('aria-expanded', li.classList.contains('accordion-open') ? 'true' : 'false'); }
+    }
+    for (var i = 0; i < items.length; i++) {
+        (function (li) {
+            var head = li.querySelector('.accordion-toggle');
+            if (!head) { return; }
+            head.addEventListener('click', function (e) { e.preventDefault(); toggle(li); });
+            head.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(li); }
+            });
+        })(items[i]);
+    }
+})();
+
+// Move the scope switcher (Current Configuration Scope dropdown) out of
+// .side-col (which is hidden in the dark theme) and into a compact bar at
+// the top of the config form so we don't lose store/website scoping.
+(function () {
+    function relocateSwitcher() {
+        var switcher = document.querySelector('.side-col .switcher, .switcher');
+        if (!switcher || switcher.dataset.relocated) { return; }
+        var form = document.getElementById('config_edit_form');
+        var anchor = document.querySelector('.content-header');
+        var host = anchor || form;
+        if (!host) { return; }
+        switcher.classList.add('switcher-relocated');
+        switcher.dataset.relocated = '1';
+        host.parentNode.insertBefore(switcher, host.nextSibling);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', relocateSwitcher);
+    } else {
+        relocateSwitcher();
+    }
+})();
+//]]>
+</script>
 <?php endif; ?>

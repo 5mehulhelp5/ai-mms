@@ -45,7 +45,7 @@ composer phpunit:test
 | Module | Purpose |
 |--------|---------|
 | **RoleManager** | Multi-role admin system: 6 roles (learner, trainer, developer, marketing, admin, training_provider) with role selection UI, session-based role switching, and ACL mapping via `mmd_user_role_map`. Canonical display order is defined by `_rolePriority` in `Helper/Data.php`. |
-| **EmailLogin** | Rewrites `admin/user` model to support email-based admin login. |
+| **EmailLogin** | Rewrites `admin/user` model to support email-based admin login. **Admin login is email-only** in this portal — never expose a username input in the UI. The `admin_user.username` column is still NOT NULL in the schema but is treated as a write-only mirror of `email` (the Role Management create-user flow sets `username = email` automatically). |
 | **Courses** | Course/provider CRUD management with admin grid and export. |
 | **BankPayment** | Bank transfer payment method with configurable accounts. |
 | **CustomOptions** | Enhanced product options with SKU policies (multi-version upgrades). |

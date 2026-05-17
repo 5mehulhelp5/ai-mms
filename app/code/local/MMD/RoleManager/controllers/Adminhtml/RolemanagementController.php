@@ -14,7 +14,10 @@ class MMD_RoleManager_Adminhtml_RolemanagementController extends Mage_Adminhtml_
     }
 
     /**
-     * AJAX: Save user roles and status
+     * AJAX: Save (create or update) user with roles and status.
+     * - If user_id is 0/empty, creates a new admin user (requires username,
+     *   email, firstname, lastname, password).
+     * - If user_id is set, updates the existing user (email is now editable).
      */
     public function saveAction()
     {
@@ -23,36 +26,94 @@ class MMD_RoleManager_Adminhtml_RolemanagementController extends Mage_Adminhtml_
             return $this->_sendJson($result);
         }
 
-        $userId   = (int) $this->getRequest()->getParam('user_id');
-        $roles    = $this->getRequest()->getParam('roles', array());
-        $isActive = (int) $this->getRequest()->getParam('is_active', 1);
-        $firstname = $this->getRequest()->getParam('firstname', '');
-        $lastname  = $this->getRequest()->getParam('lastname', '');
-        $password  = (string) $this->getRequest()->getParam('password', '');
+        $userId          = (int) $this->getRequest()->getParam('user_id');
+        $roles           = $this->getRequest()->getParam('roles', array());
+        $isActive        = (int) $this->getRequest()->getParam('is_active', 1);
+        $firstname       = trim((string) $this->getRequest()->getParam('firstname', ''));
+        $lastname        = trim((string) $this->getRequest()->getParam('lastname', ''));
+        $email           = trim((string) $this->getRequest()->getParam('email', ''));
+        $password        = (string) $this->getRequest()->getParam('password', '');
+        $currentPassword = (string) $this->getRequest()->getParam('current_password', '');
 
-        if (!$userId) {
-            $result['message'] = 'Invalid user';
+        // Confirm the saving admin's own password before allowing any change.
+        $currentAdmin = Mage::getSingleton('admin/session')->getUser();
+        if (!$currentAdmin || !$currentAdmin->getId()
+            || !Mage::helper('core')->validateHash($currentPassword, $currentAdmin->getPassword())
+        ) {
+            $result['message'] = 'Your current admin password is incorrect';
             return $this->_sendJson($result);
         }
+        // Login is email-based (see MMD_EmailLogin). The admin_user.username
+        // column is still NOT NULL in the schema, so mirror email into it.
+        $username  = $email;
 
         try {
-            $resource = Mage::getSingleton('core/resource');
-            $write    = $resource->getConnection('core_write');
+            $resource  = Mage::getSingleton('core/resource');
+            $write     = $resource->getConnection('core_write');
+            $read      = $resource->getConnection('core_read');
             $userTable = $resource->getTableName('admin/user');
             $roleTable = $resource->getTableName('mmd_user_role_map');
 
-            // Update user status, name, and (optionally) password
-            $updateData = array('is_active' => $isActive);
-            if ($firstname) $updateData['firstname'] = $firstname;
-            if ($lastname)  $updateData['lastname'] = $lastname;
-            if ($password !== '') {
+            // === Create new admin user ===
+            if (!$userId) {
+                if (!$email || !$firstname || !$lastname || !$password) {
+                    $result['message'] = 'Email, name and password are required';
+                    return $this->_sendJson($result);
+                }
                 if (strlen($password) < 7) {
                     $result['message'] = 'Password must be at least 7 characters';
                     return $this->_sendJson($result);
                 }
-                $updateData['password'] = Mage::helper('core')->getHash($password, 2);
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    $result['message'] = 'Invalid email address';
+                    return $this->_sendJson($result);
+                }
+                $dup = $read->fetchOne(
+                    "SELECT user_id FROM {$userTable} WHERE email = ? LIMIT 1",
+                    array($email)
+                );
+                if ($dup) {
+                    $result['message'] = 'A user with that email already exists';
+                    return $this->_sendJson($result);
+                }
+                $newUser = Mage::getModel('admin/user')->setData(array(
+                    'username'  => $username,
+                    'firstname' => $firstname,
+                    'lastname'  => $lastname,
+                    'email'     => $email,
+                    'password'  => $password,
+                    'is_active' => $isActive,
+                ))->save();
+                $userId = (int) $newUser->getId();
+            } else {
+                // === Update existing user ===
+                $updateData = array('is_active' => $isActive);
+                if ($firstname) $updateData['firstname'] = $firstname;
+                if ($lastname)  $updateData['lastname']  = $lastname;
+                if ($email) {
+                    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                        $result['message'] = 'Invalid email address';
+                        return $this->_sendJson($result);
+                    }
+                    $dup = $read->fetchOne(
+                        "SELECT user_id FROM {$userTable} WHERE email = ? AND user_id <> ? LIMIT 1",
+                        array($email, $userId)
+                    );
+                    if ($dup) {
+                        $result['message'] = 'Another user already uses that email';
+                        return $this->_sendJson($result);
+                    }
+                    $updateData['email'] = $email;
+                }
+                if ($password !== '') {
+                    if (strlen($password) < 7) {
+                        $result['message'] = 'Password must be at least 7 characters';
+                        return $this->_sendJson($result);
+                    }
+                    $updateData['password'] = Mage::helper('core')->getHash($password, 2);
+                }
+                $write->update($userTable, $updateData, 'user_id = ' . $userId);
             }
-            $write->update($userTable, $updateData, 'user_id = ' . $userId);
 
             // Replace roles
             $write->delete($roleTable, 'user_id = ' . $userId);

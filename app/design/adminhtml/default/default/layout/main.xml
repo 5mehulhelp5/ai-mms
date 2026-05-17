@@ -100,6 +100,7 @@ Default layout, loads most of the pages
                 <action method="addCss"><name>dark-theme.css</name></action>
                 <action method="addCss"><name>admin-responsive.css</name></action>
                 <action method="addCss"><name>sidebar-nav.css</name></action>
+                <action method="addCss"><name>cache-management.css</name></action>
                 <action method="addCss"><name>instant-nav.css</name></action>
                 <action method="addItem"><type>skin_js</type><name>js/sidebar-nav-v2.js</name></action>
                 <action method="addItem"><type>skin_js</type><name>js/instant-nav.js</name></action>

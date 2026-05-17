@@ -13,7 +13,7 @@ class MMD_RoleManager_Block_Page_Menu extends Mage_Adminhtml_Block_Page_Menu
         'sales'     => 'Course Registration',
         'catalog'   => 'Course Management',
         'customer'  => 'View Learners',
-        'system'    => 'Company Setting',
+        'system'    => 'System',
         'marketing' => 'Marketing Management',
     );
 
@@ -73,17 +73,26 @@ class MMD_RoleManager_Block_Page_Menu extends Mage_Adminhtml_Block_Page_Menu
             }
         }
 
-        // Role Management appears as a top-level menu item for the Super Admin role
-        // (whose internal role code is still 'training_provider' — the role rename
-        // is decoupled from this surface cleanup).
+        // Hide the standard Users / Roles permissions — they're superseded by
+        // the custom Role Management UI (which lives under Company Setting now).
+        if (isset($menu['system']['children'])) {
+            unset($menu['system']['children']['permissions']);
+            unset($menu['system']['children']['users']);
+            unset($menu['system']['children']['roles']);
+        }
+
+        // Role Management — moved from top-level into Company Setting (system).
+        // Only the Super Admin role (internal code: training_provider) sees it.
         $roleCode = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
-        if ($roleCode === 'training_provider') {
-            $roleMgmtUrl = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/index');
-            $menu['role_management'] = array(
-                'label'      => 'Role Management',
-                'url'        => $roleMgmtUrl,
+        if ($roleCode === 'training_provider' && isset($menu['system'])) {
+            if (!isset($menu['system']['children'])) {
+                $menu['system']['children'] = array();
+            }
+            $menu['system']['children']['role_management'] = array(
+                'label'      => 'Users',
+                'url'        => Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/index'),
                 'active'     => false,
-                'level'      => 0,
+                'level'      => 1,
                 'sort_order' => 85,
                 'children'   => array(),
                 'last'       => false,
