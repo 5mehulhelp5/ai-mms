@@ -2167,13 +2167,26 @@ body[class*="adminhtml-system_config"] #config_edit_form table.form-list { width
 /* The config rows are display:grid (admin-components.css .form-list tr)
    with the scope-label track = auto, so [STORE VIEW] vs [GLOBAL] rows
    give the value column a different width and the multiselects don't
-   line up. Pin every track so the value column is identical on every
-   row: label 200px, value 1fr (fills the rest), scope-label 110px. */
-body[class*="adminhtml-system_config"] #config_edit_form table.form-list tr,
-body[class*="adminhtml-system_config"] #config_edit_form .form-list tr {
+   line up. Target the rows by their id pattern (tr id="row_<sec>_..")
+   — confirmed in DevTools — NOT by .form-list, whose class may differ
+   in this build (which is why every earlier selector silently missed).
+   Pin every track so the value column is identical on every row. */
+html body[class*="adminhtml-system_config"] #config_edit_form tr[id^="row_"] {
     display: grid !important;
-    grid-template-columns: 200px minmax(0, 1fr) 110px !important;
+    grid-template-columns: 210px minmax(0, 1fr) 120px !important;
     align-items: start !important;
+    gap: 12px !important;
+}
+/* Force the multiselect itself to fill its grid value cell, by id
+   pattern not class, so width is identical regardless of container. */
+html body[class*="adminhtml-system_config"] #config_edit_form tr[id^="row_"] td.value select[multiple],
+html body[class*="adminhtml-system_config"] #config_edit_form tr[id^="row_"] td.value select.multiselect,
+html body[class*="adminhtml-system_config"] #config_edit_form tr[id^="row_"] td.value > select {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    display: block !important;
 }
 body[class*="adminhtml-system_config"] #config_edit_form table.form-list td.label,
 body[class*="adminhtml-system_config"] #config_edit_form table.form-list td.label label {
