@@ -6,6 +6,12 @@
             <codePool>local</codePool>
             <depends>
                 <Mage_Catalog/>
+                <!-- MMD_SingaporePrice's Price class extends
+                     MMD_CustomOptions's so the option-price chain
+                     stays consistent for non-SG stores. Drop this
+                     <depends> + rebase the parent class once
+                     MMD_CustomOptions is retired. -->
+                <MMD_CustomOptions/>
             </depends>
         </MMD_SingaporePrice>
     </modules>

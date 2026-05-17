@@ -37,6 +37,23 @@
                 <class>MMD_SingaporePrice_Block</class>
             </mmd_singaporeprice>
         </blocks>
+        <models>
+            <mmd_singaporeprice>
+                <class>MMD_SingaporePrice_Model</class>
+            </mmd_singaporeprice>
+            <!--
+                Chain the price model so the funding discount persists
+                through quote → checkout → invoice. The class extends
+                MMD_CustomOptions's Price so the existing option-price
+                chain for non-SG stores is preserved; SG stores get the
+                funding adjustment layered on top.
+            -->
+            <catalog>
+                <rewrite>
+                    <product_type_price>MMD_SingaporePrice_Model_Catalog_Product_Type_Price</product_type_price>
+                </rewrite>
+            </catalog>
+        </models>
     </global>
     <frontend>
         <layout>
