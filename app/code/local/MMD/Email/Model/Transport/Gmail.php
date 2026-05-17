@@ -6,46 +6,69 @@
  * The Coolify container can reach Google (HTTPS) but cannot reliably
  * reach our legacy SMTP relays from every region — that's why every
  * non-SG store was silently dropping order/invoice/shipment mail.
- * Hooking this transport in via SMTPPro's `before_send` events makes
- * the OAuth2 path that already works for MMD_Email's custom
- * registration confirmation cover *every* transactional email.
+ * Installing this as Zend_Mail's default transport routes *every*
+ * transactional email through the OAuth2 path the MMD_Email observer
+ * already uses successfully.
  *
- * Recipients and the full RFC 2822 message are taken straight from the
- * Zend_Mail instance, so anything Zend_Mail produces (multiple TOs,
- * CC/BCC, attachments, multipart bodies) reaches Gmail intact.
+ * Recipients and the full RFC 2822 message are taken straight from
+ * the Zend_Mail instance, so anything Zend_Mail produces (multiple
+ * TOs, CC/BCC, attachments, multipart bodies) reaches Gmail intact.
  */
 class MMD_Email_Model_Transport_Gmail extends Zend_Mail_Transport_Abstract
 {
-    /** @var int|null Resolved at construct-time so per-store OAuth overrides apply. */
-    protected $_storeId;
-
-    public function __construct($storeId = null)
-    {
-        $this->_storeId = $storeId;
-    }
-
     /**
-     * Called by Zend_Mail::send() after headers + body have been built.
-     * $this->header and $this->body are the prepared RFC 2822 sections.
+     * Called by Zend_Mail::send() after _buildBody / _buildHeader have
+     * populated $this->header and $this->body. We base64url-encode the
+     * full RFC 2822 message and POST it to Gmail's send endpoint.
      */
     protected function _sendMail()
     {
         $helper = Mage::helper('mmd_email/gmail');
         if (!$helper || !$helper->isConfigured()) {
-            // Caller should have checked isConfigured before installing
-            // this transport; failing loud here is better than silently
-            // dropping the message.
             throw new Exception('Gmail OAuth2 transport selected but not configured');
         }
 
-        $rfc2822 = $this->header . "\r\n" . $this->body;
+        // Zend_Mail_Transport_Abstract::_prepareHeaders() strips Bcc
+        // from $this->header so the SMTP envelope alone carries it.
+        // The Gmail API has no separate envelope — it reads To/Cc/Bcc
+        // straight off the message headers. Re-attach Bcc here, or BCC
+        // recipients silently never receive the mail.
+        $headersText = (string) $this->header;
+        $bccLine     = $this->_buildBccHeader();
+        if ($bccLine !== '') {
+            $headersText = $bccLine . "\r\n" . $headersText;
+        }
+
+        $rfc2822 = $headersText . "\r\n" . $this->body;
 
         // Gmail expects base64url (RFC 4648 §5).
         $raw = rtrim(strtr(base64_encode($rfc2822), '+/', '-_'), '=');
 
+        // First attempt — on 401 the access token has expired mid-flight,
+        // so we refresh once and retry. Anything else bubbles up.
+        $result = $this->_postToGmail($helper, $raw);
+        if ($result['code'] === 401) {
+            $result = $this->_postToGmail($helper, $raw, true);
+        }
+
+        if ($result['code'] >= 400) {
+            $msg = isset($result['body']['error']['message'])
+                ? $result['body']['error']['message']
+                : substr((string) $result['raw'], 0, 300);
+            throw new Exception('Gmail send failed (' . $result['code'] . '): ' . $msg);
+        }
+    }
+
+    /**
+     * Single round-trip to Gmail's send endpoint. Returns ['code','raw','body'].
+     * When $forceFreshToken is true, the helper is asked for a brand-new
+     * access token (skipping any cached value), used by the 401 retry path.
+     */
+    protected function _postToGmail($helper, $raw, $forceFreshToken = false)
+    {
         $token = $helper->getAccessToken();
-        $user  = $helper->getConfig();
-        $user  = $user['user'];
+        $cfg   = $helper->getConfig();
+        $user  = $cfg['user'];
 
         $ch = curl_init('https://gmail.googleapis.com/gmail/v1/users/' . urlencode($user) . '/messages/send');
         curl_setopt_array($ch, array(
@@ -67,10 +90,41 @@ class MMD_Email_Model_Transport_Gmail extends Zend_Mail_Transport_Abstract
         if ($rspRaw === false || $rspRaw === '') {
             throw new Exception('Gmail send unreachable: ' . ($err ?: 'no response'));
         }
-        $rsp = json_decode($rspRaw, true);
-        if ($code >= 400) {
-            $msg = isset($rsp['error']['message']) ? $rsp['error']['message'] : substr($rspRaw, 0, 300);
-            throw new Exception('Gmail send failed (' . $code . '): ' . $msg);
+        return array(
+            'code' => $code,
+            'raw'  => $rspRaw,
+            'body' => json_decode($rspRaw, true),
+        );
+    }
+
+    /**
+     * Rebuild the Bcc header from $this->_mail (Zend strips it before
+     * we get here). Returns "Bcc: a@x, b@x" or '' when there is no Bcc.
+     */
+    protected function _buildBccHeader()
+    {
+        if (!$this->_mail) {
+            return '';
         }
+        $headers = $this->_mail->getHeaders();
+        if (!isset($headers['Bcc']) || !is_array($headers['Bcc'])) {
+            return '';
+        }
+        $addrs = array();
+        foreach ($headers['Bcc'] as $k => $v) {
+            if ($k === 'append') continue;
+            if (is_array($v)) {
+                foreach ($v as $vk => $vv) {
+                    if ($vk === 'append') continue;
+                    if (is_string($vv) && strpos($vv, '@') !== false) {
+                        $addrs[] = trim($vv);
+                    }
+                }
+            } elseif (is_string($v) && strpos($v, '@') !== false) {
+                $addrs[] = trim($v);
+            }
+        }
+        $addrs = array_filter(array_unique($addrs));
+        return $addrs ? 'Bcc: ' . implode(', ', $addrs) : '';
     }
 }

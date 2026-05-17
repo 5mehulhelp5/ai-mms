@@ -67,31 +67,40 @@
                 </observers>
             </sales_order_place_after>
             <!--
-                Route every transactional email (orders, invoices,
-                shipments, password resets, newsletter) through Gmail
-                OAuth2 when configured. SMTPPro fires both events from
-                its two send paths (Email model + Email/Template model).
-                Each observer can call $transport->setTransport(...) to
-                replace the SMTP socket transport with our Gmail one.
+                Install our Gmail OAuth2 transport as Zend_Mail's default
+                at the very start of every front-controller request. Every
+                Magento email path (orders, invoices, shipments, password
+                resets, newsletter, contact form, …) calls $mail->send()
+                with no transport argument and so picks up the default.
+                One observer, one transport, every email type covered.
             -->
-            <aschroder_smtppro_before_send>
+            <controller_front_init_before>
                 <observers>
-                    <mmd_email_gmail_transport>
+                    <mmd_email_install_default_transport>
                         <type>singleton</type>
                         <class>mmd_email/observer</class>
-                        <method>setGmailTransport</method>
-                    </mmd_email_gmail_transport>
+                        <method>installDefaultTransport</method>
+                    </mmd_email_install_default_transport>
                 </observers>
-            </aschroder_smtppro_before_send>
-            <aschroder_smtppro_template_before_send>
+            </controller_front_init_before>
+            <!--
+                Set Reply-To to the per-store sales identity on every
+                outbound template. Customers replying to a Gmail-OAuth-
+                sent email would otherwise land in the OAuth sender's
+                mailbox (sales@tertiarycourses.com.sg) regardless of
+                which country store fired the email. This observer
+                routes the reply to e.g. sales@tertiarycourses.com.my
+                for an MY order.
+            -->
+            <email_template_send_before>
                 <observers>
-                    <mmd_email_gmail_transport>
+                    <mmd_email_set_reply_to>
                         <type>singleton</type>
                         <class>mmd_email/observer</class>
-                        <method>setGmailTransport</method>
-                    </mmd_email_gmail_transport>
+                        <method>setReplyTo</method>
+                    </mmd_email_set_reply_to>
                 </observers>
-            </aschroder_smtppro_template_before_send>
+            </email_template_send_before>
         </events>
         <template>
             <email>

@@ -115,31 +115,72 @@ class MMD_Email_Model_Observer
     }
 
     /**
-     * Swap Zend_Mail's transport for Gmail OAuth2 on every outbound
-     * transactional email when the credentials are filled in. Listens
-     * to SMTPPro's `aschroder_smtppro_before_send` and
-     * `aschroder_smtppro_template_before_send` — both expose a
-     * `$transport` Varien_Object that, when populated, makes SMTPPro
-     * call $mail->send($transport) instead of opening an SMTP socket.
+     * Install our Gmail OAuth2 transport as Zend_Mail's default at the
+     * start of every HTTP request. Every email path in Magento
+     * (orders, invoices, shipments, password resets, newsletter,
+     * contact form, …) ultimately calls $mail->send() with no
+     * transport argument — that picks up Zend_Mail::getDefaultTransport()
+     * which we've just set to our Gmail HTTPS sender.
      *
-     * Why this exists: non-SG stores were silently dropping order /
-     * invoice / shipment mail because the legacy SMTPPro relay isn't
-     * reachable from the Coolify container. Gmail's HTTPS API is.
+     * Why this beats SMTPPro: SMTPPro opens a TCP socket to a legacy
+     * SMTP relay that isn't reachable from the Coolify container for
+     * non-SG stores, so it silently drops mail. The Gmail REST API is
+     * always reachable on outbound 443.
+     *
+     * Idempotent + best-effort: a boot failure must never block the
+     * request. Wired to `controller_front_init_before` (earliest event
+     * that fires on every front-controller request).
      */
-    public function setGmailTransport($observer)
+    public function installDefaultTransport($observer)
     {
         try {
+            $current = Zend_Mail::getDefaultTransport();
+            if ($current instanceof MMD_Email_Model_Transport_Gmail) {
+                return;
+            }
             $gmail = Mage::helper('mmd_email/gmail');
             if (!$gmail || !$gmail->isConfigured()) {
-                return; // fall through to SMTPPro's default SMTP path
+                return; // no creds; leave whatever Magento's stock default is
             }
-            $varien = $observer->getEvent()->getTransport();
-            if (!$varien || $varien->getTransport()) {
-                return; // another observer already chose a transport
-            }
-            $varien->setTransport(new MMD_Email_Model_Transport_Gmail());
+            Zend_Mail::setDefaultTransport(new MMD_Email_Model_Transport_Gmail());
         } catch (Exception $e) {
-            // Never break the send chain — let SMTPPro fall back.
+            Mage::logException($e);
+        }
+    }
+
+    /**
+     * Set a Reply-To header on every transactional email so customers
+     * who hit "Reply" land in the per-country sales mailbox rather than
+     * the Gmail OAuth sender address. Replaces SMTPPro's
+     * `smtppro/general/smtp_reply_to` behaviour (vanilla Magento does
+     * not set Reply-To at all).
+     *
+     * Wired to `email_template_send_before` so it fires for every
+     * Mage_Core_Model_Email_Template::send() call regardless of the
+     * underlying transport.
+     */
+    public function setReplyTo($observer)
+    {
+        try {
+            $mail = $observer->getEvent()->getMail();
+            if (!$mail instanceof Zend_Mail) {
+                return;
+            }
+            // If the template already set Reply-To, respect it.
+            $headers = $mail->getHeaders();
+            if (!empty($headers['Reply-To'])) {
+                return;
+            }
+            $tpl     = $observer->getEvent()->getTemplate();
+            $storeId = $tpl && method_exists($tpl, 'getDesignConfig') && $tpl->getDesignConfig()
+                ? $tpl->getDesignConfig()->getStore()
+                : null;
+            $replyTo = trim((string) Mage::getStoreConfig('trans_email/ident_sales/email', $storeId));
+            if ($replyTo === '') {
+                return;
+            }
+            $mail->setReplyTo($replyTo);
+        } catch (Exception $e) {
             Mage::logException($e);
         }
     }
