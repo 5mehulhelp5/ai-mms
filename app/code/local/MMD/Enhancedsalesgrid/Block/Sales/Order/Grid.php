@@ -9,38 +9,82 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order_Grid extends Mage_Adminhtml_Block_
     }
 
     /**
-     * Filter by parsed Course Date inside the serialised product_options blob.
-     * Matches order items whose Course Date option text references a calendar
-     * date inside the supplied [from, to] range. Pattern recognises tokens like
-     * "13/14 May 2026", "5 Jun 2026", "5 - 7 June 2026".
+     * Apply the Manage-Courses-style filters from the URL:
+     *   ?branch=<store_id>  → branch pill
+     *   ?q=<text>           → General Search across Reg #, learner, course
+     */
+    protected function _prepareCollection()
+    {
+        parent::_prepareCollection();
+        $collection = $this->getCollection();
+        if (!$collection) {
+            return $this;
+        }
+        $adapter = $collection->getConnection();
+
+        // Branch (store) filtering is applied in the
+        // sales_order_grid_collection_load_before observer so it covers every
+        // code path that loads this collection — see MMD_Enhancedsalesgrid_Model_Observer.
+
+        $q = trim((string) $this->getRequest()->getParam('q', ''));
+        if ($q !== '') {
+            $like = $adapter->quote('%' . $q . '%');
+            $collection->getSelect()->where(
+                'main_table.increment_id LIKE ' . $like
+                . ' OR sales_flat_order.customer_email LIKE ' . $like
+                . ' OR sales_flat_order.billing_name LIKE ' . $like
+                . ' OR sales_flat_order_item.name LIKE ' . $like
+            );
+        }
+        return $this;
+    }
+
+    /**
+     * Filter by Course Date inside the serialised product_options blob.
+     * The Course Date option is stored as free text like "13/14 May 2026"
+     * with no normalised date column, so we approximate the [from, to]
+     * range by LIKE-matching every "Mon YYYY" / "Month YYYY" string the
+     * range covers (month granularity). Works on MySQL 5.7+.
      */
     protected function _filterCourseDateRange($collection, $column)
     {
         $cond = $column->getFilter()->getValue();
-        if (!$cond) {
+        if (!is_array($cond)) {
             return $this;
         }
-        $from = isset($cond['from']) ? strtotime($cond['from']) : null;
-        $to   = isset($cond['to'])   ? strtotime($cond['to'])   : null;
-        if (!$from && !$to) {
+        $fromTs = isset($cond['from']) && $cond['from'] ? strtotime($cond['from']) : null;
+        $toTs   = isset($cond['to'])   && $cond['to']   ? strtotime($cond['to'])   : null;
+        if (!$fromTs && !$toTs) {
+            return $this;
+        }
+        if (!$fromTs) { $fromTs = $toTs; }
+        if (!$toTs)   { $toTs   = $fromTs; }
+
+        $shortMonths = array(1=>'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec');
+        $longMonths  = array(1=>'January','February','March','April','May','June','July','August','September','October','November','December');
+
+        $needles = array();
+        $cursor  = strtotime(date('Y-m-01', $fromTs));
+        $end     = strtotime(date('Y-m-01', $toTs));
+        $guard   = 0;
+        while ($cursor <= $end && $guard++ < 240) {
+            $y = (int) date('Y', $cursor);
+            $m = (int) date('n', $cursor);
+            $needles[] = $shortMonths[$m] . ' ' . $y;
+            $needles[] = $longMonths[$m]  . ' ' . $y;
+            $cursor = strtotime('+1 month', $cursor);
+        }
+        if (!$needles) {
             return $this;
         }
 
-        $months = '(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*';
-        // Match a leading day (or day-range "13/14" / "13-14") + month + year.
-        $regex  = '\\\\b([0-9]{1,2})(?:[\\\\/\\\\-][0-9]{1,2})?\\\\s+(' . $months . ')\\\\s+([0-9]{4})\\\\b';
-
-        $select = $collection->getSelect();
-        $expr = "REGEXP_SUBSTR(sales_flat_order_item.product_options, '" . $regex . "')";
-        // Cast first parsed date in the option text to DATE for range compare.
-        $dateExpr = "STR_TO_DATE($expr, '%d %b %Y')";
-
-        if ($from) {
-            $select->where($dateExpr . ' >= ?', date('Y-m-d', $from));
+        $adapter = $collection->getConnection();
+        $likes   = array();
+        foreach (array_unique($needles) as $needle) {
+            $likes[] = 'sales_flat_order_item.product_options LIKE '
+                . $adapter->quote('%' . $needle . '%');
         }
-        if ($to) {
-            $select->where($dateExpr . ' <= ?', date('Y-m-d', $to));
-        }
+        $collection->getSelect()->where('(' . implode(' OR ', $likes) . ')');
         return $this;
     }
 	 protected function _addCouponCodeMetodToFilter($collection, $column){
@@ -161,12 +205,15 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order_Grid extends Mage_Adminhtml_Block_
             'align'    => 'left',
         ));
 
-        // 10. Fee + Tax (base grand total)
+        // 10. Fee + Tax (base grand total) — no filter (only the 6 listed
+        //     columns are filterable: Branch, Course, Course Date Range,
+        //     Course Fee Range, Payment Method, Status).
         $this->addColumn('base_grand_total', array(
             'header'       => Mage::helper('sales')->__('Fee + Tax'),
             'index'        => 'base_grand_total',
             'type'         => 'currency',
             'currency'     => 'base_currency_code',
+            'filter'       => false,
             'filter_index' => 'sales_flat_order.base_grand_total',
             'width'        => '90px',
             'align'        => 'left',

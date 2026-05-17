@@ -24,14 +24,24 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order extends Mage_Adminhtml_Block_Sales
     {
         $req      = $this->getRequest();
         $baseUrl  = $this->getUrl('*/*/index');
-        $q        = (string) $req->getParam('q', '');
-        $branchId = (string) $req->getParam('branch', '');
+        $q       = (string) $req->getParam('q', '');
+        $rawBranch = $req->getParam('branch', null);
+
+        // Default branch = Singapore (store_id 1) when no branch param is set.
+        // Explicit "All" is signalled by ?branch=all.
+        if ($rawBranch === null) {
+            $branchId = '1';
+        } elseif ((string) $rawBranch === 'all') {
+            $branchId = '';
+        } else {
+            $branchId = (string) $rawBranch;
+        }
 
         // Build the branch pills from real stores, stripping " Store View".
         // Order = store_id ASC, which by design maps to the canonical
         // country order (1 SG, 2 MY, 3 GH, 4 NG, 5 BT, 6 IN, 7 Infotech).
         $pills = '';
-        $pillItems = array(array('id' => '', 'name' => Mage::helper('sales')->__('All')));
+        $pillItems = array(array('id' => 'all', 'name' => Mage::helper('sales')->__('All')));
         $storeCol = Mage::getModel('core/store')->getCollection()->setOrder('store_id', 'ASC');
         foreach ($storeCol as $_s) {
             if ((int) $_s->getId() === 0) { continue; } // skip admin
@@ -39,8 +49,11 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order extends Mage_Adminhtml_Block_Sales
             $pillItems[] = array('id' => (int) $_s->getId(), 'name' => $name);
         }
         foreach ($pillItems as $p) {
-            $url   = $baseUrl . ($p['id'] === '' ? '' : '?branch=' . $p['id']);
-            $cls   = 'dev-country-btn' . ((string) $p['id'] === $branchId ? ' active' : '');
+            $url = $baseUrl . '?branch=' . $p['id'];
+            $isActive = ($p['id'] === 'all')
+                ? ($branchId === '')
+                : ((string) $p['id'] === $branchId);
+            $cls = 'dev-country-btn' . ($isActive ? ' active' : '');
             $pills .= '<a href="' . $url . '" class="' . $cls . '">' . $this->escapeHtml($p['name']) . '</a>';
         }
 
@@ -55,9 +68,8 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order extends Mage_Adminhtml_Block_Sales
                     . 'stroke="currentColor" stroke-width="2">'
                     . '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>';
 
-        $branchHidden = $branchId !== ''
-            ? '<input type="hidden" name="branch" value="' . $this->escapeHtml($branchId) . '" />'
-            : '';
+        $branchHidden = '<input type="hidden" name="branch" value="'
+            . $this->escapeHtml($branchId !== '' ? $branchId : 'all') . '" />';
 
         $html  = '<div class="mmd-reg-wrap">';
         $html .= '<div class="dev-country-tabs">' . $pills . '</div>';
@@ -74,30 +86,26 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order extends Mage_Adminhtml_Block_Sales
               .  'value="' . $this->escapeHtml($q) . '" autocomplete="off" />'
               .  '</div>';
         $html .= '<a class="mmd-reg-reset" href="' . $baseUrl . '">' . Mage::helper('sales')->__('Reset') . '</a>';
-        $html .= '<button type="button" class="mmd-reg-filter-toggle" onclick="mmdRegToggleFilters(this)">'
-              .  Mage::helper('sales')->__('Show Filters') . '</button>';
+        $html .= '<span class="mmd-reg-filter-slot"></span>';
         $html .= '</div>';
         $html .= '</form>';
 
+        // Relocate the auto-injected ".advanced-filter-toggle" (built by
+        // sidebar-nav-v2.js → buildFilterPanels) from the top content-header
+        // into our General Search row. Result: top shows only "New Registration";
+        // the working Filters ▾ pill sits next to Reset on the search bar.
         $html .= '<script>'
               .  '(function(){'
-              .  '  window.mmdRegFiltersHidden = true;'
-              .  '  function apply(){'
-              .  '    var t = document.getElementById("sales_order_grid_table");'
-              .  '    if(!t) return false;'
-              .  '    t.classList.toggle("mmd-filters-hidden", window.mmdRegFiltersHidden);'
-              .  '    var rows = t.querySelectorAll("tr.filter");'
-              .  '    for (var i=0;i<rows.length;i++){ rows[i].style.removeProperty("display"); }'
+              .  '  function move(){'
+              .  '    var slot = document.querySelector(".mmd-reg-filter-slot");'
+              .  '    var toggle = document.querySelector(".advanced-filter-toggle");'
+              .  '    if (!slot || !toggle) return false;'
+              .  '    if (toggle.parentNode === slot) return true;'
+              .  '    slot.appendChild(toggle);'
               .  '    return true;'
               .  '  }'
-              .  '  window.mmdRegToggleFilters = function(btn){'
-              .  '    window.mmdRegFiltersHidden = !window.mmdRegFiltersHidden;'
-              .  '    apply();'
-              .  '    btn.textContent = window.mmdRegFiltersHidden ? "Show Filters" : "Hide Filters";'
-              .  '    btn.classList.toggle("active", !window.mmdRegFiltersHidden);'
-              .  '  };'
-              .  '  if (apply()) return;'
-              .  '  var obs = new MutationObserver(function(){ if (apply()) obs.disconnect(); });'
+              .  '  if (move()) return;'
+              .  '  var obs = new MutationObserver(function(){ move(); });'
               .  '  obs.observe(document.body, {childList:true, subtree:true});'
               .  '  setTimeout(function(){ obs.disconnect(); }, 15000);'
               .  '})();'

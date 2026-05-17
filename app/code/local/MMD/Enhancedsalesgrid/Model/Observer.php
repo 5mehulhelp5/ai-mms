@@ -4,10 +4,30 @@ class MMD_Enhancedsalesgrid_Model_Observer
 
 	public function salesOrderGridCollectionLoadBefore(Varien_Event_Observer $observer)
     {
-	
+
         $collection = $observer->getEvent()->getOrderGridCollection();
 
         $select = $collection->getSelect();
+
+        // Branch (store) filter for the Registrations grid.
+        // Default = Singapore (store_id 1); ?branch=all disables the filter.
+        // Applied here (load-before) so it covers the grid render AND any
+        // other code path that loads this collection on the registrations page.
+        $req = Mage::app()->getRequest();
+        $route = $req->getRouteName() . '/' . $req->getControllerName() . '/' . $req->getActionName();
+        if (strpos($route, 'adminhtml/sales_order/') === 0) {
+            $rawBranch = $req->getParam('branch', null);
+            if ($rawBranch === null) {
+                $branch = '1';
+            } elseif ((string) $rawBranch === 'all') {
+                $branch = '';
+            } else {
+                $branch = (string) $rawBranch;
+            }
+            if ($branch !== '' && ctype_digit($branch)) {
+                $select->where('main_table.store_id = ?', (int) $branch);
+            }
+        }
 
         // Add the selected columns if they are enabled
         $enabled_options = Mage::getStoreConfig('enhancedsalesgrid/options/columns_to_show');
