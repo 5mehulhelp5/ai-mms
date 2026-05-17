@@ -264,6 +264,10 @@ if (count($_options) || ((string)Mage::getConfig()->getModuleConfig('OrganicInte
                                             var priceG = parseFloat(fGst) + (parseFloat(mainGPrice)*0.09)
                                             var ffGst = priceG.toFixed(2);
                                             document.getElementById("gtP").innerHTML= "<?php echo $getSymbol ?>" + ffGst;
+                                            // Also update the visible GST-exclusive Fee element so SG
+                                            // doesn't render $0 while GST-inclusive is correct.
+                                            var feeEl = document.getElementById("product-price-" + optionsPrice.productId);
+                                            if (feeEl) feeEl.innerHTML = "<?php echo $getSymbol ?>" + fGst.toFixed(2);
                                         }
                                         if(element.getAttribute('data-type')=="percent")
                                         {
@@ -275,6 +279,8 @@ if (count($_options) || ((string)Mage::getConfig()->getModuleConfig('OrganicInte
                                             var PNewGST = parseFloat(PNew) + (parseFloat(mainGPrice)*0.09)
                                             var ffGst = PNewGST.toFixed(2);
                                             document.getElementById("gtP").innerHTML= "<?php echo $getSymbol ?>" + ffGst;
+                                            var feeEl = document.getElementById("product-price-" + optionsPrice.productId);
+                                            if (feeEl) feeEl.innerHTML = "<?php echo $getSymbol ?>" + PNew.toFixed(2);
 
                                         }
 
@@ -728,6 +734,18 @@ if (count($_options) || ((string)Mage::getConfig()->getModuleConfig('OrganicInte
             <?php if ($helper->getProductAbsolutePrice($this->getProduct())) { ?>
                 oldPriceEl = $('old-price-'+optionsPrice.productId+'_clone');
                 if (oldPriceEl) oldPriceEl.id = oldPriceEl.id + '_absolute';
+            <?php } ?>
+            // SG-only: Magento's JSON config reports productPrice=0 because
+            // MMD_CustomOptions resets getFinalPrice() server-side. After
+            // reloadPrice() runs, force the visible Fee to the catalog
+            // price so the page never shows $0. Subsequent option clicks
+            // override it via the radio handler above.
+            <?php $sid = Mage::app()->getStore()->getId(); if ($sid == 1 || $sid == 7) { ?>
+            var initFeeEl = document.getElementById("product-price-" + optionsPrice.productId);
+            var initSimple = document.getElementById("simpleProdPrice");
+            if (initFeeEl && initSimple) {
+                initFeeEl.innerHTML = "<?php echo $getSymbol ?>" + parseFloat(initSimple.value).toFixed(2);
+            }
             <?php } ?>
         });
      <?php if ($helper->isDependentEnabled()) { ?>
