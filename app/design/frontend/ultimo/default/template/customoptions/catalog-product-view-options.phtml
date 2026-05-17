@@ -340,9 +340,14 @@ if (count($_options) || ((string)Mage::getConfig()->getModuleConfig('OrganicInte
                                         if(element.getAttribute('data-type')=="percent")
                                         {
 
+                                            // `price` is already in dollars at this point —
+                                            // getOptionPriceByQty has converted the configured
+                                            // percent into a dollar discount via
+                                            // getProductPriceByQty * (percent/100). So treat
+                                            // priceL as the dollar discount, not the raw percent.
                                             var priceL = Math.abs(price);
                                             var mainGPrice = document.getElementById("simpleProdPrice").value;
-                                            priceDis = (parseFloat(mainGPrice) *  parseFloat(priceL))/100;
+                                            priceDis = priceL;
                                             PNew = parseFloat(mainGPrice) - parseFloat(priceDis);
                                             var PNewGST = parseFloat(PNew) + (parseFloat(mainGPrice)*0.09)
                                             var ffGst = PNewGST.toFixed(2);
