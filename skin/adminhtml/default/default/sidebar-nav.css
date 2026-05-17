@@ -2179,6 +2179,12 @@ body .admin-main [id$="_massaction"] button span span span {
     text-transform: uppercase !important; letter-spacing: 0.6px !important;
 }
 
+.tools-sub-divider {
+    height: 1px;
+    margin: 6px 16px;
+    background: rgba(255,255,255,0.08);
+}
+
 /* Collapsed sidebar: hide tool group text */
 body.sidebar-collapsed .tools-group-toggle span,
 body.sidebar-collapsed .tools-caret,
@@ -2838,47 +2844,63 @@ button.advanced-filter-toggle span {
     display: none;
     background: var(--d3) !important;
     border: 1px solid var(--b1) !important;
-    border-radius: 12px !important;
-    padding: 20px !important;
-    margin-bottom: 16px;
+    border-radius: 10px !important;
+    padding: 12px 14px !important;
+    margin-bottom: 12px;
     box-shadow: 0 4px 16px rgba(0,0,0,0.2) !important;
 }
 .advanced-filter-panel.open {
     display: block;
 }
 
-/* Filter grid layout */
+/* Filter grid layout — panel itself is the grid so the actions row can
+   slot into the final empty cells of the last row (no divider, no
+   wasted vertical space). filter-panel-grid uses display:contents so
+   its filter-field children participate in the parent grid directly. */
+.advanced-filter-panel.open {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px 12px;
+    align-items: end;
+}
 .filter-panel-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 16px;
-    margin-bottom: 16px;
+    display: contents;
 }
 
 /* Individual filter field */
 .filter-field {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
 }
 .filter-field-label {
     color: var(--t4) !important;
-    font-size: 11px !important;
+    font-size: 10.5px !important;
     font-weight: 700 !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
 }
 .filter-field input,
 .filter-field select {
-    min-height: 36px !important;
-    padding: 6px 10px !important;
-    font-size: 13px !important;
-    border-radius: 8px !important;
-    background: var(--d5) !important;
+    min-height: 30px !important;
+    padding: 5px 9px !important;
+    font-size: 12.5px !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+    background-image: none !important;
     border: 1px solid var(--b2) !important;
     color: var(--t1) !important;
     width: 100% !important;
     box-sizing: border-box !important;
+}
+.filter-field select {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 8px center !important;
+    background-size: 12px !important;
+    padding-right: 26px !important;
 }
 .filter-field input:focus,
 .filter-field select:focus {
@@ -2887,44 +2909,58 @@ button.advanced-filter-toggle span {
     outline: none !important;
 }
 
-/* Range fields (From/To) */
+/* Range fields (From/To, plus optional currency select for price ranges) */
 .filter-range {
     display: flex;
-    gap: 8px;
-    align-items: center;
+    gap: 6px;
+    align-items: flex-end;
+    min-width: 0;
 }
 .filter-range-group {
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 }
 .filter-range-label {
     color: var(--t5) !important;
-    font-size: 10px !important;
+    font-size: 9.5px !important;
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
 .filter-range-group input {
     width: 100% !important;
+    min-width: 0 !important;
+}
+/* Currency dropdown inside a price-range filter — keep it narrow so it
+   doesn't crush the From/To inputs. */
+.filter-range > select {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 60px !important;
+    max-width: 80px !important;
 }
 
-/* Filter panel actions */
+/* Filter panel actions — sits in the final empty grid cell of the
+   last row (no divider, no extra row). */
 .filter-panel-actions {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    padding-top: 16px;
-    border-top: 1px solid var(--b1) !important;
+    align-items: flex-end;
+    gap: 8px;
+    padding-top: 0 !important;
+    border-top: none !important;
+    align-self: end;
 }
 .filter-panel-actions button {
-    min-height: 36px !important;
-    padding: 7px 20px !important;
-    font-size: 13px !important;
+    min-height: 30px !important;
+    padding: 5px 14px !important;
+    font-size: 12.5px !important;
 }
 .filter-panel-actions .filter-reset-btn,
 button.filter-reset-btn {
-    background: var(--d5) !important;
+    background: transparent !important;
+    background-image: none !important;
     border: 1px solid var(--b2) !important;
     color: var(--t3) !important;
 }

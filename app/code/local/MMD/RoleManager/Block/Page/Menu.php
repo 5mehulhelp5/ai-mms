@@ -109,6 +109,27 @@ class MMD_RoleManager_Block_Page_Menu extends Mage_Adminhtml_Block_Page_Menu
             unset($menu['promo']);
         }
 
+        // Move SEO / content discovery items from Course Management (catalog)
+        // into Marketing Management, since marketing owns these workflows.
+        if (isset($menu['marketing']) && isset($menu['catalog']['children'])) {
+            if (!isset($menu['marketing']['children'])) {
+                $menu['marketing']['children'] = array();
+            }
+            $relocate = array(
+                'urlrewrite'      => 'URL Rewrite',
+                'search'          => 'Search Terms',
+                'reviews_ratings' => 'Reviews & Ratings',
+                'sitemap'         => 'Google Sitemap',
+            );
+            foreach ($relocate as $childKey => $childLabel) {
+                if (isset($menu['catalog']['children'][$childKey])) {
+                    $menu['marketing']['children'][$childKey] = $menu['catalog']['children'][$childKey];
+                    $menu['marketing']['children'][$childKey]['label'] = $childLabel;
+                    unset($menu['catalog']['children'][$childKey]);
+                }
+            }
+        }
+
         // Add "View Trainers" under Course Management (catalog) for Admin/Super Admin
         if (isset($menu['catalog'])) {
             if (!isset($menu['catalog']['children'])) {

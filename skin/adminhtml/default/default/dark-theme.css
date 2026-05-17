@@ -2553,28 +2553,9 @@ body.adminhtml-system-currencysymbol-index #currency_symbols_form input.input-te
 #currency_symbols_form .fieldset { padding: 8px 12px !important; }
 #currency_symbols_form label.inherit { font-size: 12px !important; color: var(--t3) !important; }
 
-/* System > Configuration: collapse the secondary left column entirely.
-   Every section is reachable from the main sidebar's Configuration submenu,
-   so the dedicated config sidebar (tabs list + scope switcher) is redundant.
-   Modern browsers (:has support) detect the system_config page by looking
-   for the config-tabs <ul> inside .side-col. */
-body:has(.side-col ul.config-tabs),
-body:has(.side-col ul.config-accordion) {
-    /* hook for further tweaks if needed */
-}
-body:has(.side-col ul.config-tabs) .side-col,
-body:has(.side-col ul.config-accordion) .side-col {
-    display: none !important;
-}
-/* Let the form column reclaim the freed horizontal space. */
-body:has(.side-col ul.config-tabs) .main-col,
-body:has(.side-col ul.config-accordion) .main-col,
-body:has(.side-col ul.config-tabs) .main-col-inner,
-body:has(.side-col ul.config-accordion) .main-col-inner {
-    margin-left: 0 !important;
-    width: auto !important;
-    float: none !important;
-}
+/* System > Configuration: keep the native side-col accordion. Relocating
+   it to the top of main-col broke layout (every dd showed regardless of
+   open state), so this page is exempted from the "no 3-column" rule. */
 
 /* Scope switcher relocated by tabs.phtml JS — compact inline row, no card */
 .switcher.switcher-relocated,

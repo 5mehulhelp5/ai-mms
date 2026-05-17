@@ -11,6 +11,10 @@
     <adminhtml_sales_order_index>
         <remove name="sales_order.grid.container"/>
 
+        <reference name="head">
+            <action method="addCss"><name>admin-dashboard.css</name></action>
+        </reference>
+
         <reference name="content">
             <block type="enhancedsalesgrid/sales_order" name="enhancedsalesgrid.sales_order.grid.container"></block>
         </reference>

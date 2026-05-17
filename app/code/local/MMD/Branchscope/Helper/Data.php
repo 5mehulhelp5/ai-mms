@@ -51,15 +51,10 @@ class MMD_Branchscope_Helper_Data extends Mage_Core_Helper_Abstract
         if ($raw !== null && $raw !== '' && ctype_digit((string) $raw)) {
             return (int) $raw;
         }
-
-        $session = $this->_session();
-        if ($session) {
-            $sessionVal = $session->getData(self::SESSION_KEY);
-            if ($sessionVal !== null && $sessionVal !== '' && ctype_digit((string) $sessionVal)) {
-                return (int) $sessionVal;
-            }
-        }
-
+        // Always default to Singapore when no explicit ?store= is in the
+        // URL. We intentionally do NOT honour session-stickiness here —
+        // every fresh page load reverts to Singapore so the active branch
+        // never silently follows the user across unrelated pages.
         return self::DEFAULT_STORE_ID;
     }
 

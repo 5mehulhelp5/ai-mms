@@ -102,27 +102,12 @@ onPageReady(function relocateSideColTabs() {
 // as a horizontal section bar (dt headers as pills, active dd's sub-items
 // as a second row). Keeps the existing accordion JS untouched — we only
 // reflow the markup.
-onPageReady(function relocateConfigAccordion() {
-    var body = document.body;
-    if (!/adminhtml-system-config/.test(body.className)) return;
-    var sideCol = document.querySelector('.side-col');
-    if (!sideCol) return;
-    var dl = sideCol.querySelector('dl.accordion');
-    if (!dl) return;
-    var mainInner = document.querySelector('.main-col-inner') || document.querySelector('.main-col');
-    if (!mainInner) return;
-
-    var anchor = mainInner.querySelector('.content-header');
-    var nextNode = anchor && anchor.nextSibling ? anchor.nextSibling : null;
-    if (nextNode) {
-        mainInner.insertBefore(dl, nextNode);
-    } else {
-        mainInner.appendChild(dl);
-    }
-    dl.classList.add('accordion-relocated');
-    body.classList.add('has-relocated-accordion');
-    sideCol.style.display = 'none';
-});
+// System Configuration's native side-col dl.accordion has section-specific
+// JS behaviour (open/close state, scroll-to-active) that did not survive
+// being reflowed into a horizontal bar — dd contents stayed visible for
+// every section, producing a wall of overlapping links. Leave the page
+// alone and let it render with its standard 3-column layout.
+onPageReady(function relocateConfigAccordion() { /* intentionally disabled */ });
 
 // Phase 3+4: Categories tree and Permissions Roles tree live in .side-col.
 // They are interactive pickers, not navigation, so they can't be hidden
