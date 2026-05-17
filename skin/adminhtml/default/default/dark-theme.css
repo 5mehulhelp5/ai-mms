@@ -2178,49 +2178,59 @@ body[class*="adminhtml-system_config"] #config_edit_form textarea { min-height: 
    dark custom scrollbar, so the widget reads as intentional and on
    theme. The option color + selected tint below are kept because they
    DO take effect in Firefox and cost nothing in Chromium. */
-body[class*="adminhtml-system_config"] #config_edit_form select[multiple] {
-    background: var(--d3) !important;
+/* Multi-select list boxes (Allow Countries, Postal Code Optional,
+   European Union Countries, Weekend Days, …). Magento renders these as
+   <select class="select multiselect" multiple size="10">. Option
+   backgrounds ARE stylable here (verified via diagnostic in InPrivate),
+   so we just paint the box + rows to match the dark theme. Global —
+   every admin multiselect should be dark, not only the config page. */
+html body select[multiple],
+html body select.multiselect {
+    background: var(--d2) !important;
     background-image: none !important;
     border: 1px solid var(--b2) !important;
     border-radius: 8px !important;
-    padding: 6px !important;
+    padding: 4px !important;
     color: var(--t1) !important;
     scrollbar-width: thin !important;
-    scrollbar-color: var(--b3) var(--d3) !important;
-    /* THE actual fix for the gray rows: tell the browser this control
-       is dark. Chromium/Edge paint native <select multiple> option rows
-       using the OS light scheme by default (light gray) because nothing
-       on the page declared a color-scheme. With color-scheme:dark the
-       browser renders the listbox + its rows in dark mode natively —
-       this is honored where CSS background on <option> is not. */
-    color-scheme: dark !important;
+    scrollbar-color: var(--b3) var(--d2) !important;
 }
-body[class*="adminhtml-system_config"] #config_edit_form select[multiple]::-webkit-scrollbar {
+html body select[multiple] option,
+html body select.multiselect option {
+    background: var(--d2) !important;
+    background-color: var(--d2) !important;
+    background-image: none !important;
+    color: var(--t1) !important;
+    padding: 5px 8px !important;
+    border-bottom: 1px solid var(--b1) !important;
+}
+html body select[multiple] option:checked,
+html body select.multiselect option:checked,
+html body select[multiple] option[selected],
+html body select.multiselect option[selected] {
+    background: rgba(96,165,250,0.30) !important;
+    background-color: rgba(96,165,250,0.30) !important;
+    color: var(--t1) !important;
+}
+html body select[multiple]::-webkit-scrollbar,
+html body select.multiselect::-webkit-scrollbar {
     width: 10px !important;
     height: 10px !important;
 }
-body[class*="adminhtml-system_config"] #config_edit_form select[multiple]::-webkit-scrollbar-track {
-    background: var(--d3) !important;
+html body select[multiple]::-webkit-scrollbar-track,
+html body select.multiselect::-webkit-scrollbar-track {
+    background: var(--d2) !important;
     border-radius: 8px !important;
 }
-body[class*="adminhtml-system_config"] #config_edit_form select[multiple]::-webkit-scrollbar-thumb {
+html body select[multiple]::-webkit-scrollbar-thumb,
+html body select.multiselect::-webkit-scrollbar-thumb {
     background: var(--b3) !important;
     border-radius: 8px !important;
-    border: 2px solid var(--d3) !important;
+    border: 2px solid var(--d2) !important;
 }
-body[class*="adminhtml-system_config"] #config_edit_form select[multiple]::-webkit-scrollbar-thumb:hover {
+html body select[multiple]::-webkit-scrollbar-thumb:hover,
+html body select.multiselect::-webkit-scrollbar-thumb:hover {
     background: var(--d6) !important;
-}
-/* Effective in Firefox; ignored (harmlessly) by Chromium/Edge. */
-body[class*="adminhtml-system_config"] #config_edit_form select[multiple] option {
-    background-color: var(--d3) !important;
-    color: var(--t1) !important;
-    padding: 4px 8px !important;
-}
-body[class*="adminhtml-system_config"] #config_edit_form select[multiple] option:checked,
-body[class*="adminhtml-system_config"] #config_edit_form select[multiple] option[selected] {
-    background-color: rgba(96,165,250,0.25) !important;
-    color: var(--t1) !important;
 }
 body[class*="adminhtml-system_config"] #config_edit_form input:focus,
 body[class*="adminhtml-system_config"] #config_edit_form select:focus,
