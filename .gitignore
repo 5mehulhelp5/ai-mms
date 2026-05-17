@@ -101,3 +101,6 @@ info.php*
 .trae/
 .windsurf/
 skills-lock.json
+
+# Local backup snapshots
+.site_courses_*/
