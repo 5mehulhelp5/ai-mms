@@ -49,7 +49,15 @@ $_simplePricesTax = ($_taxHelper->displayPriceIncludingTax() || $_taxHelper->dis
 $_minimalPriceValue = $_product->getMinimalPrice();
 $_minimalPriceValue = $_store->roundPrice($_store->convertPrice($_minimalPriceValue));
 $_minimalPrice = $_taxHelper->getPrice($_product, $_minimalPriceValue, $_simplePricesTax);
-$_convertedFinalPrice = $_store->roundPrice($_store->convertPrice($_product->getFinalPrice()));
+// SG-only: MMD_CustomOptions resets getFinalPrice() to 0 server-side
+// until an option is chosen. Fall back to the catalog price (getPrice)
+// so the Fee / GST lines render the course price on first paint. Other
+// stores keep standard Magento behaviour.
+$_sgRawFinalPrice = $_product->getFinalPrice();
+if (($_storeId == 1 || $_storeId == 7) && ($_sgRawFinalPrice == 0 || $_sgRawFinalPrice === null)) {
+    $_sgRawFinalPrice = $_product->getPrice();
+}
+$_convertedFinalPrice = $_store->roundPrice($_store->convertPrice($_sgRawFinalPrice));
 $_specialPriceStoreLabel = $this->getProductAttribute('special_price')->getStoreLabel();
 ?>
 

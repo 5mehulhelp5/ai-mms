@@ -173,8 +173,17 @@
 	var optionsPrice = new Product.OptionsPrice(<?php echo $this->getJsonConfig() ?>);
 </script>
 
-<input type="hidden" id="simpleProdPrice" name="simpleProdPrice" value="<?php echo $_product->getFinalPrice() ?>"/>
-<input type="hidden" id="gstProdPrice" name="gstProdPrice" value="<?php echo $_product->getFinalPrice()+ ($_product->getFinalPrice()* 0.09) ?>"/>
+<?php
+// SG-only: MMD_CustomOptions resets getFinalPrice() to 0 until an option
+// is selected, which made the SG storefront render Fee = $0 on first
+// paint. Use the catalog price (getPrice) so the course fee and the
+// 9%-GST line show immediately. Other stores keep standard behaviour.
+$_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getStore()->getId() == 7)
+    ? $_product->getPrice()
+    : $_product->getFinalPrice();
+?>
+<input type="hidden" id="simpleProdPrice" name="simpleProdPrice" value="<?php echo $_simpleProdPrice ?>"/>
+<input type="hidden" id="gstProdPrice" name="gstProdPrice" value="<?php echo $_simpleProdPrice + ($_simpleProdPrice * 0.09) ?>"/>
 
 
 <div id="messages_product_view"><?php echo $this->getMessagesBlock()->getGroupedHtml() ?></div>
