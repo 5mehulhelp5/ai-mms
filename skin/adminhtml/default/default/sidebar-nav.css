@@ -1753,10 +1753,11 @@ body .admin-main [id$="_massaction"] button span span span {
 }
 .admin-main .entry-edit-head,
 .admin-main .box-head {
-    background: var(--d4) !important;
+    background: transparent !important;
+    border: 0 !important;
     border-bottom: 1px solid var(--b1) !important;
-    border-radius: 12px 12px 0 0 !important;
-    padding: 14px 18px !important;
+    border-radius: 0 !important;
+    padding: 12px 0 !important;
     display: flex;
     align-items: center;
     justify-content: space-between;
