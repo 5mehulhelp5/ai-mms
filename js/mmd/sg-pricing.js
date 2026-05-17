@@ -22,15 +22,15 @@
 (function () {
     'use strict';
 
-    var cfg = window.MMD_SG_PRICING;
-    if (!cfg || !cfg.active) return;
-
-    var sym  = cfg.currencySymbol || '$';
-    var x    = parseFloat(cfg.catalogPrice) || 0;
-    var rate = parseFloat(cfg.gstRate)      || 0.09;
-    var map  = cfg.fundingMap                || {};
-
-    if (x <= 0) return; // nothing to render
+    // CRITICAL: do NOT read window.MMD_SG_PRICING here. The merged JS
+    // bundle that contains this file is loaded in <head> BEFORE the
+    // inline script that sets window.MMD_SG_PRICING. If we read cfg
+    // at IIFE-evaluation time, it's undefined and we bail.
+    //
+    // Defer the cfg read into start(), which runs at DOMContentLoaded
+    // by which point both the bundle and every inline <head> script
+    // have executed.
+    var cfg, sym, x, rate, map;
 
     function fmt(n) {
         return sym + (Math.round(n * 100) / 100).toFixed(2);
@@ -146,9 +146,20 @@
         setTimeout(safeRender, 500);
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', attach);
-    } else {
+    function start() {
+        cfg = window.MMD_SG_PRICING;
+        if (!cfg || !cfg.active) return;
+        sym  = cfg.currencySymbol || '$';
+        x    = parseFloat(cfg.catalogPrice) || 0;
+        rate = parseFloat(cfg.gstRate)      || 0.09;
+        map  = cfg.fundingMap                || {};
+        if (x <= 0) return;
         attach();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+    } else {
+        start();
     }
 })();
