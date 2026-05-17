@@ -3440,19 +3440,23 @@ body[class*="customoptions-options-edit"] [id^="option_"] .option-header {
     overflow: visible !important;
 }
 
-/* The bottom "Add New Row" strip renders on a light bg from the legacy
-   stylesheet — dark it. */
-body[class*="customoptions-options-edit"] [id^="option_"] tfoot,
-body[class*="customoptions-options-edit"] [id^="option_"] tfoot tr,
-body[class*="customoptions-options-edit"] [id^="option_"] tfoot td,
-body[class*="customoptions-options-edit"] [id^="option_"] .add-row,
-body[class*="customoptions-options-edit"] [id^="option_"] table tr.add-row,
-body[class*="customoptions-options-edit"] [id^="option_"] table tr:last-child td {
+/* The bottom "Add New Row" strip renders on a light gradient from the
+   legacy stylesheet — dark it. Use stronger selectors with body-level
+   prefix to beat Magento's `table tfoot td { background: ... }`. */
+html body[class*="customoptions-options-edit"] [id^="option_"] tfoot,
+html body[class*="customoptions-options-edit"] [id^="option_"] tfoot tr,
+html body[class*="customoptions-options-edit"] [id^="option_"] tfoot td,
+html body[class*="customoptions-options-edit"] [id^="option_"] table tfoot,
+html body[class*="customoptions-options-edit"] [id^="option_"] table tfoot tr,
+html body[class*="customoptions-options-edit"] [id^="option_"] table tfoot td {
     background: transparent !important;
+    background-image: none !important;
+    background-color: transparent !important;
+    border: none !important;
     border-top: 1px solid var(--b1) !important;
+    color: var(--t2) !important;
 }
-body[class*="customoptions-options-edit"] [id^="option_"] tfoot button,
-body[class*="customoptions-options-edit"] [id^="option_"] .add-row button {
+html body[class*="customoptions-options-edit"] [id^="option_"] tfoot button {
     margin: 6px auto !important;
 }
 
@@ -3495,4 +3499,61 @@ body[class*="customoptions-options-edit"] input[id$="_title"]:not([id*="select_"
 body[class*="customoptions-options-edit"] input[name*="[title]"]:not([name*="values"]) {
     width: 220px !important;
     min-width: 180px !important;
+}
+
+/* Full sweep: kill every light gradient / hardcoded white bg from the
+   stock customoptions stylesheet on this page. Targets the tbody bands,
+   row-hover stripes, and the `class="border"` table border light fill. */
+html body[class*="customoptions-options-edit"] table.border,
+html body[class*="customoptions-options-edit"] table.border thead,
+html body[class*="customoptions-options-edit"] table.border thead tr,
+html body[class*="customoptions-options-edit"] table.border thead th,
+html body[class*="customoptions-options-edit"] table.border tbody tr,
+html body[class*="customoptions-options-edit"] table.border tbody td,
+html body[class*="customoptions-options-edit"] [id^="option_"] table thead,
+html body[class*="customoptions-options-edit"] [id^="option_"] table thead tr,
+html body[class*="customoptions-options-edit"] [id^="option_"] table thead th {
+    background: transparent !important;
+    background-image: none !important;
+    background-color: transparent !important;
+    color: var(--t2) !important;
+    border-color: var(--b1) !important;
+}
+html body[class*="customoptions-options-edit"] [id^="option_"] table thead th {
+    color: var(--t3) !important;
+    font-weight: 600 !important;
+    border-bottom: 1px solid var(--b1) !important;
+}
+/* Row striping: subtle dark alternation, no white */
+html body[class*="customoptions-options-edit"] [id^="option_"] table tbody tr:nth-child(odd) td {
+    background: rgba(255, 255, 255, 0.02) !important;
+}
+html body[class*="customoptions-options-edit"] [id^="option_"] table tbody tr:hover td {
+    background: rgba(96, 165, 250, 0.06) !important;
+}
+
+/* Selects on this page (Input Type, Price Type, Drop-down, Is Required, etc) */
+html body[class*="customoptions-options-edit"] select {
+    background: var(--d1) !important;
+    background-image: none !important;
+    color: var(--t1) !important;
+    border: 1px solid var(--b2) !important;
+}
+
+/* Date-trigger calendar icon was rendering as a raw .gif on light bg —
+   give it a dark hover frame to match other icon controls. */
+html body[class*="customoptions-options-edit"] [id^="option_"] table img.v-middle,
+html body[class*="customoptions-options-edit"] [id^="option_"] table .ui-datepicker-trigger {
+    background: var(--d1) !important;
+    border: 1px solid var(--b2) !important;
+    border-radius: 4px !important;
+    padding: 1px !important;
+}
+
+/* The "NOT LOGGED IN" / "General" customer-group panel at the top-right
+   often overlaps a sibling. Constrain it to a sane width. */
+html body[class*="customoptions-options-edit"] .group-customer,
+html body[class*="customoptions-options-edit"] [id*="group_box"],
+html body[class*="customoptions-options-edit"] [id*="group"][class*="box"] {
+    max-width: 180px !important;
 }
