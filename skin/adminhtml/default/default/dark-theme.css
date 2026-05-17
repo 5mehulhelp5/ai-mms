@@ -2218,17 +2218,17 @@ html body select.multiselect option {
     padding: 5px 8px !important;
     border-bottom: 1px solid var(--b1) !important;
 }
-/* Selected options: keep the same dark fill as unselected rows rather
-   than a blue highlight. Magento pre-selects every entry in fields
-   like "Allow Countries", so a tinted :checked state turns the whole
-   box blue. Uniform dark is what the user wants. */
+/* Selected/highlighted options: keep the same dark fill as unselected
+   rows (no blue block — Magento pre-selects every entry in fields like
+   "Allow Countries"), but make the text green so the selected entries
+   are still distinguishable. */
 html body select[multiple] option:checked,
 html body select.multiselect option:checked,
 html body select[multiple] option[selected],
 html body select.multiselect option[selected] {
     background: var(--d2) !important;
     background-color: var(--d2) !important;
-    color: var(--t1) !important;
+    color: var(--green) !important;
 }
 html body select[multiple]::-webkit-scrollbar,
 html body select.multiselect::-webkit-scrollbar {
