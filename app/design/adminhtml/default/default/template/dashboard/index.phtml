@@ -7920,13 +7920,42 @@ $_credMask = function ($v) {
             <h3><span class="crd-dot"></span>Kael Review API</h3>
             <div class="crd-row">
                 <label class="crd-label">API Key</label>
-                <input type="text" class="crd-input" name="kael_review_key"
-                    data-original="<?php echo $_creds['mmd_company/api/kael_review_key'] ? '__MASKED__' : '' ?>"
-                    value="<?php echo $_credMask($_creds['mmd_company/api/kael_review_key']) ?>"
-                    placeholder="kael_rv_…" />
-                <div class="crd-hint">Used by the Kael review-posting bot. See API Summary &rarr; Reviews API for endpoint + payload schema.</div>
+                <div style="display:flex;gap:8px;align-items:stretch">
+                    <input type="text" class="crd-input" name="kael_review_key" id="kael-review-key-input"
+                        data-original="<?php echo $_creds['mmd_company/api/kael_review_key'] ? '__MASKED__' : '' ?>"
+                        value="<?php echo $_credMask($_creds['mmd_company/api/kael_review_key']) ?>"
+                        placeholder="kael_rv_… (or click Generate)" style="flex:1" />
+                    <button type="button" class="crd-btn crd-btn-ghost" onclick="kaelGenerateKey()"
+                            style="padding:0 16px;white-space:nowrap;font-size:12px">
+                        Generate
+                    </button>
+                </div>
+                <div class="crd-hint">Used by the Kael review-posting bot. Click <strong>Generate</strong> to mint a fresh 32-char secret, then <strong>Save Credentials</strong> to persist. See API Summary &rarr; Reviews API for endpoint + payload schema.</div>
             </div>
         </div>
+        <script>
+        // Mint a cryptographically random API key of the form
+        // "kael_rv_<2-digit year>_<28 url-safe random chars>" using
+        // crypto.getRandomValues. Populates the input and clears the
+        // mask sentinel so Save sends it as a real change.
+        window.kaelGenerateKey = function () {
+            var year = String(new Date().getFullYear()).slice(-2);
+            var alpha = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            var buf = new Uint32Array(28);
+            (window.crypto || window.msCrypto).getRandomValues(buf);
+            var rand = '';
+            for (var i = 0; i < buf.length; i++) {
+                rand += alpha.charAt(buf[i] % alpha.length);
+            }
+            var key = 'kael_rv_' + year + '_' + rand;
+            var input = document.getElementById('kael-review-key-input');
+            input.value = key;
+            input.removeAttribute('data-original');
+            input.focus();
+            input.select();
+            crdToast('New API key generated — click Save Credentials to persist.', 'ok');
+        };
+        </script>
 
         <div class="crd-card<?php echo $_creds['mmd_email/google/refresh_token'] ? ' has-value' : '' ?>">
             <h3><span class="crd-dot"></span>Google OAuth (Gmail send-as)</h3>
