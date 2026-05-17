@@ -979,11 +979,32 @@ body.sidebar-collapsed .admin-main {
     text-shadow: 0 0 12px rgba(37,139,182,0.4) !important;
 }
 
-/* Row hover — neon glow effect */
-.admin-main .grid tr:hover td {
-    background: rgba(37,139,182,0.06) !important;
-    color: #e2e8f0 !important;
-    border-bottom-color: rgba(37,139,182,0.12) !important;
+/* Row hover / on-mouse / selected — TEXT-ONLY highlight, no background.
+   Killed the cream #fcf5dd from boxes.css and the dark-theme gray fill.
+   Just brighten the text to the canonical sky-blue. */
+.admin-main .grid tr:hover,
+.admin-main .grid tr.on-mouse,
+.admin-main .grid tr.selected,
+.admin-main .grid tbody tr:hover,
+.admin-main .grid tbody tr.on-mouse,
+.admin-main .grid tbody tr.selected,
+body .admin-main .grid tr.on-mouse,
+body .admin-main .grid tr.on-mouse td,
+body .admin-main .grid tr:hover td,
+body .admin-main .grid tr.selected td {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+.admin-main .grid tr:hover td,
+.admin-main .grid tr.on-mouse td,
+.admin-main .grid tr.selected td {
+    color: var(--btn-sky, #65b7d5) !important;
+    border-bottom-color: rgba(101,183,213,0.18) !important;
+}
+.admin-main .grid tr:hover td a,
+.admin-main .grid tr.on-mouse td a,
+.admin-main .grid tr.selected td a {
+    color: var(--btn-sky, #65b7d5) !important;
 }
 
 /* Left accent line on hover */
@@ -991,7 +1012,7 @@ body.sidebar-collapsed .admin-main {
     position: relative;
 }
 .admin-main .grid tbody tr:hover td:first-child {
-    box-shadow: inset 3px 0 0 #258bb6 !important;
+    box-shadow: inset 3px 0 0 var(--btn-sky, #65b7d5) !important;
 }
 
 /* Alternating rows — darker shade, no light bg */
