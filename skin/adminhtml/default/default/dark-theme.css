@@ -2249,6 +2249,21 @@ body[class*="adminhtml-system_config"] #config_edit_form select {
     max-width: 100% !important;
 }
 body[class*="adminhtml-system_config"] #config_edit_form textarea { min-height: 70px !important; }
+/* THE actual override. The rule above (body[..] #config_edit_form
+   select) has an ID so its `max-width:100% !important` outranked the
+   `html body select[multiple]` width rule and clamped the fixed 620px
+   back down to each row's variable value cell → still ragged. This
+   rule carries the same ID-level specificity PLUS [multiple]/.multiselect,
+   so it beats it and pins width AND max-width to a fixed 620px —
+   every box is now exactly the same width regardless of its cell. */
+body[class*="adminhtml-system_config"] #config_edit_form select[multiple],
+body[class*="adminhtml-system_config"] #config_edit_form select.multiselect {
+    width: 620px !important;
+    min-width: 620px !important;
+    max-width: 620px !important;
+    box-sizing: border-box !important;
+    display: block !important;
+}
 /* Multiselect list boxes (Allow Countries, Postal Code Optional,
    European Union Countries, Weekend Days, …).
 
@@ -2286,12 +2301,16 @@ html body select.multiselect:focus-within {
     color-scheme: dark !important;
     scrollbar-width: thin !important;
     scrollbar-color: var(--b3) var(--d2) !important;
-    /* Magento renders multiselects with no width, so each sized itself
-       differently and the right edges were ragged. Force full-width
-       box-sizing so every list box aligns with the single-select
-       dropdowns and with each other. */
-    width: 100% !important;
-    max-width: 100% !important;
+    /* FIXED width on the PROVEN selector. width:100% faithfully
+       followed each row's varying value cell → ragged right edges.
+       This `html body select[multiple]` selector is the one confirmed
+       to reach these elements (it's what styles them dark + passed
+       the lime diagnostic), so a fixed width here actually lands:
+       every box is exactly 620px, left edges already align, so right
+       edges line up too. */
+    width: 620px !important;
+    min-width: 620px !important;
+    max-width: 620px !important;
     box-sizing: border-box !important;
 }
 /* Max-specificity width override for config-page multiselects, in case
