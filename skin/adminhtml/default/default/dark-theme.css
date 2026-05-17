@@ -595,18 +595,48 @@ body.catalog-categories #tree-div .x-tree-selected span {
     min-height: 0 !important;
 }
 /* System Configuration accordion section bars (Countries Options,
-   States Options, Locale Options, Store Information, …) — user wants
-   these gray again. Scoped to the config page only so the global
-   transparent .entry-edit-head treatment (order view, boxes, etc.)
-   is untouched. .section-config is the wrapper Magento always emits
-   per config group; the body-class variant is a belt-and-suspenders. */
-body[class*="adminhtml-system_config"] .entry-edit-head,
-body[class*="adminhtml-system_config"] .entry-edit-head.collapseable,
-.section-config .entry-edit-head,
+   States Options, Locale Options, Store Information, …) — transparent,
+   with a dropdown chevron painted as a BACKGROUND IMAGE on the header
+   itself. The ::after approach kept losing to other rules / flex flow
+   and rendered invisibly; an SVG background is immune to ::after
+   resets and layout, and always shows. Scoped to the config page so
+   .entry-edit-head elsewhere (order view, boxes) is untouched. */
+body[class*="adminhtml-system_config"] #config_edit_form .entry-edit-head,
+body[class*="adminhtml-system_config"] #config_edit_form .entry-edit-head.collapseable,
+body[class*="adminhtml-system_config"] .section-config .entry-edit-head,
+body[class*="adminhtml-system_config"] .section-config .entry-edit-head.collapseable,
 .section-config .entry-edit-head.collapseable {
-    background: var(--d4) !important;
-    background-image: none !important;
-    border-radius: 8px 8px 0 0 !important;
+    background-color: transparent !important;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f9fafb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 14px center !important;
+    background-size: 15px 15px !important;
+    border-radius: 0 !important;
+    cursor: pointer !important;
+    padding-right: 38px !important;
+}
+/* Collapsed → right-pointing chevron (different SVG so it works even
+   without CSS transforms on a background image). Magento's
+   Fieldset.toggleCollapse leaves the .entry-edit without `.opened`
+   and/or the fieldset display:none when a section is collapsed. */
+body[class*="adminhtml-system_config"] #config_edit_form .entry-edit:not(.opened) .entry-edit-head.collapseable,
+body[class*="adminhtml-system_config"] #config_edit_form .section-config:has(> fieldset[style*="display: none"]) .entry-edit-head.collapseable,
+body[class*="adminhtml-system_config"] #config_edit_form .section-config:has(> fieldset[style*="display:none"]) .entry-edit-head.collapseable {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f9fafb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 6 15 12 9 18'/></svg>") !important;
+}
+/* The toggle handler (Fieldset.toggleCollapse) lives on the inner <a>,
+   but that <a> only spanned its text — so clicking the chevron region
+   (the header's right padding) hit the div, not the <a>, and nothing
+   collapsed. Make the <a> fill the whole header so the entire bar,
+   chevron included, is the clickable toggle. */
+body[class*="adminhtml-system_config"] #config_edit_form .entry-edit-head.collapseable > a,
+body[class*="adminhtml-system_config"] .section-config .entry-edit-head.collapseable > a {
+    display: block !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding-right: 38px !important;
+    background: transparent !important;
+    cursor: pointer !important;
 }
 .entry-edit-head h4, .box-head h4, .box-head h3 {
     color: var(--t1) !important;
@@ -2208,6 +2238,13 @@ html body select.multiselect {
     color: var(--t1) !important;
     scrollbar-width: thin !important;
     scrollbar-color: var(--b3) var(--d2) !important;
+    /* Magento renders multiselects with no width, so each sized itself
+       differently and the right edges were ragged. Force full-width
+       box-sizing so every list box aligns with the single-select
+       dropdowns and with each other. */
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
 }
 html body select[multiple] option,
 html body select.multiselect option {
