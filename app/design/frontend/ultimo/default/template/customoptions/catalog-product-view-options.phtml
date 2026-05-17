@@ -172,7 +172,19 @@ if (count($_options) || ((string)Mage::getConfig()->getModuleConfig('OrganicInte
             },
             getProductPriceByQty: function() {
                 var prQty = this.getProductQty();
-                var prPrice = <?php echo floatval($coreHelper->currency($this->getProduct()->getFinalPrice(), false, false)) ?>;                
+                // SG/Infotech: MMD_CustomOptions resets getFinalPrice to 0
+                // server-side, which made percent options always compute $0
+                // off (= no discount). Fall back to catalog getPrice so
+                // funding percents (50%, 70%) translate to dollars correctly.
+                <?php
+                    $_mmdSid = Mage::app()->getStore()->getId();
+                    $_mmdBaseFinal = floatval($coreHelper->currency($this->getProduct()->getFinalPrice(), false, false));
+                    $_mmdBasePrice = floatval($coreHelper->currency($this->getProduct()->getPrice(), false, false));
+                    $_mmdBase = ($_mmdSid == 1 || $_mmdSid == 7) && $_mmdBaseFinal == 0
+                        ? $_mmdBasePrice
+                        : $_mmdBaseFinal;
+                ?>
+                var prPrice = <?php echo $_mmdBase ?>;
                 <?php
                     $priceArr = $this->getProduct()->getFormatedTierPrice();
                     if (is_array($priceArr)) {
