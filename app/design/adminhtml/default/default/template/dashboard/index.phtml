@@ -11707,7 +11707,7 @@ document.addEventListener('keydown', function (ev) {
             'Trainer':           'dash-panel-learner',
             'Developer':         'dash-panel-developer'
         };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting','dash-panel-cp-coursedetails','dash-panel-cp-aboutcourse','dash-panel-cp-whatlearn','dash-panel-cp-bgparta','dash-panel-cp-bgpartb','dash-panel-cp-learningoutcomes','dash-panel-cp-instructmethods','dash-panel-cp-assessmethods','dash-panel-cp-lusequencing','dash-panel-cp-courseoutline','dash-panel-cp-entryreq','dash-panel-cp-jobroles','dash-panel-cp-lessonplan','dash-panel-cp-cpvalidation'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting','dash-panel-cp-coursedetails','dash-panel-cp-aboutcourse','dash-panel-cp-whatlearn','dash-panel-cp-bgparta','dash-panel-cp-bgpartb','dash-panel-cp-learningoutcomes','dash-panel-cp-instructmethods','dash-panel-cp-assessmethods','dash-panel-cp-lusequencing','dash-panel-cp-courseoutline','dash-panel-cp-entryreq','dash-panel-cp-jobroles','dash-panel-cp-lessonplan','dash-panel-cp-cpvalidation','dash-panel-api_summary','dash-panel-credentials'];
         for (var i=0; i<all.length; i++) {
             var el = document.getElementById(all[i]);
             if (el) el.style.display = 'none';
@@ -11745,7 +11745,7 @@ document.addEventListener('keydown', function (ev) {
         if (current !== 'Trainer' && current !== 'Learner') return;
 
         // Hide ALL panels first, then show only the requested sub-panel
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-projectmgt','dash-panel-problemsolving','dash-panel-cybersecurity','dash-panel-finance','dash-panel-hr','dash-panel-dataanalytics','dash-panel-ml','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-networking','dash-panel-blockchain','dash-panel-quantum','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-certhistory','dash-panel-billing'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-projectmgt','dash-panel-problemsolving','dash-panel-cybersecurity','dash-panel-finance','dash-panel-hr','dash-panel-dataanalytics','dash-panel-ml','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-networking','dash-panel-blockchain','dash-panel-quantum','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-certhistory','dash-panel-billing','dash-panel-api_summary','dash-panel-credentials'];
         for (var i=0; i<all.length; i++) {
             var el = document.getElementById(all[i]);
             if (el) el.style.display = 'none';
@@ -11791,7 +11791,7 @@ document.addEventListener('keydown', function (ev) {
         var r = role;
         if (r !== 'Admin' && r !== 'Super Admin' && r !== 'Marketing') return;
         var panelMap = { admin: 'dash-panel-admin', trainers: 'dash-panel-trainers', companysetting: 'dash-panel-companysetting', credentials: 'dash-panel-credentials', createclass: 'dash-panel-createclass', assigntrainer: 'dash-panel-assigntrainer', assignlearner: 'dash-panel-assignlearner', enrolllearner: 'dash-panel-enrolllearner', marketingnewsletter: 'dash-panel-marketing-newsletter', dashboard: (r === 'Admin' ? 'dash-panel-admin' : 'dash-panel-superadmin') };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-createclass','dash-panel-assigntrainer','dash-panel-assignlearner','dash-panel-enrolllearner'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-learner','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-trainers','dash-panel-companysetting','dash-panel-createclass','dash-panel-assigntrainer','dash-panel-assignlearner','dash-panel-enrolllearner','dash-panel-api_summary','dash-panel-credentials'];
         for (var i=0; i<all.length; i++) { var el = document.getElementById(all[i]); if (el) el.style.display = 'none'; }
         var t = document.getElementById(panelMap[name] || panelMap.dashboard);
         if (t) t.style.display = '';
@@ -11812,7 +11812,7 @@ document.addEventListener('keydown', function (ev) {
     // Developer sub-view switcher (CP Generator pages)
     function showDeveloperSubPanel(name) {
         var cpKeys = ['coursedetails','aboutcourse','whatlearn','bgparta','bgpartb','learningoutcomes','instructmethods','assessmethods','lusequencing','courseoutline','entryreq','jobroles','lessonplan','cpvalidation'];
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-developer','dash-panel-learner','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting'];
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-developer','dash-panel-learner','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting','dash-panel-api_summary','dash-panel-credentials'];
         for (var i = 0; i < cpKeys.length; i++) all.push('dash-panel-cp-' + cpKeys[i]);
         for (var j = 0; j < all.length; j++) { var el = document.getElementById(all[j]); if (el) el.style.display = 'none'; }
         if (cpKeys.indexOf(name) >= 0) {
