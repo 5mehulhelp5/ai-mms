@@ -888,7 +888,7 @@ ul.item-options li { padding-left:.7em; }
 .bundle-product-options dd { color:#5b5b5b; margin-bottom:10px; }
 
 /* Order Totals */
-.order-totals                           { margin-left:auto; border:1px solid #d7c699 !important; padding:12px 0; background:#fcfac9; text-align:right; }
+.order-totals                           { margin-left:auto; border:1px solid var(--b1, #1f2937) !important; padding:12px 0; background:transparent; text-align:right; }
 .order-totals table                     { border:none; background:none; margin-left:auto; }
 .order-totals table td                  { padding:3px 20px 3px 10px; }
 .order-totals table td.label            { white-space:normal; padding:3px 10px 3px 20px; }
@@ -1402,7 +1402,7 @@ ul.super-product-attributes { padding-left:15px; }
 .uploader .complete { border:1px solid #90c898; background-color:#e5ffed; }
 
 .grid tr.read { background:#fff !important; }
-.grid tr.unread { background:#fcf6f5 !important; }
+.grid tr.unread { background:transparent !important; font-weight:600; }
 .grid-row-title { color:#444; font-weight:bold; }
 
 .grid-severity-critical,
