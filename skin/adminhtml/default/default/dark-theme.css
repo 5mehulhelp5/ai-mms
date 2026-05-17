@@ -601,42 +601,44 @@ body.catalog-categories #tree-div .x-tree-selected span {
    and rendered invisibly; an SVG background is immune to ::after
    resets and layout, and always shows. Scoped to the config page so
    .entry-edit-head elsewhere (order view, boxes) is untouched. */
+/* Header bar: just transparent. The chevron is NOT here — it's on the
+   inner <a> below, because the <a> is the actual click target
+   (onclick=Fieldset.toggleCollapse). Putting the chevron on the div
+   meant the chevron sat in the div's padding, outside the <a>, so
+   clicking it did nothing. */
 body[class*="adminhtml-system_config"] #config_edit_form .entry-edit-head,
 body[class*="adminhtml-system_config"] #config_edit_form .entry-edit-head.collapseable,
 body[class*="adminhtml-system_config"] .section-config .entry-edit-head,
 body[class*="adminhtml-system_config"] .section-config .entry-edit-head.collapseable,
 .section-config .entry-edit-head.collapseable {
     background-color: transparent !important;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f9fafb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") !important;
-    background-repeat: no-repeat !important;
-    background-position: right 14px center !important;
-    background-size: 15px 15px !important;
+    background-image: none !important;
     border-radius: 0 !important;
     cursor: pointer !important;
-    padding-right: 38px !important;
+    padding-right: 0 !important;
 }
-/* Collapsed → right-pointing chevron (different SVG so it works even
-   without CSS transforms on a background image). Magento's
-   Fieldset.toggleCollapse leaves the .entry-edit without `.opened`
-   and/or the fieldset display:none when a section is collapsed. */
-body[class*="adminhtml-system_config"] #config_edit_form .entry-edit:not(.opened) .entry-edit-head.collapseable,
-body[class*="adminhtml-system_config"] #config_edit_form .section-config:has(> fieldset[style*="display: none"]) .entry-edit-head.collapseable,
-body[class*="adminhtml-system_config"] #config_edit_form .section-config:has(> fieldset[style*="display:none"]) .entry-edit-head.collapseable {
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f9fafb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 6 15 12 9 18'/></svg>") !important;
-}
-/* The toggle handler (Fieldset.toggleCollapse) lives on the inner <a>,
-   but that <a> only spanned its text — so clicking the chevron region
-   (the header's right padding) hit the div, not the <a>, and nothing
-   collapsed. Make the <a> fill the whole header so the entire bar,
-   chevron included, is the clickable toggle. */
+/* Chevron lives on the <a> (the full-width click target). Make the <a>
+   fill the whole bar and paint the chevron as its own background so
+   clicking the chevron IS clicking the toggle link. */
 body[class*="adminhtml-system_config"] #config_edit_form .entry-edit-head.collapseable > a,
-body[class*="adminhtml-system_config"] .section-config .entry-edit-head.collapseable > a {
+body[class*="adminhtml-system_config"] .section-config .entry-edit-head.collapseable > a,
+.section-config .entry-edit-head.collapseable > a {
     display: block !important;
     width: 100% !important;
     box-sizing: border-box !important;
-    padding-right: 38px !important;
-    background: transparent !important;
+    padding-right: 40px !important;
     cursor: pointer !important;
+    background-color: transparent !important;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f9fafb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    background-size: 15px 15px !important;
+}
+/* Collapsed → right-pointing chevron on the <a>. */
+body[class*="adminhtml-system_config"] #config_edit_form .entry-edit:not(.opened) .entry-edit-head.collapseable > a,
+body[class*="adminhtml-system_config"] #config_edit_form .section-config:has(> fieldset[style*="display: none"]) .entry-edit-head.collapseable > a,
+body[class*="adminhtml-system_config"] #config_edit_form .section-config:has(> fieldset[style*="display:none"]) .entry-edit-head.collapseable > a {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f9fafb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 6 15 12 9 18'/></svg>") !important;
 }
 .entry-edit-head h4, .box-head h4, .box-head h3 {
     color: var(--t1) !important;
@@ -2162,6 +2164,17 @@ body[class*="adminhtml-system_config"] #config_edit_form table.form-list th {
     border: none !important;
 }
 body[class*="adminhtml-system_config"] #config_edit_form table.form-list { width: 100% !important; }
+/* The config rows are display:grid (admin-components.css .form-list tr)
+   with the scope-label track = auto, so [STORE VIEW] vs [GLOBAL] rows
+   give the value column a different width and the multiselects don't
+   line up. Pin every track so the value column is identical on every
+   row: label 200px, value 1fr (fills the rest), scope-label 110px. */
+body[class*="adminhtml-system_config"] #config_edit_form table.form-list tr,
+body[class*="adminhtml-system_config"] #config_edit_form .form-list tr {
+    display: grid !important;
+    grid-template-columns: 200px minmax(0, 1fr) 110px !important;
+    align-items: start !important;
+}
 body[class*="adminhtml-system_config"] #config_edit_form table.form-list td.label,
 body[class*="adminhtml-system_config"] #config_edit_form table.form-list td.label label {
     color: var(--t4) !important;
@@ -2188,6 +2201,15 @@ body[class*="adminhtml-system_config"] #config_edit_form table.form-list td.scop
     padding: 8px 6px !important;
     white-space: nowrap !important;
     vertical-align: top !important;
+    /* Fixed width so [STORE VIEW] vs [GLOBAL] rows reserve the SAME
+       column space — otherwise the value cell (and the multiselect
+       in it) gets a different width per row and the boxes don't
+       line up. 110px comfortably fits "[STORE VIEW]". */
+    width: 110px !important;
+    min-width: 110px !important;
+    max-width: 110px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
 }
 
 /* Inputs — transparent + bordered (HARD RULE: no gray bg) */
@@ -2229,13 +2251,22 @@ body[class*="adminhtml-system_config"] #config_edit_form textarea { min-height: 
    so we just paint the box + rows to match the dark theme. Global —
    every admin multiselect should be dark, not only the config page. */
 html body select[multiple],
-html body select.multiselect {
+html body select.multiselect,
+html body select[multiple]:focus,
+html body select.multiselect:focus,
+html body select[multiple]:focus-within,
+html body select.multiselect:focus-within {
     background: var(--d2) !important;
     background-image: none !important;
     border: 1px solid var(--b2) !important;
     border-radius: 8px !important;
     padding: 4px !important;
     color: var(--t1) !important;
+    /* Keep native rendering dark even when focused — clicking the
+       field label focuses the select and, since Magento pre-selects
+       every option, the OS otherwise repaints the whole box with the
+       light active-selection color. */
+    color-scheme: dark !important;
     scrollbar-width: thin !important;
     scrollbar-color: var(--b3) var(--d2) !important;
     /* Magento renders multiselects with no width, so each sized itself
@@ -2245,6 +2276,23 @@ html body select.multiselect {
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
+}
+/* Max-specificity width override for config-page multiselects, in case
+   a #config_edit_form-scoped select rule was beating the generic
+   html body select[multiple] width. Also pin the containing value
+   cell so every box lines up regardless of scope-label width. */
+body[class*="adminhtml-system_config"] #config_edit_form td.value select[multiple],
+body[class*="adminhtml-system_config"] #config_edit_form td.value select.multiselect,
+body[class*="adminhtml-system_config"] #config_edit_form .value select[multiple],
+body[class*="adminhtml-system_config"] #config_edit_form .value select.multiselect {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    display: block !important;
+}
+body[class*="adminhtml-system_config"] #config_edit_form td.value {
+    width: 100% !important;
 }
 html body select[multiple] option,
 html body select.multiselect option {
@@ -2262,7 +2310,11 @@ html body select.multiselect option {
 html body select[multiple] option:checked,
 html body select.multiselect option:checked,
 html body select[multiple] option[selected],
-html body select.multiselect option[selected] {
+html body select.multiselect option[selected],
+html body select[multiple]:focus option:checked,
+html body select.multiselect:focus option:checked,
+html body select[multiple]:focus option[selected],
+html body select.multiselect:focus option[selected] {
     background: var(--d2) !important;
     background-color: var(--d2) !important;
     color: var(--green) !important;
