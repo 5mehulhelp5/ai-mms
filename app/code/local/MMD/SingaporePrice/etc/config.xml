@@ -64,4 +64,24 @@
             </updates>
         </layout>
     </frontend>
+    <global>
+        <events>
+            <!--
+                When admin saves a product with enable_sg_funding=Yes,
+                the observer creates the standard Magento custom-option
+                "Funding Eligibility (Subject to Verification)" with the
+                five canonical radio values if it doesn't already exist.
+                Idempotent — safe to re-save the same product.
+            -->
+            <catalog_product_save_after>
+                <observers>
+                    <mmd_singaporeprice_funding_provision>
+                        <type>singleton</type>
+                        <class>mmd_singaporeprice/observer</class>
+                        <method>onProductSaveAfter</method>
+                    </mmd_singaporeprice_funding_provision>
+                </observers>
+            </catalog_product_save_after>
+        </events>
+    </global>
 </config>
