@@ -1742,17 +1742,20 @@ body .admin-main [id$="_massaction"] button span span span {
     padding: 0 !important;
 }
 
-/* === 19. Form Panels === */
+/* === 19. Form Panels — flat on canvas, no card fill ===
+   Matches dark-theme §6: panels are transparent. Section heads (entry-
+   edit-head / box-head) keep their bottom hairline so groups stay
+   visually distinct without a stacked-card look. */
 .admin-main .entry-edit,
 .admin-main .box-left,
 .admin-main .box-right,
 .admin-main .box {
-    background: var(--d3) !important;
-    border: 1px solid var(--b1) !important;
-    border-radius: 12px !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12) !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
     margin-bottom: 16px !important;
-    overflow: hidden;
+    overflow: visible;
 }
 .admin-main .entry-edit-head,
 .admin-main .box-head {

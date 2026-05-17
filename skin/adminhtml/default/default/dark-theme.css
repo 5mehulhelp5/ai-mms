@@ -569,14 +569,17 @@ body.catalog-categories #tree-div .x-tree-selected span {
     color: var(--blue) !important;
 }
 
-/* === 6. Boxes / Panels === */
+/* === 6. Boxes / Panels — flat on canvas, no card fill ===
+   Form panels (.entry-edit, .box, .fieldset, fieldset) sit transparent
+   on the page canvas. Differentiation comes from section headers and
+   field grouping, not from a stack of nested gray cards. */
 .entry-edit, .box-left, .box-right, .box, fieldset, .fieldset, fieldset.np {
-    background: var(--d3) !important;
+    background: transparent !important;
     background-image: none !important;
-    border: 1px solid var(--b1) !important;
-    border-radius: 10px !important;
+    border: none !important;
+    border-radius: 0 !important;
     margin-bottom: 16px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+    box-shadow: none !important;
 }
 .entry-edit-head, .box-head {
     background: transparent !important;
@@ -697,7 +700,7 @@ div.collapseable::after {
     width: 100% !important;
 }
 table, table.data, .box-left table, .box-right table {
-    background: var(--d3) !important;
+    background: transparent !important;
 }
 
 /* --- Grid Header --- */
