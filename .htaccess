@@ -122,22 +122,32 @@ RewriteRule ^(.*)$ https://www.tertiarycourses.com.my/$1 [L,R=301]
     AddOutputFilterByType BROTLI_COMPRESS font/ttf font/otf application/vnd.ms-fontobject
 </IfModule>
 
-## Serve precompressed .br / .gz static assets if the build pipeline produced them
-## (Dockerfile builds *.br and *.gz alongside CSS/JS at quality 11/9 — far better
-## than the per-request quality mod_brotli/mod_deflate apply). Falls through to
-## runtime compression above for any file without a sibling.
+## DISABLED 2026-05-17 — precompressed-asset serving broke production checkout.
+## Behind the Coolify/Caddy reverse proxy, the rewritten *.js.gz / *.js.br was
+## delivered to the browser WITHOUT a `Content-Encoding: gzip|br` response
+## header (the `<FilesMatch> Header set Content-Encoding` below did not survive
+## the proxy). The browser then parsed raw gzip/brotli bytes as JavaScript →
+## syntax error → varien/accordion.js + opcheckout.js never defined Accordion/
+## Checkout → `new Accordion()` in the OnePage init threw → the checkout
+## accordion never bound → the 4 checkout steps rendered but would not expand
+## (www.tertiarycourses.com.my). The runtime mod_brotli / mod_deflate output
+## filters above ALWAYS emit the correct Content-Encoding, so we revert to the
+## known-good runtime-compression path. Re-enable only once the proxy is
+## confirmed to preserve the manual Content-Encoding header end-to-end.
+##
+## (Dockerfile still builds *.br/*.gz siblings; they are simply not served.)
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
     # Brotli — preferred if client accepts it and a .br sibling exists.
-    RewriteCond %{HTTP:Accept-Encoding} br
-    RewriteCond %{REQUEST_FILENAME}.br -s
-    RewriteRule ^(.+\.(css|js|svg))$ $1.br [L,QSA]
+    #RewriteCond %{HTTP:Accept-Encoding} br
+    #RewriteCond %{REQUEST_FILENAME}.br -s
+    #RewriteRule ^(.+\.(css|js|svg))$ $1.br [L,QSA]
 
     # Gzip fallback.
-    RewriteCond %{HTTP:Accept-Encoding} gzip
-    RewriteCond %{REQUEST_FILENAME}.gz -s
-    RewriteRule ^(.+\.(css|js|svg))$ $1.gz [L,QSA]
+    #RewriteCond %{HTTP:Accept-Encoding} gzip
+    #RewriteCond %{REQUEST_FILENAME}.gz -s
+    #RewriteRule ^(.+\.(css|js|svg))$ $1.gz [L,QSA]
 </IfModule>
 
 <FilesMatch "\.css\.br$">
