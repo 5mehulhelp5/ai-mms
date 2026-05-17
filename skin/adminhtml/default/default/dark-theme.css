@@ -3351,88 +3351,148 @@ body[class*="customoptions-options-edit"] [id^="option_"] {
     margin-bottom: 8px !important;
 }
 
-/* === Course Manager — Edit Template: full-width compact layout match ===
-   Match original Magento: option panel and inner values table span 100%
-   of the content area, no overflow, columns size naturally. */
+/* === Course Manager — Edit Template: native-width table + scroll wrapper ===
+   The legacy template hardcodes `style="width:1010px"` on the values table.
+   Fighting it with table-layout:fixed crushes the Title column and overflows
+   buttons. Instead, let the table render at its natural width and scroll
+   horizontally inside the option container.
+
+   Reasoning preserved: previous attempt used table-layout:fixed + nth-child
+   widths summing to ~836px, which on a sub-1000px viewport collapsed the
+   auto-width Title cell. Removed in favor of native sizing. */
 body[class*="customoptions-options-edit"] #customoption_options,
-body[class*="customoptions-options-edit"] [id^="option_"],
-body[class*="customoptions-options-edit"] .option-box,
-body[class*="customoptions-options-edit"] table.values-table {
+body[class*="customoptions-options-edit"] #product_options {
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
 }
-/* Drop nowrap from cells so the table can compress to fit; only specific
-   narrow numeric cells stay nowrap. */
+body[class*="customoptions-options-edit"] [id^="option_"] {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+}
+/* Native table layout — respect the inline width, no fixed cells */
+body[class*="customoptions-options-edit"] [id^="option_"] table.border,
+body[class*="customoptions-options-edit"] [id^="option_"] table {
+    table-layout: auto !important;
+    width: auto !important;
+    min-width: 100% !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+}
+/* Cells: nowrap so each column sizes to its natural content */
 body[class*="customoptions-options-edit"] [id^="option_"] table th,
 body[class*="customoptions-options-edit"] [id^="option_"] table td {
-    white-space: normal !important;
+    white-space: nowrap !important;
+    padding: 3px 6px !important;
 }
-/* Inputs inside the table fill their cell instead of forcing 100% min-width */
+/* Inputs size to a sensible natural width, not 100% of a crushed cell */
 body[class*="customoptions-options-edit"] [id^="option_"] table input[type="text"],
-body[class*="customoptions-options-edit"] [id^="option_"] table input[type="number"],
-body[class*="customoptions-options-edit"] [id^="option_"] table select {
-    width: 100% !important;
+body[class*="customoptions-options-edit"] [id^="option_"] table input[type="number"] {
+    width: auto !important;
     min-width: 0 !important;
 }
-/* Reset prior fixed widths; size columns proportionally so they all fit */
-body[class*="customoptions-options-edit"] [id^="option_"] table {
-    table-layout: fixed !important;
+/* Per-column input sizing aligned with column purpose */
+body[class*="customoptions-options-edit"] [id^="option_"] table .select-type-title,
+body[class*="customoptions-options-edit"] [id^="option_"] table input[id*="_title"] {
+    width: 180px !important;
 }
-body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(1),
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(1) { width: 44px !important; }   /* Id */
-body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(2),
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(2) { width: auto !important; }    /* Title (flex) */
-body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(3),
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(3) { width: 120px !important; }  /* Course Date */
-body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(4),
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(4) { width: 70px !important; }   /* Price */
-body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(5),
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(5) { width: 80px !important; }   /* Price Type */
-body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(6),
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(6) { width: 110px !important; }  /* Course Code */
-body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(7),
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(7) { width: 60px !important; }   /* Sort Order */
-body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(8),
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(8) { width: 50px !important; }   /* Pax */
-body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(9),
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(9) { width: 60px !important; text-align: center !important; }  /* Default */
-body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(10),
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(10) { width: 100px !important; } /* Children */
-body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(11),
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(11) { width: 110px !important; } /* Image */
-body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(12),
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(12) { width: 32px !important; } /* Delete X */
-
-/* The Id cell stays nowrap (just a number) */
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(1) {
-    white-space: nowrap !important;
-    text-align: center !important;
+body[class*="customoptions-options-edit"] [id^="option_"] table .select-type-reg_course,
+body[class*="customoptions-options-edit"] [id^="option_"] table input[id*="_reg_course"] {
+    width: 110px !important;
 }
-
-/* Date trigger icon sits inline with input, not floating below */
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(3) {
-    position: relative !important;
+body[class*="customoptions-options-edit"] [id^="option_"] table input[id*="_price"]:not([id*="_type"]) {
+    width: 70px !important;
 }
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(3) input[type="text"] {
-    width: calc(100% - 28px) !important;
-    display: inline-block !important;
+body[class*="customoptions-options-edit"] [id^="option_"] table input[id*="_sku"] {
+    width: 110px !important;
 }
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(3) img {
-    width: 22px !important; height: 22px !important;
-    vertical-align: middle !important;
-    margin-left: 2px !important;
+body[class*="customoptions-options-edit"] [id^="option_"] table input[id*="_order"] {
+    width: 56px !important;
 }
-
-/* Add Image button — make it fit the narrow Image column */
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(11) button,
-body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(11) .button {
+body[class*="customoptions-options-edit"] [id^="option_"] table input.input-children {
+    width: 56px !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] table select {
+    width: auto !important;
+    min-width: 70px !important;
+}
+/* Add Image button: shrink to fit its column */
+body[class*="customoptions-options-edit"] [id^="option_"] table button,
+body[class*="customoptions-options-edit"] [id^="option_"] table input[type="button"],
+body[class*="customoptions-options-edit"] [id^="option_"] table .button,
+body[class*="customoptions-options-edit"] [id^="option_"] table .scalable {
     padding: 0 8px !important;
     font-size: 11px !important;
-    width: 100% !important;
+    height: 26px !important;
+    line-height: 24px !important;
+    width: auto !important;
 }
 
-/* Make the Template Options panel itself span the available width */
-body[class*="customoptions-options-edit"] #product_options {
-    max-width: 100% !important;
+/* Option-header strip (Title / Input Type / Is Required / View Mode / Is
+   Dependent / One-time / Sort Order / Qnty Input Class / Learner Groups,
+   then a second row with Div CSS Class / Description) was overlapping the
+   values-table header below. Force it to stack as a normal flow block
+   with margin-bottom so the values table starts cleanly. */
+body[class*="customoptions-options-edit"] [id^="option_"] > div:first-child,
+body[class*="customoptions-options-edit"] [id^="option_"] .option-box,
+body[class*="customoptions-options-edit"] [id^="option_"] .option-header {
+    margin-bottom: 14px !important;
+    overflow: visible !important;
+}
+
+/* The bottom "Add New Row" strip renders on a light bg from the legacy
+   stylesheet — dark it. */
+body[class*="customoptions-options-edit"] [id^="option_"] tfoot,
+body[class*="customoptions-options-edit"] [id^="option_"] tfoot tr,
+body[class*="customoptions-options-edit"] [id^="option_"] tfoot td,
+body[class*="customoptions-options-edit"] [id^="option_"] .add-row,
+body[class*="customoptions-options-edit"] [id^="option_"] table tr.add-row,
+body[class*="customoptions-options-edit"] [id^="option_"] table tr:last-child td {
+    background: transparent !important;
+    border-top: 1px solid var(--b1) !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] tfoot button,
+body[class*="customoptions-options-edit"] [id^="option_"] .add-row button {
+    margin: 6px auto !important;
+}
+
+/* "Not Logged In / General" customer-group panel was being clipped at
+   the right edge by overflow on its container. Let it flow naturally. */
+body[class*="customoptions-options-edit"] .group-customer,
+body[class*="customoptions-options-edit"] [id*="group"][class*="box"] {
+    overflow: visible !important;
+    white-space: normal !important;
+}
+
+/* Kill the row gap that earlier section established via border-spacing.
+   Empty spacer-looking band between rows came from `border-spacing: 0 4px`
+   combined with extra empty <tr> rendered by the legacy template. */
+body[class*="customoptions-options-edit"] [id^="option_"] table,
+body[class*="customoptions-options-edit"] [id^="option_"] table.border,
+body[class*="customoptions-options-edit"] table.values-table {
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] table tr {
+    margin: 0 !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] table tr:empty,
+body[class*="customoptions-options-edit"] [id^="option_"] table tr.template,
+body[class*="customoptions-options-edit"] [id^="option_"] table tr[style*="display: none"],
+body[class*="customoptions-options-edit"] [id^="option_"] table tr[style*="display:none"] {
+    display: none !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] table tbody tr td {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+}
+
+/* Option-header Title input was clipped to ~50px showing just "Cour".
+   Force a usable width on the top-level option title and similar fields. */
+body[class*="customoptions-options-edit"] .option-header input[type="text"],
+body[class*="customoptions-options-edit"] [id^="option_"] > div:first-child input[type="text"],
+body[class*="customoptions-options-edit"] input[id$="_title"]:not([id*="select_"]),
+body[class*="customoptions-options-edit"] input[name*="[title]"]:not([name*="values"]) {
+    width: 220px !important;
+    min-width: 180px !important;
 }
