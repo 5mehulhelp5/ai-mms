@@ -208,3 +208,9 @@ Product,Course
 You did not sign in correctly or your account is temporarily disabled.,Username or password is not correct.
 Invalid Form Key. Please refresh the page.,Username or password is not correct.
 Invalid User Name or Password.,Username or password is not correct.
+Create New Order,New Registration
+Create New Order Status,Create New Order Status
+Create New Order for %s,New Registration for %s
+Create New Order for %s in %s,New Registration for %s in %s
+Create New Order for New Customer,New Registration for New Learner
+Create New Order for New Customer in %s,New Registration for New Learner in %s
