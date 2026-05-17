@@ -1337,6 +1337,22 @@ html.is-order-view ul#sales_order_view_tabs { margin: 4px 0 12px 0 !important; }
 /* Comments History box compact */
 body.is-order-view #order_history_block textarea,
 html.is-order-view #order_history_block textarea { min-height: 60px !important; font-size: 12px !important; }
+/* Kill the blue selected/hover accents on the Items Ordered grid —
+   it's a read-only summary, the long blue left-bar (tr.selected td
+   border-left) and per-row hover highlight just look like noise here.
+   Scoped to the order view; other admin grids keep their feedback. */
+body.is-order-view .grid tr.selected td,
+html.is-order-view .grid tr.selected td,
+body.is-order-view .grid tr:hover td,
+html.is-order-view .grid tr:hover td,
+body.is-order-view .grid tr.on-mouse td,
+html.is-order-view .grid tr.on-mouse td,
+body.is-order-view .grid table.data tbody tr:hover td,
+html.is-order-view .grid table.data tbody tr:hover td {
+    background: transparent !important;
+    border-left: 0 !important;
+    box-shadow: none !important;
+}
 
 /* Horizontal tabs */
 ul.tabs-horiz, body ul.tabs-horiz {
