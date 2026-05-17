@@ -1,0 +1,18 @@
+/*
+ * MMD_SingaporePrice — minimal storefront styling.
+ * Self-contained so the module can be removed by deleting one folder
+ * + one css file without leaving orphaned selectors elsewhere.
+ */
+
+.mmd-sg-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: #d9eafd;
+    color: #1f4f8b;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    vertical-align: middle;
+}

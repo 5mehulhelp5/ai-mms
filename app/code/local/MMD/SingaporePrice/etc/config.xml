@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<!--
+  MMD_SingaporePrice — SG-only product-page pricing.
+
+  Implements the SG funding/GST formula in one place so MMD_CustomOptions
+  and the catalog-product-view-options.phtml hacks can eventually be
+  removed:
+
+      course_fee_displayed = x * (1 - y/100)
+      gst                  = 0.09 * x            // frozen on catalog price
+      total                = course_fee_displayed + gst
+
+  where:
+      x = catalog list price (catalog_product_entity_decimal.price)
+      y = funding discount percent from mmd_company/sg_funding/*
+
+  The module is a thin observer + JS bundle. No model rewrites, no
+  product-type subclassing — the JS hooks the storefront DOM and writes
+  the computed numbers into the existing Ultimo .price-box markup.
+  Active only when getStore()->getId() ∈ {1, 7}; every other store
+  flows through stock Magento untouched.
+-->
+<config>
+    <modules>
+        <MMD_SingaporePrice>
+            <version>1.0.0</version>
+        </MMD_SingaporePrice>
+    </modules>
+    <global>
+        <helpers>
+            <mmd_singaporeprice>
+                <class>MMD_SingaporePrice_Helper</class>
+            </mmd_singaporeprice>
+        </helpers>
+        <blocks>
+            <mmd_singaporeprice>
+                <class>MMD_SingaporePrice_Block</class>
+            </mmd_singaporeprice>
+        </blocks>
+    </global>
+    <frontend>
+        <layout>
+            <updates>
+                <mmd_singaporeprice>
+                    <file>mmd_singaporeprice.xml</file>
+                </mmd_singaporeprice>
+            </updates>
+        </layout>
+    </frontend>
+</config>

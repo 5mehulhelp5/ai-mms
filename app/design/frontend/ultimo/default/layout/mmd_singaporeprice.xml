@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!--
+  MMD_SingaporePrice frontend layout.
+
+  Adds two head assets to every catalog product view page:
+    - mmd/sg-pricing.js — the formula implementation that hooks the
+      option radios and writes Fee + GST + Total into the existing
+      Ultimo .price-box markup.
+    - mmd/sg-pricing.css — the discount badge + price box styling.
+
+  The JS is a no-op outside SG / Infotech stores because it reads
+  `data-mmd-sg-active="1"` from a JSON config that the head template
+  embeds only on those stores.
+-->
+<layout version="0.1.0">
+    <catalog_product_view>
+        <reference name="head">
+            <action method="addJs"><script>mmd/sg-pricing.js</script></action>
+            <action method="addItem"><type>skin_css</type><name>css/mmd-sg-pricing.css</name></action>
+        </reference>
+        <reference name="product.info">
+            <block type="mmd_singaporeprice/config" name="mmd_singaporeprice.config" as="mmd_singaporeprice_config" template="mmd_singaporeprice/config.phtml"/>
+        </reference>
+    </catalog_product_view>
+</layout>
