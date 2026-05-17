@@ -11671,6 +11671,25 @@ document.addEventListener('keydown', function (ev) {
         if ((qsPanel === 'companysetting' || hash === '#companysetting')
             && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
             showAdminSubPanel('companysetting');
+            // If the URL targets a specific section inside Company Setting
+            // (e.g. ?panel=companysetting&section=api_summary from the
+            // sidebar "API Summary" link), open and scroll to that section
+            // after the panel finishes rendering.
+            try {
+                var qsSection = qs.get('section') || '';
+                if (qsSection) {
+                    setTimeout(function () {
+                        var sec = document.querySelector('.cs-section[data-section="' + qsSection + '"]');
+                        if (!sec) return;
+                        var head = sec.querySelector('.cs-section-head');
+                        var body = sec.querySelector('.cs-section-body');
+                        if (head && body && !body.classList.contains('open')) {
+                            window.csToggleSection(head);
+                        }
+                        sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 60);
+                }
+            } catch (e) {}
             return;
         }
         if ((qsPanel === 'credentials' || hash === '#credentials')
