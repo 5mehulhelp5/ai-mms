@@ -15,4 +15,12 @@
             <block type="enhancedsalesgrid/sales_order" name="enhancedsalesgrid.sales_order.grid.container"></block>
         </reference>
     </adminhtml_sales_order_index>
+
+    <!-- Drop Credit Memos and Comments History tabs on the View Registration page -->
+    <adminhtml_sales_order_view>
+        <reference name="sales_order_tabs">
+            <action method="removeTab"><name>order_creditmemos</name></action>
+            <action method="removeTab"><name>order_history</name></action>
+        </reference>
+    </adminhtml_sales_order_view>
 </layout>

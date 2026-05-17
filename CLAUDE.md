@@ -17,6 +17,8 @@ OpenMage 1.x (Magento 1 LTS v20.12.3) customized as a Course Registration + LMS 
   - 🇬🇭 Ghana — `tertiarycourses.com.gh`
   - 🇧🇹 Bhutan — `tertiarycourses.bt`
   - 🇮🇳 India — `tertiarycourses.co.in`
+- **No shipping cost, ever.** Shipping is disabled across all stores and there is no shipping line on any quote, order, invoice, or email template. If you see code that adds, calculates, or displays shipping_amount / shipping_method / shipping_tax_amount, treat it as legacy noise — leave it at zero or remove the surfacing.
+- **GST is non-standard for Singapore** and intentionally diverges from Magento's tax engine. SG GST is calculated on the **original course list price** (the catalog price before any discount), **not** the discounted subtotal and **not** any custom-option adjustments. Don't "fix" this to match Magento's stock behavior — the override is deliberate so funded learners (SkillsFuture / WSQ subsidies discount the fee but GST still settles on the pre-subsidy amount as the tax authority expects). Other countries (MY/NG/GH/BT/IN) use their own logic per their tax regimes.
 - **Country-specific funding hooks** matter for marketing & checkout: SG SkillsFuture / WSQ / IBF, MY HRDC. Don't strip these references when refactoring storefront templates.
 - **The admin panel is rebranded** as "Tertiary Infotech Academy — Magento Management System". Treat the admin as a TMS for instructors + operations staff, not a generic e-commerce backoffice.
 

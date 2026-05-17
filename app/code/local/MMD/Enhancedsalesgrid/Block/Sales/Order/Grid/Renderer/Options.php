@@ -13,12 +13,17 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order_Grid_Renderer_Options extends Mage
         $arr = is_string($raw) && $raw !== '' ? @unserialize($raw) : false;
 
         if (is_array($arr) && !empty($arr['options']) && is_array($arr['options'])) {
-            $return = "";
+            $dates = array();
             foreach ($arr['options'] as $opt) {
-                $return .= "<b>" . $opt['label'] . "</b>: " . $opt['value'] . "<br/>";
+                $label = isset($opt['label']) ? (string) $opt['label'] : '';
+                if (stripos($label, 'date') !== false) {
+                    $dates[] = $this->escapeHtml($opt['value']);
+                }
             }
-            return $return;
+            if (!empty($dates)) {
+                return implode('<br/>', $dates);
+            }
         }
-        return "------";
+        return '------';
     }
 }

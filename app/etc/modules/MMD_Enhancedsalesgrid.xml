@@ -4,6 +4,9 @@
         <MMD_Enhancedsalesgrid>
             <active>true</active>
             <codePool>local</codePool>
+            <depends>
+                <Mage_Adminhtml/>
+            </depends>
         </MMD_Enhancedsalesgrid>
     </modules>
 </config>

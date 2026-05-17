@@ -18,6 +18,8 @@
 			<adminhtml>
 				<rewrite>
 				<sales_order_grid>MMD_Enhancedsalesgrid_Block_Sales_Order_Grid</sales_order_grid>
+				<sales_order_view>MMD_Enhancedsalesgrid_Block_Sales_Order_View</sales_order_view>
+				<sales_order_view_tabs>MMD_Enhancedsalesgrid_Block_Sales_Order_View_Tabs</sales_order_view_tabs>
 				</rewrite>
 			</adminhtml>
 			

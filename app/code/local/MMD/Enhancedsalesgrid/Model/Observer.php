@@ -18,7 +18,11 @@ class MMD_Enhancedsalesgrid_Model_Observer
             $select->joinLeft(
                 $table_sales_flat_order_item,
                 'main_table.entity_id = '.$table_sales_flat_order_item.'.order_id',
-                array('product_options','products_ordered' => 'GROUP_CONCAT(DISTINCT ROUND(qty_ordered), " x ", name, " (", sku, ")" SEPARATOR "'.PHP_EOL.'")')
+                array(
+                    'product_options',
+                    'products_ordered' => 'GROUP_CONCAT(DISTINCT ROUND(qty_ordered), " x ", name, " (", sku, ")" SEPARATOR "'.PHP_EOL.'")',
+                    'order_tax_percent' => 'MAX('.$table_sales_flat_order_item.'.tax_percent)',
+                )
             );
             //$select->group('main_table.entity_id');
         }
@@ -27,13 +31,16 @@ class MMD_Enhancedsalesgrid_Model_Observer
 		 if(in_array('subtotal', $enabled_options)) {
            $feilds[]="subtotal";
         }
-		
+
         if(in_array('customer_email', $enabled_options)) {
 		$feilds[]="customer_email";
 		}
 		 if(in_array('shipping_amount', $enabled_options)) {
 		$feilds[]="shipping_amount";
 		}
+		// Always pull tax + discount so the Tax Rate column renders correctly.
+		$feilds[] = 'tax_amount';
+		$feilds[] = 'discount_amount';
 			
         /* if($feilds) {*/
 		 $table_sales_flat_order = Mage::getSingleton('core/resource')->getTableName('sales/order');

@@ -33,32 +33,32 @@ $orderStoreDate = $this->formatDate($_order->getCreatedAtStoreDate(), 'medium', 
     <!--Order Information-->
     <div class="entry-edit">
         <?php if ($_order->getEmailSent()):
-            $_email = Mage::helper('sales')->__('the order confirmation email was sent');
+            $_email = Mage::helper('sales')->__('confirmation email sent');
         else:
-            $_email = Mage::helper('sales')->__('the order confirmation email is not sent');
+            $_email = Mage::helper('sales')->__('confirmation email NOT sent');
         endif; ?>
         <div class="entry-edit-head">
         <?php if ($this->getNoUseOrderLink()): ?>
-            <h4 class="icon-head head-account"><?php echo Mage::helper('sales')->__('Order # %s', $this->escapeHtml($_order->getRealOrderId())) ?> (<?php echo $_email ?>)</h4>
+            <h4 class="icon-head head-account"><?php echo Mage::helper('sales')->__('Reg # %s', $this->escapeHtml($_order->getRealOrderId())) ?> <strong>(<?php echo $_email ?>)</strong></h4>
         <?php else: ?>
-            <a href="<?php echo $this->getViewUrl($_order->getId()) ?>"><?php echo Mage::helper('sales')->__('Order # %s', $this->escapeHtml($_order->getRealOrderId())) ?></a>
+            <a href="<?php echo $this->getViewUrl($_order->getId()) ?>"><?php echo Mage::helper('sales')->__('Reg # %s', $this->escapeHtml($_order->getRealOrderId())) ?></a>
             <strong>(<?php echo $_email ?>)</strong>
         <?php endif; ?>
         </div>
         <div class="fieldset">
             <table cellspacing="0" class="form-list">
             <tr>
-                <td class="label"><label><?php echo Mage::helper('sales')->__('Order Date') ?></label></td>
+                <td class="label"><label><?php echo Mage::helper('sales')->__('Reg Date') ?></label></td>
                 <td class="value"><strong><?php echo $orderAdminDate ?></strong></td>
             </tr>
             <?php if ($orderAdminDate != $orderStoreDate):?>
             <tr>
-                <td class="label"><label><?php echo Mage::helper('sales')->__('Order Date (%s)', $_order->getCreatedAtStoreDate()->getTimezone()) ?></label></td>
+                <td class="label"><label><?php echo Mage::helper('sales')->__('Reg Date (%s)', $_order->getCreatedAtStoreDate()->getTimezone()) ?></label></td>
                 <td class="value"><strong><?php echo $orderStoreDate ?></strong></td>
             </tr>
             <?php endif;?>
             <tr>
-                <td class="label"><label><?php echo Mage::helper('sales')->__('Order Status') ?></label></td>
+                <td class="label"><label><?php echo Mage::helper('sales')->__('Reg Status') ?></label></td>
                 <td class="value"><strong><span id="order_status"><?php echo $_order->getStatusLabel() ?></span></strong></td>
             </tr>
             <tr>
@@ -114,7 +114,7 @@ $orderStoreDate = $this->formatDate($_order->getCreatedAtStoreDate(), 'medium', 
             <div class="hor-scroll">
                 <table cellspacing="0" class="form-list">
                 <tr>
-                    <td class="label"><label><?php echo Mage::helper('sales')->__('Customer Name') ?></label></td>
+                    <td class="label"><label><?php echo Mage::helper('sales')->__('Learner Name') ?></label></td>
                     <td class="value">
                     <?php if ($_customerUrl=$this->getCustomerViewUrl()) : ?>
                         <a href="<?php echo $_customerUrl ?>" target="_blank"><strong><?php echo $this->escapeHtml($_order->getCustomerName()) ?></strong></a>
@@ -129,7 +129,7 @@ $orderStoreDate = $this->formatDate($_order->getCreatedAtStoreDate(), 'medium', 
                 </tr>
                 <?php if ($_groupName = $this->getCustomerGroupName()) : ?>
                 <tr>
-                    <td class="label"><label><?php echo Mage::helper('sales')->__('Customer Group') ?></label></td>
+                    <td class="label"><label><?php echo Mage::helper('sales')->__('Learner Group') ?></label></td>
                     <td class="value"><strong><?php echo $this->escapeHtml($_groupName) ?></strong></td>
                 </tr>
                 <?php endif; ?>
