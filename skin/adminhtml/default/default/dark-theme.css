@@ -2943,9 +2943,23 @@ html body select[multiple]:focus option:checked,
 html body select.multiselect:focus option:checked,
 html body select[multiple]:focus option[selected],
 html body select.multiselect:focus option[selected] {
-    background: var(--d2) !important;
-    background-color: var(--d2) !important;
+    background: transparent !important;
+    background-color: transparent !important;
     color: var(--green) !important;
+}
+/* Multiselect listbox optgroup labels (e.g. CMS Page "Store View":
+   Main Website / Malaysia / Ghana headers) were painted grey by the
+   global `select optgroup { background: var(--d5) }` rule, which the
+   user wants transparent. Scope transparency to multiselect LISTBOXES
+   only — single-select dropdown popups keep the readable grey optgroup
+   background (that global rule, untouched). */
+html body select[multiple] optgroup,
+html body select.multiselect optgroup,
+html body select[multiple] optgroup option,
+html body select.multiselect optgroup option {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: var(--t1) !important;
 }
 html body select[multiple]::-webkit-scrollbar,
 html body select.multiselect::-webkit-scrollbar {
