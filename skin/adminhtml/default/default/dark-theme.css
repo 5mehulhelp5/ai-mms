@@ -3582,3 +3582,112 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table tr:has(text
 html body[class*="customoptions-options-edit"] [id^="option_"] table tr:has(textarea) .scalable {
     margin-top: 2px !important;
 }
+
+/* === Edit Template: maximum-density compaction pass ===
+   Shrink every gap/padding the legacy custom-options editor introduces
+   so the page reads as a dense data form. */
+
+/* Option panels: tight padding, minimal gap between option blocks */
+html body[class*="customoptions-options-edit"] [id^="option_"] {
+    padding: 6px 8px !important;
+    margin-bottom: 6px !important;
+    border-radius: 6px !important;
+}
+html body[class*="customoptions-options-edit"] [id^="option_"] > div:first-child,
+html body[class*="customoptions-options-edit"] [id^="option_"] .option-box,
+html body[class*="customoptions-options-edit"] [id^="option_"] .option-header {
+    margin-bottom: 4px !important;
+    padding: 4px 6px !important;
+}
+
+/* Option-header labels and inputs: tight vertical rhythm */
+html body[class*="customoptions-options-edit"] .option-header label,
+html body[class*="customoptions-options-edit"] [id^="option_"] th,
+html body[class*="customoptions-options-edit"] [id^="option_"] .label-cell {
+    padding: 0 6px 2px 0 !important;
+    font-size: 10.5px !important;
+    line-height: 1.2 !important;
+}
+
+/* All inputs/selects/textareas: shorter */
+html body[class*="customoptions-options-edit"] input[type="text"],
+html body[class*="customoptions-options-edit"] input[type="number"],
+html body[class*="customoptions-options-edit"] input[type="email"],
+html body[class*="customoptions-options-edit"] select {
+    min-height: 24px !important;
+    height: 24px !important;
+    padding: 2px 6px !important;
+    font-size: 12px !important;
+}
+html body[class*="customoptions-options-edit"] textarea {
+    padding: 4px 6px !important;
+    font-size: 12px !important;
+    line-height: 1.3 !important;
+}
+
+/* Values table rows: minimal vertical padding */
+html body[class*="customoptions-options-edit"] [id^="option_"] table th,
+html body[class*="customoptions-options-edit"] [id^="option_"] table td {
+    padding: 2px 5px !important;
+    line-height: 1.2 !important;
+}
+html body[class*="customoptions-options-edit"] [id^="option_"] table tbody tr td {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+}
+html body[class*="customoptions-options-edit"] [id^="option_"] table input[type="text"],
+html body[class*="customoptions-options-edit"] [id^="option_"] table input[type="number"],
+html body[class*="customoptions-options-edit"] [id^="option_"] table select {
+    height: 22px !important;
+    min-height: 22px !important;
+    padding: 1px 6px !important;
+}
+
+/* Buttons in the editor — shorter */
+html body[class*="customoptions-options-edit"] button,
+html body[class*="customoptions-options-edit"] .scalable,
+html body[class*="customoptions-options-edit"] input[type="button"] {
+    min-height: 22px !important;
+    height: 22px !important;
+    line-height: 20px !important;
+    padding: 0 8px !important;
+    font-size: 11px !important;
+}
+
+/* Page-level: kill the big margins between fieldsets and the
+   page-header / toolbar spacing */
+html body[class*="customoptions-options-edit"] .content-header {
+    margin-bottom: 8px !important;
+    padding-bottom: 6px !important;
+}
+html body[class*="customoptions-options-edit"] fieldset {
+    padding: 6px 8px !important;
+    margin-bottom: 6px !important;
+}
+html body[class*="customoptions-options-edit"] .form-list tr td,
+html body[class*="customoptions-options-edit"] .form-list tr th {
+    padding: 3px 6px !important;
+}
+html body[class*="customoptions-options-edit"] h4,
+html body[class*="customoptions-options-edit"] .entry-edit-head {
+    margin: 4px 0 !important;
+    padding: 4px 0 !important;
+    font-size: 13px !important;
+}
+html body[class*="customoptions-options-edit"] .entry-edit {
+    margin-bottom: 6px !important;
+}
+
+/* Tfoot Add New Row strip: tighter */
+html body[class*="customoptions-options-edit"] [id^="option_"] tfoot td {
+    padding: 4px 6px !important;
+}
+html body[class*="customoptions-options-edit"] [id^="option_"] tfoot button {
+    margin: 2px auto !important;
+}
+
+/* Textarea cell row (Default Text + Add Image): keep compact */
+html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
+    height: 40px !important;
+    min-height: 40px !important;
+}
