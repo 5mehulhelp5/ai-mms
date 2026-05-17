@@ -77,22 +77,14 @@ class MMD_Adminhtml_Block_Customoptions_Options_Grid extends Mage_Adminhtml_Bloc
         ));
 
         $this->addColumn('action', array(
-            'header' => $helper->__('Action'),
-            'width' => 100,
-            'type' => 'action',
-            'getter' => 'getId',
-            'actions' => array(
-                array(
-                    'caption' => $helper->__('Edit'),
-                    'url' => array('base' => '*/*/edit', array('store' => $this->getStoreId())),
-                    'field' => 'group_id'
-                )
-            ),
-            'filter' => false,
-            'sortable' => false,
-            'index' => 'stores',
+            'header'    => $helper->__('Action'),
+            'width'     => 80,
+            'renderer'  => 'mmd/customoptions_options_renderer_action',
+            'store_id'  => $this->getStoreId(),
+            'filter'    => false,
+            'sortable'  => false,
             'is_system' => true,
-            'align' => 'center'
+            'align'     => 'center',
         ));
 
         return parent::_prepareColumns();

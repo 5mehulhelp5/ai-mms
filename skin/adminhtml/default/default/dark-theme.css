@@ -1247,11 +1247,11 @@ body.has-relocated-tabs ul.tabs.tabs-relocated {
     background: transparent !important;
     background-image: none !important;
     border: none !important;
+    border-bottom: 0 !important;
     padding: 0 !important;
     margin: 12px 0 16px !important;
     list-style: none !important;
     width: 100% !important;
-    border-bottom: 1px solid var(--b1) !important;
 }
 body.has-relocated-tabs ul.tabs.tabs-relocated li,
 body.has-relocated-tabs ul.tabs.tabs-relocated li.active,
@@ -2747,8 +2747,18 @@ body[class*="adminhtml-system_config"] #config_edit_form table.form-list { width
 html body[class*="adminhtml-system_config"] #config_edit_form tr[id^="row_"] {
     display: grid !important;
     grid-template-columns: 210px minmax(0, 1fr) 120px !important;
-    align-items: start !important;
+    align-items: center !important;
     gap: 12px !important;
+    padding: 3px 0 !important;
+    border-bottom: 0 !important;
+}
+html body[class*="adminhtml-system_config"] #config_edit_form tr[id^="row_"] td.label,
+html body[class*="adminhtml-system_config"] #config_edit_form tr[id^="row_"] td.value,
+html body[class*="adminhtml-system_config"] #config_edit_form tr[id^="row_"] td.scope-label,
+html body[class*="adminhtml-system_config"] #config_edit_form tr[id^="row_"] td.use-default {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+    vertical-align: middle !important;
 }
 /* FIXED pixel width — not 100%. The value cell width varies per row
    (left edges align, right edges were ragged because width:100%
@@ -3086,4 +3096,343 @@ ul.config-accordion li dt.accordion-toggle:focus {
 .mmd-reg-filter-toggle.active {
     border-color: #60a5fa !important;
     color: #fff !important;
+}
+
+/* === Course Manager grid: compact rows + inline icon actions === */
+body[class*="customoptions-options-index"] table.data tbody tr td,
+body[class*="customoptions-options-index"] table.data tbody tr th {
+    padding: 4px 8px !important;
+    line-height: 1.3 !important;
+}
+body[class*="customoptions-options-index"] table.data tbody tr {
+    height: auto !important;
+}
+.mmd-grid-actions {
+    display: inline-flex !important;
+    gap: 8px !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+.mmd-grid-action {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 26px !important;
+    height: 26px !important;
+    border-radius: 5px !important;
+    border: 1px solid var(--b2, #2a3447) !important;
+    background: transparent !important;
+    color: var(--t3, #cbd5e1) !important;
+    text-decoration: none !important;
+    transition: background 0.12s, color 0.12s, border-color 0.12s !important;
+}
+.mmd-grid-action:hover { background: rgba(96, 165, 250, 0.12) !important; }
+.mmd-grid-action--edit:hover   { color: #60a5fa !important; border-color: #60a5fa !important; }
+.mmd-grid-action--delete:hover { color: #f87171 !important; border-color: #f87171 !important; }
+
+/* === Course Manager — Edit Template page (Template Options editor) ===
+   Body class: adminhtml-mmd-customoptions-options-edit
+   The legacy custom-options editor renders nested .box-left/.box panels
+   with hard-coded light backgrounds, cramped column headers running into
+   each other, and an orphaned customer-group panel. Override to dark,
+   tighten spacing, and surface the row data clearly.
+*/
+body[class*="customoptions-options-edit"] #customoption_options,
+body[class*="customoptions-options-edit"] .box-left,
+body[class*="customoptions-options-edit"] .box-right,
+body[class*="customoptions-options-edit"] .box,
+body[class*="customoptions-options-edit"] .grid,
+body[class*="customoptions-options-edit"] .entry-edit,
+body[class*="customoptions-options-edit"] fieldset {
+    background: transparent !important;
+    background-color: transparent !important;
+    border-color: var(--b1) !important;
+    box-shadow: none !important;
+}
+
+/* Form wrappers — option list container */
+body[class*="customoptions-options-edit"] .form-list,
+body[class*="customoptions-options-edit"] .form-list * {
+    background: transparent !important;
+}
+
+/* The option row "header" strip (Title / Input Type / Is Required / View Mode /
+   Is Dependent / One-time / Sort Order / Qnty Input / Learner Groups) is
+   rendered as a flex row of light-bg labels. Convert to a clean dark band. */
+body[class*="customoptions-options-edit"] #product_option_box .option-box,
+body[class*="customoptions-options-edit"] #product_option_box .option-header,
+body[class*="customoptions-options-edit"] .product-options .option-box,
+body[class*="customoptions-options-edit"] .product-options .option-header,
+body[class*="customoptions-options-edit"] [id^="option_"] .option-header,
+body[class*="customoptions-options-edit"] [id^="option_"] > div:first-child {
+    background: var(--d3) !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 8px !important;
+    padding: 10px 14px !important;
+    margin-bottom: 8px !important;
+    color: var(--t2) !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] {
+    background: var(--d2) !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 10px !important;
+    padding: 12px !important;
+    margin-bottom: 14px !important;
+}
+
+/* Column header labels — give breathing room so "Title Input Type Is Required..."
+   stops running together. */
+body[class*="customoptions-options-edit"] .option-header label,
+body[class*="customoptions-options-edit"] [id^="option_"] th,
+body[class*="customoptions-options-edit"] [id^="option_"] .label-cell {
+    font: 600 11px/1.4 inherit !important;
+    color: var(--t3) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+    padding: 0 8px 4px 0 !important;
+    white-space: nowrap !important;
+}
+
+/* All inputs, selects, textareas — consistent dark style */
+body[class*="customoptions-options-edit"] input[type="text"],
+body[class*="customoptions-options-edit"] input[type="number"],
+body[class*="customoptions-options-edit"] input[type="email"],
+body[class*="customoptions-options-edit"] textarea,
+body[class*="customoptions-options-edit"] select {
+    background: var(--d1) !important;
+    border: 1px solid var(--b2) !important;
+    color: var(--t1) !important;
+    border-radius: 6px !important;
+    padding: 6px 10px !important;
+    font-size: 12.5px !important;
+    line-height: 1.3 !important;
+    min-height: 32px !important;
+    box-shadow: none !important;
+}
+body[class*="customoptions-options-edit"] input:focus,
+body[class*="customoptions-options-edit"] select:focus,
+body[class*="customoptions-options-edit"] textarea:focus {
+    outline: none !important;
+    border-color: var(--blue, #60a5fa) !important;
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.18) !important;
+}
+
+/* Inner option-values table (Id / Title / Course Date / Price / Price Type /
+   Course Code / Sort Order / Pax / Default / Children / Image) — make the
+   header band readable and the data row aligned. */
+body[class*="customoptions-options-edit"] table.values-table,
+body[class*="customoptions-options-edit"] [id^="option_"] table {
+    width: 100% !important;
+    background: transparent !important;
+    border-collapse: separate !important;
+    border-spacing: 0 4px !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] table th,
+body[class*="customoptions-options-edit"] [id^="option_"] table td {
+    background: transparent !important;
+    border: none !important;
+    padding: 4px 6px !important;
+    vertical-align: middle !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] table th {
+    font: 600 10.5px/1.3 inherit !important;
+    color: var(--t4) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+    padding-bottom: 6px !important;
+}
+
+/* The orphaned customer-group / "NOT LOGGED IN / General" panel on the right
+   needs a dark frame. */
+body[class*="customoptions-options-edit"] .group-customer,
+body[class*="customoptions-options-edit"] .customer-group,
+body[class*="customoptions-options-edit"] #group_box,
+body[class*="customoptions-options-edit"] [id*="group"][class*="box"] {
+    background: var(--d3) !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    color: var(--t2) !important;
+}
+
+/* Compact page header (Edit Template '...') */
+body[class*="customoptions-options-edit"] .content-header h3,
+body[class*="customoptions-options-edit"] .content-header h4 {
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: var(--t1) !important;
+    margin: 0 !important;
+}
+
+/* === Course Manager — Edit Template: tighten the option-values table ===
+   Override the broad scoping above to force a true single-row-per-option
+   layout matching the original Magento compactness. */
+body[class*="customoptions-options-edit"] [id^="option_"] table,
+body[class*="customoptions-options-edit"] [id^="option_"] table.option-values,
+body[class*="customoptions-options-edit"] table.values-table {
+    display: table !important;
+    table-layout: auto !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+    margin: 0 !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] table thead,
+body[class*="customoptions-options-edit"] [id^="option_"] table tbody,
+body[class*="customoptions-options-edit"] [id^="option_"] table tr {
+    display: table-row-group !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] table tr {
+    display: table-row !important;
+    border-bottom: 1px solid var(--b1) !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] table tr:last-child {
+    border-bottom: 0 !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] table th,
+body[class*="customoptions-options-edit"] [id^="option_"] table td {
+    display: table-cell !important;
+    padding: 3px 6px !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+}
+/* Shrink inputs so they fit on one row */
+body[class*="customoptions-options-edit"] [id^="option_"] table input[type="text"],
+body[class*="customoptions-options-edit"] [id^="option_"] table input[type="number"],
+body[class*="customoptions-options-edit"] [id^="option_"] table select {
+    min-height: 26px !important;
+    height: 26px !important;
+    padding: 2px 8px !important;
+    font-size: 12px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] table input[type="checkbox"] {
+    margin: 0 !important;
+    transform: scale(1.05);
+}
+/* Column-width hints — narrow numeric cols, wider title col */
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(1),
+body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(1) {  /* Id */
+    width: 60px !important; text-align: center !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(2),
+body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(2) {  /* Title */
+    width: auto !important; min-width: 220px !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] table input[type="text"][name*="date"],
+body[class*="customoptions-options-edit"] [id^="option_"] table input[type="text"][id*="date"] {
+    min-width: 140px !important;
+}
+/* Calendar trigger icon next to date input */
+body[class*="customoptions-options-edit"] [id^="option_"] table img,
+body[class*="customoptions-options-edit"] [id^="option_"] table .ui-datepicker-trigger {
+    width: 22px !important;
+    height: 22px !important;
+    vertical-align: middle !important;
+    margin-left: 4px !important;
+    cursor: pointer !important;
+}
+/* Tighten the "Add Image" button so it doesn't tower over a 26px row */
+body[class*="customoptions-options-edit"] [id^="option_"] table button,
+body[class*="customoptions-options-edit"] [id^="option_"] table input[type="button"],
+body[class*="customoptions-options-edit"] [id^="option_"] table .button,
+body[class*="customoptions-options-edit"] [id^="option_"] table .scalable {
+    min-height: 26px !important;
+    height: 26px !important;
+    padding: 0 10px !important;
+    font-size: 11.5px !important;
+    line-height: 24px !important;
+}
+/* Wrapper rows around the table — kill extra vertical padding */
+body[class*="customoptions-options-edit"] [id^="option_"] {
+    padding: 8px !important;
+    margin-bottom: 8px !important;
+}
+
+/* === Course Manager — Edit Template: full-width compact layout match ===
+   Match original Magento: option panel and inner values table span 100%
+   of the content area, no overflow, columns size naturally. */
+body[class*="customoptions-options-edit"] #customoption_options,
+body[class*="customoptions-options-edit"] [id^="option_"],
+body[class*="customoptions-options-edit"] .option-box,
+body[class*="customoptions-options-edit"] table.values-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+/* Drop nowrap from cells so the table can compress to fit; only specific
+   narrow numeric cells stay nowrap. */
+body[class*="customoptions-options-edit"] [id^="option_"] table th,
+body[class*="customoptions-options-edit"] [id^="option_"] table td {
+    white-space: normal !important;
+}
+/* Inputs inside the table fill their cell instead of forcing 100% min-width */
+body[class*="customoptions-options-edit"] [id^="option_"] table input[type="text"],
+body[class*="customoptions-options-edit"] [id^="option_"] table input[type="number"],
+body[class*="customoptions-options-edit"] [id^="option_"] table select {
+    width: 100% !important;
+    min-width: 0 !important;
+}
+/* Reset prior fixed widths; size columns proportionally so they all fit */
+body[class*="customoptions-options-edit"] [id^="option_"] table {
+    table-layout: fixed !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(1),
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(1) { width: 44px !important; }   /* Id */
+body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(2),
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(2) { width: auto !important; }    /* Title (flex) */
+body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(3),
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(3) { width: 120px !important; }  /* Course Date */
+body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(4),
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(4) { width: 70px !important; }   /* Price */
+body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(5),
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(5) { width: 80px !important; }   /* Price Type */
+body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(6),
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(6) { width: 110px !important; }  /* Course Code */
+body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(7),
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(7) { width: 60px !important; }   /* Sort Order */
+body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(8),
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(8) { width: 50px !important; }   /* Pax */
+body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(9),
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(9) { width: 60px !important; text-align: center !important; }  /* Default */
+body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(10),
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(10) { width: 100px !important; } /* Children */
+body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(11),
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(11) { width: 110px !important; } /* Image */
+body[class*="customoptions-options-edit"] [id^="option_"] table th:nth-child(12),
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(12) { width: 32px !important; } /* Delete X */
+
+/* The Id cell stays nowrap (just a number) */
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(1) {
+    white-space: nowrap !important;
+    text-align: center !important;
+}
+
+/* Date trigger icon sits inline with input, not floating below */
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(3) {
+    position: relative !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(3) input[type="text"] {
+    width: calc(100% - 28px) !important;
+    display: inline-block !important;
+}
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(3) img {
+    width: 22px !important; height: 22px !important;
+    vertical-align: middle !important;
+    margin-left: 2px !important;
+}
+
+/* Add Image button — make it fit the narrow Image column */
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(11) button,
+body[class*="customoptions-options-edit"] [id^="option_"] table td:nth-child(11) .button {
+    padding: 0 8px !important;
+    font-size: 11px !important;
+    width: 100% !important;
+}
+
+/* Make the Template Options panel itself span the available width */
+body[class*="customoptions-options-edit"] #product_options {
+    max-width: 100% !important;
 }
