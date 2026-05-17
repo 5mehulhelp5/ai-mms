@@ -17,9 +17,13 @@
         <reference name="head">
             <action method="addJs"><script>mmd/sg-pricing.js</script></action>
             <action method="addItem"><type>skin_css</type><name>css/mmd-sg-pricing.css</name></action>
-        </reference>
-        <reference name="product.info">
-            <block type="mmd_singaporeprice/config" name="mmd_singaporeprice.config" as="mmd_singaporeprice_config" template="mmd_singaporeprice/config.phtml"/>
+            <!--
+                The config block emits an inline <script> with
+                window.MMD_SG_PRICING. head.phtml renders all
+                children via getChildHtml(), so the script lands
+                immediately before sg-pricing.js executes.
+            -->
+            <block type="mmd_singaporeprice/config" name="mmd_singaporeprice.config" template="mmd_singaporeprice/config.phtml"/>
         </reference>
     </catalog_product_view>
 </layout>
