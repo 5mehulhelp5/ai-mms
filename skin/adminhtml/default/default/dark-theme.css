@@ -644,12 +644,15 @@ div.collapseable::after {
 }
 
 /* Grid mass-action header bar (the "0 items selected · ACTIONS · Submit"
-   strip above every Magento grid). Compact + consistent across all pages. */
+   strip above every Magento grid). Flat on canvas — no panel fill,
+   no border, no rounded card. */
 .massaction, .grid .massaction {
     padding: 8px 12px !important;
-    background: rgba(15,23,42,0.55) !important;
-    border: 1px solid rgba(148,163,184,0.14) !important;
-    border-radius: 8px !important;
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
     margin: 0 0 8px !important;
 }
 .massaction .entry-edit-head, .massaction .form-buttons { padding: 0 !important; border: none !important; }
@@ -836,46 +839,48 @@ img[src*="calendar"]:hover, img[src*="cal_"]:hover { opacity: 1 !important; }
     color: var(--t3) !important;
 }
 
-/* === 8. Mass Action Bar (AI-LMS-TMS segmented pill group) === */
+/* === 8. Mass Action Bar — flat, no container fill or inner pills === */
 .massaction, .massaction-box,
 body .massaction {
-    background: var(--d2) !important;
+    background: transparent !important;
     background-image: none !important;
-    border: 1px solid var(--b1) !important;
-    border-radius: 10px !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
     padding: 10px 14px !important;
     color: var(--t3) !important;
     margin-bottom: 0 !important;
 }
 .massaction label { color: var(--t3) !important; }
-.massaction td { border-top: none !important; vertical-align: middle !important; }
+.massaction td { border-top: none !important; vertical-align: middle !important; background: transparent !important; }
 
-/* Hide the literal "|" separators — pills don't need them */
+/* Hide the literal "|" separators */
 .massaction .separator { display: none !important; }
 
-/* Select-all family links as pill buttons on an inset track */
+/* Select-all family links — plain text, no inner pill/track */
 .massaction td:first-child {
-    background: var(--d0) !important;
-    border: 1px solid var(--b1) !important;
-    border-radius: 8px !important;
-    padding: 4px !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
     white-space: nowrap !important;
 }
 .massaction a {
     display: inline-block !important;
-    color: var(--t2) !important;
+    color: var(--blue) !important;
     font-size: 12px !important;
     font-weight: 500 !important;
     text-decoration: none !important;
-    padding: 6px 12px !important;
+    padding: 4px 8px !important;
     margin: 0 2px !important;
-    border-radius: 6px !important;
-    background: var(--d3) !important;
-    transition: background-color .15s ease, color .15s ease !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    transition: color .15s ease !important;
 }
 .massaction a:hover {
-    background: var(--blue2) !important;
-    color: #fff !important;
+    background: transparent !important;
+    color: var(--blue2) !important;
+    text-decoration: underline !important;
     opacity: 1 !important;
 }
 .massaction td:first-child {
