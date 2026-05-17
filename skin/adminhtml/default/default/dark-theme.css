@@ -594,6 +594,20 @@ body.catalog-categories #tree-div .x-tree-selected span {
     gap: 8px !important;
     min-height: 0 !important;
 }
+/* System Configuration accordion section bars (Countries Options,
+   States Options, Locale Options, Store Information, …) — user wants
+   these gray again. Scoped to the config page only so the global
+   transparent .entry-edit-head treatment (order view, boxes, etc.)
+   is untouched. .section-config is the wrapper Magento always emits
+   per config group; the body-class variant is a belt-and-suspenders. */
+body[class*="adminhtml-system_config"] .entry-edit-head,
+body[class*="adminhtml-system_config"] .entry-edit-head.collapseable,
+.section-config .entry-edit-head,
+.section-config .entry-edit-head.collapseable {
+    background: var(--d4) !important;
+    background-image: none !important;
+    border-radius: 8px 8px 0 0 !important;
+}
 .entry-edit-head h4, .box-head h4, .box-head h3 {
     color: var(--t1) !important;
     font-weight: 600 !important;
