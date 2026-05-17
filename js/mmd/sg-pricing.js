@@ -42,10 +42,28 @@
         var key = normalise(label);
         return parseFloat(map[key]) || 0;
     }
+    // Read the radio's original label text — strip out any badge span
+    // we added in annotateBadges(), otherwise the map lookup fails:
+    // "singaporean below 40 yrs old 50% off" wouldn't match the key
+    // "singaporean below 40 yrs old".
+    function labelTextFor(radio) {
+        if (!radio) return '';
+        var lbl = document.querySelector('label[for="' + radio.id + '"]');
+        if (!lbl) return '';
+        var t = '';
+        for (var i = 0; i < lbl.childNodes.length; i++) {
+            var node = lbl.childNodes[i];
+            if (node.nodeType === 3) {
+                t += node.nodeValue;
+            } else if (node.nodeType === 1 && node.className.indexOf('mmd-sg-badge') === -1) {
+                t += node.textContent;
+            }
+        }
+        return t;
+    }
     function discountForRadio(radio) {
         if (!radio || !radio.checked) return 0;
-        var lbl = document.querySelector('label[for="' + radio.id + '"]');
-        return discountForLabel(lbl ? lbl.textContent : '');
+        return discountForLabel(labelTextFor(radio));
     }
 
     /** Pick the largest funding discount among all checked radios. */
