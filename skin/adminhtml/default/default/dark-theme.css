@@ -338,6 +338,46 @@ body.catalog-categories .injected-data-table {
     display: none !important;
 }
 
+/* CMS Pages grid — compact rows + a single-input search above the grid.
+   The stock Magento grid pads cells generously which makes Manage Pages
+   feel sparse; tighten it so one record reads as one tight row. */
+body.adminhtml-cms-page-index .grid table.data tbody td,
+body.adminhtml-cms-page-index .grid td {
+    padding: 6px 12px !important;
+    font-size: 12.5px !important;
+    line-height: 1.35 !important;
+    vertical-align: middle !important;
+}
+body.adminhtml-cms-page-index .grid th,
+body.adminhtml-cms-page-index .grid tr.headings th {
+    padding: 8px 12px !important;
+}
+body.adminhtml-cms-page-index .grid tr.filter td,
+body.adminhtml-cms-page-index .grid tr.filter th {
+    padding: 4px 10px !important;
+}
+.cms-grid-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0 4px;
+}
+.cms-grid-search-wrap input {
+    background: var(--d2) !important;
+    border: 1px solid var(--b2) !important;
+    color: var(--t1) !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    width: 360px !important;
+    max-width: 100% !important;
+    font-size: 13px !important;
+}
+.cms-grid-search-wrap input:focus {
+    outline: none !important;
+    border-color: var(--blue) !important;
+    box-shadow: 0 0 0 2px rgba(96,165,250,0.18) !important;
+}
+
 /* Hide the empty "New Root Category" edit form by default — only show it
    when the user has clicked a tree node (the form picks up the .editing
    state when populated, or is hidden on landing). The default reserves
@@ -727,6 +767,20 @@ div.collapseable::after {
 .grid table.data tbody td, .grid td {
     font-size: 12.5px !important;
     padding: 9px 12px !important;
+    /* Compact rows: one record = one line. Long values (course names,
+       product options, addresses) ellipsize instead of wrapping onto
+       multiple lines. Hovering the cell shows the full text via title. */
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 320px;
+    vertical-align: middle !important;
+}
+/* Action / icon-only cells shouldn't ellipsize their icon row. */
+.grid table.data tbody td.row-edit-actions,
+.grid table.data tbody td a.row-action-btn,
+.grid table.data tbody td .row-action-wrap {
+    overflow: visible !important;
 }
 .grid table.data tbody tr:hover td { background: rgba(37,139,182,0.06) !important; }
 
@@ -1172,6 +1226,346 @@ ul.tabs a.active, ul.tabs a.active span {
    `is-order-view` lives on <body> via layout XML and on <html> via JS. */
 body.is-order-view .side-col,
 html.is-order-view .side-col { display: none !important; }
+
+/* Generic: any edit page where ul.tabs has been relocated out of
+   .side-col into .main-col-inner. Renders as a horizontal tab strip
+   above the form. JS lives in sidebar-nav-v2.js → relocateSideColTabs. */
+body.has-relocated-tabs .side-col { display: none !important; }
+body.has-relocated-tabs .main-col { flex: 1 1 auto !important; margin-left: 0 !important; }
+body.has-relocated-tabs ul.tabs.tabs-relocated {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    flex-direction: row !important;
+    gap: 4px !important;
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 12px 0 16px !important;
+    list-style: none !important;
+    width: 100% !important;
+    border-bottom: 1px solid var(--b1) !important;
+}
+body.has-relocated-tabs ul.tabs.tabs-relocated li,
+body.has-relocated-tabs ul.tabs.tabs-relocated li.active,
+body.has-relocated-tabs ul.tabs.tabs-relocated li:hover {
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    float: none !important;
+    width: auto !important;
+    display: inline-block !important;
+}
+body.has-relocated-tabs ul.tabs.tabs-relocated a,
+body.has-relocated-tabs ul.tabs.tabs-relocated a:hover,
+body.has-relocated-tabs ul.tabs.tabs-relocated a.active,
+body.has-relocated-tabs ul.tabs.tabs-relocated a span,
+body.has-relocated-tabs ul.tabs.tabs-relocated a.active span {
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-radius: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+body.has-relocated-tabs ul.tabs.tabs-relocated a {
+    display: inline-block !important;
+    padding: 9px 16px !important;
+    background: transparent !important;
+    background-image: none !important;
+    border-bottom: 2px solid transparent !important;
+    color: var(--t4) !important;
+    font-weight: 500 !important;
+    text-decoration: none !important;
+    margin-bottom: -1px !important;
+}
+body.has-relocated-tabs ul.tabs.tabs-relocated a:hover {
+    background: transparent !important;
+    color: var(--blue) !important;
+}
+body.has-relocated-tabs ul.tabs.tabs-relocated a.active,
+body.has-relocated-tabs ul.tabs.tabs-relocated a.active span {
+    background: transparent !important;
+    background-image: none !important;
+    color: var(--blue) !important;
+    border-bottom: 2px solid var(--blue) !important;
+    font-weight: 600 !important;
+}
+
+/* === Phase 2a: System Config — relocated ul.tabs.config-accordion ===
+   Special structure: each <li> contains a <dl><dt><dd> with the section
+   header (dt) and its links (dd). Render as horizontal section pills
+   with an expanded items panel only for accordion-open sections. */
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: flex-start !important;
+    gap: 6px 4px !important;
+    margin: 12px 0 16px !important;
+    padding: 0 !important;
+    border: none !important;
+    border-bottom: 1px solid var(--b1) !important;
+    background: transparent !important;
+    list-style: none !important;
+    width: 100% !important;
+}
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion > li {
+    flex: 0 0 auto !important;
+    background: transparent !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    list-style: none !important;
+    display: inline-block !important;
+}
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion > li > dl {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+}
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion dt.accordion-toggle {
+    display: inline-block !important;
+    padding: 9px 14px !important;
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    color: var(--t4) !important;
+    font-weight: 500 !important;
+    font-size: 12.5px !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    cursor: pointer !important;
+    margin-bottom: -1px !important;
+    line-height: normal !important;
+}
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion dt.accordion-toggle img {
+    display: none !important;
+}
+/* Hide the legacy ▶ chevron pseudo on accordion-toggle dt — it shows
+   up as a stray char next to the section name in the horizontal bar. */
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion dt.accordion-toggle::before,
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion dt.accordion-toggle::after {
+    display: none !important;
+    content: none !important;
+}
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion dt.accordion-toggle:hover {
+    color: var(--blue) !important;
+}
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion li.accordion-open > dl > dt.accordion-toggle,
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion li.active > dl > dt.accordion-toggle {
+    color: var(--blue) !important;
+    border-bottom-color: var(--blue) !important;
+    font-weight: 600 !important;
+}
+/* Hide dd by default — only the open section reveals its items. The
+   open dd attaches itself as a floating row below the section pill. */
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion dd {
+    display: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion li.accordion-open > dl > dd {
+    display: block !important;
+    padding: 6px 0 0 14px !important;
+    margin: 0 !important;
+}
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion > li.accordion-open {
+    flex-basis: 100% !important;
+    order: -1 !important;
+}
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion > li.accordion-open > dl {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+}
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion dd a {
+    display: inline-block !important;
+    padding: 5px 10px !important;
+    margin: 2px 4px 2px 0 !important;
+    color: var(--t3) !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    border-radius: 5px !important;
+    font-size: 12.5px !important;
+    text-decoration: none !important;
+}
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion dd a:hover {
+    color: var(--blue) !important;
+    background: var(--d4) !important;
+}
+body.adminhtml-system-config-edit ul.tabs.tabs-relocated.config-accordion dd a.active {
+    color: #fff !important;
+    background: var(--blue3, #2563eb) !important;
+    border-color: var(--blue3, #2563eb) !important;
+    font-weight: 600 !important;
+}
+
+/* === Phase 2: System Config — relocated dl.accordion === */
+body.has-relocated-accordion .side-col { display: none !important; }
+body.has-relocated-accordion .main-col { flex: 1 1 auto !important; margin-left: 0 !important; }
+body.has-relocated-accordion dl.accordion.accordion-relocated {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: flex-start !important;
+    gap: 4px 6px !important;
+    margin: 12px 0 16px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid var(--b1) !important;
+    width: 100% !important;
+}
+body.has-relocated-accordion dl.accordion.accordion-relocated dt {
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    flex: 0 0 auto !important;
+    cursor: pointer !important;
+}
+body.has-relocated-accordion dl.accordion.accordion-relocated dt strong {
+    display: inline-block !important;
+    padding: 9px 14px !important;
+    color: var(--t4) !important;
+    font-weight: 500 !important;
+    border-bottom: 2px solid transparent !important;
+    margin-bottom: -1px !important;
+    background: transparent !important;
+}
+body.has-relocated-accordion dl.accordion.accordion-relocated dt:hover strong {
+    color: var(--blue) !important;
+}
+body.has-relocated-accordion dl.accordion.accordion-relocated dt.current strong,
+body.has-relocated-accordion dl.accordion.accordion-relocated dd.open + dt strong {
+    color: var(--blue) !important;
+    border-bottom-color: var(--blue) !important;
+    font-weight: 600 !important;
+}
+/* Sub-items (the section links) move into a second-row strip beneath
+   the active top tab. We display only the OPEN dd's items inline. */
+body.has-relocated-accordion dl.accordion.accordion-relocated dd {
+    display: none !important;
+    flex-basis: 100% !important;
+    order: 99 !important;
+    background: var(--d2) !important;
+    border-radius: 0 0 8px 8px !important;
+    padding: 8px 10px !important;
+    margin: 0 !important;
+    border: 1px solid var(--b1) !important;
+    border-top: none !important;
+}
+body.has-relocated-accordion dl.accordion.accordion-relocated dd.open {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 4px 8px !important;
+}
+body.has-relocated-accordion dl.accordion.accordion-relocated dd ul {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 4px 8px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    list-style: none !important;
+    width: 100% !important;
+}
+body.has-relocated-accordion dl.accordion.accordion-relocated dd ul li {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    list-style: none !important;
+}
+body.has-relocated-accordion dl.accordion.accordion-relocated dd ul li a {
+    display: inline-block !important;
+    padding: 6px 12px !important;
+    color: var(--t3) !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    border-radius: 6px !important;
+    font-size: 12.5px !important;
+    text-decoration: none !important;
+}
+body.has-relocated-accordion dl.accordion.accordion-relocated dd ul li a:hover {
+    color: var(--blue) !important;
+    background: var(--d4) !important;
+}
+body.has-relocated-accordion dl.accordion.accordion-relocated dd ul li.active a,
+body.has-relocated-accordion dl.accordion.accordion-relocated dd ul li a.active {
+    color: #fff !important;
+    background: var(--blue3, #2563eb) !important;
+    border-color: var(--blue3, #2563eb) !important;
+    font-weight: 600 !important;
+}
+
+/* === Phase 3/4: Categories tree / Roles tree as slide-in overlay === */
+body.has-overlay-sidecol .main-col {
+    flex: 1 1 auto !important;
+    margin-left: 0 !important;
+}
+body.has-overlay-sidecol .side-col.side-col-overlay {
+    position: fixed !important;
+    top: 60px !important;
+    left: -360px !important;
+    width: 360px !important;
+    height: calc(100vh - 60px) !important;
+    z-index: 1500 !important;
+    transition: left 0.22s ease !important;
+    overflow-y: auto !important;
+    box-shadow: 4px 0 16px rgba(0,0,0,0.35) !important;
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    display: block !important;
+}
+body.has-overlay-sidecol.side-col-overlay-open .side-col.side-col-overlay {
+    left: 0 !important;
+}
+body.has-overlay-sidecol .side-col-overlay-toggle-wrap {
+    margin: 12px 0 8px !important;
+    display: flex !important;
+    align-items: center !important;
+}
+body.has-overlay-sidecol .side-col-overlay-toggle {
+    background: var(--blue3, #2563eb) !important;
+    background-image: none !important;
+    border: 1px solid var(--blue3, #2563eb) !important;
+    color: #fff !important;
+    padding: 7px 16px !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    margin-right: 10px !important;
+    cursor: pointer !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    text-transform: none !important;
+    height: auto !important;
+    line-height: normal !important;
+}
+body.has-overlay-sidecol .side-col-overlay-toggle:hover {
+    background: var(--blue, #60a5fa) !important;
+    border-color: var(--blue, #60a5fa) !important;
+}
+
+/* === Phase 5: Reports filter — relocated form === */
+body.has-relocated-reports-filter .side-col { display: none !important; }
+body.has-relocated-reports-filter .main-col { flex: 1 1 auto !important; margin-left: 0 !important; }
+body.has-relocated-reports-filter .reports-filter-relocated {
+    margin: 12px 0 16px !important;
+    background: var(--d3) !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 10px !important;
+    padding: 12px 14px !important;
+}
+
+/* === Phase 7: catch-all fallback for unhandled side-col === */
+body.has-hidden-sidecol .side-col { display: none !important; }
+body.has-hidden-sidecol .main-col { flex: 1 1 auto !important; margin-left: 0 !important; }
 body.is-order-view div.main-col,
 html.is-order-view div.main-col {
     float: none !important;
@@ -2559,4 +2953,64 @@ ul.config-accordion li.accordion-open dd {
 ul.config-accordion li dt.accordion-toggle:focus {
     outline: 2px solid var(--accent, #4ea1ff);
     outline-offset: -2px;
+}
+
+/* === Registrations: Manage-Courses-style search/filter bar ===
+   Reuses .dev-country-tabs / .dev-country-btn / .dev-search-* from
+   admin-dashboard.css so the visual matches the dashboard exactly. */
+.mmd-reg-wrap { margin: 0 0 16px 0; }
+.mmd-reg-total {
+    font-size: 22px !important;
+    font-weight: 700 !important;
+    color: #f1f5f9 !important;
+    margin: 18px 0 14px !important;
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 10px !important;
+}
+.mmd-reg-total span { color: #22d3ee !important; font-weight: 800 !important; }
+.mmd-reg-search-form {
+    margin-bottom: 16px !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+}
+#sales_order_grid_table.mmd-filters-hidden tr.filter { display: none !important; }
+.mmd-reg-search-form .dev-search-input { padding-left: 48px !important; }
+.mmd-reg-reset {
+    background: transparent !important;
+    border: none !important;
+    color: #94a3b8 !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    padding: 4px 8px !important;
+    text-decoration: none !important;
+    cursor: pointer !important;
+}
+.mmd-reg-reset:hover { color: #e2e8f0 !important; }
+.mmd-reg-filter-toggle {
+    background: transparent !important;
+    background-image: none !important;
+    border: 1px solid #475569 !important;
+    color: #e2e8f0 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    padding: 6px 16px !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    text-transform: none !important;
+    line-height: normal !important;
+    height: auto !important;
+}
+.mmd-reg-filter-toggle:hover {
+    border-color: #60a5fa !important;
+    color: #fff !important;
+}
+.mmd-reg-filter-toggle.active {
+    border-color: #60a5fa !important;
+    color: #fff !important;
 }

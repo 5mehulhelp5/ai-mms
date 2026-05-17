@@ -1745,29 +1745,53 @@ document.observe('dom:loaded', function() {
     // (the actual storefront the page belongs to), with " Store View"
     // stripped so it matches the Registrations branch labels.
     function simplifyCmsPageStoreColumn() {
-        var table = document.getElementById('cmsPageGrid_table');
-        if (!table) return;
-        var idx = findColumnIndex(table, 'Store View');
-        if (idx === -1) return;
-        var headings = table.querySelector('tr.headings');
-        var ths = headings.querySelectorAll('th');
-        ths[idx].innerHTML = '<span class="nobr">Branch</span>';
+        // Kept as a thin wrapper for clarity; the generalised walker below
+        // covers cmsPageGrid_table too.
+        simplifyAllStoreViewColumns();
+    }
 
-        table.querySelectorAll('tbody tr').forEach(function (row) {
-            if (row.classList.contains('headings') || row.classList.contains('filter')) return;
-            var cells = row.querySelectorAll('td');
-            if (!cells[idx]) return;
-            var cell = cells[idx];
-            if (cell.dataset.branchSimplified === '1') return;
-            // The renderer outputs lines like "Main Website / Main Website Store
-            // / Singapore Store View" separated by <br>. Pick the last non-empty
-            // line, which is always the leaf store view.
-            var raw = cell.innerHTML.replace(/<\/?[^>]+>/g, '\n');
-            var lines = raw.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
-            var leaf = lines.length ? lines[lines.length - 1] : '';
-            leaf = leaf.replace(/\s*Store View\s*$/i, '');
-            cell.textContent = leaf;
-            cell.dataset.branchSimplified = '1';
+    // Generalised: walk every grid table on the page, find any column
+    // whose header text is "Store View" (or "Store Views" / "Stores" /
+    // "Website") rendered by Mage_Adminhtml_Block_Widget_Grid_Column_
+    // Renderer_Store, rename it "Branch", and reduce each cell to the
+    // deepest level with " Store View" stripped — so a cell that says
+    //   "Main Website / Main Website Store / Singapore Store View"
+    // collapses to "Singapore" (matching the branch-pill labels).
+    function simplifyAllStoreViewColumns() {
+        var STORE_HEADERS = ['Store View', 'Store Views', 'Stores', 'Purchase Point', 'Purchased From'];
+        document.querySelectorAll('.grid table.data').forEach(function (table) {
+            var headings = table.querySelector('tr.headings');
+            if (!headings) return;
+            var ths = headings.querySelectorAll('th');
+            for (var i = 0; i < ths.length; i++) {
+                var th = ths[i];
+                var rawHeader = (th.textContent || '').trim();
+                if (STORE_HEADERS.indexOf(rawHeader) === -1) continue;
+                if (th.dataset.branchRenamed === '1') continue;
+
+                th.innerHTML = '<span class="nobr">Branch</span>';
+                th.dataset.branchRenamed = '1';
+                var idx = i;
+
+                table.querySelectorAll('tbody tr').forEach(function (row) {
+                    if (row.classList.contains('headings') || row.classList.contains('filter')) return;
+                    var cells = row.querySelectorAll('td');
+                    if (!cells[idx]) return;
+                    var cell = cells[idx];
+                    if (cell.dataset.branchSimplified === '1') return;
+                    // The store renderer outputs lines like "Main Website /
+                    // Main Website Store / Singapore Store View" separated
+                    // by <br>. Take the last non-empty line (the leaf
+                    // store-view name) and strip " Store View" suffix.
+                    var raw = cell.innerHTML.replace(/<\/?[^>]+>/g, '\n');
+                    var lines = raw.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+                    var leaf = lines.length ? lines[lines.length - 1] : '';
+                    leaf = leaf.replace(/\s*Store View\s*$/i, '');
+                    leaf = leaf.replace(/\s*Store\s*$/i, '');
+                    cell.textContent = leaf;
+                    cell.dataset.branchSimplified = '1';
+                });
+            }
         });
     }
 
