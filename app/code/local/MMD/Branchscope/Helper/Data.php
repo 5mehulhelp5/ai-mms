@@ -168,9 +168,32 @@ class MMD_Branchscope_Helper_Data extends Mage_Core_Helper_Abstract
         $req         = Mage::app()->getRequest();
         $module      = strtolower((string) $req->getModuleName());
         $controller  = strtolower((string) $req->getControllerName());
+        $action      = strtolower((string) $req->getActionName());
 
         // Only ever applies under the adminhtml frontend.
         if ($module === '' || $controller === '') {
+            return false;
+        }
+
+        // Pills belong on LIST / GRID pages only. View / edit / new / form
+        // pages are scoped to a single record (one invoice, one product,
+        // one customer) — clicking a branch on a detail page doesn't make
+        // sense and risks breaking record-specific layouts that don't
+        // play nicely with arbitrary blocks injected via <default>.
+        static $detailActions = array(
+            'view'     => true, 'edit'      => true, 'new'    => true,
+            'save'     => true, 'delete'    => true, 'print'  => true,
+            'pdfinvoices'   => true, 'pdfshipments' => true,
+            'pdfcreditmemos'=> true, 'pdfprintinvoice' => true,
+            'addcomment'    => true, 'creditmemos'   => true,
+            'cancel'        => true, 'hold'    => true, 'unhold' => true,
+            'transactions'  => true, 'reorder' => true, 'invoice' => true,
+            'shipment'      => true, 'creditmemo'    => true,
+            'updateqty'     => true, 'updatecomment' => true,
+            'voidpayment'   => true, 'capture' => true, 'void' => true,
+            'massassign'    => true,
+        );
+        if (isset($detailActions[$action])) {
             return false;
         }
 
