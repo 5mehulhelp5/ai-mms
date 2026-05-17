@@ -59,28 +59,9 @@
         return best;
     }
 
-    function render() {
-        var y     = activeDiscountPercent();
-        var fee   = x * (1 - y / 100);
-        var gst   = x * rate;
-        var total = fee + gst;
-
-        // GST-exclusive Fee — main number inside .price-box .regular-price
-        var feeWrap = document.querySelector('.price-box .regular-price');
-        if (feeWrap) {
-            var feeInner = feeWrap.querySelector('.price') || feeWrap;
-            feeInner.innerHTML = fmt(fee);
-        }
-        // GST-inclusive total
-        var gtP = document.getElementById('gtP');
-        if (gtP) gtP.innerHTML = fmt(total);
-
-        // Hidden inputs kept in sync for any downstream JS still reading them
-        var simple = document.getElementById('simpleProdPrice');
-        if (simple) simple.value = fee.toFixed(4);
-        var gstProd = document.getElementById('gstProdPrice');
-        if (gstProd) gstProd.value = total.toFixed(2);
-    }
+    // render() exists for back-compat; everything routes through
+    // safeRender() so the MutationObserver/re-entrancy guard applies
+    // uniformly.
 
     function annotateBadges() {
         var radios = document.querySelectorAll('input[type="radio"].product-custom-option');
@@ -99,21 +80,70 @@
         }
     }
 
+    // Re-entrancy guard: setting innerHTML inside the MutationObserver
+    // would fire the observer again. This lets us write once per real
+    // change without looping.
+    var _writing = false;
+    var _lastWritten = null;
+
+    function safeRender() {
+        if (_writing) return;
+        var y     = activeDiscountPercent();
+        var fee   = x * (1 - y / 100);
+        var gst   = x * rate;
+        var total = fee + gst;
+        var key   = fee.toFixed(2) + '|' + total.toFixed(2);
+        if (key === _lastWritten) return;
+
+        var feeWrap = document.querySelector('.price-box .regular-price');
+        var feeInner = feeWrap ? (feeWrap.querySelector('.price') || feeWrap) : null;
+        var gtP      = document.getElementById('gtP');
+        var simple   = document.getElementById('simpleProdPrice');
+        var gstProd  = document.getElementById('gstProdPrice');
+        if (!feeInner) return;
+
+        _writing = true;
+        try {
+            feeInner.innerHTML = fmt(fee);
+            if (gtP)     gtP.innerHTML    = fmt(total);
+            if (simple)  simple.value     = fee.toFixed(4);
+            if (gstProd) gstProd.value    = total.toFixed(2);
+            _lastWritten = key;
+        } finally {
+            // Defer release past synchronous observer callbacks.
+            setTimeout(function(){ _writing = false; }, 0);
+        }
+    }
+
     function attach() {
-        // Use change events on the form so we cover radios, checkboxes,
-        // and selects without per-input listeners.
+        // 1. Native change events on the form cover radios + selects + checkboxes.
         var form = document.getElementById('product_addtocart_form') || document;
         form.addEventListener('change', function () {
-            // Defer past any other listener (e.g. Magento OptionsPrice)
-            // that might also write into .price-box on the same event.
-            setTimeout(render, 0);
+            // Reset cache so we re-write even if computed value matches.
+            _lastWritten = null;
+            // Defer past Magento's synchronous reloadPrice chain.
+            setTimeout(safeRender, 0);
+            setTimeout(safeRender, 50);
+            setTimeout(safeRender, 150);
         }, true);
 
+        // 2. MutationObserver — Magento's OptionsPrice sometimes rewrites
+        //    #product-price-<id> on its own schedule (window.load, dom:loaded,
+        //    AJAX option reload, etc.). Watch the price text node and snap
+        //    it back to our computed value whenever anything else mutates it.
+        var feeWrap = document.querySelector('.price-box .regular-price');
+        if (feeWrap && typeof MutationObserver !== 'undefined') {
+            new MutationObserver(function(){
+                _lastWritten = null;
+                safeRender();
+            }).observe(feeWrap, { childList: true, subtree: true, characterData: true });
+        }
+
         annotateBadges();
-        // Defer initial render the same way, so it lands after Magento's
-        // own DOMContentLoaded/window.load price update.
-        setTimeout(render, 0);
-        setTimeout(render, 100);
+        // Initial render passes — cover dom:loaded, window.load, and post-init.
+        setTimeout(safeRender, 0);
+        setTimeout(safeRender, 100);
+        setTimeout(safeRender, 500);
     }
 
     if (document.readyState === 'loading') {
