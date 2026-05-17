@@ -1,0 +1,15 @@
+# Force LF on files executed inside the Linux container. Without this,
+# a checkout/pull on Windows (git core.autocrlf) rewrites these with
+# CRLF; the kernel then reads the shebang as "/bin/bash\r" and the
+# container dies on boot with:
+#   exec /usr/local/bin/entrypoint.sh: no such file or directory
+# (Happened 2026-05-17 after a pull that touched docker/entrypoint.sh.)
+*.sh            text eol=lf
+docker/entrypoint.sh text eol=lf
+
+# Migrations and PHP run server-side on Linux too — keep them LF.
+*.php           text eol=lf
+migrations/*.sql text eol=lf
+
+# Let git auto-detect everything else.
+* text=auto

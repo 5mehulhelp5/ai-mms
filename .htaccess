@@ -319,11 +319,27 @@ ExpiresByType application/json "access plus 0 seconds"
 
 </IfModule>
 
-## Immutable Cache-Control for hashed asset bundles — tells browsers
-## they never need to revalidate, saving the 304 round-trip.
+## Cache-Control policy.
+##
+## CSS/JS are NOT fingerprinted in this Magento 1 build — skin files
+## (e.g. dark-theme.css) keep the same URL across edits. Marking them
+## `immutable` told browsers to never revalidate for a YEAR, so every
+## CSS/JS change was invisible to returning visitors until cache expiry
+## — on prod as well as local. They now use `must-revalidate` with
+## max-age=0: the browser still gets a fast 304 (via ETag/Last-Modified)
+## when nothing changed, but picks up edits immediately on the next
+## request. The merged bundles under media/css|js/ are hash-named, so
+## a content change yields a new URL anyway — no immutable needed.
+##
+## Truly-static fonts/images don't share this problem (a visual change
+## there is rare and would get a new filename), so they keep the long
+## immutable cache for performance.
 <IfModule mod_headers.c>
-    <FilesMatch "\.(css|js|woff2?|ttf|otf|eot|svg|png|jpe?g|gif|webp|ico)$">
+    <FilesMatch "\.(woff2?|ttf|otf|eot|svg|png|jpe?g|gif|webp|ico)$">
         Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+    <FilesMatch "\.(css|js)$">
+        Header set Cache-Control "public, max-age=0, must-revalidate"
     </FilesMatch>
     <FilesMatch "\.(html?|json)$">
         Header set Cache-Control "no-cache, must-revalidate"

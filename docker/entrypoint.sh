@@ -25,11 +25,22 @@ fi
 # deploy are picked up on first request. Dockerfile clears at build time,
 # but Coolify volume mounts can shadow that; this guarantees freshness.
 # Preserves var/session (users stay logged in) and var/log (debug history).
-echo "entrypoint: clearing Magento runtime cache..."
+#
+# Also clear the MERGED CSS/JS bundles. dev/css/merge_css_files and
+# dev/js/merge_files are ON in production, so the browser loads a cached
+# media/css/<hash>.css — without deleting it here, skin/**/*.css|js
+# changes shipped in a deploy stay invisible until the bundle happens to
+# regenerate. media/ is Coolify-volume-mounted so the build-time COPY
+# can't pre-clear it; do it at runtime. Magento rebuilds the bundle on
+# the first request.
+echo "entrypoint: clearing Magento runtime cache + merged CSS/JS..."
 rm -rf /var/www/html/var/cache/* \
        /var/www/html/var/full_page_cache/* \
        /var/www/html/var/tmp/* \
-       /var/www/html/var/locks/* 2>/dev/null || true
+       /var/www/html/var/locks/* \
+       /var/www/html/media/css/* \
+       /var/www/html/media/css_secure/* \
+       /var/www/html/media/js/* 2>/dev/null || true
 
 # Seed transactional-email logo into media/email/logo/default/ if absent.
 # The `media/` directory is Coolify-volume-mounted in production, so baked

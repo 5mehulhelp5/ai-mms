@@ -5,6 +5,13 @@
 
 /* === 1. Variables === */
 :root {
+    /* Tell the browser the whole admin UI is dark so native controls
+       (select listboxes, date pickers, scrollbars, form widgets) are
+       painted with the dark OS scheme instead of the default light one.
+       This is what fixes the gray multi-select country rows that CSS
+       background rules cannot reach. */
+    color-scheme: dark;
+
     /* Neutral gray palette matching AI-LMS-TMS design system */
     --d0: #0b1120;
     --d1: #0f172a;
@@ -2151,6 +2158,62 @@ body[class*="adminhtml-system_config"] #config_edit_form select {
     max-width: 100% !important;
 }
 body[class*="adminhtml-system_config"] #config_edit_form textarea { min-height: 70px !important; }
+/* Multiselect list boxes (Allow Countries, Postal Code Optional,
+   European Union Countries, Weekend Days, …).
+
+   HARD BROWSER LIMITATION: Chromium/Edge/Safari do NOT honor
+   background/background-color on <option> inside a native
+   <select multiple> listbox — not even with appearance:none. The row
+   fill is painted by the OS and CSS cannot reach it (only Firefox
+   respects it). So instead of fighting the un-stylable rows, we style
+   the *container*: a themed dark box, border, radius, padding and a
+   dark custom scrollbar, so the widget reads as intentional and on
+   theme. The option color + selected tint below are kept because they
+   DO take effect in Firefox and cost nothing in Chromium. */
+body[class*="adminhtml-system_config"] #config_edit_form select[multiple] {
+    background: var(--d3) !important;
+    background-image: none !important;
+    border: 1px solid var(--b2) !important;
+    border-radius: 8px !important;
+    padding: 6px !important;
+    color: var(--t1) !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: var(--b3) var(--d3) !important;
+    /* THE actual fix for the gray rows: tell the browser this control
+       is dark. Chromium/Edge paint native <select multiple> option rows
+       using the OS light scheme by default (light gray) because nothing
+       on the page declared a color-scheme. With color-scheme:dark the
+       browser renders the listbox + its rows in dark mode natively —
+       this is honored where CSS background on <option> is not. */
+    color-scheme: dark !important;
+}
+body[class*="adminhtml-system_config"] #config_edit_form select[multiple]::-webkit-scrollbar {
+    width: 10px !important;
+    height: 10px !important;
+}
+body[class*="adminhtml-system_config"] #config_edit_form select[multiple]::-webkit-scrollbar-track {
+    background: var(--d3) !important;
+    border-radius: 8px !important;
+}
+body[class*="adminhtml-system_config"] #config_edit_form select[multiple]::-webkit-scrollbar-thumb {
+    background: var(--b3) !important;
+    border-radius: 8px !important;
+    border: 2px solid var(--d3) !important;
+}
+body[class*="adminhtml-system_config"] #config_edit_form select[multiple]::-webkit-scrollbar-thumb:hover {
+    background: var(--d6) !important;
+}
+/* Effective in Firefox; ignored (harmlessly) by Chromium/Edge. */
+body[class*="adminhtml-system_config"] #config_edit_form select[multiple] option {
+    background-color: var(--d3) !important;
+    color: var(--t1) !important;
+    padding: 4px 8px !important;
+}
+body[class*="adminhtml-system_config"] #config_edit_form select[multiple] option:checked,
+body[class*="adminhtml-system_config"] #config_edit_form select[multiple] option[selected] {
+    background-color: rgba(96,165,250,0.25) !important;
+    color: var(--t1) !important;
+}
 body[class*="adminhtml-system_config"] #config_edit_form input:focus,
 body[class*="adminhtml-system_config"] #config_edit_form select:focus,
 body[class*="adminhtml-system_config"] #config_edit_form textarea:focus {
