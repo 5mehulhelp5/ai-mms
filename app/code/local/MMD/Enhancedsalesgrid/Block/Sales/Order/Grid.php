@@ -255,7 +255,11 @@ class MMD_Enhancedsalesgrid_Block_Sales_Order_Grid extends Mage_Adminhtml_Block_
                 'header'   => Mage::helper('sales')->__('Action'),
                 'width'    => '110px',
                 'type'     => 'action',
-                'renderer' => 'MMD_Enhancedsalesgrid_Block_Sales_Order_Grid_Renderer_Actionlinks',
+                // No custom renderer — `type => action` uses the core
+                // Mage_Adminhtml_..._Renderer_Action which renders the
+                // `actions` array below. The previously-referenced
+                // MMD_..._Renderer_Actionlinks class was never committed,
+                // so createBlock() returned false and fataled the grid.
                 'getter'   => 'getId',
                 'actions'  => array(
                     array(
