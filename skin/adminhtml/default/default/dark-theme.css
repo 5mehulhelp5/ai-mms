@@ -2177,14 +2177,18 @@ html body[class*="adminhtml-system_config"] #config_edit_form tr[id^="row_"] {
     align-items: start !important;
     gap: 12px !important;
 }
-/* Force the multiselect itself to fill its grid value cell, by id
-   pattern not class, so width is identical regardless of container. */
+/* FIXED pixel width — not 100%. The value cell width varies per row
+   (left edges align, right edges were ragged because width:100%
+   faithfully followed a varying cell). A fixed width makes every
+   multiselect identical regardless of its cell, so all right edges
+   line up. Targeted by id pattern, html-prefixed max specificity. */
 html body[class*="adminhtml-system_config"] #config_edit_form tr[id^="row_"] td.value select[multiple],
 html body[class*="adminhtml-system_config"] #config_edit_form tr[id^="row_"] td.value select.multiselect,
-html body[class*="adminhtml-system_config"] #config_edit_form tr[id^="row_"] td.value > select {
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
+html body[class*="adminhtml-system_config"] #config_edit_form tr[id^="row_"] td.value select[size],
+html body[class*="adminhtml-system_config"] #config_edit_form tr[id^="row_"] td.value > select[multiple] {
+    width: 620px !important;
+    min-width: 620px !important;
+    max-width: 620px !important;
     box-sizing: border-box !important;
     display: block !important;
 }
