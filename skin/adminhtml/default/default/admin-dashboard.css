@@ -137,7 +137,8 @@ a.dev-country-btn.active,a.dev-country-btn.active:hover,a.dev-country-btn.active
    Course Manager, …) with a Course Information sidebar that mirrors the role
    sidebars' style. .admin-main keeps its 250px offset since the new sidebar
    occupies the same column. */
-#admin-sidebar, .sidebar-toggle { display: none !important; }
+body:has(.dcf-edit-sidebar) #admin-sidebar,
+body:has(.dcf-edit-sidebar) .sidebar-toggle { display: none !important; }
 .dcf-edit-sidebar {
     position: fixed; top: 56px; left: 0; bottom: 0;
     width: 250px; background: var(--d2);
