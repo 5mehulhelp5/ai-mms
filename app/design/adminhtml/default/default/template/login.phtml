@@ -64,9 +64,17 @@ $otpVerifyUrl = Mage::helper('adminhtml')->getUrl('adminhtml/otp/verify', array(
     .field-input::placeholder { color: #64748b; }
     .field-pw-wrap { position: relative; }
     .field-pw-wrap .field-input { padding-right: 44px; }
-    .pw-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748b; padding: 4px; }
+    .pw-toggle,
+    .pw-toggle:hover,
+    .pw-toggle:focus,
+    .pw-toggle:active {
+        position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+        background: transparent !important; background-image: none !important;
+        border: 0 !important; box-shadow: none !important;
+        cursor: pointer; color: #64748b; padding: 4px; line-height: 0;
+    }
     .pw-toggle:hover { color: #94a3b8; }
-    .pw-toggle svg { display: block; }
+    .pw-toggle svg { display: block; width: 20px; height: 20px; }
 
     /* Messages */
     #messages ul { list-style: none; padding: 0; margin: 0 0 16px; }
