@@ -1748,6 +1748,63 @@ html.is-order-view .grid table.data tbody tr:hover td {
     box-shadow: none !important;
 }
 
+/* === Registrations page (sales_order index) — top-bar tidy ===
+   MMD_Enhancedsalesgrid_Block_Sales_Order::getGridHtml() injects an
+   unstyled .mmd-reg-wrap (raw <h2 class="mmd-reg-total"> + the
+   .dev-search-wrap form) directly below the grid container's
+   "Registrations" header + New Registration button, with the
+   Branchscope pills strip injected above by branchscope.xml. The
+   .mmd-reg-* hooks have NO css, so the default browser <h2> collides
+   with the header and the pieces stack cramped. Scope a clean layout
+   to the sales_order page only (no PHP touched — purely cosmetic,
+   won't conflict with the other dev's grid logic). */
+body[class*="adminhtml-sales_order"] .content-header,
+body[class*="adminhtml-sales-order"] .content-header {
+    margin-bottom: 6px !important;
+}
+body[class*="adminhtml-sales_order"] .mmd-reg-wrap,
+body[class*="adminhtml-sales-order"] .mmd-reg-wrap {
+    margin-top: 14px !important;
+}
+body[class*="adminhtml-sales_order"] h2.mmd-reg-total,
+body[class*="adminhtml-sales-order"] h2.mmd-reg-total {
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: var(--t1) !important;
+    margin: 0 0 14px !important;
+    padding: 0 !important;
+    line-height: 1.3 !important;
+    border: none !important;
+}
+body[class*="adminhtml-sales_order"] h2.mmd-reg-total span,
+body[class*="adminhtml-sales-order"] h2.mmd-reg-total span {
+    color: var(--blue) !important;
+    font-weight: 700 !important;
+}
+/* The search card already has admin-dashboard.css styling; just stop
+   it adding a second big gap on top of .mmd-reg-wrap's margin. */
+body[class*="adminhtml-sales_order"] .mmd-reg-wrap .dev-search-wrap,
+body[class*="adminhtml-sales-order"] .mmd-reg-wrap .dev-search-wrap {
+    margin-top: 0 !important;
+}
+/* Reset link + filter slot align with the search row, no stray accents. */
+body[class*="adminhtml-sales_order"] .mmd-reg-reset,
+body[class*="adminhtml-sales-order"] .mmd-reg-reset {
+    color: var(--blue) !important;
+    font-size: 13px !important;
+    text-decoration: none !important;
+    white-space: nowrap !important;
+    border: none !important;
+    background: transparent !important;
+}
+body[class*="adminhtml-sales_order"] .mmd-reg-filter-slot,
+body[class*="adminhtml-sales-order"] .mmd-reg-filter-slot {
+    display: inline-flex !important;
+    align-items: center !important;
+    border: none !important;
+    background: transparent !important;
+}
+
 /* Horizontal tabs */
 ul.tabs-horiz, body ul.tabs-horiz {
     background: none !important;
