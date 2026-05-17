@@ -7586,7 +7586,202 @@ window.csSaveSection = function(section) {
 </script>
 </div><!-- end dash-panel-companysetting -->
 
-<?php /* ===== PANEL: Credentials (Super Admin sub-view) =====
+<?php
+/* ===== PANEL: Credentials =====
+   Form for API keys / OAuth credentials used by other modules:
+   - Anthropic (marketing newsletter)
+   - MailerLite (marketing list)
+   - Sender identity (from name/email)
+   - Google OAuth (Gmail send-as)
+
+   Values come from core_config_data via the same paths the runtime
+   helpers read (see MMD_RoleManager_Helper_Data::getMarketingApiConfig
+   and MMD_Email_Helper_Gmail). Secrets are masked on render — submitting
+   an unchanged masked value leaves the DB row alone. */
+$_credPaths = array(
+    'mmd_marketing/api/anthropic_key',
+    'mmd_marketing/api/anthropic_model',
+    'mmd_marketing/api/mailerlite_key',
+    'mmd_marketing/api/from_name',
+    'mmd_marketing/api/from_email',
+    'mmd_email/google/user',
+    'mmd_email/google/client_id',
+    'mmd_email/google/client_secret',
+    'mmd_email/google/refresh_token',
+);
+$_creds = array();
+foreach ($_credPaths as $_cp) {
+    $_creds[$_cp] = (string) Mage::getStoreConfig($_cp);
+}
+$_credMask = function ($v) {
+    $v = (string) $v;
+    if ($v === '') return '';
+    $n = strlen($v);
+    if ($n <= 8) return str_repeat('•', max($n - 2, 1)) . substr($v, -2);
+    return substr($v, 0, 4) . str_repeat('•', 12) . substr($v, -4);
+};
+?>
+<style>
+.crd-wrap { max-width: 900px; margin: 0 auto; padding: 24px; }
+.crd-title { font-size: 22px; font-weight: 700; color: #f1f5f9; margin: 0 0 6px; }
+.crd-sub { color: #94a3b8; font-size: 13px; margin: 0 0 24px; }
+.crd-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px 22px; margin-bottom: 18px; }
+.crd-card h3 { margin: 0 0 14px; color: #f1f5f9; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.crd-card h3 .crd-dot { width: 8px; height: 8px; border-radius: 999px; background: #475569; }
+.crd-card.has-value h3 .crd-dot { background: #65b7d5; box-shadow: 0 0 0 3px rgba(101,183,213,0.15); }
+.crd-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.crd-row:last-child { margin-bottom: 0; }
+.crd-label { font-size: 12px; color: #94a3b8; font-weight: 500; }
+.crd-input { width: 100%; padding: 10px 12px; background: transparent; border: 1px solid #475569; border-radius: 8px; color: #f1f5f9; font-size: 13px; font-family: ui-monospace, monospace; outline: none; transition: border-color 0.15s; }
+.crd-input:focus { border-color: #65b7d5; box-shadow: 0 0 0 3px rgba(101,183,213,0.15); }
+.crd-input::placeholder { color: #64748b; font-family: system-ui, sans-serif; }
+.crd-input[readonly] { color: #94a3b8; }
+.crd-hint { font-size: 11px; color: #64748b; margin-top: 2px; }
+.crd-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.crd-btn { padding: 10px 22px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: transform 0.1s; }
+.crd-btn-primary { background: linear-gradient(180deg, #65b7d5 0%, #55a9c9 100%); color: #fff; }
+.crd-btn-primary:hover { background: linear-gradient(180deg, #75c4df 0%, #65b7d5 100%); transform: translateY(-1px); }
+.crd-btn-ghost { background: transparent; color: #94a3b8; border: 1px solid #475569; }
+.crd-btn-ghost:hover { color: #f1f5f9; border-color: #64748b; }
+.crd-toast { position: fixed; bottom: 20px; right: 20px; background: #1e293b; border: 1px solid #334155; border-left: 3px solid #65b7d5; color: #f1f5f9; padding: 12px 18px; border-radius: 8px; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; z-index: 9999; }
+.crd-toast.ok { border-left-color: #34d399; }
+.crd-toast.err { border-left-color: #f87171; color: #fecaca; }
+</style>
+<div id="dash-panel-credentials" style="display:none;">
+<div class="crd-wrap">
+    <h1 class="crd-title">Credentials</h1>
+    <p class="crd-sub">API keys and OAuth tokens used by other modules. Saved values are masked — leave a field as-is to keep its current secret.</p>
+
+    <form id="crd-form" onsubmit="return crdSubmit(event)">
+
+        <div class="crd-card<?php echo $_creds['mmd_marketing/api/anthropic_key'] ? ' has-value' : '' ?>">
+            <h3><span class="crd-dot"></span>Anthropic (Claude API)</h3>
+            <div class="crd-row">
+                <label class="crd-label">API Key</label>
+                <input type="text" class="crd-input" name="anthropic_key"
+                    data-original="<?php echo $_creds['mmd_marketing/api/anthropic_key'] ? '__MASKED__' : '' ?>"
+                    value="<?php echo $_credMask($_creds['mmd_marketing/api/anthropic_key']) ?>"
+                    placeholder="sk-ant-api03-…" />
+                <div class="crd-hint">Native Anthropic key (sk-ant-…) or OpenRouter (sk-or-…) for marketing-newsletter AI.</div>
+            </div>
+            <div class="crd-row">
+                <label class="crd-label">Model</label>
+                <input type="text" class="crd-input" name="anthropic_model"
+                    value="<?php echo htmlspecialchars($_creds['mmd_marketing/api/anthropic_model']) ?>"
+                    placeholder="claude-sonnet-4-6" />
+            </div>
+        </div>
+
+        <div class="crd-card<?php echo $_creds['mmd_marketing/api/mailerlite_key'] ? ' has-value' : '' ?>">
+            <h3><span class="crd-dot"></span>MailerLite</h3>
+            <div class="crd-row">
+                <label class="crd-label">API Key</label>
+                <input type="text" class="crd-input" name="mailerlite_key"
+                    data-original="<?php echo $_creds['mmd_marketing/api/mailerlite_key'] ? '__MASKED__' : '' ?>"
+                    value="<?php echo $_credMask($_creds['mmd_marketing/api/mailerlite_key']) ?>"
+                    placeholder="eyJ0eXAiOiJKV1QiLCJhbGc…" />
+            </div>
+        </div>
+
+        <div class="crd-card<?php echo ($_creds['mmd_marketing/api/from_email'] || $_creds['mmd_marketing/api/from_name']) ? ' has-value' : '' ?>">
+            <h3><span class="crd-dot"></span>Sender Identity</h3>
+            <div class="crd-row">
+                <label class="crd-label">From Name</label>
+                <input type="text" class="crd-input" name="from_name"
+                    value="<?php echo htmlspecialchars($_creds['mmd_marketing/api/from_name']) ?>"
+                    placeholder="Tertiary Infotech Academy" />
+            </div>
+            <div class="crd-row">
+                <label class="crd-label">From Email</label>
+                <input type="email" class="crd-input" name="from_email"
+                    value="<?php echo htmlspecialchars($_creds['mmd_marketing/api/from_email']) ?>"
+                    placeholder="noreply@tertiaryinfotech.com" />
+            </div>
+        </div>
+
+        <div class="crd-card<?php echo $_creds['mmd_email/google/refresh_token'] ? ' has-value' : '' ?>">
+            <h3><span class="crd-dot"></span>Google OAuth (Gmail send-as)</h3>
+            <div class="crd-row">
+                <label class="crd-label">Gmail Account</label>
+                <input type="email" class="crd-input" name="gmail_user"
+                    value="<?php echo htmlspecialchars($_creds['mmd_email/google/user']) ?>"
+                    placeholder="sales@tertiaryinfotech.com" />
+            </div>
+            <div class="crd-row">
+                <label class="crd-label">Client ID</label>
+                <input type="text" class="crd-input" name="gmail_client_id"
+                    data-original="<?php echo $_creds['mmd_email/google/client_id'] ? '__MASKED__' : '' ?>"
+                    value="<?php echo $_credMask($_creds['mmd_email/google/client_id']) ?>"
+                    placeholder="…apps.googleusercontent.com" />
+            </div>
+            <div class="crd-row">
+                <label class="crd-label">Client Secret</label>
+                <input type="text" class="crd-input" name="gmail_client_secret"
+                    data-original="<?php echo $_creds['mmd_email/google/client_secret'] ? '__MASKED__' : '' ?>"
+                    value="<?php echo $_credMask($_creds['mmd_email/google/client_secret']) ?>"
+                    placeholder="GOCSPX-…" />
+            </div>
+            <div class="crd-row">
+                <label class="crd-label">Refresh Token</label>
+                <input type="text" class="crd-input" name="gmail_refresh_token"
+                    data-original="<?php echo $_creds['mmd_email/google/refresh_token'] ? '__MASKED__' : '' ?>"
+                    value="<?php echo $_credMask($_creds['mmd_email/google/refresh_token']) ?>"
+                    placeholder="1//0g…" />
+                <div class="crd-hint">Obtain from the OAuth Playground after granting Gmail send scope.</div>
+            </div>
+        </div>
+
+        <div class="crd-actions">
+            <button type="button" class="crd-btn crd-btn-ghost" onclick="window.location.reload()">Cancel</button>
+            <button type="submit" class="crd-btn crd-btn-primary">Save Credentials</button>
+        </div>
+    </form>
+</div>
+<div class="crd-toast" id="crd-toast"></div>
+<script>
+function crdToast(msg, kind) {
+    var t = document.getElementById('crd-toast');
+    t.textContent = msg;
+    t.className = 'crd-toast ' + (kind || 'ok');
+    t.style.display = 'block';
+    clearTimeout(window._crdToastT);
+    window._crdToastT = setTimeout(function(){ t.style.display = 'none'; }, kind === 'err' ? 6000 : 3500);
+}
+function crdSubmit(e) {
+    e.preventDefault();
+    var form = document.getElementById('crd-form');
+    var data = new FormData();
+    form.querySelectorAll('input').forEach(function(inp) {
+        // If the field's value is unchanged from the masked placeholder,
+        // skip it — server keeps the existing DB row untouched.
+        if (inp.dataset.original === '__MASKED__' && inp.value.indexOf('•') !== -1) {
+            return;
+        }
+        data.append(inp.name, inp.value);
+    });
+    data.append('form_key', '<?php echo Mage::getSingleton('core/session')->getFormKey() ?>');
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '<?php echo Mage::helper("adminhtml")->getUrl("adminhtml/maildiagnose/savecreds") ?>', true);
+    xhr.onload = function() {
+        try {
+            var r = JSON.parse(xhr.responseText);
+            if (r.ok) {
+                crdToast('Credentials saved.', 'ok');
+                setTimeout(function(){ window.location.reload(); }, 800);
+            } else {
+                crdToast('Error: ' + (r.error || 'unknown'), 'err');
+            }
+        } catch (ex) {
+            crdToast('Save failed (' + xhr.status + ')', 'err');
+        }
+    };
+    xhr.send(data);
+    return false;
+}
+</script>
+</div><!-- end dash-panel-credentials -->
+
+<?php /* ===== legacy dead block (kept as a marker so future edits stay in place) =====
     Reuses .cs-* styles already declared inside dash-panel-companysetting,
 <div class="cnc-wrap">
     <h1 class="cnc-title">Create New Class</h1>

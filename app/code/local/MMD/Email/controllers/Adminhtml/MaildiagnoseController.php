@@ -17,6 +17,77 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
         return true;
     }
 
+    /**
+     * Persist credentials submitted from the dashboard Credentials panel.
+     * Accepts POST with form_key, ignores empty fields and unchanged masked
+     * values (so users can leave secrets alone). Writes to default scope and
+     * clears any matching website-1 overrides so the new value actually wins.
+     */
+    public function savecredsAction()
+    {
+        $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+
+        if (!$this->getRequest()->isPost()) {
+            $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => 'POST required']));
+            return;
+        }
+
+        // Form-key check (same as the rest of admin).
+        $postedKey = (string) $this->getRequest()->getPost('form_key');
+        $sessionKey = (string) Mage::getSingleton('core/session')->getFormKey();
+        if ($postedKey === '' || $postedKey !== $sessionKey) {
+            $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => 'invalid form key']));
+            return;
+        }
+
+        // Map form fields → config paths. Each entry: input_name → core_config path.
+        $map = [
+            'anthropic_key'        => 'mmd_marketing/api/anthropic_key',
+            'anthropic_model'      => 'mmd_marketing/api/anthropic_model',
+            'mailerlite_key'       => 'mmd_marketing/api/mailerlite_key',
+            'from_name'            => 'mmd_marketing/api/from_name',
+            'from_email'           => 'mmd_marketing/api/from_email',
+            'gmail_user'           => 'mmd_email/google/user',
+            'gmail_client_id'      => 'mmd_email/google/client_id',
+            'gmail_client_secret'  => 'mmd_email/google/client_secret',
+            'gmail_refresh_token'  => 'mmd_email/google/refresh_token',
+        ];
+
+        try {
+            $cfg = Mage::getConfig();
+            $write = Mage::getSingleton('core/resource')->getConnection('core_write');
+            $table = Mage::getSingleton('core/resource')->getTableName('core/config_data');
+            $touched = [];
+
+            foreach ($map as $field => $path) {
+                if (!$this->getRequest()->has($field)) continue;
+                $val = (string) $this->getRequest()->getPost($field);
+                // Ignore values still showing the masked placeholder — user
+                // didn't touch them, keep DB row as-is.
+                if (strpos($val, '•') !== false) continue;
+                $val = trim($val);
+                $cfg->saveConfig($path, $val, 'default', 0);
+                $touched[] = $path;
+            }
+
+            // Wipe website-1 overrides on the same paths so default-scope wins.
+            if (!empty($touched)) {
+                $write->delete($table, [
+                    'scope = ?'    => 'websites',
+                    'scope_id = ?' => 1,
+                    'path IN (?)'  => $touched,
+                ]);
+            }
+
+            Mage::app()->getCacheInstance()->cleanType('config');
+            Mage::app()->cleanCache();
+
+            $this->getResponse()->setBody(json_encode(['ok' => true, 'saved' => $touched]));
+        } catch (Exception $e) {
+            $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => $e->getMessage()]));
+        }
+    }
+
     public function indexAction()
     {
         $this->_emit($this->_collectConfig());
