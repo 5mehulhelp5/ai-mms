@@ -115,6 +115,36 @@ class MMD_Email_Model_Observer
     }
 
     /**
+     * Swap Zend_Mail's transport for Gmail OAuth2 on every outbound
+     * transactional email when the credentials are filled in. Listens
+     * to SMTPPro's `aschroder_smtppro_before_send` and
+     * `aschroder_smtppro_template_before_send` — both expose a
+     * `$transport` Varien_Object that, when populated, makes SMTPPro
+     * call $mail->send($transport) instead of opening an SMTP socket.
+     *
+     * Why this exists: non-SG stores were silently dropping order /
+     * invoice / shipment mail because the legacy SMTPPro relay isn't
+     * reachable from the Coolify container. Gmail's HTTPS API is.
+     */
+    public function setGmailTransport($observer)
+    {
+        try {
+            $gmail = Mage::helper('mmd_email/gmail');
+            if (!$gmail || !$gmail->isConfigured()) {
+                return; // fall through to SMTPPro's default SMTP path
+            }
+            $varien = $observer->getEvent()->getTransport();
+            if (!$varien || $varien->getTransport()) {
+                return; // another observer already chose a transport
+            }
+            $varien->setTransport(new MMD_Email_Model_Transport_Gmail());
+        } catch (Exception $e) {
+            // Never break the send chain — let SMTPPro fall back.
+            Mage::logException($e);
+        }
+    }
+
+    /**
      * Send a course-registration confirmation email after every order place.
      * Replaces Magento's generic order-confirmation email with one that
      * surfaces the course-specific details a learner cares about: course

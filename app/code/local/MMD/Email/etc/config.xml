@@ -66,6 +66,32 @@
                     </mmd_email_send_course_registration>
                 </observers>
             </sales_order_place_after>
+            <!--
+                Route every transactional email (orders, invoices,
+                shipments, password resets, newsletter) through Gmail
+                OAuth2 when configured. SMTPPro fires both events from
+                its two send paths (Email model + Email/Template model).
+                Each observer can call $transport->setTransport(...) to
+                replace the SMTP socket transport with our Gmail one.
+            -->
+            <aschroder_smtppro_before_send>
+                <observers>
+                    <mmd_email_gmail_transport>
+                        <type>singleton</type>
+                        <class>mmd_email/observer</class>
+                        <method>setGmailTransport</method>
+                    </mmd_email_gmail_transport>
+                </observers>
+            </aschroder_smtppro_before_send>
+            <aschroder_smtppro_template_before_send>
+                <observers>
+                    <mmd_email_gmail_transport>
+                        <type>singleton</type>
+                        <class>mmd_email/observer</class>
+                        <method>setGmailTransport</method>
+                    </mmd_email_gmail_transport>
+                </observers>
+            </aschroder_smtppro_template_before_send>
         </events>
         <template>
             <email>
