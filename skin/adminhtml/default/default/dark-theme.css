@@ -3559,3 +3559,26 @@ html body[class*="customoptions-options-edit"] [id*="group_box"],
 html body[class*="customoptions-options-edit"] [id*="group"][class*="box"] {
     max-width: 180px !important;
 }
+
+/* Text-input option editor: Default Text textarea sits next to the Add
+   Image button. With vertical-align: middle the short button floats in
+   the middle of a tall textarea cell. Align both to top and size the
+   textarea down to a compact two-line height. */
+html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
+    height: 56px !important;
+    min-height: 56px !important;
+    padding: 6px 8px !important;
+    width: 220px !important;
+    resize: vertical !important;
+}
+html body[class*="customoptions-options-edit"] [id^="option_"] table td:has(textarea),
+html body[class*="customoptions-options-edit"] [id^="option_"] table td:has(+ td button),
+html body[class*="customoptions-options-edit"] [id^="option_"] table tr:has(textarea) td {
+    vertical-align: top !important;
+    padding-top: 6px !important;
+}
+/* Buttons that sit next to a textarea: stick them to the top edge */
+html body[class*="customoptions-options-edit"] [id^="option_"] table tr:has(textarea) button,
+html body[class*="customoptions-options-edit"] [id^="option_"] table tr:has(textarea) .scalable {
+    margin-top: 2px !important;
+}
