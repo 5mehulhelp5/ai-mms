@@ -61,9 +61,18 @@ function onPageReady(fn) {
 // Skip:
 //  - Categories admin (.side-col holds the category tree, not tabs)
 //  - Already-handled Order View (handled above with its own logic)
+//  - System > Configuration: this generic relocator grabs the config
+//    nav ul.tabs and hides .side-col, but the dedicated config styling
+//    never applies (relocateConfigAccordion's body-class check uses the
+//    wrong "adminhtml-system-config" hyphen vs the real
+//    "adminhtml-system_config" underscore, and its CSS is scoped the
+//    same wrong way + requires a .config-accordion class that is never
+//    added). Result: a completely unstyled, unusable Config page.
+//    Until that refactor is finished, skip System Config here so it
+//    renders in its original, working side-col layout.
 onPageReady(function relocateSideColTabs() {
     var body = document.body;
-    if (/adminhtml-catalog-category|catalog-categories|is-order-view/.test(body.className)) return;
+    if (/adminhtml-catalog-category|catalog-categories|is-order-view|adminhtml-system_config|adminhtml-system-config/.test(body.className)) return;
     if (document.documentElement.classList.contains('is-order-view')) return;
 
     var sideCol = document.querySelector('.side-col');
