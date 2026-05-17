@@ -63,7 +63,7 @@
 }
 
 .middle {
-    padding: var(--admin-space-6);
+    padding: var(--admin-space-3) var(--admin-space-6);
 }
 
 #page\:main-container {
@@ -80,7 +80,7 @@
 }
 
 .content-header {
-    margin-bottom: var(--admin-space-5);
+    margin-bottom: var(--admin-space-2);
 }
 
 .content-header table {

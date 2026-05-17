@@ -771,8 +771,8 @@ body.sidebar-collapsed .admin-main {
     justify-content: space-between;
     gap: 16px;
     flex-wrap: wrap;
-    padding: 0 0 8px 0 !important;
-    margin-bottom: 8px !important;
+    padding: 0 !important;
+    margin-bottom: 4px !important;
     border-bottom: none !important;
     background: transparent !important;
 }
@@ -926,7 +926,8 @@ body.sidebar-collapsed .admin-main {
     box-shadow: 0 0 30px rgba(37,139,182,0.03), 0 4px 20px rgba(0,0,0,0.3) !important;
 }
 
-/* Grid header — glowing accent */
+/* Grid header — same font + size as body cells; differentiation is weight
+   + accent color only. No uppercase, no letter-spacing, no text-shadow. */
 .admin-main .grid th,
 .admin-main .grid tr.headings th {
     background: rgba(37,139,182,0.04) !important;
@@ -934,12 +935,13 @@ body.sidebar-collapsed .admin-main {
     border-bottom: 1px solid rgba(37,139,182,0.15) !important;
     border-right: none !important;
     font-weight: 600 !important;
-    padding: 12px 16px !important;
-    text-transform: uppercase !important;
-    font-size: 10px !important;
-    letter-spacing: 1.5px !important;
+    padding: 10px 16px !important;
+    text-transform: none !important;
+    font-size: 12.5px !important;
+    letter-spacing: 0 !important;
+    line-height: 1.5 !important;
     white-space: nowrap !important;
-    text-shadow: 0 0 8px rgba(37,139,182,0.3) !important;
+    text-shadow: none !important;
 }
 .admin-main .grid th:last-child {
     border-right: none !important;
@@ -1053,16 +1055,16 @@ body table.data tr.selected td a {
 /* Per-row action dropdown */
 .row-action-wrap { position: relative; display: inline-block; }
 .row-action-btn {
-    background: #1e293b !important; border: 1px solid #334155 !important; color: #cbd5e1 !important;
+    background: var(--d2) !important; border: 1px solid var(--d4) !important; color: var(--t2) !important;
     padding: 4px 10px !important; border-radius: 6px !important; font-size: 11px !important;
     cursor: pointer !important; display: inline-flex; align-items: center; gap: 4px;
     background-image: none !important; box-shadow: none !important; text-shadow: none !important;
     line-height: normal !important; height: auto !important;
 }
-.row-action-btn:hover { background: #334155 !important; color: #fff !important; }
+.row-action-btn:hover { background: var(--d4) !important; color: var(--t1) !important; }
 .row-action-menu {
     display: none; position: absolute; right: 0; top: 100%; margin-top: 4px;
-    background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+    background: var(--d2); border: 1px solid var(--d4); border-radius: 8px;
     box-shadow: 0 8px 24px rgba(0,0,0,.4); z-index: 100; min-width: 180px; padding: 4px;
 }
 .row-action-wrap.open .row-action-menu { display: block; }
@@ -1084,29 +1086,14 @@ body table.data tr.selected td a {
 .admin-main [id$="_grid"] .grid,
 .admin-main .grid .hor-scroll,
 .admin-main .grid > table {
-    background: #0f172a !important;
-    background-color: #0f172a !important;
-}
-
-/* Page header strip: transparent globally — no container fill behind
-   page titles + action buttons. Title sits flat on the page background. */
-.admin-main .content-header,
-.admin-main .content-header-floating,
-.content-header,
-.content-header-floating,
-.page-head,
-.page-head-container,
-.page-head .page-head-content {
-    background: transparent !important;
-    background-color: transparent !important;
-    background-image: none !important;
-    box-shadow: none !important;
+    background: var(--d1) !important;
+    background-color: var(--d1) !important;
 }
 
 /* Remove any white/light borders around grid sections */
 .admin-main .box,
 .admin-main .entry-edit {
-    border-color: #1e293b !important;
+    border-color: var(--d2) !important;
 }
 
 /* Grid heading row bar — match dark bg */
@@ -1114,7 +1101,7 @@ body table.data tr.selected td a {
 .admin-main .grid .filter,
 .admin-main .grid .headings,
 .admin-main .hor-scroll {
-    background: #0f172a !important;
+    background: var(--d1) !important;
 }
 
 /* Select Visible / Unselect links + items selected text */
@@ -1318,9 +1305,9 @@ body button.pagination-btn,
 button.pagination-btn:hover,
 .admin-main button.pagination-btn:hover,
 body button.pagination-btn:hover {
-    background: #1e293b !important;
+    background: var(--d2) !important;
     border-color: #3d5068 !important;
-    color: #f1f5f9 !important;
+    color: var(--t1) !important;
     transform: none !important;
     box-shadow: none !important;
 }
@@ -1328,7 +1315,7 @@ button.pagination-btn.active,
 .admin-main button.pagination-btn.active,
 body button.pagination-btn.active {
     background: #258bb6 !important;
-    color: #0f172a !important;
+    color: var(--d1) !important;
     font-weight: 600 !important;
     border-color: #258bb6 !important;
 }

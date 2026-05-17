@@ -7,12 +7,12 @@
 :root {
     /* Neutral gray palette matching AI-LMS-TMS design system */
     --d0: #0b1120;
-    --d1: #111827;
-    --d2: #1f2937;
-    --d3: #1f2937;
-    --d4: #374151;
-    --d5: #4b5563;
-    --d6: #6b7280;
+    --d1: #0f172a;
+    --d2: #1e293b;
+    --d3: #1e293b;
+    --d4: #334155;
+    --d5: #475569;
+    --d6: #64748b;
     --b1: #374151;
     --b2: #4b5563;
     --b3: #6b7280;
@@ -257,7 +257,7 @@ body .header-top {
 .content-header, .content-header-floating {
     background: transparent !important;
     border-bottom: none !important;
-    padding: 8px 0 !important;
+    padding: 0 !important;
 }
 .content-header h3, .content-header h3.icon-head {
     color: var(--t1) !important;
@@ -1327,16 +1327,41 @@ dl.accordion dd, .accordion-body { background: var(--d3) !important; border: 1px
 .note, .comment { color: var(--t4) !important; }
 .separator { color: var(--t5) !important; }
 /* Page head — transparent, no container fill. Title sits flat on the
-   page background; spacing/separation comes from typography, not chrome. */
+   page background; spacing/separation comes from typography, not chrome.
+   This includes every wrapper / inner container variant that legacy
+   Magento, the Ultimo-ish admin reskin, and our own sidebar-nav reflow
+   might paint around the page title + action buttons row. */
 .page-head,
 .page-head-container,
-.page-head .page-head-content {
+.page-head .page-head-content,
+.page-actions,
+.page-title,
+.page-title-wrapper,
+.page-head-wrapper,
+.page-header,
+.content-header,
+.content-header-floating,
+.admin-main .content-header,
+.admin-main .content-header > div,
+.admin-main .content-header > table,
+.admin-main .content-header > table > tbody,
+.admin-main .content-header > table > tbody > tr,
+.admin-main .content-header > table > tbody > tr > td {
     background: transparent !important;
+    background-color: transparent !important;
     background-image: none !important;
     border: 0 !important;
     border-bottom: 0 !important;
     box-shadow: none !important;
-    padding: 0 !important;
+}
+
+/* .middle-popup — legacy boxes.css paints this with a horizontal
+   gradient gif on a white bg. Inside popups we want the dialog surface
+   to win, not the gif. (Main .middle is already covered by §5
+   .middle/#anchor-content/.main-col rule that paints var(--d1).) */
+.middle-popup {
+    background: var(--d3) !important;
+    background-image: none !important;
 }
 
 /* === 19. Status Badges ===
