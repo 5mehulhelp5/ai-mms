@@ -36,6 +36,8 @@ document.addEventListener('DOMContentLoaded', function relocateOrderTabs() {
     } else {
         mainInner.appendChild(tabs);
     }
+    tabs.classList.add('tabs-relocated');
+    document.body.classList.add('has-relocated-tabs');
     // Hide the now-empty side-col entirely so it doesn't reserve
     // vertical space (it still has the "Order View" h3 etc.).
     var sideCol = document.querySelector('.side-col');
@@ -1779,12 +1781,21 @@ document.observe('dom:loaded', function() {
                     if (!cells[idx]) return;
                     var cell = cells[idx];
                     if (cell.dataset.branchSimplified === '1') return;
-                    // The store renderer outputs lines like "Main Website /
-                    // Main Website Store / Singapore Store View" separated
-                    // by <br>. Take the last non-empty line (the leaf
-                    // store-view name) and strip " Store View" suffix.
-                    var raw = cell.innerHTML.replace(/<\/?[^>]+>/g, '\n');
-                    var lines = raw.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+                    // The store renderer outputs lines like
+                    //   "Main Website / Main Website Store / Singapore Store View"
+                    // separated by <br>, with leading &nbsp; chars used as
+                    // a tree-indent on each line. Convert <br>/block tags to
+                    // newlines, then read innerText so &nbsp; decodes to a
+                    // real non-breaking space; collapse those + trim to get
+                    // a clean leaf label.
+                    // Read innerText so the browser handles <br>→\n and
+                    // &nbsp;→U+00A0 — that's the only reliable way to avoid
+                    // ending up with literal "&nbsp;" text on grids whose
+                    // renderer double-escapes the entity.
+                    var raw = cell.innerText || cell.textContent || '';
+                    var lines = raw.split(/[\r\n]+/).map(function (s) {
+                        return s.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+                    }).filter(Boolean);
                     var leaf = lines.length ? lines[lines.length - 1] : '';
                     leaf = leaf.replace(/\s*Store View\s*$/i, '');
                     leaf = leaf.replace(/\s*Store\s*$/i, '');
