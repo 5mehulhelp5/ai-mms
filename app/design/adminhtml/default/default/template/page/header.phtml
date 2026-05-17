@@ -121,68 +121,6 @@ $roleIcons = array(
         );
     }
     ?>
-    <style>
-    .header-search-pill{flex:1;max-width:560px;margin:0 24px;position:relative}
-    /* High-specificity #id selector to beat dark-theme.css's
-       body input[type="text"]{...!important} which would otherwise
-       overpower my class selector at equal specificity. */
-    body #header-search-trigger,
-    body #header-search-trigger:hover,
-    body #header-search-trigger:focus{
-        width:100% !important;
-        background:transparent !important;
-        background-image:none !important;
-        border:1px solid #ffffff !important;
-        border-radius:999px !important;
-        padding:11px 46px 11px 46px !important;
-        color:#fff !important;
-        font-size:13.5px !important;
-        font-weight:500 !important;
-        cursor:pointer !important;
-        outline:none !important;
-        box-shadow:none !important;
-        height:auto !important;
-        min-height:0 !important;
-        line-height:normal !important;
-        transition:border-color .15s,opacity .15s !important;
-    }
-    body #header-search-trigger:hover,body #header-search-trigger:focus{border-color:#ffffff !important;opacity:.85}
-    body #header-search-trigger::placeholder{color:#cbd5e1 !important;opacity:.85 !important}
-    .header-search-icon{position:absolute;left:18px;top:50%;transform:translateY(-50%);color:#cbd5e1;pointer-events:none;z-index:1}
-    .header-search-kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:transparent !important;border:1px solid #475569 !important;border-radius:6px !important;padding:3px 9px !important;font-size:11px !important;color:#cbd5e1 !important;font-family:ui-monospace,SFMono-Regular,Menlo,monospace !important;pointer-events:none;line-height:1 !important}
-    /* Modal input — same fight with dark-theme.css. */
-    body #header-search-q,
-    body #header-search-q:hover,
-    body #header-search-q:focus{
-        background:transparent !important;
-        background-image:none !important;
-        border:none !important;
-        border-radius:0 !important;
-        padding:0 !important;
-        color:#fff !important;
-        font-size:15px !important;
-        outline:none !important;
-        box-shadow:none !important;
-        height:auto !important;
-        min-height:0 !important;
-        line-height:normal !important;
-    }
-    body #header-search-q::placeholder{color:#64748b !important;opacity:1 !important}
-    .header-search-overlay{display:none;position:fixed;inset:0;background:rgba(2,6,23,.55);z-index:9998;align-items:flex-start;justify-content:center;padding-top:96px}
-    .header-search-overlay.open{display:flex}
-    .header-search-modal{width:min(680px,92vw);background:#0f172a;border:1px solid #334155;border-radius:14px;box-shadow:0 24px 64px rgba(0,0,0,.45);overflow:hidden}
-    .header-search-modal-input-wrap{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #1e293b}
-    .header-search-modal-input{flex:1;background:transparent;border:none;color:#fff;font-size:15px;outline:none}
-    .header-search-modal-input::placeholder{color:#64748b}
-    .header-search-esc{background:#1e293b;border:1px solid #334155;border-radius:5px;padding:2px 8px;font-size:11px;color:#94a3b8;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-    .header-search-list{max-height:340px;overflow-y:auto;padding:6px 0}
-    a.header-search-item,a.header-search-item:hover,a.header-search-item:focus{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;color:#cbd5e1;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none}
-    a.header-search-item:hover,a.header-search-item.active{background:#1e293b !important;color:#258bb6 !important}
-    .header-search-group{font-size:11px;color:#64748b;font-weight:500}
-    .header-search-empty{padding:24px;text-align:center;color:#64748b;font-size:13px}
-    .header-search-foot{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid #1e293b;font-size:11px;color:#64748b}
-    .header-search-foot kbd{background:#1e293b;border:1px solid #334155;border-radius:4px;padding:1px 6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#94a3b8;margin:0 4px}
-    </style>
     <div class="header-search-pill" id="header-search">
         <svg class="header-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input type="text" class="header-search-input" id="header-search-trigger" readonly placeholder="Search functions, e.g. company setting" />
@@ -291,13 +229,6 @@ $roleIcons = array(
     $_lnrDashUrl    = $this->getUrl('adminhtml/dashboard');
     $_lnrAccountUrl = $this->getUrl('adminhtml/system_account');
     ?>
-    <style>
-    .header-lnr-tabs{display:flex;gap:2px;align-items:center;flex:1;justify-content:center;margin:0 24px}
-    a.header-lnr-tab,a.header-lnr-tab:hover,a.header-lnr-tab:focus,a.header-lnr-tab:active{background:transparent !important;border:none !important;border-bottom:2px solid transparent !important;color:#ffffff !important;padding:10px 12px !important;font-size:12.5px !important;font-weight:600 !important;cursor:pointer !important;display:inline-flex !important;align-items:center !important;gap:7px !important;border-radius:6px 6px 0 0 !important;text-decoration:none !important;text-transform:none !important;line-height:normal !important;white-space:nowrap !important;transition:color .15s,background .15s,border-color .15s !important}
-    a.header-lnr-tab:hover{color:#ffffff !important;opacity:1}
-    a.header-lnr-tab.active,a.header-lnr-tab.active:hover{color:#258bb6 !important;background:rgba(37,139,182,0.12) !important;border-bottom-color:#258bb6 !important;opacity:1}
-    a.header-lnr-tab svg{width:15px;height:15px;flex-shrink:0}
-    </style>
     <div class="header-lnr-tabs" id="header-lnr-tabs">
         <a href="<?php echo $_lnrDashUrl ?>#classes" class="header-lnr-tab" data-lnr-tab="myclasses" onclick="if(document.getElementById('dash-panel-learner') && window.showTrainerSubPanel && !document.getElementById('dash-panel-course-detail')){event.preventDefault();window.showTrainerSubPanel('classes');hsLnrSetActive('myclasses');if(window.mmdSyncActiveNav)mmdSyncActiveNav('myclasses');}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
@@ -336,13 +267,6 @@ $roleIcons = array(
             dashboard; clicks only do work when the dashboard is loaded. */ ?>
     <?php if ($activeRole === 'trainer'): ?>
     <?php $_dashUrl = $this->getUrl('adminhtml/dashboard'); ?>
-    <style>
-    .header-trn-tabs{display:flex;gap:2px;align-items:center;flex:1;justify-content:center;margin:0 24px}
-    a.header-trn-tab,a.header-trn-tab:hover,a.header-trn-tab:focus,a.header-trn-tab:active{background:transparent !important;border:none !important;border-bottom:2px solid transparent !important;color:#ffffff !important;padding:10px 12px !important;font-size:12.5px !important;font-weight:600 !important;cursor:pointer !important;display:inline-flex !important;align-items:center !important;gap:7px !important;border-radius:6px 6px 0 0 !important;text-decoration:none !important;text-transform:none !important;line-height:normal !important;white-space:nowrap !important;transition:color .15s,background .15s,border-color .15s !important}
-    a.header-trn-tab:hover{color:#ffffff !important;opacity:1}
-    a.header-trn-tab.active,a.header-trn-tab.active:hover{color:#258bb6 !important;background:rgba(37,139,182,0.12) !important;border-bottom-color:#258bb6 !important;opacity:1}
-    a.header-trn-tab svg{width:15px;height:15px;flex-shrink:0}
-    </style>
     <div class="header-trn-tabs" id="header-trn-tabs">
         <a href="<?php echo $_dashUrl ?>#myclasses" class="header-trn-tab" data-trn-tab="myclasses" onclick="if(document.getElementById('dash-panel-learner') && window.trnTopbarSwitch && !document.getElementById('dash-panel-course-detail')){event.preventDefault();trnTopbarSwitch('myclasses');}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>

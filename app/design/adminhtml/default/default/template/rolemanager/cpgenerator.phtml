@@ -158,44 +158,6 @@ $submitKeys = array('courseoutline','entryreq','jobroles','lessonplan','cpvalida
 $cpUrl = Mage::helper('adminhtml')->getUrl('adminhtml/cpgenerator/index');
 ?>
 
-<style>
-.cp-page{background:var(--d1);min-height:calc(100vh - 60px);padding:32px;color:var(--t1)}
-.cp-wrap{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:240px 1fr;gap:28px}
-.cp-side{background:#1e293b;border:1px solid rgba(34,211,238,.1);border-radius:12px;padding:20px;height:fit-content;position:sticky;top:20px}
-.cp-side h3{font-size:11px;font-weight:700;color:#64748b;letter-spacing:1px;margin:0 0 10px;padding:0 8px;text-transform:uppercase}
-.cp-side a{display:block;padding:8px 10px;border-radius:6px;color:#cbd5e1;text-decoration:none;font-size:13px;margin-bottom:2px;transition:background .15s}
-.cp-side a:hover{background:rgba(34,211,238,.06);color:#22d3ee}
-.cp-side a.active{background:rgba(34,211,238,.12);color:#22d3ee;font-weight:600;border-left:3px solid #22d3ee;padding-left:8px}
-.cp-side .cp-group{margin-bottom:16px}
-.cp-main{min-width:0}
-.cp-header{margin-bottom:20px}
-.cp-header h1{font-size:24px;font-weight:700;color:var(--t1);margin:0 0 6px}
-.cp-header p{font-size:13px;color:#94a3b8;margin:0}
-.cp-card{background:#1e293b;border:1px solid rgba(34,211,238,.12);border-radius:12px;padding:24px}
-.cp-field{margin-bottom:18px}
-.cp-field label{display:block;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-.cp-field input, .cp-field textarea, .cp-field select{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;color:var(--t1);font-size:13px;font-family:inherit;box-sizing:border-box}
-.cp-field input:focus, .cp-field textarea:focus, .cp-field select:focus{border-color:#22d3ee;outline:none;box-shadow:0 0 0 3px rgba(34,211,238,.1)}
-.cp-field textarea{resize:vertical;min-height:100px}
-.cp-row{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
-.cp-row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.cp-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:20px;border-top:1px solid rgba(34,211,238,.08)}
-.cp-btn{padding:10px 20px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
-.cp-btn-primary{background:#0d9488;color:#fff}
-.cp-btn-primary:hover{background:#0f766e}
-.cp-btn-secondary{background:#334155;color:#cbd5e1}
-.cp-btn-secondary:hover{background:#475569}
-.cp-hint-box{background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.15);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:12.5px;color:#94a3b8;line-height:1.5}
-.cp-hint-box strong{color:#22d3ee}
-.cp-list-item{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
-.cp-list-item input{flex:1;background:transparent;border:none;color:var(--t1);font-size:13px;padding:0}
-.cp-list-item input:focus{outline:none;box-shadow:none}
-.cp-list-num{color:#22d3ee;font-weight:700;font-size:13px;min-width:20px}
-.cp-remove{background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;padding:0 4px}
-.cp-add-item{background:transparent;border:1px dashed #334155;color:#22d3ee;padding:10px;border-radius:8px;width:100%;cursor:pointer;font-size:12px;font-weight:600;margin-top:6px}
-.cp-add-item:hover{border-color:#22d3ee}
-@media (max-width:900px){.cp-wrap{grid-template-columns:1fr}.cp-side{position:static}}
-</style>
 
 <div class="cp-page">
 <div class="cp-wrap">
