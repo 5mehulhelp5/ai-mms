@@ -51,6 +51,7 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
             'gmail_client_id'      => 'mmd_email/google/client_id',
             'gmail_client_secret'  => 'mmd_email/google/client_secret',
             'gmail_refresh_token'  => 'mmd_email/google/refresh_token',
+            'kael_review_key'      => 'mmd_company/api/kael_review_key',
         ];
 
         try {

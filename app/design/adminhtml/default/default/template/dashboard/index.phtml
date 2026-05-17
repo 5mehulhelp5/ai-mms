@@ -7428,32 +7428,8 @@ $_csv = function ($path, $default = '') use ($_cs) {
     </div>
     <hr class="cs-divider"/>
 
-    <!-- Section: API Summary -->
-    <?php
-    $_apiBase = rtrim((string) Mage::getStoreConfig('web/unsecure/base_url', 0), '/');
-    if ($_apiBase === '') { $_apiBase = 'https://www.tertiarycourses.com.sg'; }
-    $_apiKaelReview    = $_apiBase . '/kael_review_api.php';
-    // DB key (stored via this UI) wins. Env var is the fallback the
-    // server-side endpoint accepts when the DB row is empty.
-    $_apiKaelReviewKey    = (string) Mage::getStoreConfig('mmd_company/api/kael_review_key', 0);
-    $_apiKaelReviewKeyEnv = (string) getenv('KAEL_REVIEW_API_KEY');
-    if ($_apiKaelReviewKey === '' && $_apiKaelReviewKeyEnv !== '' && $_apiKaelReviewKeyEnv !== 'CHANGE_ME') {
-        $_apiKaelReviewKey = $_apiKaelReviewKeyEnv;
-    }
-    $_apiKaelReviewKeyMask = $_apiKaelReviewKey !== ''
-        ? str_repeat('•', 8) . ' ' . substr($_apiKaelReviewKey, -4)
-        : '(not set — click Edit to create one)';
-    ?>
-    <div class="cs-section" data-section="api_summary">
-        <div class="cs-section-head" onclick="csToggleSection(this)">
-            <h2>API Summary</h2>
-            <span class="cs-caret">&#9650;</span>
-            <button id="cs-edit-api_summary" class="cs-edit-btn" onclick="event.stopPropagation();csEditSection('api_summary')">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                Edit
-            </button>
-        </div>
-        <div class="cs-section-body" id="cs-body-api_summary">
+    <!-- Section: API Summary — moved out to its own dash-panel-api_summary block. -->
+    <?php /* This block intentionally left collapsed; API Summary now lives in its own panel.
             <div style="color:#94a3b8;font-size:12px;line-height:1.5;margin-bottom:14px">
                 Outward-facing HTTP APIs exposed by this site. Use these for
                 programmatic posting from external automations (e.g. the Kael
@@ -7581,13 +7557,7 @@ $_csv = function ($path, $default = '') use ($_cs) {
                 </div>
             </div>
 
-            <div id="cs-actions-api_summary" style="display:none;margin-top:14px;">
-                <button class="cs-save-btn" onclick="csSaveSection('api_summary')">Save API Key</button>
-                <button class="cs-cancel-btn" onclick="csCancelSection('api_summary')">Cancel</button>
-            </div>
-        </div>
-    </div>
-    <hr class="cs-divider"/>
+    */ ?>
 
     <!-- Section: Appearance -->
     <div class="cs-section" data-section="appearance">
@@ -7854,6 +7824,7 @@ $_credPaths = array(
     'mmd_email/google/client_id',
     'mmd_email/google/client_secret',
     'mmd_email/google/refresh_token',
+    'mmd_company/api/kael_review_key',
 );
 $_creds = array();
 foreach ($_credPaths as $_cp) {
@@ -7945,6 +7916,18 @@ $_credMask = function ($v) {
             </div>
         </div>
 
+        <div class="crd-card<?php echo $_creds['mmd_company/api/kael_review_key'] ? ' has-value' : '' ?>">
+            <h3><span class="crd-dot"></span>Kael Review API</h3>
+            <div class="crd-row">
+                <label class="crd-label">API Key</label>
+                <input type="text" class="crd-input" name="kael_review_key"
+                    data-original="<?php echo $_creds['mmd_company/api/kael_review_key'] ? '__MASKED__' : '' ?>"
+                    value="<?php echo $_credMask($_creds['mmd_company/api/kael_review_key']) ?>"
+                    placeholder="kael_rv_…" />
+                <div class="crd-hint">Used by the Kael review-posting bot. See API Summary &rarr; Reviews API for endpoint + payload schema.</div>
+            </div>
+        </div>
+
         <div class="crd-card<?php echo $_creds['mmd_email/google/refresh_token'] ? ' has-value' : '' ?>">
             <h3><span class="crd-dot"></span>Google OAuth (Gmail send-as)</h3>
             <div class="crd-row">
@@ -8026,6 +8009,204 @@ function crdSubmit(e) {
 }
 </script>
 </div><!-- end dash-panel-credentials -->
+
+<?php
+/* ===== PANEL: API Summary ===== */
+$_apiBase = rtrim((string) Mage::getStoreConfig('web/unsecure/base_url', 0), '/');
+if ($_apiBase === '') { $_apiBase = 'https://www.tertiarycourses.com.sg'; }
+$_apiKaelReview    = $_apiBase . '/kael_review_api.php';
+$_apiKaelReviewKey = (string) Mage::getStoreConfig('mmd_company/api/kael_review_key', 0);
+$_apiKaelReviewKeyEnv = (string) getenv('KAEL_REVIEW_API_KEY');
+if ($_apiKaelReviewKey === '' && $_apiKaelReviewKeyEnv !== '' && $_apiKaelReviewKeyEnv !== 'CHANGE_ME') {
+    $_apiKaelReviewKey = $_apiKaelReviewKeyEnv;
+}
+$_apiKaelReviewKeyMask = $_apiKaelReviewKey !== ''
+    ? str_repeat('•', 8) . ' ' . substr($_apiKaelReviewKey, -4)
+    : '(not set — click Edit to create one)';
+$_apiSaveUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/save');
+?>
+<div id="dash-panel-api_summary" style="display:none;">
+    <div class="cs-wrap">
+        <div class="cs-header">
+            <div class="cs-logo">A</div>
+            <div class="cs-header-info">
+                <h1>API Summary</h1>
+                <p>Outward-facing HTTP APIs for trusted automations (e.g. the Kael review bot)</p>
+            </div>
+            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'credentials'))) ?>"
+               class="cs-edit-btn" style="text-decoration:none">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Manage API Keys in Credentials
+            </a>
+        </div>
+
+        <div class="cs-section">
+            <div class="cs-section-body open" style="padding:18px">
+                <!-- Directory header -->
+                <div style="font-size:12px;color:#94a3b8;line-height:1.6;margin-bottom:18px">
+                    Outward-facing HTTP APIs exposed by this site for trusted backend
+                    automations (e.g. the Kael review bot, future product / class
+                    sync agents). Each API uses its own <code>X-Api-Key</code>
+                    secret, stored in the DB and editable via this page.
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
+                    <a href="#api-kael-review"   style="background:#0f172a;border:1px solid #22d3ee;color:#22d3ee;font-size:11px;padding:6px 12px;border-radius:999px;text-decoration:none">Reviews API · ACTIVE</a>
+                    <a href="#api-products"      style="background:#0f172a;border:1px solid #334155;color:#94a3b8;font-size:11px;padding:6px 12px;border-radius:999px;text-decoration:none">Products API · planned</a>
+                    <a href="#api-schedules"     style="background:#0f172a;border:1px solid #334155;color:#94a3b8;font-size:11px;padding:6px 12px;border-radius:999px;text-decoration:none">Schedules API · planned</a>
+                    <a href="#api-learners"      style="background:#0f172a;border:1px solid #334155;color:#94a3b8;font-size:11px;padding:6px 12px;border-radius:999px;text-decoration:none">Learners API · planned</a>
+                    <a href="#api-orders"        style="background:#0f172a;border:1px solid #334155;color:#94a3b8;font-size:11px;padding:6px 12px;border-radius:999px;text-decoration:none">Orders API · planned</a>
+                </div>
+
+                <div id="api-kael-review" class="cs-card">
+                    <div class="cs-card-title" style="display:flex;align-items:center;gap:10px">
+                        <span>Reviews API <span style="color:#64748b;font-weight:400">(Kael)</span></span>
+                        <span class="cs-status enabled" style="font-size:10px">ACTIVE</span>
+                        <span style="margin-left:auto;font-size:11px;color:#64748b">POST · application/json</span>
+                    </div>
+                    <div style="font-size:12px;color:#94a3b8;margin:4px 0 10px">
+                        Programmatically submit an auto-approved product review with optional original timestamp.
+                    </div>
+
+                    <table style="width:100%;border-collapse:collapse;font-size:12px">
+                        <tr>
+                            <td style="padding:6px 0;color:#64748b;width:130px;vertical-align:top">Endpoint</td>
+                            <td style="padding:6px 0;color:var(--t1);font-family:monospace;word-break:break-all">
+                                <span id="kael-review-url"><?php echo htmlspecialchars($_apiKaelReview) ?></span>
+                                <button type="button"
+                                        style="margin-left:8px;background:#0f172a;border:1px solid #334155;color:#94a3b8;font-size:11px;padding:2px 8px;border-radius:4px;cursor:pointer"
+                                        onclick="(function(){var el=document.getElementById('kael-review-url');var r=document.createRange();r.selectNode(el);window.getSelection().removeAllRanges();window.getSelection().addRange(r);document.execCommand('copy');window.getSelection().removeAllRanges();})()">Copy</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:6px 0;color:#64748b;vertical-align:top">Auth header</td>
+                            <td style="padding:6px 0;color:var(--t1);font-family:monospace">
+                                X-Api-Key:
+                                <span style="display:inline-flex;align-items:center;gap:6px;background:#0f172a;border:1px solid #334155;border-radius:4px;padding:3px 8px;margin-left:6px;vertical-align:middle;color:#e2e8f0;font-size:12px"><?php echo htmlspecialchars($_apiKaelReviewKeyMask) ?></span>
+                                <span style="margin-left:8px;font-size:11px;color:#64748b">(rotate in <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'credentials'))) ?>" style="color:#22d3ee;text-decoration:none">Credentials</a>)</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:6px 0;color:#64748b;vertical-align:top">Rate limit</td>
+                            <td style="padding:6px 0;color:var(--t1)">None (intended for trusted backend use only)</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:6px 0;color:#64748b;vertical-align:top">Idempotency</td>
+                            <td style="padding:6px 0;color:var(--t1)">Each call creates a new <code>review_id</code>; callers must dedupe their own queue</td>
+                        </tr>
+                    </table>
+
+                    <div style="margin-top:14px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Request body</div>
+                    <pre style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:12px;color:#e2e8f0;font-size:12px;overflow-x:auto;margin:6px 0 0">{
+  "product_id":  1362,
+  "nickname":    "John Tan",
+  "title":       "Average Rating: 4.7/5",
+  "detail":      "Great course, very informative!",
+  "ratings":     { "1": 5, "2": 5, "5": 4 },
+  "created_at":  "2026-04-10 04:00:17",   // optional, MySQL DATETIME / ISO 8601 — defaults to NOW()
+  "store_id":    1,                        // optional, int — defaults to current store
+  "customer_id": null                      // optional, int — defaults to null (guest review)
+}</pre>
+
+                    <div style="margin-top:14px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Rating IDs (multi-criteria form)</div>
+                    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+                        <tr><td style="padding:4px 0;color:#94a3b8;width:30px"><code>1</code></td><td style="padding:4px 0;color:var(--t1)">Do you find the course meets your expectation? (1-5 stars)</td></tr>
+                        <tr><td style="padding:4px 0;color:#94a3b8"><code>2</code></td><td style="padding:4px 0;color:var(--t1)">Do you find the trainer knowledgeable? (1-5 stars)</td></tr>
+                        <tr><td style="padding:4px 0;color:#94a3b8"><code>5</code></td><td style="padding:4px 0;color:var(--t1)">How do you find the training environment? (1-5 stars)</td></tr>
+                    </table>
+
+                    <div style="margin-top:14px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Success response (HTTP 200)</div>
+                    <pre style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:12px;color:#e2e8f0;font-size:12px;overflow-x:auto;margin:6px 0 0">{
+  "success":    true,
+  "review_id":  22863,
+  "created_at": "2026-04-10 04:00:17",
+  "store_id":   1,
+  "message":    "Review created and approved"
+}</pre>
+
+                    <div style="margin-top:14px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Error responses</div>
+                    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+                        <tr><td style="padding:4px 0;color:#94a3b8;width:50px"><code>400</code></td><td style="padding:4px 0;color:var(--t1)">Invalid JSON, missing required field, or invalid <code>created_at</code></td></tr>
+                        <tr><td style="padding:4px 0;color:#94a3b8"><code>401</code></td><td style="padding:4px 0;color:var(--t1)">Missing or invalid <code>X-Api-Key</code></td></tr>
+                        <tr><td style="padding:4px 0;color:#94a3b8"><code>404</code></td><td style="padding:4px 0;color:var(--t1)"><code>product_id</code> not found</td></tr>
+                        <tr><td style="padding:4px 0;color:#94a3b8"><code>405</code></td><td style="padding:4px 0;color:var(--t1)">Non-POST method</td></tr>
+                        <tr><td style="padding:4px 0;color:#94a3b8"><code>500</code></td><td style="padding:4px 0;color:var(--t1)">Server error (detail in response body)</td></tr>
+                    </table>
+
+                    <div style="margin-top:14px;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">cURL example</div>
+                    <pre style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:12px;color:#e2e8f0;font-size:12px;overflow-x:auto;margin:6px 0 0">curl -X POST '<?php echo htmlspecialchars($_apiKaelReview) ?>' \
+  -H 'Content-Type: application/json' \
+  -H 'X-Api-Key: $KAEL_REVIEW_API_KEY' \
+  -d '{
+    "product_id":  1362,
+    "nickname":    "John Tan",
+    "title":       "Average Rating: 4.7/5",
+    "detail":      "Great course, very informative!",
+    "ratings":     {"1": 5, "2": 5, "5": 4},
+    "created_at":  "2026-04-10 04:00:17"
+  }'</pre>
+
+                    <div style="margin-top:12px;font-size:11px;color:#64748b">
+                        Implementation: <code>kael_review_api.php</code> at site root. Full docs: <code>docs/kael-review-api.md</code>.
+                    </div>
+
+                </div>
+
+                <!-- Placeholder cards for planned APIs -->
+                <div id="api-products" class="cs-card" style="opacity:0.7;margin-top:14px">
+                    <div class="cs-card-title" style="display:flex;align-items:center;gap:10px">
+                        <span>Products API</span>
+                        <span class="cs-status disabled" style="font-size:10px;background:#334155;color:#94a3b8">PLANNED</span>
+                        <span style="margin-left:auto;font-size:11px;color:#64748b">CRUD on catalog products (courses)</span>
+                    </div>
+                    <div style="font-size:12px;color:#94a3b8;margin-top:6px">
+                        Programmatic create / update / archive of course products,
+                        including SKU, custom options (course runs), and pricing.
+                        Use case: bulk-import a vendor's syllabus into our catalog.
+                    </div>
+                </div>
+
+                <div id="api-schedules" class="cs-card" style="opacity:0.7;margin-top:14px">
+                    <div class="cs-card-title" style="display:flex;align-items:center;gap:10px">
+                        <span>Schedules API</span>
+                        <span class="cs-status disabled" style="font-size:10px;background:#334155;color:#94a3b8">PLANNED</span>
+                        <span style="margin-left:auto;font-size:11px;color:#64748b">Class run dates / capacity</span>
+                    </div>
+                    <div style="font-size:12px;color:#94a3b8;margin-top:6px">
+                        Add / move / cancel class runs (the custom options on a
+                        course product). Use case: trainer's calendar pushes
+                        upcoming dates without an admin opening each course.
+                    </div>
+                </div>
+
+                <div id="api-learners" class="cs-card" style="opacity:0.7;margin-top:14px">
+                    <div class="cs-card-title" style="display:flex;align-items:center;gap:10px">
+                        <span>Learners API</span>
+                        <span class="cs-status disabled" style="font-size:10px;background:#334155;color:#94a3b8">PLANNED</span>
+                        <span style="margin-left:auto;font-size:11px;color:#64748b">Customer records (learners)</span>
+                    </div>
+                    <div style="font-size:12px;color:#94a3b8;margin-top:6px">
+                        Create / look up learner accounts, attach to a class run,
+                        retrieve completion / certificate status. Use case:
+                        corporate booking pipelines, partner LMS integrations.
+                    </div>
+                </div>
+
+                <div id="api-orders" class="cs-card" style="opacity:0.7;margin-top:14px">
+                    <div class="cs-card-title" style="display:flex;align-items:center;gap:10px">
+                        <span>Orders API</span>
+                        <span class="cs-status disabled" style="font-size:10px;background:#334155;color:#94a3b8">PLANNED</span>
+                        <span style="margin-left:auto;font-size:11px;color:#64748b">Course registrations</span>
+                    </div>
+                    <div style="font-size:12px;color:#94a3b8;margin-top:6px">
+                        Place a registration on behalf of a learner (skipping the
+                        web checkout), generate invoices, mark paid. Use case:
+                        bank-transfer reconciliation, training-grant claims.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <?php /* ===== legacy dead block (kept as a marker so future edits stay in place) =====
     Reuses .cs-* styles already declared inside dash-panel-companysetting,
@@ -11671,25 +11852,16 @@ document.addEventListener('keydown', function (ev) {
         if ((qsPanel === 'companysetting' || hash === '#companysetting')
             && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
             showAdminSubPanel('companysetting');
-            // If the URL targets a specific section inside Company Setting
-            // (e.g. ?panel=companysetting&section=api_summary from the
-            // sidebar "API Summary" link), open and scroll to that section
-            // after the panel finishes rendering.
-            try {
-                var qsSection = qs.get('section') || '';
-                if (qsSection) {
-                    setTimeout(function () {
-                        var sec = document.querySelector('.cs-section[data-section="' + qsSection + '"]');
-                        if (!sec) return;
-                        var head = sec.querySelector('.cs-section-head');
-                        var body = sec.querySelector('.cs-section-body');
-                        if (head && body && !body.classList.contains('open')) {
-                            window.csToggleSection(head);
-                        }
-                        sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 60);
-                }
-            } catch (e) {}
+            return;
+        }
+        if ((qsPanel === 'api_summary' || hash === '#api_summary')
+            && (role === 'Admin' || role === 'Super Admin' || role === 'Marketing')) {
+            // Dedicated API Summary panel — read-only directory of all
+            // outward-facing HTTP APIs. Key management lives in Credentials.
+            var apiPanel = document.getElementById('dash-panel-api_summary');
+            var allP = document.querySelectorAll('[id^="dash-panel-"]');
+            for (var i = 0; i < allP.length; i++) allP[i].style.display = 'none';
+            if (apiPanel) apiPanel.style.display = '';
             return;
         }
         if ((qsPanel === 'credentials' || hash === '#credentials')
