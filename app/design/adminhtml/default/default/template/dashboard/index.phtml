@@ -1588,6 +1588,9 @@ if ($_devFilterQuery !== '')      $_devBackParams['dev_q']          = $_devFilte
 if ($_devFilterCourseware !== '') $_devBackParams['dev_courseware'] = $_devFilterCourseware;
 $_devBackQs = http_build_query($_devBackParams);
 // "All" → website_id 0 (treated as "no country filter" everywhere below)
+// Canonical branch order across the admin (matches store_id ordering):
+// All → Singapore (1) → Malaysia (2) → Ghana (3) → Nigeria (4) →
+// Bhutan (5) → India (6) → Infotech (7).
 $_devCountryMap = array(
     'All'       => 0,
     'Singapore' => 1,
@@ -1596,6 +1599,7 @@ $_devCountryMap = array(
     'Nigeria'   => 4,
     'Bhutan'    => 5,
     'India'     => 6,
+    'Infotech'  => 7,
 );
 $_devCountryPrefix = array(
     0 => 'ALL',
