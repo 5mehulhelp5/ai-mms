@@ -31,6 +31,24 @@ rm -rf /var/www/html/var/cache/* \
        /var/www/html/var/tmp/* \
        /var/www/html/var/locks/* 2>/dev/null || true
 
+# Seed transactional-email logo into media/email/logo/default/ if absent.
+# The `media/` directory is Coolify-volume-mounted in production, so baked
+# COPY assets get shadowed — seed at runtime so the unified logo referenced
+# by migration 068 is actually present on disk.
+SEED_DIR=/var/www/html/docker/seeds/email-logo
+TARGET_DIR=/var/www/html/media/email/logo/default
+if [ -d "$SEED_DIR" ]; then
+    mkdir -p "$TARGET_DIR"
+    for f in "$SEED_DIR"/*; do
+        [ -f "$f" ] || continue
+        name=$(basename "$f")
+        if [ ! -f "$TARGET_DIR/$name" ]; then
+            cp "$f" "$TARGET_DIR/$name" && echo "entrypoint: seeded $TARGET_DIR/$name"
+        fi
+    done
+    chown -R www-data:www-data "$TARGET_DIR" 2>/dev/null || true
+fi
+
 echo "entrypoint: running migrations..."
 
 MAX_ATTEMPTS=12
