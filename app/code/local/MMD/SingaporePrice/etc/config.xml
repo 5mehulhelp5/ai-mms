@@ -82,6 +82,21 @@
                     </mmd_singaporeprice_funding_provision>
                 </observers>
             </catalog_product_save_after>
+            <!--
+                Freeze GST at gst_rate × catalog list price for SG store
+                quotes. Magento's stock tax engine computes tax on the
+                discounted subtotal; this observer rewrites tax_amount on
+                each item + the address back to the catalog-price base.
+            -->
+            <sales_quote_collect_totals_after>
+                <observers>
+                    <mmd_singaporeprice_gst_freeze>
+                        <type>singleton</type>
+                        <class>mmd_singaporeprice/observer</class>
+                        <method>freezeSgGstOnCatalogPrice</method>
+                    </mmd_singaporeprice_gst_freeze>
+                </observers>
+            </sales_quote_collect_totals_after>
         </events>
     </global>
 </config>

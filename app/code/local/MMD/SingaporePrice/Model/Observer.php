@@ -99,4 +99,83 @@ class MMD_SingaporePrice_Model_Observer
             ->addData($optionData);
         $option->save();
     }
+
+    /**
+     * sales_quote_collect_totals_after observer.
+     *
+     * SG GST rule: tax is frozen at gst_rate × catalog list price, NOT
+     * computed on the discounted line subtotal. By the time this event
+     * fires, Magento's standard tax engine has already written
+     * tax_amount = discounted_subtotal × rate onto each item + the
+     * address. We rewrite those values to the catalog-price-based amount.
+     *
+     * Active only when isActive(storeId) is true (SG storeId 1 or
+     * Infotech storeId 7). Other stores: no-op.
+     */
+    public function freezeSgGstOnCatalogPrice($observer)
+    {
+        try {
+            /** @var Mage_Sales_Model_Quote $quote */
+            $quote = $observer->getQuote();
+            if (!$quote) return;
+
+            $helper = Mage::helper('mmd_singaporeprice');
+            if (!$helper->isActive($quote->getStoreId())) return;
+
+            $rate = $helper->getGstRate();
+            if ($rate <= 0) return;
+
+            foreach ($quote->getAllAddresses() as $address) {
+                $totalNewTax = 0.0;
+
+                foreach ($address->getAllItems() as $item) {
+                    if ($item->getParentItemId()) continue; // child of configurable/bundle
+                    $product = $item->getProduct();
+                    if (!$product) continue;
+
+                    // Catalog list price = stable x for GST math.
+                    $catalogPrice = $helper->getCatalogPrice($product);
+                    if ($catalogPrice <= 0) continue;
+
+                    $qty = (float) ($item->getTotalQty() ?: $item->getQty());
+                    if ($qty <= 0) $qty = 1;
+
+                    $itemTax = $catalogPrice * $rate * $qty;
+                    $rowTotal = (float) $item->getRowTotal();
+
+                    $item->setTaxAmount($itemTax)
+                         ->setBaseTaxAmount($itemTax)
+                         ->setRowTotalInclTax($rowTotal + $itemTax)
+                         ->setBaseRowTotalInclTax($rowTotal + $itemTax)
+                         ->setTaxPercent($rate * 100)
+                         ->setPriceInclTax($catalogPrice * $rate + (float) $item->getPrice())
+                         ->setBasePriceInclTax($catalogPrice * $rate + (float) $item->getBasePrice());
+
+                    $totalNewTax += $itemTax;
+                }
+
+                $oldTax = (float) $address->getTaxAmount();
+                $delta  = $totalNewTax - $oldTax;
+
+                $address->setTaxAmount($totalNewTax)
+                        ->setBaseTaxAmount($totalNewTax)
+                        ->setGrandTotal((float) $address->getGrandTotal() + $delta)
+                        ->setBaseGrandTotal((float) $address->getBaseGrandTotal() + $delta);
+            }
+
+            // Roll address totals up to the quote.
+            $grand = 0.0;
+            $baseGrand = 0.0;
+            $taxSum = 0.0;
+            foreach ($quote->getAllAddresses() as $address) {
+                $grand     += (float) $address->getGrandTotal();
+                $baseGrand += (float) $address->getBaseGrandTotal();
+                $taxSum    += (float) $address->getTaxAmount();
+            }
+            $quote->setGrandTotal($grand)
+                  ->setBaseGrandTotal($baseGrand);
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
+    }
 }
