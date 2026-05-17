@@ -42,10 +42,14 @@
         var key = normalise(label);
         return parseFloat(map[key]) || 0;
     }
-    // Read the radio's original label text — strip out any badge span
-    // we added in annotateBadges(), otherwise the map lookup fails:
-    // "singaporean below 40 yrs old 50% off" wouldn't match the key
-    // "singaporean below 40 yrs old".
+    // Read the radio's original label text, stripping anything that
+    // gets appended at runtime so the map lookup matches by the
+    // base label.  Three sources of contamination:
+    //   1. Our own .mmd-sg-badge span ("70% off")
+    //   2. MMD_CustomOptions's getFormatedOptionPrice suffix
+    //      ("-$441.00", "(GST-exclusive)" etc.) — once the option
+    //      value has a non-zero price, the block renders it inline.
+    //   3. Trailing whitespace / non-breaking spaces.
     function labelTextFor(radio) {
         if (!radio) return '';
         var lbl = document.querySelector('label[for="' + radio.id + '"]');
@@ -59,7 +63,11 @@
                 t += node.textContent;
             }
         }
-        return t;
+        // Remove any "-$NNN.NN" / "+$NNN.NN" / "$NNN.NN" suffix and
+        // any "(GST-…)" inline annotation, plus a trailing % off label.
+        return t.replace(/[+-]?\$[\d,]+(?:\.\d+)?/g, '')
+                .replace(/\(GST[^)]*\)/g, '')
+                .replace(/\s*\d+%\s*off\s*$/i, '');
     }
     function discountForRadio(radio) {
         if (!radio || !radio.checked) return 0;
