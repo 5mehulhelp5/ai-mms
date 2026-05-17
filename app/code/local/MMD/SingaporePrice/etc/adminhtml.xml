@@ -8,9 +8,9 @@
                         <children>
                             <config>
                                 <children>
-                                    <mmd_company translate="title" module="mmd_singaporeprice">
+                                    <mmd_sg_pricing translate="title" module="mmd_singaporeprice">
                                         <title>SG Funding Discounts</title>
-                                    </mmd_company>
+                                    </mmd_sg_pricing>
                                 </children>
                             </config>
                         </children>

@@ -15,7 +15,7 @@
         </mmd>
     </tabs>
     <sections>
-        <mmd_company translate="label" module="mmd_singaporeprice">
+        <mmd_sg_pricing translate="label" module="mmd_singaporeprice">
             <class>separator-top</class>
             <label>SG Funding Discounts</label>
             <tab>mmd</tab>
@@ -41,6 +41,7 @@
                             <show_in_default>1</show_in_default>
                             <show_in_website>0</show_in_website>
                             <show_in_store>0</show_in_store>
+                            <config_path>mmd_company/sg_funding/above_40</config_path>
                             <comment>0–100. Default 70.</comment>
                         </above_40>
                         <below_40 translate="label">
@@ -50,6 +51,7 @@
                             <show_in_default>1</show_in_default>
                             <show_in_website>0</show_in_website>
                             <show_in_store>0</show_in_store>
+                            <config_path>mmd_company/sg_funding/below_40</config_path>
                             <comment>0–100. Default 50.</comment>
                         </below_40>
                         <pr translate="label">
@@ -59,6 +61,7 @@
                             <show_in_default>1</show_in_default>
                             <show_in_website>0</show_in_website>
                             <show_in_store>0</show_in_store>
+                            <config_path>mmd_company/sg_funding/pr</config_path>
                             <comment>0–100. Default 50.</comment>
                         </pr>
                         <non_sg translate="label">
@@ -68,6 +71,7 @@
                             <show_in_default>1</show_in_default>
                             <show_in_website>0</show_in_website>
                             <show_in_store>0</show_in_store>
+                            <config_path>mmd_company/sg_funding/non_sg</config_path>
                             <comment>0–100. Default 0 (no discount).</comment>
                         </non_sg>
                         <sme translate="label">
@@ -77,11 +81,12 @@
                             <show_in_default>1</show_in_default>
                             <show_in_website>0</show_in_website>
                             <show_in_store>0</show_in_store>
+                            <config_path>mmd_company/sg_funding/sme</config_path>
                             <comment>0–100. Default 70.</comment>
                         </sme>
                     </fields>
                 </sg_funding>
             </groups>
-        </mmd_company>
+        </mmd_sg_pricing>
     </sections>
 </config>
