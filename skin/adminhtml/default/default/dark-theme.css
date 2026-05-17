@@ -3492,11 +3492,13 @@ body[class*="customoptions-options-edit"] [id^="option_"] table tbody tr td {
 }
 
 /* Option-header Title input was clipped to ~50px showing just "Cour".
-   Force a usable width on the top-level option title and similar fields. */
-body[class*="customoptions-options-edit"] .option-header input[type="text"],
-body[class*="customoptions-options-edit"] [id^="option_"] > div:first-child input[type="text"],
-body[class*="customoptions-options-edit"] input[id$="_title"]:not([id*="select_"]),
-body[class*="customoptions-options-edit"] input[name*="[title]"]:not([name*="values"]) {
+   Higher-specificity rules above (`[id^="option_"] table input[type="text"]
+   { width: auto }`) were overriding earlier attempts, so bump specificity
+   here by re-stating the parent chain and using attribute selectors that
+   are unique to the option-header title field (not the per-value title
+   inputs inside the values table, which use id `..._select_..._title`). */
+html body[class*="customoptions-options-edit"] [id^="option_"] table input[type="text"][id$="_title"]:not([id*="_select_"]),
+html body[class*="customoptions-options-edit"] [id^="option_"] table input[type="text"][name$="[title]"] {
     width: 220px !important;
     min-width: 180px !important;
 }
