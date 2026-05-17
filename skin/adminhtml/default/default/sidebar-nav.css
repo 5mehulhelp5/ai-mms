@@ -1082,11 +1082,25 @@ body table.data tr.selected td a {
 .admin-main #sales_order_grid_table,
 .admin-main [id$="_grid"],
 .admin-main [id$="_grid"] .grid,
-.admin-main .content-header,
 .admin-main .grid .hor-scroll,
 .admin-main .grid > table {
     background: #0f172a !important;
     background-color: #0f172a !important;
+}
+
+/* Page header strip: transparent globally — no container fill behind
+   page titles + action buttons. Title sits flat on the page background. */
+.admin-main .content-header,
+.admin-main .content-header-floating,
+.content-header,
+.content-header-floating,
+.page-head,
+.page-head-container,
+.page-head .page-head-content {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
 }
 
 /* Remove any white/light borders around grid sections */

@@ -138,6 +138,28 @@ Rules:
 - **No new exceptions.** If you find yourself reaching for `background: var(--d4)`/`--d5` on a `<td>` or an `<input>`, that's the bug — pick a border, a hover ring, or a card wrapper instead.
 - When adding a new admin page or overriding a core template, scope inputs explicitly: `body.<route> .grid input.input-text { background: transparent !important; }`. The global rule already handles it, but cached/merged CSS (`media/css/HASH.css`) sometimes lags — explicit per-page rules survive the cache.
 
+## Hard rule: NO gray container behind page headers
+
+**Banned globally.** Page-title strips and panel headers must sit flush on the
+page surface — no filled gray container, no rounded gray pill, no `--d3`/`--d4`
+wrapper behind the `<h1>` or `<h3>`. The legacy Magento `.page-head`,
+`.entry-edit-head`, `.box-head`, and `.head` rules used to paint a gray strip;
+this clutters the dark theme and makes every page look like it has a stuck
+toolbar.
+
+Rules:
+
+- **All header containers are `background: transparent`** — `.page-head`,
+  `.page-head-container`, `.entry-edit-head`, `.box-head`, `.head`, and any
+  page-scoped `.section-config > .config` header wrapper. Use a `1px var(--b1)`
+  bottom hairline for separation if needed — never a fill.
+- **No gray on parent wrappers either.** `.col-main`, `.col-1-layout`,
+  `.middle`, `.main-col-inner` stay transparent. The only legitimate filled
+  surface is a true card (`--d3` bg + border + radius) wrapping form rows.
+- Canonical rules live in `dark-theme.css` (`.page-head` → transparent) and
+  `sidebar-nav.css` §header (`.entry-edit-head, .box-head, .head` → transparent).
+  If you spot a new gray strip, patch at source — don't layer overrides.
+
 ## Per-page overrides
 
 When a core Magento admin page needs different behavior from the global
