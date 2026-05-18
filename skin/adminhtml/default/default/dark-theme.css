@@ -1712,6 +1712,49 @@ html.is-order-view #ovActionsRow .form-buttons button {
     margin: 0 !important;
     float: none !important;
 }
+/* === Category edit — tabs + Reset/Save Category on ONE row ===
+   category-actions-row.js wraps #category_info_tabs and the
+   .content-buttons into #catActionsRow. Tabs left, action buttons
+   right, sharing a single underline; the "<name> (ID: n)" <h3> stays
+   in .content-header on its own row above. Mirrors #ovActionsRow. */
+body.adminhtml-catalog-category-edit #catActionsRow,
+body.adminhtml-catalog-category-index #catActionsRow,
+body.catalog-categories #catActionsRow {
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 4px 16px !important;
+    margin: 2px 0 16px 0 !important;
+    border-bottom: 2px solid var(--b1) !important;
+}
+body.adminhtml-catalog-category-edit #catActionsRow ul#category_info_tabs,
+body.adminhtml-catalog-category-index #catActionsRow ul#category_info_tabs,
+body.catalog-categories #catActionsRow ul#category_info_tabs {
+    border-bottom: none !important;
+    margin: 0 !important;
+    flex: 1 1 auto !important;
+    width: auto !important;
+}
+body.adminhtml-catalog-category-edit #catActionsRow .content-buttons,
+body.adminhtml-catalog-category-edit #catActionsRow .form-buttons,
+body.adminhtml-catalog-category-index #catActionsRow .content-buttons,
+body.catalog-categories #catActionsRow .content-buttons {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    margin: 0 0 4px 0 !important;
+    padding: 0 !important;
+    white-space: normal !important;
+    text-align: right !important;
+    flex: 0 0 auto !important;
+}
+body.adminhtml-catalog-category-edit #catActionsRow .content-buttons button,
+body.adminhtml-catalog-category-index #catActionsRow .content-buttons button,
+body.catalog-categories #catActionsRow .content-buttons button {
+    margin: 0 !important;
+    float: none !important;
+}
 /* === Order View — global 20% shrink ===
    Scale the whole order-view content area down to 80% so text, padding,
    tables, cards and gaps all shrink proportionally in one go (on top of
