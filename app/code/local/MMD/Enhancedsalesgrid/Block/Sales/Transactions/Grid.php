@@ -14,15 +14,19 @@ class MMD_Enhancedsalesgrid_Block_Sales_Transactions_Grid extends Mage_Adminhtml
         }
 
         // Native transactions collection doesn't include store_id. Pull
-        // it from sales_flat_order via the addOrderInformation hook which
-        // already joins the order table for the increment_id column.
+        // it from sales_flat_order via the addOrderInformation hook, which
+        // joins sales/order under the alias `so` (see core
+        // Mage_Sales_Model_Resource_Order_Payment_Transaction_Collection::
+        // _renderFilters) — NOT `order`. Filtering on `order.store_id`
+        // raised SQLSTATE 1054 "Unknown column 'order.store_id'", which
+        // blanked the whole Transactions grid in production.
         if (method_exists($collection, 'addOrderInformation')) {
             $collection->addOrderInformation(array('store_id'));
         }
 
         $storeId = (int) Mage::helper('branchscope')->getActiveStoreId();
         if ($storeId > 0) {
-            $collection->getSelect()->where('order.store_id = ?', $storeId);
+            $collection->getSelect()->where('so.store_id = ?', $storeId);
         }
         return $this;
     }
@@ -44,7 +48,7 @@ class MMD_Enhancedsalesgrid_Block_Sales_Transactions_Grid extends Mage_Adminhtml
             'type'         => 'options',
             'width'        => '110px',
             'options'      => $branchOptions,
-            'filter_index' => 'order.store_id',
+            'filter_index' => 'so.store_id',
         ), 'increment_id');
 
         return $this;
