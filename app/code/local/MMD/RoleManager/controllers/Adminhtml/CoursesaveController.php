@@ -114,6 +114,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $product->setData('trainerprofile', $html);
             }
             if (($v = $req->getParam('learning_outcomes')) !== null) $product->setData('description', $v);
+            if (($v = $req->getParam('course_description')) !== null) $product->setData('short_description', $v);
             if (($v = $req->getParam('who_should_attend')) !== null) $product->setData('whoshouldattend', $v);
             if (($v = $req->getParam('prerequisite'))      !== null) $product->setData('prerequisite', $v);
 
