@@ -451,12 +451,16 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                     .cs-input.cs-w-price{width:90px}
                     .cs-input.cs-w-sort{width:64px}
                     .cs-id{color:#94a3b8;font-family:monospace;font-size:12px}
-                    .cs-add-btn{margin-top:10px;padding:8px 14px;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.4);color:#22d3ee;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer}
-                    .cs-add-btn:hover{background:rgba(34,211,238,.22)}
-                    .cs-rm-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:28px;padding:0;background:transparent;border:1px solid var(--b2,#475569);color:var(--t4,#9ca3af);border-radius:6px;cursor:pointer}
-                    .cs-rm-btn svg{width:15px;height:15px;display:block}
-                    .cs-rm-btn:hover{background:rgba(96,165,250,.12);border-color:var(--blue,#60a5fa);color:var(--blue,#60a5fa)}
-                    .cs-rm-btn.active{background:var(--blue,#2563eb);border-color:var(--blue,#2563eb);color:#fff}
+                    /* Scoped under body .admin-main + !important so the
+                       §18 generic blue-button rule (which was turning
+                       these into blank blue boxes) can't win. */
+                    body .admin-main .cs-add-btn{display:inline-flex !important;align-items:center !important;justify-content:center !important;gap:0 !important;margin-top:10px !important;width:34px !important;min-width:34px !important;height:30px !important;min-height:30px !important;padding:0 !important;background:transparent !important;background-image:none !important;border:1px solid rgba(34,211,238,.45) !important;color:#22d3ee !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;line-height:1 !important}
+                    body .admin-main .cs-add-btn:hover{background:rgba(34,211,238,.18) !important;border-color:#22d3ee !important;color:#22d3ee !important}
+                    body .admin-main .cs-add-btn svg{width:16px !important;height:16px !important;display:block !important}
+                    body .admin-main .cs-rm-btn{display:inline-flex !important;align-items:center !important;justify-content:center !important;width:30px !important;min-width:30px !important;height:28px !important;min-height:28px !important;padding:0 !important;background:transparent !important;background-image:none !important;border:1px solid var(--b2,#475569) !important;color:var(--t4,#9ca3af) !important;border-radius:6px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;line-height:1 !important}
+                    body .admin-main .cs-rm-btn svg{width:15px !important;height:15px !important;display:block !important}
+                    body .admin-main .cs-rm-btn:hover{background:rgba(96,165,250,.12) !important;border-color:var(--blue,#60a5fa) !important;color:var(--blue,#60a5fa) !important}
+                    body .admin-main .cs-rm-btn.active{background:var(--blue,#2563eb) !important;border-color:var(--blue,#2563eb) !important;color:#fff !important}
 
 /* --- Block 11 (template line 4219) --- */
 .dce-wrap{max-width:1400px;margin:0 auto}
