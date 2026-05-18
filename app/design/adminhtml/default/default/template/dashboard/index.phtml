@@ -1988,13 +1988,12 @@ function devSetView(view) {
 <input type="hidden" name="dev_back" value="<?php echo htmlspecialchars($_devBack) ?>" />
 <div class="dcf-wrap">
     <div class="dcf-header">
-        <div style="flex:1;min-width:0;">
-            <h1 class="dcf-title"><?php echo htmlspecialchars($_editCourseData['name']) ?></h1>
+        <h1 class="dcf-title"><?php echo htmlspecialchars($_editCourseData['name']) ?></h1>
+        <div class="dcf-header-row2">
             <?php if ($_editCourseData['sku']): ?>
             <div class="dcf-title-sub"><?php echo htmlspecialchars($_editCourseData['sku']) ?></div>
             <?php endif; ?>
-        </div>
-        <div class="dcf-actions">
+            <div class="dcf-actions">
             <button type="button" class="dcf-btn dcf-btn-cancel" onclick="window.location.href='<?php echo $_devBackUrl ?>'">Cancel</button>
             <button type="button" class="dcf-btn dcf-btn-edit" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'edit')) . $_devBackSuffix ?>'">Exit Edit</button>
             <button type="button" class="dcf-btn dcf-btn-save-cont" onclick="document.getElementById('dcf-continue-edit').value='1';document.getElementById('dcf-form').submit();">Save &amp; Continue</button>
@@ -2002,6 +2001,7 @@ function devSetView(view) {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 Save Changes
             </button>
+            </div>
         </div>
     </div>
 
