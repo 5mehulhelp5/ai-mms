@@ -37,18 +37,29 @@
 
     var TABS_SEL = 'ul.tabs, ul.tabs-horiz';
 
-    function findButtons() {
-        // The HEADER buttons live inside .content-header. (container.phtml
-        // also emits a footer <p class="form-buttons"> — exclude it.)
-        var ch = document.querySelector('.content-header');
-        if (!ch) return null;
-        var p = ch.querySelector('.content-buttons, .form-buttons');
-        if (!p) return null;
-        // Must actually contain buttons, else there's nothing to align.
-        if (!p.querySelector('button, input[type="submit"], input[type="button"], a.scalable')) {
-            return null;
+    function findButtons(tabs) {
+        // Anchor on the tabs: the matching header buttons are the
+        // .content-header .form-buttons/.content-buttons block that sits
+        // immediately BEFORE the tabs in document order. Some pages have
+        // several .content-header blocks (e.g. catalog_category has a
+        // tree-panel header AND the form header) and container.phtml also
+        // emits a FOOTER <p class="form-buttons"> after the form — both
+        // are excluded by the "closest one preceding the tabs" rule.
+        var cands = document.querySelectorAll(
+            '.content-header .content-buttons, .content-header .form-buttons');
+        var best = null;
+        for (var i = 0; i < cands.length; i++) {
+            var p = cands[i];
+            if (!p.querySelector('button, input[type="submit"], input[type="button"], a.scalable')) {
+                continue; // nothing to align
+            }
+            // Keep it only if the tabs come AFTER this block in the DOM.
+            var rel = p.compareDocumentPosition(tabs);
+            if (rel & Node.DOCUMENT_POSITION_FOLLOWING) {
+                best = p; // later matches are closer-preceding → win
+            }
         }
-        return p;
+        return best;
     }
 
     function findTabs() {
@@ -63,7 +74,7 @@
     function arrange() {
         var tabs = findTabs();
         if (!tabs) return;            // not a tabbed edit page → no-op
-        var btns = findButtons();
+        var btns = findButtons(tabs);
         if (!btns) return;
 
         var row = document.getElementById('adminActionsRow');
