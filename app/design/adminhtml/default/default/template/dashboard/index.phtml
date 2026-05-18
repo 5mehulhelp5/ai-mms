@@ -5888,8 +5888,15 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
 </div>
 </div>
 
-<?php /* ===== PANEL 15: Agentic AI Tools (Trainer sub-view) ===== */ ?>
-<div id="dash-panel-agentic" style="display:none;">
+<?php /* ===== PANEL: View Trainers (Admin / Training Provider) =====
+    NOTE: this block's wrapper id was previously "dash-panel-agentic"
+    (a mislabel from the topic-panel refactor) while the content is the
+    View Trainers panel. The sidebar "View Trainer" link and the JS
+    router (showAdminSubPanel('trainers') → panelMap.trainers =
+    'dash-panel-trainers') look up #dash-panel-trainers, which did not
+    exist → getElementById null → every panel hidden → blank page.
+    Restored the correct id so the panel resolves. */ ?>
+<div id="dash-panel-trainers" style="display:none;">
 <div class="trn-wrap">
     <div class="trn-header">
         <h1 class="trn-title">View Trainers</h1>
