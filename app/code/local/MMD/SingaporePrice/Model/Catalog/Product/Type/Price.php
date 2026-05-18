@@ -90,6 +90,27 @@ class MMD_SingaporePrice_Model_Catalog_Product_Type_Price
 
         $percent = $this->_fundingDiscountPercent($product, $helper);
         if ($percent <= 0) {
+            // No funding discount → the SG course fee is simply the
+            // catalog price plus any priced option add-ons (e.g. the
+            // +$130 starter kit). Floor to that. This is mechanism-
+            // independent: whatever zeroed the parent's final price
+            // (a recurring special_price=0 row, a stale/collapsed
+            // catalog_product_index_price.final_price, a 100%-off
+            // catalog price rule, a final_price data override, …) can
+            // no longer make the cart $0 while the product page + frozen
+            // GST still show the real fee via getCatalogPrice(). SG
+            // courses never use special_price / catalog-rule discounts —
+            // the ONLY legitimate discount is the funding option handled
+            // in the percent>0 branch below (076/077 policy). So
+            // flooring here cannot mask an intended discount.
+            $catalogPrice = $helper->getCatalogPrice($product);
+            if ($catalogPrice > 0) {
+                $optionAddOns = (float) $product->getBaseCustomoptionsPrice();
+                $expected     = $catalogPrice + $optionAddOns;
+                if ($expected > $finalPrice) {
+                    return $expected;
+                }
+            }
             return $finalPrice;
         }
 
