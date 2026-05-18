@@ -1661,65 +1661,16 @@ html.is-order-view ul#sales_order_view_tabs li a.active span {
     box-shadow: none !important;
     margin: 0 0 -2px 0 !important;
 }
-/* === Order View — tabs + action buttons on ONE row ===
-   order-view-actions-row.js wraps the relocated tabs UL and the
-   .form-buttons into #ovActionsRow. Tabs sit left, action buttons
-   right, sharing a single underline. The "Order # … | <date>" <h3>
-   stays in .content-header on its own row above. */
-body.is-order-view #ovActionsRow,
-html.is-order-view #ovActionsRow {
-    display: flex !important;
-    align-items: flex-end !important;
-    justify-content: space-between !important;
-    flex-wrap: wrap !important;
-    gap: 4px 16px !important;
-    margin: 2px 0 18px 0 !important;
-    border-bottom: 2px solid var(--b1) !important;
-}
-/* Tabs UL now lives inside the row: drop its own underline/margin and
-   let it take the left side; the row owns the border. */
-body.is-order-view #ovActionsRow ul#sales_order_view_tabs,
-html.is-order-view #ovActionsRow ul#sales_order_view_tabs {
-    border-bottom: none !important;
-    margin: 0 !important;
-    flex: 1 1 auto !important;
-    width: auto !important;
-}
-/* Smaller tabs */
-body.is-order-view ul#sales_order_view_tabs li a,
-html.is-order-view ul#sales_order_view_tabs li a,
-body.is-order-view ul#sales_order_view_tabs li a.active,
-html.is-order-view ul#sales_order_view_tabs li a.active {
-    padding: 6px 11px !important;
-    font-size: 12px !important;
-}
-/* Action buttons grouped on the right of the row */
-body.is-order-view #ovActionsRow .form-buttons,
-html.is-order-view #ovActionsRow .form-buttons,
-body.is-order-view #ovActionsRow .content-buttons,
-html.is-order-view #ovActionsRow .content-buttons {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 6px !important;
-    margin: 0 0 4px 0 !important;
-    padding: 0 !important;
-    white-space: normal !important;
-    text-align: right !important;
-    flex: 0 0 auto !important;
-}
-body.is-order-view #ovActionsRow .form-buttons button,
-html.is-order-view #ovActionsRow .form-buttons button {
-    margin: 0 !important;
-    float: none !important;
-}
-/* === Category edit — tabs + Reset/Save Category on ONE row ===
-   category-actions-row.js wraps #category_info_tabs and the
-   .content-buttons into #catActionsRow. Tabs left, action buttons
-   right, sharing a single underline; the "<name> (ID: n)" <h3> stays
-   in .content-header on its own row above. Mirrors #ovActionsRow. */
-body.adminhtml-catalog-category-edit #catActionsRow,
-body.adminhtml-catalog-category-index #catActionsRow,
-body.catalog-categories #catActionsRow {
+/* === Admin edit pages — header buttons aligned onto the tabs row ===
+   admin-actions-row.js wraps the tab <ul> and the header buttons
+   (.form-buttons / .content-buttons) into #adminActionsRow on EVERY
+   tabbed edit page (CMS Page, Category, Product, Product Attribute,
+   Customer, Order View, Catalog/Cart Price Rule, Newsletter Template,
+   Admin User/Role, the MMD custom edit pages, …). Tabs left, buttons
+   right, one shared underline; the page-title <h3> stays in
+   .content-header on its own row above. Not body-scoped — the JS only
+   creates #adminActionsRow where the pattern exists. */
+#adminActionsRow {
     display: flex !important;
     align-items: flex-end !important;
     justify-content: space-between !important;
@@ -1728,18 +1679,27 @@ body.catalog-categories #catActionsRow {
     margin: 2px 0 16px 0 !important;
     border-bottom: 2px solid var(--b1) !important;
 }
-body.adminhtml-catalog-category-edit #catActionsRow ul#category_info_tabs,
-body.adminhtml-catalog-category-index #catActionsRow ul#category_info_tabs,
-body.catalog-categories #catActionsRow ul#category_info_tabs {
+/* Tab <ul> now lives in the row: it takes the left side, the row owns
+   the underline. */
+#adminActionsRow ul.tabs,
+#adminActionsRow ul.tabs-horiz {
     border-bottom: none !important;
     margin: 0 !important;
+    padding: 0 !important;
     flex: 1 1 auto !important;
     width: auto !important;
 }
-body.adminhtml-catalog-category-edit #catActionsRow .content-buttons,
-body.adminhtml-catalog-category-edit #catActionsRow .form-buttons,
-body.adminhtml-catalog-category-index #catActionsRow .content-buttons,
-body.catalog-categories #catActionsRow .content-buttons {
+/* Slightly smaller tab links so the merged row stays compact. */
+#adminActionsRow ul.tabs li a,
+#adminActionsRow ul.tabs-horiz li a,
+#adminActionsRow ul.tabs li a.active,
+#adminActionsRow ul.tabs-horiz li a.active {
+    padding: 6px 11px !important;
+    font-size: 12px !important;
+}
+/* Header buttons grouped on the right. */
+#adminActionsRow .form-buttons,
+#adminActionsRow .content-buttons {
     display: flex !important;
     flex-wrap: wrap !important;
     gap: 6px !important;
@@ -1749,9 +1709,8 @@ body.catalog-categories #catActionsRow .content-buttons {
     text-align: right !important;
     flex: 0 0 auto !important;
 }
-body.adminhtml-catalog-category-edit #catActionsRow .content-buttons button,
-body.adminhtml-catalog-category-index #catActionsRow .content-buttons button,
-body.catalog-categories #catActionsRow .content-buttons button {
+#adminActionsRow .form-buttons button,
+#adminActionsRow .content-buttons button {
     margin: 0 !important;
     float: none !important;
 }
