@@ -2344,15 +2344,10 @@ function devSetView(view) {
                     <input type="text" class="dcf-input" name="course_code" value="<?php echo htmlspecialchars($_editCourseData['sku']) ?>" style="font-family:monospace;letter-spacing:.5px;" placeholder="e.g. C432" />
                 </div>
 
-                <div class="dcf-field">
-                    <div class="dcf-label">Funding Validity</div>
-                    <?php
-                    $_rawFunding = $_editProd->getData('news_to_date');
-                    $_fundingInput = $_rawFunding ? date('Y-m-d', strtotime($_rawFunding)) : '';
-                    ?>
-                    <input type="date" class="dcf-input" name="funding_validity" value="<?php echo $_fundingInput ?>" />
-                    <div style="font-size:11px;color:#64748b;margin-top:4px;">Date until which the course funding is valid</div>
-                </div>
+                <?php /* Funding Validity field removed per request
+                     (deleted from the course form / project website).
+                     The news_to_date attribute is no longer editable
+                     here; its stored value is left untouched. */ ?>
 
                 <div class="dcf-field">
                     <div class="dcf-label" style="font-size:13px;font-weight:700;color:#f1f5f9;text-transform:none;letter-spacing:0;margin-bottom:10px;">Duration <span style="color:#fb7185;">*</span></div>
@@ -2385,6 +2380,10 @@ function devSetView(view) {
                     <select class="dcf-input" name="course_type_select" style="appearance:auto;">
                         <option value="">— Select —</option>
                         <option value="Non-funded" <?php echo $_editCourseData['course_type'] === 'Non-funded' ? 'selected' : '' ?>>Non-funded</option>
+                        <option value="WSQ" <?php echo $_editCourseData['course_type'] === 'WSQ' ? 'selected' : '' ?>>WSQ</option>
+                        <option value="IBF" <?php echo $_editCourseData['course_type'] === 'IBF' ? 'selected' : '' ?>>IBF</option>
+                        <option value="CASL" <?php echo $_editCourseData['course_type'] === 'CASL' ? 'selected' : '' ?>>CASL</option>
+                        <option value="HRDF" <?php echo $_editCourseData['course_type'] === 'HRDF' ? 'selected' : '' ?>>HRDF</option>
                     </select>
                 </div>
             </div>
