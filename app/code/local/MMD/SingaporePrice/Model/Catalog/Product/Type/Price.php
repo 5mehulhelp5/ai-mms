@@ -41,6 +41,33 @@ class MMD_SingaporePrice_Model_Catalog_Product_Type_Price
     extends MMD_CustomOptions_Model_Catalog_Product_Type_Price
 {
     /**
+     * Defensive guard against the recurring "$0 in cart, $350 on page"
+     * bug. A special_price of exactly 0 is never meaningful for a paid
+     * course (see migrations 076 / 077). When products are re-saved or
+     * re-imported the bad special_price=0 EAV row comes back: Magento's
+     * final-price math then collapses the cart line to $0, while the
+     * product page + GST still show the real fee (getCatalogPrice reads
+     * the untouched `price` attribute, not special_price). The one-shot
+     * cleanup migrations don't catch rows created after they ran, so
+     * neutralise a zero special_price here — every final-price
+     * computation flows through this model, so the cart can never be
+     * zeroed by it again. Genuinely-free courses use a regular price of
+     * 0 (not special_price=0) and are unaffected.
+     *
+     * @param Mage_Catalog_Model_Product $product
+     * @param float                       $qty
+     * @return float
+     */
+    public function getFinalPrice($qty, $product)
+    {
+        $sp = $product->getSpecialPrice();
+        if ($sp !== null && $sp !== false && $sp !== '' && (float) $sp == 0.0) {
+            $product->setSpecialPrice(false);
+        }
+        return parent::getFinalPrice($qty, $product);
+    }
+
+    /**
      * After the parent has resolved the option-loaded final price,
      * apply the SG funding-discount percent if the buyer selected a
      * Funding-Eligibility radio whose label maps to a configured
