@@ -220,7 +220,12 @@
             <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
         <div class="tools-group-items">
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'create_class'))) ?>" class="tools-sub-item"><span>Create New Classes</span></a>
+            <?php /* "Create New Classes" link removed: the dashboard
+               #dash-panel-createclass panel was retired by the
+               topic-panel refactor (commented out as a "legacy dead
+               block" with its data-prep — $_cncCourses et al. — deleted).
+               The link led to a blank page. Re-add once the panel and
+               its data layer are rebuilt. */ ?>
             <div class="tools-group tools-subgroup">
                 <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
                     <span>View Classes</span>
