@@ -2464,32 +2464,14 @@ function devSetView(view) {
                 <textarea class="dcf-textarea dcf-textarea-rich" name="learning_outcomes" placeholder="Enter course topics and learning units (HTML supported)..."><?php echo htmlspecialchars($_editCourseData['learning_outcomes']) ?></textarea>
             </div>
 
-            <!-- Assessment Methods -->
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                    Assessment Methods
-                </div>
-                <div style="font-size:12px;color:#94a3b8;margin-bottom:14px;">Select the assessment methods for this course. A link field will appear for each selected method.</div>
-                <?php $_assessMethods = array(
-                    'written'    => 'Written Exam',
-                    'practical'  => 'Practical Exam',
-                    'case_study' => 'Case Study',
-                    'role_play'  => 'Role Play',
-                    'oral'       => 'Oral Questioning',
-                    'project'    => 'Project',
-                    'assignment' => 'Assignment',
-                ); ?>
-                <?php foreach ($_assessMethods as $_ak => $_al): ?>
-                <div class="dcf-assess-box">
-                    <label class="dcf-assess-row">
-                        <input type="checkbox" name="assess_<?php echo $_ak ?>" onchange="this.closest('.dcf-assess-box').classList.toggle('dcf-assess-checked', this.checked)" />
-                        <span><?php echo $_al ?></span>
-                    </label>
-                    <div class="dcf-assess-url"><input type="text" class="dcf-input" name="url_<?php echo $_ak ?>" value="" placeholder="Paste URL" /></div>
-                </div>
-                <?php endforeach; ?>
-            </div>
+            <!-- Assessment Methods section removed per request
+                 (deleted from the course edit / editing / view pages).
+                 The dcf-form previously rendered Written Exam / Practical
+                 Exam / Case Study / Role Play / Oral Questioning /
+                 Project / Assignment checkboxes + per-method URL fields
+                 (assess_* / url_* inputs). Save handlers tolerate the
+                 absent fields (they simply aren't submitted). -->
+            <?php /* assessment-methods block deleted */ ?>
 
             <!-- Lesson section with rich topic/link cards -->
             <div class="dcf-section">
