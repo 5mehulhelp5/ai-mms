@@ -108,7 +108,22 @@ $trainerTable = $resource->getTableName('courses_trainers');
 // shown so we skip its ~12 queries entirely. Each sub-panel below has
 // its own self-contained data prep that runs independently.
 $_dashSubPanel = (string) Mage::app()->getRequest()->getParam('panel', '');
-$_dashOnAdminMaster = ($_dashSubPanel === '' || $_dashSubPanel === 'admin');
+// "Course Manager" view (Manage Courses listing + edit) — natively the developer
+// role's main page, but admin can opt into it too via the sidebar link
+// (?panel=courses). Once entered, follow-up navigation carries course_id /
+// dev_back / dev_country params, so any of those keeps the mode sticky.
+$_req = Mage::app()->getRequest();
+$_courseManagerActive = ($activeRole === 'developer') || (
+    $activeRole === 'admin' && (
+        $_dashSubPanel === 'courses'
+        || $_req->getParam('course_id')
+        || $_req->getParam('dev_back')
+        || $_req->getParam('dev_country')
+    )
+);
+// When admin is in course-manager mode, skip the heavy admin-KPI/schedule query
+// below — that panel is hidden and we render the developer panel instead.
+$_dashOnAdminMaster = ($_dashSubPanel === '' || $_dashSubPanel === 'admin') && !$_courseManagerActive;
 
 // EAV attribute IDs — needed by every admin sub-panel's catalog query
 // (Assign Trainer, Assign Learner, Enroll Learner, Create New Class all
@@ -1084,8 +1099,8 @@ $_backUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
 
 // Edit mode for developer course detail
 $_courseMode = Mage::app()->getRequest()->getParam('mode');
-$_editMode = ($_courseMode === 'edit' || $_courseMode === 'editing') && $_selectedCourse && $activeRole === 'developer';
-$_editingMode = ($_courseMode === 'editing') && $_selectedCourse && $activeRole === 'developer';
+$_editMode = ($_courseMode === 'edit' || $_courseMode === 'editing') && $_selectedCourse && $_courseManagerActive;
+$_editingMode = ($_courseMode === 'editing') && $_selectedCourse && $_courseManagerActive;
 // Back-state — preserved across View → Edit → Save/Cancel so the editor can
 // drop the user back on the exact filtered page they came from.
 $_devBack = trim((string) Mage::app()->getRequest()->getParam('dev_back', ''));
@@ -1465,7 +1480,7 @@ if ($_selectedCourseId) {
                     <td><span class="dash-badge <?php echo $scls ?>"><?php echo $slbl ?></span></td>
                     <td><?php echo (int)$row['learners'] ?></td>
                     <td style="color:#94a3b8;">—</td>
-                    <td><a href="#" title="Calendar" style="color:#22d3ee;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:rgba(34,211,238,.08);" onclick="event.preventDefault();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></a></td>
+                    <td><a href="#" title="Calendar" class="dash-icon-btn" onclick="event.preventDefault();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></a></td>
                 </tr>
                 <?php endforeach; ?>
                 </tbody>
@@ -1583,7 +1598,7 @@ $_devTotalAll = 0;
 
 // Courseware-URL counts are only used by the Developer panel's filter
 // chips, so skip the SUM-over-CASE query for every other role.
-if ($activeRole === 'developer' && in_array($_devFilterCourseware, array('missing','partial','all'), true)) {
+if ($_courseManagerActive && in_array($_devFilterCourseware, array('missing','partial','all'), true)) {
     try {
         $_cwRead = Mage::getSingleton('core/resource')->getConnection('core_read');
         // Count non-empty URLs per product. (col != '') casts to 0/1, summed.
@@ -1667,7 +1682,7 @@ $_devTotalCount = 0;
 // attributes selected, plus filtering, plus an iteration that resolves
 // thumbnail images per row. Only the Developer panel renders this; for
 // every other role the result ($_devCourses) is never displayed.
-if ($activeRole === 'developer'):
+if ($_courseManagerActive):
 try {
     // For "All", disable the flat-catalog at runtime so the collection
     // reads from catalog_product_entity (EAV) instead of catalog_product_flat_1.
@@ -1762,7 +1777,7 @@ if ($_devWebsiteId > 0) {
         ->getConnection('core_read')
         ->fetchOne("SELECT COUNT(*) FROM " . Mage::getSingleton('core/resource')->getTableName('catalog_product_entity'));
 }
-endif; // end if ($activeRole === 'developer') — closes the $_devCollection block
+endif; // end if ($_courseManagerActive) — closes the $_devCollection block
 ?>
 <div id="dash-panel-developer" style="display:none;">
 <div class="dev-wrap">
@@ -1988,11 +2003,11 @@ function devSetView(view) {
 <input type="hidden" name="dev_back" value="<?php echo htmlspecialchars($_devBack) ?>" />
 <div class="dcf-wrap">
     <div class="dcf-header">
-        <h1 class="dcf-title"><?php echo htmlspecialchars($_editCourseData['name']) ?></h1>
         <div class="dcf-header-row2">
-            <?php if ($_editCourseData['sku']): ?>
-            <div class="dcf-title-sub"><?php echo htmlspecialchars($_editCourseData['sku']) ?></div>
-            <?php endif; ?>
+            <button type="button" class="mm-btn mm-btn-ghost" onclick="window.location.href='<?php echo $_devBackUrl ?>'" style="flex:0 0 auto;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                Back to Manage Courses
+            </button>
             <div class="dcf-actions">
             <button type="button" class="dcf-btn dcf-btn-cancel" onclick="window.location.href='<?php echo $_devBackUrl ?>'">Cancel</button>
             <button type="button" class="dcf-btn dcf-btn-edit" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id'=>$_selectedCourse['id'], 'mode'=>'edit')) . $_devBackSuffix ?>'">Exit Edit</button>
@@ -2016,30 +2031,52 @@ function devSetView(view) {
     <aside class="sidebar-nav sidebar-nav-role dcf-edit-sidebar">
         <h3 class="dcf-edit-sidebar-title">Course Information</h3>
         <?php
+        // Sidebar structure: items are either flat tabs (key => label) or a
+        // collapsible group ('__group_xxx' => ['label' => …, 'children' => […]]).
         $_dcfTabs = array(
             'general'          => 'General',
-            'prices'           => 'Prices',
             'course-details'   => 'Course Details',
             'lesson-details'   => 'Lesson Details',
             'trainer-details'  => 'Trainer Details',
-            'images'           => 'Images',
-            'meta'             => 'Meta Information',
+            'images'           => 'Course Images',
+            'categories'       => 'Categories',
+            'schedule'         => 'Course Schedule',
+            'reviews'          => 'Course Review',
+            '__group_marketing' => array(
+                'label'    => 'Marketing',
+                'children' => array(
+                    'meta'        => 'SEO Meta',
+                    'related'     => 'Related Products',
+                    'upsells'     => 'Up-sells',
+                    'crosssells'  => 'Cross-sells',
+                ),
+            ),
             'design'           => 'Design',
             'websites'         => 'Websites',
-            'categories'       => 'Categories',
-            'related'          => 'Related Products',
-            'upsells'          => 'Up-sells',
-            'crosssells'       => 'Cross-sells',
-            'reviews'          => 'Courses Reviews',
-            'tagging'          => 'Courses Tagging',
-            'customers-tagged' => 'Customers Tagged Product',
-            'schedule'         => 'Course Schedule',
         );
-        foreach ($_dcfTabs as $_dt => $_dl): ?>
-        <button type="button" class="lms-nav-item<?php echo $_dt === 'course-details' ? ' active' : '' ?>" data-tab="<?php echo $_dt ?>">
-            <span><?php echo htmlspecialchars($_dl) ?></span>
-        </button>
-        <?php endforeach; ?>
+        $_renderTab = function ($_dt, $_dl) {
+            $cls = 'lms-nav-item' . ($_dt === 'course-details' ? ' active' : '');
+            echo '<button type="button" class="' . $cls . '" data-tab="' . htmlspecialchars($_dt) . '"><span>' . htmlspecialchars($_dl) . '</span></button>';
+        };
+        foreach ($_dcfTabs as $_dt => $_dl):
+            if (is_array($_dl) && isset($_dl['children'])):
+                $_groupKey = preg_replace('/[^a-z0-9_-]/i', '', $_dt);
+        ?>
+            <div class="dcf-nav-group collapsed" data-group="<?php echo htmlspecialchars($_groupKey) ?>">
+                <button type="button" class="dcf-nav-group-head" aria-expanded="false" onclick="dcfToggleNavGroup(this)">
+                    <span><?php echo htmlspecialchars($_dl['label']) ?></span>
+                    <svg class="dcf-nav-group-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+                <div class="dcf-nav-group-body">
+                    <?php foreach ($_dl['children'] as $_ct => $_cl) $_renderTab($_ct, $_cl); ?>
+                </div>
+            </div>
+        <?php
+            else:
+                $_renderTab($_dt, $_dl);
+            endif;
+        endforeach;
+        ?>
     </aside>
 
     <div class="dcf-tab-layout">
@@ -2052,7 +2089,7 @@ function devSetView(view) {
                 <div class="dcf-mag-bar">General</div>
                 <div class="dcf-mag-body">
                     <div class="dcf-row">
-                        <div class="dcf-row-label">Name <span class="dcf-required">*</span></div>
+                        <div class="dcf-row-label">Course Title <span class="dcf-required">*</span></div>
                         <div class="dcf-row-input"><input type="text" class="dcf-input" name="general_course_name" value="<?php echo htmlspecialchars($_editCourseData['name']) ?>" /></div>
                         <div class="dcf-row-scope">[GLOBAL]</div>
                     </div>
@@ -2073,13 +2110,12 @@ function devSetView(view) {
                         <div class="dcf-row-scope">[WEBSITE]</div>
                     </div>
                     <div class="dcf-row">
-                        <div class="dcf-row-label">Registration Start Date</div>
-                        <div class="dcf-row-input"><input type="date" class="dcf-input" name="general_news_from_date" /></div>
-                        <div class="dcf-row-scope">[WEBSITE]</div>
-                    </div>
-                    <div class="dcf-row">
-                        <div class="dcf-row-label">Registration End Date</div>
-                        <div class="dcf-row-input"><input type="date" class="dcf-input" name="general_news_to_date" /></div>
+                        <div class="dcf-row-label">Course Fee <span class="dcf-required">*</span></div>
+                        <div class="dcf-row-input">
+                            <?php $_genPrice = $_editProd->getData('price'); ?>
+                            <input type="number" step="0.01" class="dcf-input" name="prices_price" placeholder="0.00" value="<?php echo $_genPrice !== null && $_genPrice !== '' ? number_format((float)$_genPrice, 2, '.', '') : '' ?>" />
+                            <div class="dcf-row-help">[SGD]</div>
+                        </div>
                         <div class="dcf-row-scope">[WEBSITE]</div>
                     </div>
                     <div class="dcf-row">
@@ -2115,290 +2151,68 @@ function devSetView(view) {
                         </div>
                         <div class="dcf-row-scope">[STORE VIEW]</div>
                     </div>
+
+                    <?php
+                    // Course-metadata attributes promoted to the General tab.
+                    // `level` is an EAV select → pull options live; `sessions`
+                    // is text; `duration` is numeric; course type lives on the
+                    // `software` attribute via getAttributeText (the form posts
+                    // the label string under course_type_select).
+                    $_attrLevel   = Mage::getModel('eav/config')->getAttribute('catalog_product', 'level');
+                    $_valLevel    = (string) $_editProd->getData('level');
+                    $_valSessions = (string) $_editProd->getData('sessions');
+                    ?>
                     <div class="dcf-row">
-                        <div class="dcf-row-label">Send Browsed Product Autoresponder</div>
+                        <div class="dcf-row-label">Duration <span class="dcf-required">*</span></div>
                         <div class="dcf-row-input">
-                            <select class="dcf-select" name="general_ebizmarts_mark_visited">
-                                <option value="0" selected>No</option>
-                                <option value="1">Yes</option>
+                            <input type="number" step="0.5" class="dcf-input" name="training_hours" id="dcf-training-hours" value="<?php echo $_editCourseData['duration'] > 0 ? $_editCourseData['duration'] : '' ?>" placeholder="0" />
+                            <div class="dcf-row-help">Hours</div>
+                        </div>
+                        <div class="dcf-row-scope">[GLOBAL]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Session (days)</div>
+                        <div class="dcf-row-input">
+                            <input type="text" class="dcf-input" name="sessions" value="<?php echo htmlspecialchars($_valSessions) ?>" placeholder="e.g. 5" />
+                        </div>
+                        <div class="dcf-row-scope">[GLOBAL]</div>
+                    </div>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Course Type</div>
+                        <div class="dcf-row-input">
+                            <select class="dcf-select" name="course_type_select">
+                                <option value="">— Select —</option>
+                                <option value="Non-funded" <?php echo $_editCourseData['course_type'] === 'Non-funded' ? 'selected' : '' ?>>Non-funded</option>
+                                <option value="WSQ"        <?php echo $_editCourseData['course_type'] === 'WSQ'        ? 'selected' : '' ?>>WSQ</option>
+                                <option value="IBF"        <?php echo $_editCourseData['course_type'] === 'IBF'        ? 'selected' : '' ?>>IBF</option>
+                                <option value="CASL"       <?php echo $_editCourseData['course_type'] === 'CASL'       ? 'selected' : '' ?>>CASL</option>
+                                <option value="HRDF"       <?php echo $_editCourseData['course_type'] === 'HRDF'       ? 'selected' : '' ?>>HRDF</option>
                             </select>
                         </div>
-                        <div class="dcf-row-scope">[WEBSITE]</div>
+                        <div class="dcf-row-scope">[GLOBAL]</div>
                     </div>
+                    <?php if ($_attrLevel && $_attrLevel->getId()): ?>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Level</div>
+                        <div class="dcf-row-input">
+                            <select class="dcf-select" name="level">
+                                <option value="">— Select —</option>
+                                <?php foreach ($_attrLevel->getSource()->getAllOptions(false) as $_opt): ?>
+                                <option value="<?php echo htmlspecialchars($_opt['value']) ?>"<?php echo (string)$_opt['value'] === $_valLevel ? ' selected' : '' ?>><?php echo htmlspecialchars($_opt['label']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="dcf-row-scope">[GLOBAL]</div>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
 
-        <!-- ===== Tab: Prices ===== -->
-        <div class="dcf-tab-panel" data-tab="prices">
-            <div class="dcf-mag">
-                <div class="dcf-mag-bar">Prices</div>
-                <div class="dcf-mag-body">
-                    <?php
-                    $_priceTblHead = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#334155;color:#cbd5e1;">';
-                    ?>
-                    <?php
-                    // Pre-fill the Prices tab from the loaded product. Without
-                    // these existing values, every Save Changes click submits
-                    // the form with blanks, and the controller's
-                    // setData('special_price', $v === '' ? null : ...) treats
-                    // blank-string as "user cleared this" and nulls the column.
-                    // Result: every save accidentally wiped any previously-set
-                    // special_price / cost / msrp / special-date columns.
-                    // Bug fixed 2026-05-06 alongside Meta Information form.
-                    $_pxPrice          = $_editProd->getData('price');
-                    $_pxSpecialPrice   = $_editProd->getData('special_price');
-                    $_pxSpecialFrom    = $_editProd->getData('special_from_date');
-                    $_pxSpecialTo      = $_editProd->getData('special_to_date');
-                    $_pxCost           = $_editProd->getData('cost');
-                    $_pxMsrp           = $_editProd->getData('msrp');
-                    // <input type="date"> requires YYYY-MM-DD; Magento stores
-                    // these as DATETIME so slice off the time portion.
-                    $_pxSpecialFromYmd = $_pxSpecialFrom ? date('Y-m-d', strtotime($_pxSpecialFrom)) : '';
-                    $_pxSpecialToYmd   = $_pxSpecialTo   ? date('Y-m-d', strtotime($_pxSpecialTo))   : '';
-                    ?>
-                    <div class="dcf-row">
-                        <div class="dcf-row-label">Price <span class="dcf-required">*</span></div>
-                        <div class="dcf-row-input">
-                            <input type="number" step="0.01" class="dcf-input" name="prices_price" placeholder="0.00" value="<?php echo $_pxPrice !== null && $_pxPrice !== '' ? number_format((float)$_pxPrice, 2, '.', '') : '' ?>" />
-                            <div class="dcf-row-help">[SGD]</div>
-                        </div>
-                        <div class="dcf-row-scope">[WEBSITE]</div>
-                    </div>
-                    <?php
-                    // Customer groups + websites for the price-rule selectors
-                    $_priceCustGroups = array();
-                    foreach (Mage::getModel('customer/group')->getCollection() as $_g) {
-                        $_priceCustGroups[(int)$_g->getId()] = (string)$_g->getCustomerGroupCode();
-                    }
-                    $_priceWebsites = array();
-                    foreach (Mage::app()->getWebsites() as $_w) {
-                        $_priceWebsites[(int)$_w->getId()] = (string)$_w->getName();
-                    }
-                    $_groupPrices = array();
-                    foreach ((array)$_editProd->getGroupPrice() as $_gp) {
-                        $_groupPrices[] = array(
-                            'website_id' => (int)(isset($_gp['website_id']) ? $_gp['website_id'] : 0),
-                            'cust_group' => (int)(isset($_gp['cust_group']) ? $_gp['cust_group'] : 0),
-                            'price'      => (float)(isset($_gp['price']) ? $_gp['price'] : 0),
-                        );
-                    }
-                    $_tierPrices = array();
-                    foreach ((array)$_editProd->getTierPrice() as $_tp) {
-                        $_tierPrices[] = array(
-                            'website_id' => (int)(isset($_tp['website_id']) ? $_tp['website_id'] : 0),
-                            'cust_group' => (int)(isset($_tp['cust_group']) ? $_tp['cust_group'] : 0),
-                            'price_qty'  => (float)(isset($_tp['price_qty']) ? $_tp['price_qty'] : 1),
-                            'price'      => (float)(isset($_tp['price']) ? $_tp['price'] : 0),
-                        );
-                    }
-                    ?>
-                    <div class="dcf-row">
-                        <div class="dcf-row-label">Group Price</div>
-                        <div class="dcf-row-input">
-                            <input type="hidden" name="_group_price_loaded" value="1" />
-                            <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
-                                <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                                    <thead>
-                                        <tr style="background:#334155;color:#cbd5e1;">
-                                            <th style="padding:10px 14px;text-align:left;font-weight:600;">Website</th>
-                                            <th style="padding:10px 14px;text-align:left;font-weight:600;">Customer Group</th>
-                                            <th style="padding:10px 14px;text-align:left;font-weight:600;">Price</th>
-                                            <th style="padding:10px 14px;text-align:right;font-weight:600;width:80px;">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="dcf-grouppx-body">
-                                        <?php foreach ($_groupPrices as $_i => $_gp): ?>
-                                        <tr style="border-top:1px solid #384a60;">
-                                            <td style="padding:8px 12px;"><select class="dcf-select" name="group_price[<?php echo $_i ?>][website_id]"><?php foreach ($_priceWebsites as $_wid => $_wn): ?><option value="<?php echo $_wid ?>"<?php echo $_wid === $_gp['website_id'] ? ' selected' : '' ?>><?php echo htmlspecialchars($_wn) ?></option><?php endforeach; ?></select></td>
-                                            <td style="padding:8px 12px;"><select class="dcf-select" name="group_price[<?php echo $_i ?>][cust_group]"><?php foreach ($_priceCustGroups as $_cgid => $_cgn): ?><option value="<?php echo $_cgid ?>"<?php echo $_cgid === $_gp['cust_group'] ? ' selected' : '' ?>><?php echo htmlspecialchars($_cgn) ?></option><?php endforeach; ?></select></td>
-                                            <td style="padding:8px 12px;"><input type="number" step="0.01" class="dcf-input" name="group_price[<?php echo $_i ?>][price]" value="<?php echo number_format($_gp['price'], 2, '.', '') ?>" /></td>
-                                            <td style="padding:8px 12px;text-align:right;"><button type="button" class="cs-rm-btn" title="Remove" aria-label="Remove" onclick="this.closest('tr').remove()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>
-                                        </tr>
-                                        <?php endforeach; ?>
-                                        <?php if (empty($_groupPrices)): ?>
-                                        <tr id="dcf-grouppx-empty"><td colspan="4" style="padding:14px;color:#64748b;text-align:center;">No group prices yet.</td></tr>
-                                        <?php endif; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <button type="button" onclick="dcfAddGroupPriceRow()" style="margin-top:10px;background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">+ Add Group Price</button>
-                        </div>
-                        <div class="dcf-row-scope">[WEBSITE]</div>
-                    </div>
-                    <div class="dcf-row">
-                        <div class="dcf-row-label">Special Price</div>
-                        <div class="dcf-row-input">
-                            <input type="number" step="0.01" class="dcf-input" name="prices_special_price" placeholder="0.00" value="<?php echo $_pxSpecialPrice !== null && $_pxSpecialPrice !== '' ? number_format((float)$_pxSpecialPrice, 2, '.', '') : '' ?>" />
-                            <div class="dcf-row-help">[SGD]</div>
-                        </div>
-                        <div class="dcf-row-scope">[WEBSITE]</div>
-                    </div>
-                    <div class="dcf-row">
-                        <div class="dcf-row-label">Special Price From Date</div>
-                        <div class="dcf-row-input"><input type="date" class="dcf-input" name="prices_special_from_date" value="<?php echo htmlspecialchars($_pxSpecialFromYmd) ?>" /></div>
-                        <div class="dcf-row-scope">[WEBSITE]</div>
-                    </div>
-                    <div class="dcf-row">
-                        <div class="dcf-row-label">Special Price To Date</div>
-                        <div class="dcf-row-input"><input type="date" class="dcf-input" name="prices_special_to_date" value="<?php echo htmlspecialchars($_pxSpecialToYmd) ?>" /></div>
-                        <div class="dcf-row-scope">[WEBSITE]</div>
-                    </div>
-                    <div class="dcf-row">
-                        <div class="dcf-row-label">Cost</div>
-                        <div class="dcf-row-input">
-                            <input type="number" step="0.01" class="dcf-input" name="prices_cost" placeholder="0.00" value="<?php echo $_pxCost !== null && $_pxCost !== '' ? number_format((float)$_pxCost, 2, '.', '') : '' ?>" />
-                            <div class="dcf-row-help">[SGD]</div>
-                        </div>
-                        <div class="dcf-row-scope">[WEBSITE]</div>
-                    </div>
-                    <div class="dcf-row">
-                        <div class="dcf-row-label">Tier Price</div>
-                        <div class="dcf-row-input">
-                            <input type="hidden" name="_tier_price_loaded" value="1" />
-                            <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
-                                <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                                    <thead>
-                                        <tr style="background:#334155;color:#cbd5e1;">
-                                            <th style="padding:10px 14px;text-align:left;font-weight:600;">Website</th>
-                                            <th style="padding:10px 14px;text-align:left;font-weight:600;">Customer Group</th>
-                                            <th style="padding:10px 14px;text-align:left;font-weight:600;">Pax</th>
-                                            <th style="padding:10px 14px;text-align:left;font-weight:600;">Price</th>
-                                            <th style="padding:10px 14px;text-align:right;font-weight:600;width:80px;">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="dcf-tierpx-body">
-                                        <?php foreach ($_tierPrices as $_i => $_tp): ?>
-                                        <tr style="border-top:1px solid #384a60;">
-                                            <td style="padding:8px 12px;"><select class="dcf-select" name="tier_price[<?php echo $_i ?>][website_id]"><?php foreach ($_priceWebsites as $_wid => $_wn): ?><option value="<?php echo $_wid ?>"<?php echo $_wid === $_tp['website_id'] ? ' selected' : '' ?>><?php echo htmlspecialchars($_wn) ?></option><?php endforeach; ?></select></td>
-                                            <td style="padding:8px 12px;"><select class="dcf-select" name="tier_price[<?php echo $_i ?>][cust_group]"><?php foreach ($_priceCustGroups as $_cgid => $_cgn): ?><option value="<?php echo $_cgid ?>"<?php echo $_cgid === $_tp['cust_group'] ? ' selected' : '' ?>><?php echo htmlspecialchars($_cgn) ?></option><?php endforeach; ?></select></td>
-                                            <td style="padding:8px 12px;"><input type="number" step="1" min="1" class="dcf-input" name="tier_price[<?php echo $_i ?>][price_qty]" value="<?php echo (int)$_tp['price_qty'] ?>" style="width:80px;" /></td>
-                                            <td style="padding:8px 12px;"><input type="number" step="0.01" class="dcf-input" name="tier_price[<?php echo $_i ?>][price]" value="<?php echo number_format($_tp['price'], 2, '.', '') ?>" /></td>
-                                            <td style="padding:8px 12px;text-align:right;"><button type="button" class="cs-rm-btn" title="Remove" aria-label="Remove" onclick="this.closest('tr').remove()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>
-                                        </tr>
-                                        <?php endforeach; ?>
-                                        <?php if (empty($_tierPrices)): ?>
-                                        <tr id="dcf-tierpx-empty"><td colspan="5" style="padding:14px;color:#64748b;text-align:center;">No tier prices yet.</td></tr>
-                                        <?php endif; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <button type="button" onclick="dcfAddTierPriceRow()" style="margin-top:10px;background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">+ Add Tier</button>
-                        </div>
-                        <div class="dcf-row-scope">[WEBSITE]</div>
-                    </div>
-                    <div class="dcf-row">
-                        <div class="dcf-row-label">Apply MAP</div>
-                        <div class="dcf-row-input"><select class="dcf-select" name="prices_msrp_enabled"><option>Use config</option><option>Yes</option><option>No</option></select></div>
-                        <div class="dcf-row-scope">[WEBSITE]</div>
-                    </div>
-                    <div class="dcf-row">
-                        <div class="dcf-row-label">Display Actual Price</div>
-                        <div class="dcf-row-input"><select class="dcf-select" name="prices_msrp_display_actual_price_type"><option>Use config</option><option>On Gesture</option><option>In Cart</option><option>Before Order Confirmation</option></select></div>
-                        <div class="dcf-row-scope">[WEBSITE]</div>
-                    </div>
-                    <div class="dcf-row">
-                        <div class="dcf-row-label">Manufacturer's Suggested Retail Price</div>
-                        <div class="dcf-row-input">
-                            <input type="number" step="0.01" class="dcf-input" name="prices_msrp" placeholder="0.00" value="<?php echo $_pxMsrp !== null && $_pxMsrp !== '' ? number_format((float)$_pxMsrp, 2, '.', '') : '' ?>" />
-                            <div class="dcf-row-help">[SGD]</div>
-                        </div>
-                        <div class="dcf-row-scope">[WEBSITE]</div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <!-- ===== Tab: Course Details (default active — wraps existing content) ===== -->
+        <!-- ===== Tab: Course Details (default active — single-column layout) ===== -->
         <div class="dcf-tab-panel active" data-tab="course-details">
-        <div class="dcf-two-col">
-        <!-- LEFT COLUMN: Course Details (mirrors read-only layout) -->
-        <div class="dcf-col-left">
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    Course Details
-                </div>
-
-                <?php if ($_editCourseData['image']): ?>
-                <div class="dcf-field">
-                    <div class="dcf-label">Course Image</div>
-                    <img src="<?php echo htmlspecialchars($_editCourseData['image']) ?>" alt="" class="dcf-img-preview" />
-                </div>
-                <?php endif; ?>
-
-                <div class="dcf-field">
-                    <div class="dcf-label">Image URL Link</div>
-                    <input type="text" class="dcf-input" name="image_url" value="<?php echo htmlspecialchars($_editCourseData['image_url']) ?>" placeholder="Paste image URL" />
-                </div>
-
-                <div class="dcf-field">
-                    <div class="dcf-label">Course Title</div>
-                    <input type="text" class="dcf-input" name="course_name" value="<?php echo htmlspecialchars($_editCourseData['name']) ?>" style="font-weight:600;" />
-                </div>
-
-                <div class="dcf-field">
-                    <div class="dcf-label">Course Code</div>
-                    <input type="text" class="dcf-input" name="course_code" value="<?php echo htmlspecialchars($_editCourseData['sku']) ?>" style="font-family:monospace;letter-spacing:.5px;" placeholder="e.g. C432" />
-                </div>
-
-                <?php /* Funding Validity field removed per request
-                     (deleted from the course form / project website).
-                     The news_to_date attribute is no longer editable
-                     here; its stored value is left untouched. */ ?>
-
-                <div class="dcf-field">
-                    <div class="dcf-label" style="font-size:13px;font-weight:700;color:#f1f5f9;text-transform:none;letter-spacing:0;margin-bottom:10px;">Duration <span style="color:#fb7185;">*</span></div>
-                    <div style="background:#1b2638;border:1px solid #334155;border-radius:10px;padding:18px 20px;">
-                        <div style="display:flex;gap:16px;">
-                            <div style="flex:1;">
-                                <div style="font-size:13px;color:#94a3b8;margin-bottom:8px;font-weight:500;">Training Hours <span style="color:#fb7185;">*</span></div>
-                                <input type="number" step="0.5" name="training_hours" id="dcf-training-hours" value="<?php echo $_editCourseData['duration'] > 0 ? $_editCourseData['duration'] : '' ?>" placeholder="0" oninput="dcfUpdateTotal()" style="width:100%;padding:14px 16px;background:#283548;border:1px solid #475569;border-radius:10px;color:#f1f5f9;font-size:18px;font-weight:600;outline:none;box-sizing:border-box;font-family:inherit;" />
-                            </div>
-                            <div style="flex:1;">
-                                <div style="font-size:13px;color:#94a3b8;margin-bottom:8px;font-weight:500;">Assessment Hours <span style="color:#fb7185;">*</span></div>
-                                <input type="number" step="0.5" name="assessment_hours" id="dcf-assessment-hours" value="" placeholder="0" oninput="dcfUpdateTotal()" style="width:100%;padding:14px 16px;background:#283548;border:1px solid #475569;border-radius:10px;color:#f1f5f9;font-size:18px;font-weight:600;outline:none;box-sizing:border-box;font-family:inherit;" />
-                            </div>
-                        </div>
-                        <div style="text-align:right;margin-top:14px;font-size:14px;color:#94a3b8;font-weight:600;">Total Duration: <strong id="dcf-total-hours" style="color:#60a5fa;font-weight:700;margin-left:4px;"><?php echo $_editCourseData['duration'] > 0 ? rtrim(rtrim(number_format($_editCourseData['duration'], 1), '0'), '.') . ' hours' : '—' ?></strong></div>
-                    </div>
-                </div>
-
-                <div class="dcf-field">
-                    <div class="dcf-label">Mode of Learning</div>
-                    <div style="display:flex;flex-direction:column;gap:8px;">
-                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;color:#f1f5f9;"><input type="radio" name="mode_of_learning" value="Physical" checked style="accent-color:#2563eb;width:16px;height:16px;" /> Physical</label>
-                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;color:#f1f5f9;"><input type="radio" name="mode_of_learning" value="Virtual" style="accent-color:#2563eb;width:16px;height:16px;" /> Virtual</label>
-                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;color:#f1f5f9;"><input type="radio" name="mode_of_learning" value="Hybrid" style="accent-color:#2563eb;width:16px;height:16px;" /> Hybrid</label>
-                    </div>
-                </div>
-
-                <div class="dcf-field">
-                    <div class="dcf-label">Course Type</div>
-                    <select class="dcf-input" name="course_type_select" style="appearance:auto;">
-                        <option value="">— Select —</option>
-                        <option value="Non-funded" <?php echo $_editCourseData['course_type'] === 'Non-funded' ? 'selected' : '' ?>>Non-funded</option>
-                        <option value="WSQ" <?php echo $_editCourseData['course_type'] === 'WSQ' ? 'selected' : '' ?>>WSQ</option>
-                        <option value="IBF" <?php echo $_editCourseData['course_type'] === 'IBF' ? 'selected' : '' ?>>IBF</option>
-                        <option value="CASL" <?php echo $_editCourseData['course_type'] === 'CASL' ? 'selected' : '' ?>>CASL</option>
-                        <option value="HRDF" <?php echo $_editCourseData['course_type'] === 'HRDF' ? 'selected' : '' ?>>HRDF</option>
-                    </select>
-                </div>
-            </div>
-            <script>
-            function dcfUpdateTotal() {
-                var t = parseFloat(document.getElementById('dcf-training-hours').value) || 0;
-                var a = parseFloat(document.getElementById('dcf-assessment-hours').value) || 0;
-                var total = t + a;
-                var el = document.getElementById('dcf-total-hours');
-                if (el) el.textContent = total > 0 ? (total % 1 === 0 ? total : total.toFixed(1)) + ' hours' : '—';
-            }
-            </script>
-
-        </div>
-
-        <!-- RIGHT COLUMN: Course Content (mirrors read-only layout) -->
-        <div class="dcf-col-right">
+        <div class="dcf-col-full">
             <!-- Course Description — standard Magento short_description attribute,
                  rendered as a short marketing summary at the top of course pages. -->
             <div class="dcf-section">
@@ -2425,6 +2239,33 @@ function devSetView(view) {
                 <textarea class="dcf-textarea dcf-textarea-rich" name="learning_outcomes" placeholder="Enter course topics and learning units (HTML supported)..."><?php echo htmlspecialchars($_editCourseData['learning_outcomes']) ?></textarea>
             </div>
 
+            <!-- Course Info — backs the storefront "Course Info" tab (prerequisite attribute). -->
+            <div class="dcf-section">
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    Course Info
+                </div>
+                <textarea class="dcf-textarea dcf-textarea-rich" name="prerequisite" placeholder="Prerequisites, what to bring, course info (HTML supported)..."><?php echo htmlspecialchars((string) $_editProd->getData('prerequisite')) ?></textarea>
+            </div>
+
+            <!-- Job Roles — backs the storefront "Job Roles" tab (whoshouldattend attribute). -->
+            <div class="dcf-section">
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Job Roles
+                </div>
+                <textarea class="dcf-textarea dcf-textarea-rich" name="who_should_attend" placeholder="Target job roles / who should attend (HTML supported)..."><?php echo htmlspecialchars((string) $_editProd->getData('whoshouldattend')) ?></textarea>
+            </div>
+
+            <!-- Additional Note — backs the storefront "Additional Note:" line in the Course Information tab. -->
+            <div class="dcf-section">
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    Additional Note
+                </div>
+                <textarea class="dcf-textarea dcf-textarea-rich" name="additional_note" placeholder="What to bring, special instructions (HTML supported)..."><?php echo htmlspecialchars((string) $_editProd->getData('additional_note')) ?></textarea>
+            </div>
+
             <!-- Assessment Methods section removed per request
                  (deleted from the course edit / editing / view pages).
                  The dcf-form previously rendered Written Exam / Practical
@@ -2434,12 +2275,34 @@ function devSetView(view) {
                  absent fields (they simply aren't submitted). -->
             <?php /* assessment-methods block deleted */ ?>
 
-        </div><!-- /.dcf-col-right -->
-        </div><!-- /.dcf-two-col -->
+        </div><!-- /.dcf-col-full -->
         </div><!-- /.dcf-tab-panel[data-tab="course-details"] -->
 
         <!-- ===== Tab: Lesson Details ===== -->
         <div class="dcf-tab-panel" data-tab="lesson-details">
+
+            <!-- Courseware -->
+            <div class="dcf-section">
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    Courseware
+                </div>
+                <?php
+                $_cwFields = array(
+                    'lesson_plan_url'        => 'Lesson Plan URL',
+                    'learner_slides_url'     => 'Learner Slides URL',
+                    'trainer_slides_url'     => 'Trainer Slides URL',
+                    'courseware_link'        => 'Courseware Link',
+                    'brochure_link'          => 'Brochure Link',
+                );
+                foreach ($_cwFields as $_k => $_lbl):
+                ?>
+                <div class="dcf-field">
+                    <label class="dcf-label"><?php echo $_lbl ?></label>
+                    <input type="url" name="courseware_<?php echo $_k ?>" class="dcf-input" value="<?php echo htmlspecialchars($_courseware[$_k]) ?>" placeholder="https://..." />
+                </div>
+                <?php endforeach; ?>
+            </div>
 
             <!-- Lesson section with rich topic/link cards -->
             <div class="dcf-section">
@@ -2605,8 +2468,8 @@ function devSetView(view) {
                                 '<div class="lsn-topic-head">' +
                                     '<div class="lsn-topic-drag"><span></span><span></span><span></span></div>' +
                                     '<input type="text" class="lsn-topic-title" value="' + esc(t.title) + '" onchange="lsnEditTopic(' + ti + ',\'title\',this.value)" />' +
-                                    '<button type="button" class="lsn-topic-btn" onclick="lsnToggleTopic(' + ti + ')"><svg class="lsn-caret-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button>' +
-                                    '<button type="button" class="lsn-topic-btn lsn-del" onclick="lsnDeleteTopic(' + ti + ')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></button>' +
+                                    '<button type="button" class="lsn-topic-btn" onclick="lsnToggleTopic(' + ti + ')" style="background:transparent !important;background-image:none !important;border:1px solid #475569 !important;border-radius:5px !important;width:28px !important;height:28px !important;padding:0 !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;color:#cbd5e1 !important;box-shadow:none !important;text-shadow:none !important;cursor:pointer;"><svg class="lsn-caret-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:block"><polyline points="6 9 12 15 18 9"/></svg></button>' +
+                                    '<button type="button" class="lsn-topic-btn lsn-del" onclick="lsnDeleteTopic(' + ti + ')" style="background:transparent !important;background-image:none !important;border:1px solid #475569 !important;border-radius:5px !important;width:28px !important;height:28px !important;padding:0 !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;color:#fb7185 !important;box-shadow:none !important;text-shadow:none !important;cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></button>' +
                                 '</div>' +
                                 '<div class="lsn-topic-body">' +
                                     subsecsHtml +
@@ -2840,29 +2703,6 @@ function devSetView(view) {
                 </script>
             </div>
 
-            <!-- Courseware -->
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                    Courseware
-                </div>
-                <?php
-                $_cwFields = array(
-                    'lesson_plan_url'        => 'Lesson Plan URL',
-                    'learner_slides_url'     => 'Learner Slides URL',
-                    'trainer_slides_url'     => 'Trainer Slides URL',
-                    'courseware_link'        => 'Courseware Link',
-                    'brochure_link'          => 'Brochure Link',
-                );
-                foreach ($_cwFields as $_k => $_lbl):
-                ?>
-                <div class="dcf-field">
-                    <label class="dcf-label"><?php echo $_lbl ?></label>
-                    <input type="url" name="courseware_<?php echo $_k ?>" class="dcf-input" value="<?php echo htmlspecialchars($_courseware[$_k]) ?>" placeholder="https://..." />
-                </div>
-                <?php endforeach; ?>
-            </div>
-
             <!-- Course Settings -->
             <div class="dcf-section">
                 <div class="dcf-section-title">
@@ -2883,17 +2723,15 @@ function devSetView(view) {
 
         </div><!-- /.dcf-tab-panel[data-tab="lesson-details"] -->
 
-        <!-- ===== Tab: Trainer Details ===== -->
+        <!-- ===== Tab: Trainer Details (single-column layout, matching Course Details) ===== -->
         <div class="dcf-tab-panel" data-tab="trainer-details">
-            <div class="dcf-mag">
-                <div class="dcf-mag-bar">Trainer Profile</div>
-                <div class="dcf-mag-body">
-                    <div class="dcf-row">
-                        <div class="dcf-row-label">Trainer Profile</div>
-                        <div class="dcf-row-input"><textarea class="dcf-textarea dcf-textarea-rich" name="trainer_profile" placeholder="HTML supported — trainer background, qualifications, experience..."><?php echo htmlspecialchars((string) $_editProd->getData('trainerprofile')) ?></textarea></div>
-                        <div class="dcf-row-scope">[STORE VIEW]</div>
-                    </div>
+
+            <div class="dcf-section">
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    Trainer Profile
                 </div>
+                <textarea class="dcf-textarea dcf-textarea-rich" name="trainer_profile" placeholder="HTML supported — trainer background, qualifications, experience..."><?php echo htmlspecialchars((string) $_editProd->getData('trainerprofile')) ?></textarea>
             </div>
 
             <!-- Trainer multi-select picker (moved here from Course Details tab) -->
@@ -3006,8 +2844,110 @@ function devSetView(view) {
 
         <!-- ===== Tab: Images ===== -->
         <div class="dcf-tab-panel" data-tab="images">
+
+            <!-- Course Image (moved from Course Details). Single image stored
+                 in the `image_url` field — separate from the standard Magento
+                 media gallery below. -->
+            <div class="dcf-section">
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Course Image
+                </div>
+
+                <div class="dcf-field" id="dcf-image-preview-wrap" style="<?php echo $_editCourseData['image'] ? '' : 'display:none;' ?>">
+                    <div class="dcf-label">Course Image</div>
+                    <img id="dcf-image-preview" src="<?php echo htmlspecialchars($_editCourseData['image']) ?>" alt="" class="dcf-img-preview" onerror="document.getElementById('dcf-image-preview-wrap').style.display='none'" />
+                </div>
+
+                <div class="dcf-field">
+                    <div class="dcf-label">Image URL Link</div>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input type="text" class="dcf-input" id="dcf-image-url" name="image_url" value="<?php echo htmlspecialchars($_editCourseData['image_url']) ?>" placeholder="Paste image URL or upload →" style="flex:1;min-width:0;" />
+                        <button type="button" id="dcf-image-upload-btn" class="mm-btn mm-btn-ghost" style="flex:0 0 auto;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <span id="dcf-image-upload-lbl">Upload</span>
+                        </button>
+                        <input type="file" id="dcf-image-file" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" />
+                    </div>
+                    <div id="dcf-image-upload-msg" style="margin-top:6px;font-size:12px;color:#94a3b8;display:none;"></div>
+                </div>
+                <script>
+                /* Direct-upload helper for the Image URL Link field. Posts the
+                   selected file to adminhtml/courseimage/upload, then writes
+                   the returned media URL into the text input and updates the
+                   preview. The Save Changes flow remains unchanged — the URL
+                   is still persisted via the same `image_url` form field. */
+                (function () {
+                    var fileInput   = document.getElementById('dcf-image-file');
+                    var btn         = document.getElementById('dcf-image-upload-btn');
+                    var urlInput    = document.getElementById('dcf-image-url');
+                    var preview     = document.getElementById('dcf-image-preview');
+                    var previewWrap = document.getElementById('dcf-image-preview-wrap');
+                    var msg         = document.getElementById('dcf-image-upload-msg');
+                    var lbl         = document.getElementById('dcf-image-upload-lbl');
+                    if (!fileInput || !btn || !urlInput) return;
+
+                    var uploadUrl = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/courseimage/upload')) ?>;
+
+                    function showMsg(text, color) {
+                        msg.style.display = 'block';
+                        msg.style.color = color || '#94a3b8';
+                        msg.textContent = text;
+                    }
+                    function refreshPreview() {
+                        if (!preview || !previewWrap) return;
+                        var v = (urlInput.value || '').trim();
+                        if (!v) { previewWrap.style.display = 'none'; return; }
+                        preview.src = v;
+                        previewWrap.style.display = '';
+                    }
+                    urlInput.addEventListener('input', refreshPreview);
+
+                    btn.addEventListener('click', function () { fileInput.click(); });
+
+                    fileInput.addEventListener('change', function () {
+                        var f = fileInput.files && fileInput.files[0];
+                        if (!f) return;
+                        if (!/^image\/(jpe?g|png|gif|webp)$/i.test(f.type)) {
+                            showMsg('Only JPG / PNG / GIF / WebP images are accepted.', '#fb7185');
+                            fileInput.value = '';
+                            return;
+                        }
+                        var fd = new FormData();
+                        fd.append('image', f);
+                        fd.append('form_key', (window.FORM_KEY || ''));
+                        btn.disabled = true;
+                        lbl.textContent = 'Uploading…';
+                        showMsg('Uploading ' + f.name + '…');
+                        fetch(uploadUrl, {
+                            method: 'POST',
+                            body: fd,
+                            credentials: 'same-origin'
+                        }).then(function (r) { return r.json(); })
+                          .then(function (data) {
+                            if (data && data.success && data.url) {
+                                urlInput.value = data.url;
+                                refreshPreview();
+                                showMsg('Uploaded. Click Save Changes to persist.', '#34d399');
+                            } else {
+                                showMsg('Upload failed: ' + (data && data.message ? data.message : 'unknown error'), '#fb7185');
+                            }
+                          })
+                          .catch(function (err) {
+                            showMsg('Upload error: ' + err.message, '#fb7185');
+                          })
+                          .then(function () {
+                            btn.disabled = false;
+                            lbl.textContent = 'Upload';
+                            fileInput.value = '';
+                          });
+                    });
+                })();
+                </script>
+            </div>
+
             <div class="dcf-mag">
-                <div class="dcf-mag-bar">Images</div>
+                <div class="dcf-mag-bar">Media Gallery</div>
                 <div class="dcf-mag-body">
                     <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:#93c5fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;">
                         Read live from the product's media gallery. Toggle Exclude / Remove and pick which image is the Base / Small / Thumbnail. Save Changes commits everything. (File upload uses Magento's standard product editor for now.)
@@ -3089,7 +3029,7 @@ function devSetView(view) {
         <!-- ===== Tab: Meta Information ===== -->
         <div class="dcf-tab-panel" data-tab="meta">
             <div class="dcf-mag">
-                <div class="dcf-mag-bar">Meta Information</div>
+                <div class="dcf-mag-bar">SEO Meta</div>
                 <div class="dcf-mag-body">
                     <div class="dcf-row">
                         <div class="dcf-row-label">Meta Title</div>
@@ -3108,26 +3048,6 @@ function devSetView(view) {
                             <div class="dcf-row-help">Maximum 255 chars</div>
                         </div>
                         <div class="dcf-row-scope">[STORE VIEW]</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ===== Tab: Recurring Profile ===== -->
-        <div class="dcf-tab-panel" data-tab="recurring">
-            <div class="dcf-mag">
-                <div class="dcf-mag-bar">Recurring Profile</div>
-                <div class="dcf-mag-body">
-                    <div class="dcf-row">
-                        <div class="dcf-row-label">Enable Recurring Profile</div>
-                        <div class="dcf-row-input">
-                            <select class="dcf-select" name="recurring_profile_enabled">
-                                <option value="0" selected>No</option>
-                                <option value="1">Yes</option>
-                            </select>
-                            <div class="dcf-row-help">Products with recurring profile participate in catalog as nominal items.</div>
-                        </div>
-                        <div class="dcf-row-scope">[GLOBAL]</div>
                     </div>
                 </div>
             </div>
@@ -3406,14 +3326,10 @@ function devSetView(view) {
         <?php endforeach; ?>
 
         <?php
-        // ===== Read-only data tabs (Reviews / Tagging / Customers Tagged) =====
-        // Single connection used for all three.
+        // ===== Read-only data tab (Reviews) =====
         $_roReviews = array();
-        $_roTags = array();
-        $_roTagCustomers = array();
         try {
             $_roRead = Mage::getSingleton('core/resource')->getConnection('core_read');
-            // Reviews — joined with review_detail for the user-visible content
             $_roReviews = $_roRead->fetchAll(
                 "SELECT r.review_id, r.created_at, r.status_id, rd.title, rd.nickname, rd.detail, rd.store_id
                  FROM review r
@@ -3423,136 +3339,42 @@ function devSetView(view) {
                 array($_selectedCourseId)
             );
             $_roReviewStatusMap = array(1 => 'Approved', 2 => 'Pending', 3 => 'Not Approved');
-            // Tags — distinct tags + how many customers have used them on this course
-            $_roTags = $_roRead->fetchAll(
-                "SELECT t.tag_id, t.name, t.status, COUNT(DISTINCT tr.customer_id) AS use_count
-                 FROM tag t
-                 INNER JOIN tag_relation tr ON tr.tag_id = t.tag_id
-                 WHERE tr.product_id = ?
-                 GROUP BY t.tag_id, t.name, t.status
-                 ORDER BY t.name ASC",
-                array($_selectedCourseId)
-            );
-            $_roTagStatusMap = array(0 => 'Disabled', 1 => 'Pending', 2 => 'Approved');
-            // Customers who tagged this course — first/last name pulled via EAV
-            $_fnAttr = (int) $_roRead->fetchOne("SELECT attribute_id FROM eav_attribute WHERE entity_type_id=1 AND attribute_code='firstname'");
-            $_lnAttr = (int) $_roRead->fetchOne("SELECT attribute_id FROM eav_attribute WHERE entity_type_id=1 AND attribute_code='lastname'");
-            $_roTagCustomers = $_roRead->fetchAll(
-                "SELECT DISTINCT ce.entity_id, ce.email,
-                        fn.value AS firstname, ln.value AS lastname,
-                        t.name AS subject_name
-                 FROM tag_relation tr
-                 INNER JOIN customer_entity ce ON ce.entity_id = tr.customer_id
-                 INNER JOIN tag t ON t.tag_id = tr.tag_id
-                 LEFT JOIN customer_entity_varchar fn ON fn.entity_id = ce.entity_id AND fn.attribute_id = ?
-                 LEFT JOIN customer_entity_varchar ln ON ln.entity_id = ce.entity_id AND ln.attribute_id = ?
-                 WHERE tr.product_id = ?
-                 ORDER BY ln.value ASC, fn.value ASC",
-                array($_fnAttr, $_lnAttr, $_selectedCourseId)
-            );
         } catch (Exception $_roEx) { /* tables may be absent on a stripped DB — leave empties */ }
         ?>
 
-        <!-- ===== Tab: Courses Reviews ===== -->
+        <!-- ===== Tab: Course Review ===== -->
         <div class="dcf-tab-panel" data-tab="reviews">
             <div class="dcf-mag">
-                <div class="dcf-mag-bar">Courses Reviews <span style="color:#94a3b8;font-weight:500;font-size:13px;">(<?php echo count($_roReviews) ?>)</span></div>
+                <div class="dcf-mag-bar">Course Review <span style="color:#94a3b8;font-weight:500;font-size:13px;">(<?php echo count($_roReviews) ?>)</span></div>
                 <div class="dcf-mag-body">
-                    <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
-                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                            <thead>
-                                <tr style="background:#334155;color:#cbd5e1;">
-                                    <?php foreach (array('ID','Created On','Status','Title','Nickname','Review','Store') as $_h): ?>
-                                    <th style="padding:10px 12px;text-align:left;font-weight:600;"><?php echo $_h ?></th>
-                                    <?php endforeach; ?>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if (empty($_roReviews)): ?>
-                                <tr><td colspan="7" style="padding:32px;color:#64748b;text-align:center;">No reviews yet.</td></tr>
-                                <?php else: foreach ($_roReviews as $_rv):
-                                    $_st = isset($_roReviewStatusMap[(int)$_rv['status_id']]) ? $_roReviewStatusMap[(int)$_rv['status_id']] : '—';
-                                    $_stCls = ((int)$_rv['status_id'] === 1) ? '#22c55e' : (((int)$_rv['status_id']) === 2 ? '#f59e0b' : '#ef4444');
-                                    $_dt  = $_rv['created_at'] ? date('M j, Y g:i A', strtotime($_rv['created_at'])) : '—';
-                                ?>
-                                <tr style="border-top:1px solid #384a60;color:#e2e8f0;">
-                                    <td style="padding:10px 12px;color:#94a3b8;"><?php echo (int)$_rv['review_id'] ?></td>
-                                    <td style="padding:10px 12px;"><?php echo $_dt ?></td>
-                                    <td style="padding:10px 12px;color:<?php echo $_stCls ?>;"><?php echo $_st ?></td>
-                                    <td style="padding:10px 12px;"><?php echo htmlspecialchars((string)$_rv['title']) ?></td>
-                                    <td style="padding:10px 12px;color:#cbd5e1;"><?php echo htmlspecialchars((string)$_rv['nickname']) ?></td>
-                                    <td style="padding:10px 12px;color:#94a3b8;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?php echo htmlspecialchars((string)$_rv['detail']) ?></td>
-                                    <td style="padding:10px 12px;color:#64748b;">#<?php echo (int)$_rv['store_id'] ?></td>
-                                </tr>
-                                <?php endforeach; endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ===== Tab: Courses Tagging ===== -->
-        <div class="dcf-tab-panel" data-tab="tagging">
-            <div class="dcf-mag">
-                <div class="dcf-mag-bar">Courses Tagging <span style="color:#94a3b8;font-weight:500;font-size:13px;">(<?php echo count($_roTags) ?>)</span></div>
-                <div class="dcf-mag-body">
-                    <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
-                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                            <thead>
-                                <tr style="background:#334155;color:#cbd5e1;">
-                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">Subject Name</th>
-                                    <th style="padding:10px 12px;text-align:left;font-weight:600;"># of Use</th>
-                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if (empty($_roTags)): ?>
-                                <tr><td colspan="3" style="padding:32px;color:#64748b;text-align:center;">No tags yet.</td></tr>
-                                <?php else: foreach ($_roTags as $_tg):
-                                    $_tst = isset($_roTagStatusMap[(int)$_tg['status']]) ? $_roTagStatusMap[(int)$_tg['status']] : '—';
-                                ?>
-                                <tr style="border-top:1px solid #384a60;color:#e2e8f0;">
-                                    <td style="padding:10px 12px;"><?php echo htmlspecialchars((string)$_tg['name']) ?></td>
-                                    <td style="padding:10px 12px;color:#cbd5e1;"><?php echo (int)$_tg['use_count'] ?></td>
-                                    <td style="padding:10px 12px;color:<?php echo ((int)$_tg['status'] === 2 ? '#22c55e' : ((int)$_tg['status'] === 1 ? '#f59e0b' : '#ef4444')) ?>;"><?php echo $_tst ?></td>
-                                </tr>
-                                <?php endforeach; endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ===== Tab: Customers Tagged Product ===== -->
-        <div class="dcf-tab-panel" data-tab="customers-tagged">
-            <div class="dcf-mag">
-                <div class="dcf-mag-bar">Customers Tagged Product <span style="color:#94a3b8;font-weight:500;font-size:13px;">(<?php echo count($_roTagCustomers) ?>)</span></div>
-                <div class="dcf-mag-body">
-                    <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
-                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                            <thead>
-                                <tr style="background:#334155;color:#cbd5e1;">
-                                    <?php foreach (array('First Name','Last Name','Email','Subject Name') as $_h): ?>
-                                    <th style="padding:10px 12px;text-align:left;font-weight:600;"><?php echo $_h ?></th>
-                                    <?php endforeach; ?>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if (empty($_roTagCustomers)): ?>
-                                <tr><td colspan="4" style="padding:32px;color:#64748b;text-align:center;">No customers have tagged this course.</td></tr>
-                                <?php else: foreach ($_roTagCustomers as $_tc): ?>
-                                <tr style="border-top:1px solid #384a60;color:#e2e8f0;">
-                                    <td style="padding:10px 12px;"><?php echo htmlspecialchars((string)$_tc['firstname']) ?></td>
-                                    <td style="padding:10px 12px;"><?php echo htmlspecialchars((string)$_tc['lastname']) ?></td>
-                                    <td style="padding:10px 12px;color:#cbd5e1;"><?php echo htmlspecialchars((string)$_tc['email']) ?></td>
-                                    <td style="padding:10px 12px;color:#94a3b8;"><?php echo htmlspecialchars((string)$_tc['subject_name']) ?></td>
-                                </tr>
-                                <?php endforeach; endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
+                    <table class="mm-table">
+                        <thead>
+                            <tr>
+                                <?php foreach (array('ID','Created','Status','Title','Nickname','Review','Store') as $_h): ?>
+                                <th><?php echo $_h ?></th>
+                                <?php endforeach; ?>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($_roReviews)): ?>
+                            <tr><td colspan="7" class="mm-table-empty">No reviews yet.</td></tr>
+                            <?php else: foreach ($_roReviews as $_rv):
+                                $_st = isset($_roReviewStatusMap[(int)$_rv['status_id']]) ? $_roReviewStatusMap[(int)$_rv['status_id']] : '—';
+                                $_stCls = ((int)$_rv['status_id'] === 1) ? 'var(--green, #22c55e)' : (((int)$_rv['status_id']) === 2 ? 'var(--yellow, #f59e0b)' : 'var(--red, #ef4444)');
+                                $_dt  = $_rv['created_at'] ? date('M j, Y', strtotime($_rv['created_at'])) : '—';
+                            ?>
+                            <tr>
+                                <td class="muted"><?php echo (int)$_rv['review_id'] ?></td>
+                                <td><?php echo $_dt ?></td>
+                                <td class="status" style="color:<?php echo $_stCls ?>;"><?php echo $_st ?></td>
+                                <td title="<?php echo htmlspecialchars((string)$_rv['title']) ?>"><?php echo htmlspecialchars((string)$_rv['title']) ?></td>
+                                <td><?php echo htmlspecialchars((string)$_rv['nickname']) ?></td>
+                                <td class="muted" title="<?php echo htmlspecialchars((string)$_rv['detail']) ?>"><?php echo htmlspecialchars((string)$_rv['detail']) ?></td>
+                                <td class="faint num">#<?php echo (int)$_rv['store_id'] ?></td>
+                            </tr>
+                            <?php endforeach; endif; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -3597,22 +3419,28 @@ function devSetView(view) {
                     } catch (Exception $_csEx) { /* tables present but query may fail on a stripped DB */ }
                     ?>
                     <input type="hidden" name="_schedule_loaded" value="1" />
-                    <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:#93c5fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;">
-                        Edit each session's <strong>title</strong>, <strong>price</strong>, or <strong>sort order</strong> below. Use <strong>Remove</strong> to mark a row for deletion or <strong>+ Add session</strong> to queue a new row. Save Changes commits everything in one go.
+                    <div style="color:var(--t4,#94a3b8);border-bottom:1px solid var(--b1,#384a60);padding:0 0 12px;margin-bottom:4px;font-size:12px;line-height:1.55;">
+                        Edit each session's <strong style="color:var(--t2,#e2e8f0);">title</strong>, <strong style="color:var(--t2,#e2e8f0);">price</strong>, or <strong style="color:var(--t2,#e2e8f0);">sort order</strong> below. Use <strong style="color:var(--t2,#e2e8f0);">Remove</strong> to mark a row for deletion or <strong style="color:var(--t2,#e2e8f0);">+ Add session</strong> to queue a new row. Save Changes commits everything in one go.
                     </div>
                     <?php if (empty($_csOptions)): ?>
-                    <div style="background:#1e293b;border:1px dashed #475569;border-radius:8px;padding:32px;text-align:center;color:#64748b;">No custom options defined for this course yet. Use the project session manager (read-only view → "Add Session") to create the first one.</div>
-                    <?php else: foreach ($_csOptions as $_co): $_oid = (int) $_co['id']; ?>
-                    <div style="background:#283548;border:1px solid #384a60;border-radius:10px;padding:16px;margin-bottom:14px;" data-option-id="<?php echo $_oid ?>">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
-                            <div style="color:#f1f5f9;font-weight:700;font-size:15px;"><?php echo htmlspecialchars($_co['title']) ?></div>
-                            <div style="color:#94a3b8;font-size:12px;">
-                                <span style="background:#334155;border-radius:4px;padding:2px 8px;margin-right:6px;"><?php echo htmlspecialchars($_co['type']) ?></span>
-                                <?php echo $_co['required'] ? '<span style="color:#fbbf24;">required</span>' : 'optional' ?>
+                    <div style="padding:32px;text-align:center;color:var(--t5,#64748b);font-size:12px;">No custom options defined for this course yet. Use the project session manager (read-only view → "Add Session") to create the first one.</div>
+                    <?php else: foreach ($_csOptions as $_co):
+                        $_oid = (int) $_co['id'];
+                        $_isCourseDate = (stripos((string) $_co['title'], 'course date') !== false);
+                    ?>
+                    <div class="cs-opt<?php echo $_isCourseDate ? '' : ' cs-collapsed' ?>" data-option-id="<?php echo $_oid ?>">
+                        <button type="button" class="cs-opt-head" aria-expanded="<?php echo $_isCourseDate ? 'true' : 'false' ?>" onclick="csToggleOpt(this)">
+                            <svg class="cs-opt-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                            <span class="cs-opt-title"><?php echo htmlspecialchars($_co['title']) ?></span>
+                            <span class="cs-opt-meta">
+                                <span style="margin-right:6px;"><?php echo htmlspecialchars($_co['type']) ?></span>
+                                <?php echo $_co['required'] ? '<span style="color:var(--yellow,#fbbf24);">required</span>' : 'optional' ?>
                                 · sort <?php echo (int)$_co['sort'] ?>
                                 · option_id <?php echo $_oid ?>
-                            </div>
-                        </div>
+                                · <?php echo count($_co['values']) ?> row<?php echo count($_co['values']) === 1 ? '' : 's' ?>
+                            </span>
+                        </button>
+                        <div class="cs-opt-body">
                         <table class="cs-tbl">
                             <thead>
                                 <tr>
@@ -3639,10 +3467,18 @@ function devSetView(view) {
                             </tbody>
                         </table>
                         <button type="button" class="cs-add-btn" title="Add session" aria-label="Add session" onclick="csAddRow(<?php echo $_oid ?>)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                        </div><!-- /.cs-opt-body -->
                     </div>
                     <?php endforeach; endif; ?>
                     <script>
                     (function(){
+                        window.csToggleOpt = function(headBtn) {
+                            var opt = headBtn.closest('.cs-opt');
+                            if (!opt) return;
+                            var open = opt.classList.toggle('cs-collapsed');
+                            // toggle returns true if class is now present, i.e. collapsed
+                            headBtn.setAttribute('aria-expanded', open ? 'false' : 'true');
+                        };
                         var newCounter = {};  // per-option_id new-row counter
                         window.csAddRow = function(optionId) {
                             newCounter[optionId] = (newCounter[optionId] || 0) + 1;
@@ -3689,6 +3525,12 @@ function devSetView(view) {
 </div>
 </form>
 <script>
+window.dcfToggleNavGroup = function(headBtn){
+    var grp = headBtn.closest('.dcf-nav-group');
+    if (!grp) return;
+    var collapsed = grp.classList.toggle('collapsed');
+    headBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+};
 (function(){
     // Tab switcher — rail now lives outside the form in .dcf-edit-sidebar.
     // Panels stay in the form so submit semantics work; we just toggle visibility.
@@ -3708,65 +3550,19 @@ function devSetView(view) {
         var saved = sessionStorage.getItem('dcfActiveTab');
         if (saved) {
             var savedBtn = rail.querySelector('.lms-nav-item[data-tab="' + saved + '"]');
-            if (savedBtn) savedBtn.click();
+            if (savedBtn) {
+                // If the saved tab lives inside a collapsed group, auto-expand it.
+                var parentGroup = savedBtn.closest('.dcf-nav-group');
+                if (parentGroup && parentGroup.classList.contains('collapsed')) {
+                    var head = parentGroup.querySelector('.dcf-nav-group-head');
+                    if (head) head.click();
+                }
+                savedBtn.click();
+            }
         }
     } catch(_) {}
-
-    // Two-way sync between Name/Code in the General tab and Course Details tab.
-    // The two tabs render the same product attribute as separate inputs; if we
-    // didn't sync, editing one would leave the other with the stale old value
-    // and last-write-wins on submit could clobber the user's change.
-    function bind(aName, bName) {
-        var a = document.querySelector('#dcf-form input[name="' + aName + '"]');
-        var b = document.querySelector('#dcf-form input[name="' + bName + '"]');
-        if (!a || !b) return;
-        a.addEventListener('input', function(){ if (b.value !== a.value) b.value = a.value; });
-        b.addEventListener('input', function(){ if (a.value !== b.value) a.value = b.value; });
-    }
-    bind('course_name', 'general_course_name');
-    bind('course_code', 'general_course_code');
 })();
 
-// Group / Tier price row builders. Build one HTML template each from PHP
-// data (websites + customer groups already rendered above) so we don't
-// have to round-trip to the server when the user clicks +Add.
-(function(){
-    var WS = <?php echo json_encode($_priceWebsites) ?>;
-    var CG = <?php echo json_encode($_priceCustGroups) ?>;
-    function wsOpts() {
-        var s = ''; for (var k in WS) s += '<option value="' + k + '">' + WS[k] + '</option>'; return s;
-    }
-    function cgOpts() {
-        var s = ''; for (var k in CG) s += '<option value="' + k + '">' + CG[k] + '</option>'; return s;
-    }
-    window.dcfAddGroupPriceRow = function() {
-        var body = document.getElementById('dcf-grouppx-body');
-        var empty = document.getElementById('dcf-grouppx-empty'); if (empty) empty.remove();
-        var i = body.querySelectorAll('tr').length;
-        var tr = document.createElement('tr');
-        tr.style.borderTop = '1px solid #384a60';
-        tr.innerHTML =
-            '<td style="padding:8px 12px;"><select class="dcf-select" name="group_price[' + i + '][website_id]">' + wsOpts() + '</select></td>' +
-            '<td style="padding:8px 12px;"><select class="dcf-select" name="group_price[' + i + '][cust_group]">' + cgOpts() + '</select></td>' +
-            '<td style="padding:8px 12px;"><input type="number" step="0.01" class="dcf-input" name="group_price[' + i + '][price]" value="0.00" /></td>' +
-            '<td style="padding:8px 12px;text-align:right;"><button type="button" class="cs-rm-btn" title="Remove" aria-label="Remove" onclick="this.closest(\'tr\').remove()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
-        body.appendChild(tr);
-    };
-    window.dcfAddTierPriceRow = function() {
-        var body = document.getElementById('dcf-tierpx-body');
-        var empty = document.getElementById('dcf-tierpx-empty'); if (empty) empty.remove();
-        var i = body.querySelectorAll('tr').length;
-        var tr = document.createElement('tr');
-        tr.style.borderTop = '1px solid #384a60';
-        tr.innerHTML =
-            '<td style="padding:8px 12px;"><select class="dcf-select" name="tier_price[' + i + '][website_id]">' + wsOpts() + '</select></td>' +
-            '<td style="padding:8px 12px;"><select class="dcf-select" name="tier_price[' + i + '][cust_group]">' + cgOpts() + '</select></td>' +
-            '<td style="padding:8px 12px;"><input type="number" step="1" min="1" class="dcf-input" name="tier_price[' + i + '][price_qty]" value="1" style="width:80px;" /></td>' +
-            '<td style="padding:8px 12px;"><input type="number" step="0.01" class="dcf-input" name="tier_price[' + i + '][price]" value="0.00" /></td>' +
-            '<td style="padding:8px 12px;text-align:right;"><button type="button" class="cs-rm-btn" title="Remove" aria-label="Remove" onclick="this.closest(\'tr\').remove()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
-        body.appendChild(tr);
-    };
-})();
 </script>
 </div>
 
@@ -4118,7 +3914,7 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
         </div>
 
         <nav class="lcd-drawer-nav">
-            <?php if ($activeRole === 'developer'): ?>
+            <?php if ($_courseManagerActive): ?>
             <a href="#google-meet" class="lcd-nav-item" onclick="return lcdNavTo(this,'google-meet')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><span>Google Meet</span></a>
             <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware</span></a>
             <a href="#lesson" class="lcd-nav-item active" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
@@ -4169,7 +3965,7 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
             <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong><?php echo $_dDur ?></strong></div>
         </div>
         <nav style="margin-top:14px;padding-top:14px;border-top:1px solid #1e293b;display:flex;flex-direction:column;gap:2px;">
-            <?php if ($activeRole === 'developer'): ?>
+            <?php if ($_courseManagerActive): ?>
             <a href="#google-meet" class="lcd-nav-item" onclick="return lcdNavTo(this,'google-meet')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><span>Google Meet</span></a>
             <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware</span></a>
             <a href="#lesson" class="lcd-nav-item active" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
@@ -4200,7 +3996,7 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
     </a>
     <?php endif; ?>
 
-    <?php if ($activeRole === 'developer'): ?>
+    <?php if ($_courseManagerActive): ?>
     <!-- DEVELOPER: Action buttons -->
     <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;justify-content:flex-end;">
         <a href="<?php echo $_backUrl ?>" style="display:inline-flex;align-items:center;gap:8px;background:#334155;color:#fff !important;text-decoration:none !important;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;margin-right:auto;">
@@ -11674,9 +11470,12 @@ document.addEventListener('keydown', function (ev) {
 (function(){
     var COURSE_DETAIL_ACTIVE = <?php echo $_selectedCourse ? 'true' : 'false' ?>;
     var COURSE_EDIT_ACTIVE = <?php echo ($_editMode || $_editingMode) ? 'true' : 'false' ?>;
+    // When admin lands on the Manage Courses view, swap their default panel
+    // to dash-panel-developer so they see the same listing developers see.
+    var COURSE_MANAGER_FOR_ADMIN = <?php echo ($_courseManagerActive && $activeRole === 'admin') ? 'true' : 'false' ?>;
     function showPanel(role) {
         var panels = {
-            'Admin':             'dash-panel-admin',
+            'Admin':             COURSE_MANAGER_FOR_ADMIN ? 'dash-panel-developer' : 'dash-panel-admin',
             'Super Admin':       'dash-panel-superadmin',
             'Marketing':         'dash-panel-marketing-newsletter',
             'Learner':           'dash-panel-learner',

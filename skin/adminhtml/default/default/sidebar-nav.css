@@ -2086,8 +2086,8 @@ body .admin-main [id$="_massaction"] button span span span {
 .lms-nav-item {
     display: flex !important;
     align-items: center !important;
-    gap: 14px !important;
-    padding: 12px 20px !important;
+    gap: 12px !important;
+    padding: 9px 16px !important;
     margin: 0 !important;
     color: #94a3b8 !important;
     text-decoration: none !important;
@@ -2112,17 +2112,21 @@ body .admin-main [id$="_massaction"] button span span span {
     height: 18px !important;
 }
 
-/* === Collapsible tool groups (Trainer sidebar) === */
+/* === Collapsible nav group — global pattern ===
+   Used by Trainer sidebar (.tools-group → .tools-group-toggle / .tools-group-items / .tools-sub-item)
+   and Course-Edit sidebar (.dcf-nav-group → .dcf-nav-group-head / .dcf-nav-group-body).
+   Both render identically: chevron on the right (rotates collapsed→open),
+   indented child rows, no decorative connector lines. */
 .tools-group { margin: 0 !important; }
 .tools-group-toggle {
-    display: flex !important; align-items: center !important; gap: 14px !important;
-    width: 100% !important; padding: 12px 20px !important; border: none !important;
+    display: flex !important; align-items: center !important; gap: 12px !important;
+    width: 100% !important; padding: 9px 16px !important; border: none !important;
     background: transparent !important; color: #94a3b8 !important; font-size: 13.5px !important;
     font-weight: 500 !important; cursor: pointer !important; text-align: left !important;
     border-left: none !important; transition: background 0.15s ease, color 0.15s ease !important;
     margin: 0 !important; box-sizing: border-box !important; line-height: 1.3 !important;
 }
-.tools-group-toggle:hover { background: transparent !important; color: #94a3b8 !important; }
+.tools-group-toggle:hover { background: transparent !important; color: #cbd5e1 !important; }
 .tools-group-toggle.active,
 .tools-group-toggle.active:hover {
     background: rgba(37,139,182,0.12) !important;
@@ -2131,35 +2135,41 @@ body .admin-main [id$="_massaction"] button span span span {
 .tools-group-toggle svg:first-child { flex-shrink: 0; width: 22px !important; height: 22px !important; }
 .tools-group-toggle span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tools-sub-item span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tools-caret { flex-shrink: 0; transition: transform 0.2s; margin-left: auto; opacity: 0.5; width: 18px !important; height: 18px !important; }
-.tools-group.open > .tools-group-toggle .tools-caret { transform: rotate(180deg); opacity: 0.8; }
+/* Right-side chevron: collapsed → points right (rotate -90), open → points down (0).
+   Matches the .dcf-nav-group-chev rotation idiom for visual consistency across all
+   collapsible sidebars. The SVG in markup is a down-chevron at rest. */
+.tools-caret { flex-shrink: 0; transition: transform 0.2s; margin-left: auto; opacity: 0.6; width: 14px !important; height: 14px !important; transform: rotate(-90deg); }
+.tools-group.open > .tools-group-toggle .tools-caret { transform: rotate(0deg); opacity: 0.8; }
 .tools-group-items {
-    display: none; padding-left: 18px; border-left: 1px solid rgba(100,116,139,0.25); margin-left: 32px;
-    padding-top: 4px; padding-bottom: 4px;
+    display: none;
+    padding: 2px 0;
 }
 .tools-group.open > .tools-group-items { display: block; }
 .tools-sub-item {
     display: flex !important; align-items: center !important; gap: 12px !important;
-    padding: 7px 14px !important; color: #94a3b8 !important; font-size: 13px !important;
+    padding: 9px 16px 9px 32px !important; color: #94a3b8 !important; font-size: 13px !important;
     font-weight: 500 !important;
     text-decoration: none !important; transition: color 0.15s ease, background 0.15s ease !important;
-    cursor: pointer !important; line-height: 1.4 !important; border-radius: 6px !important;
+    cursor: pointer !important; line-height: 1.3 !important;
+    border-radius: 0 !important;
+    border-left: 3px solid transparent !important;
 }
-.tools-sub-item:hover { color: #258bb6 !important; background: rgba(255,255,255,0.04) !important; }
+.tools-sub-item:hover { color: #cbd5e1 !important; background: transparent !important; }
 .tools-sub-item.active,
 .tools-sub-item.active:hover {
     color: #258bb6 !important;
     background: rgba(37,139,182,0.12) !important;
-    font-weight: 600 !important;
-    box-shadow: inset 3px 0 0 #258bb6 !important;
+    font-weight: 500 !important;
+    border-left-color: #258bb6 !important;
+    box-shadow: none !important;
 }
-.tools-sub-item svg { flex-shrink: 0; opacity: 0.6; width: 18px !important; height: 18px !important; }
+.tools-sub-item svg { flex-shrink: 0; opacity: 0.6; width: 16px !important; height: 16px !important; }
 
 /* Nested sub-group inside .tools-group-items (e.g. Manage Currency → Rates/Symbols).
    The toggle should read as a normal sub-item, not a top-level group toggle. */
 .tools-subgroup { margin: 0 !important; }
 .tools-subgroup > .tools-group-toggle {
-    padding: 7px 14px !important;
+    padding: 9px 16px 9px 32px !important;
     font-size: 13px !important;
     width: 100% !important;
 }
@@ -2167,10 +2177,13 @@ body .admin-main [id$="_massaction"] button span span span {
     width: 12px !important; height: 12px !important;
 }
 .tools-subgroup > .tools-group-items {
-    margin-left: 14px !important;
-    padding-left: 12px !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+/* Children of a nested subgroup get an extra indent step (32 + 16 = 48) so the
+   hierarchy reads at three levels: root nav → subgroup → leaf. */
+.tools-subgroup > .tools-group-items .tools-sub-item {
+    padding-left: 48px !important;
 }
 
 .tools-sub-label {
@@ -2261,7 +2274,7 @@ button.lms-tab:hover {
     background: var(--d4) !important;
 }
 button.lms-tab.active {
-    background: #3b82f6 !important;
+    background: #2563eb !important;
     color: #fff !important;
 }
 
@@ -2351,9 +2364,9 @@ button.lms-tab.active {
     border-color: var(--b2) !important;
 }
 .country-tab.active {
-    background: #3b82f6 !important;
+    background: #2563eb !important;
     color: #fff !important;
-    border-color: #3b82f6 !important;
+    border-color: #2563eb !important;
     font-weight: 600 !important;
 }
 
