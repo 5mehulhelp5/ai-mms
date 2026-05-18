@@ -69,8 +69,37 @@
         }
     }
 
+    // Course products have no inventory / recurring / gift concepts
+    // (CLAUDE.md: virtual courses, no stock/shipping). Remove these
+    // tabs + their content panels from the editor. Matched by label,
+    // not tab id — Recurring Profile / Gift Options render as
+    // attribute-group tabs (group_N) whose ids vary per product /
+    // attribute set, so an id-based removeTab is unreliable.
+    var DROP_TABS = { 'recurring profile': 1, 'gift options': 1, 'inventory': 1 };
+
+    function removeUnwantedTabs() {
+        var links = document.querySelectorAll(
+            '.side-col ul.tabs li a, .side-col ul#product_info_tabs li a, ul.tabs.tabs-relocated li a');
+        for (var i = 0; i < links.length; i++) {
+            var a = links[i];
+            var label = (a.getAttribute('title') || a.textContent || '')
+                            .replace(/\s+/g, ' ').trim().toLowerCase();
+            if (!DROP_TABS[label]) continue;
+            var li = a.closest ? a.closest('li') : a.parentNode;
+            if (li && !li.classList.contains('cpe-tab-hidden')) {
+                li.classList.add('cpe-tab-hidden');
+            }
+            // Hide the matching content panel (id = <anchor id>_content).
+            if (a.id) {
+                var panel = document.getElementById(a.id + '_content');
+                if (panel) panel.classList.add('cpe-tab-content-hidden');
+            }
+        }
+    }
+
     function run() {
         if (!isProductEdit()) return;
+        removeUnwantedTabs();
         wireSideCol();
         wireSections();
     }
