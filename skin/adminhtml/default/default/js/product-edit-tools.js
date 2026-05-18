@@ -38,15 +38,31 @@
             localStorage.getItem(RAIL_KEY) === '1'; } catch (e) { return false; }
     }
 
-    // Keep the toggle's label + caret in sync with the body class so a
+    // Standard sidebar chevron ("<", points left; rotates 180° when
+    // collapsed) — matches page.phtml's .sidebar-toggle .sidebar-chevron.
+    function chevron(cls) {
+        var ns = 'http://www.w3.org/2000/svg';
+        var s = document.createElementNS(ns, 'svg');
+        s.setAttribute('viewBox', '0 0 24 24');
+        s.setAttribute('width', '18'); s.setAttribute('height', '18');
+        s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor');
+        s.setAttribute('stroke-width', '2.5');
+        s.setAttribute('stroke-linecap', 'round');
+        s.setAttribute('stroke-linejoin', 'round');
+        s.setAttribute('class', cls);
+        var p = document.createElementNS(ns, 'polyline');
+        p.setAttribute('points', '15 18 9 12 15 6');
+        s.appendChild(p);
+        return s;
+    }
+
+    // Keep the toggle's chevron in sync with the body class so a
     // re-render (or restored localStorage state) shows the right affordance.
     function syncRailToggle(btn) {
         var collapsed = document.body.classList.contains('dcf-rail-collapsed');
-        if (btn.firstChild) {
-            btn.firstChild.nodeValue = collapsed ? 'Expand' : 'Collapse';
-        }
+        btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
         var c = btn.querySelector('.dcf-rail-caret');
-        if (c) c.style.transform = collapsed ? 'rotate(90deg)' : '';
+        if (c) c.style.transform = collapsed ? 'rotate(180deg)' : '';
     }
 
     function wireRailToggle() {
@@ -60,8 +76,9 @@
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'dcf-rail-toggle';
-        btn.appendChild(document.createTextNode('Collapse'));
-        btn.appendChild(caret('dcf-rail-caret'));
+        btn.title = 'Toggle sidebar';
+        btn.setAttribute('aria-label', 'Toggle sidebar');
+        btn.appendChild(chevron('dcf-rail-caret'));
         btn.addEventListener('click', function () {
             var collapsed = document.body.classList.toggle('dcf-rail-collapsed');
             try {

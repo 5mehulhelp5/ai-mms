@@ -223,17 +223,28 @@ body .admin-main .dcf-edit-sidebar .lms-nav-item.active {
 }
 /* Collapsible dcf editor sidebar — JS injects .dcf-rail-toggle and
    toggles body.dcf-rail-collapsed. */
-.dcf-rail-toggle {
+/* Plain chevron icon, no blue button — matches page.phtml's
+   .sidebar-toggle. `body .admin-main` specificity beats §18's
+   `.admin-main button { background: var(--btn-primary) }`. */
+body .admin-main .dcf-rail-toggle {
     display: flex !important; align-items: center !important;
-    justify-content: flex-end !important; gap: 6px !important;
-    width: 100% !important; padding: 8px 18px !important;
-    background: transparent !important; border: none !important;
-    border-bottom: 1px solid var(--b1) !important;
-    color: #94a3b8 !important; font-size: 12px !important;
-    font-weight: 600 !important; cursor: pointer !important;
-    text-transform: none !important; box-shadow: none !important;
+    justify-content: flex-end !important;
+    width: 100% !important; padding: 8px 14px !important;
+    background: none !important; background-image: none !important;
+    border: none !important;
+    border-bottom: 2px solid rgba(148,163,184,0.22) !important;
+    border-radius: 0 !important;
+    color: var(--t4) !important; cursor: pointer !important;
+    box-shadow: none !important; text-shadow: none !important;
+    transform: none !important; min-height: 0 !important;
+    height: auto !important;
 }
-.dcf-rail-toggle svg { transition: transform .2s ease; flex: 0 0 auto; }
+body .admin-main .dcf-rail-toggle:hover {
+    background: none !important; color: #cbd5e1 !important;
+}
+body .admin-main .dcf-rail-toggle .dcf-rail-caret {
+    transition: transform .2s ease !important; flex: 0 0 auto !important;
+}
 /* Collapsed = narrow icon-rail, NOT hidden — mirrors the project's
    standard sidebar (body.sidebar-collapsed → 60px). The toggle stays
    visible so the rail can be re-opened without a page reload. */
@@ -250,11 +261,9 @@ body.dcf-rail-collapsed .dcf-edit-sidebar .lms-nav-item svg {
 body.dcf-rail-collapsed .dcf-edit-sidebar .lms-nav-item {
     justify-content: center !important; padding: 14px 0 !important;
 }
-/* Keep the toggle reachable: icon-only, centred (hide its text node,
-   the caret svg has explicit dims so it survives font-size:0). */
+/* Keep the toggle reachable when collapsed: centre the chevron. */
 body.dcf-rail-collapsed .dcf-rail-toggle {
-    justify-content: center !important; padding: 14px 0 !important;
-    font-size: 0 !important;
+    justify-content: center !important; padding: 8px 0 !important;
 }
 
 /* Editing form — same layout as read-only view, just with input fields */
