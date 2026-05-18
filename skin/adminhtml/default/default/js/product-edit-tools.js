@@ -1,25 +1,22 @@
 /**
- * Course-editing page (catalog_product/edit) tools:
- *   • Collapse toggle for the left .side-col ("Course Information"
- *     tab list) — mirrors the main admin sidebar's collapse affordance.
- *   • Each form section (.entry-edit, header = .entry-edit-head)
+ * Developer course-editing page (dcf editor, body.adminhtml-dashboard-
+ * index, mode=editing) tools:
+ *   • Collapse toggle for the left .dcf-edit-sidebar ("Course
+ *     Information" rail) — toggles body.dcf-rail-collapsed (styling in
+ *     admin-dashboard.css).
+ *   • Each form section (.dcf-section, header = .dcf-section-title)
  *     becomes collapsible by clicking its header.
  *
- * Styling lives in sidebar-nav.css (scoped to
- * body.adminhtml-catalog-product-edit). This script only wires
- * behaviour. Magento loads tab panels via AJAX, so new .entry-edit
- * blocks appear after tab switches — a MutationObserver re-applies.
+ * NOTE: the earlier version targeted catalog_product/edit
+ * (.side-col / body.adminhtml-catalog-product-edit) — that is NOT the
+ * page developers use; the "Edit Course" flow is this dcf editor on
+ * the dashboard controller. Re-scoped accordingly.
  *
- * Self-gating (only on catalog_product/edit), idempotent, re-inits
- * after instant-nav PJAX swaps.
+ * Self-gating (only when .dcf-edit-sidebar exists), idempotent,
+ * re-inits after instant-nav PJAX swaps + DOM re-renders.
  */
 (function () {
     'use strict';
-
-    function isProductEdit() {
-        return /adminhtml-catalog-product-edit/.test(document.body.className || '') ||
-               (window.location.pathname || '').indexOf('/catalog_product/edit') !== -1;
-    }
 
     function caret(cls) {
         var ns = 'http://www.w3.org/2000/svg';
@@ -34,79 +31,79 @@
         return s;
     }
 
-    function wireSideCol() {
-        var side = document.querySelector('.side-col');
-        if (!side || side.querySelector('.cpe-sidecol-toggle')) return;
+    function wireRailToggle() {
+        var rail = document.querySelector('.dcf-edit-sidebar');
+        if (!rail || rail.querySelector('.dcf-rail-toggle')) return;
         var btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'cpe-sidecol-toggle';
+        btn.className = 'dcf-rail-toggle';
         btn.appendChild(document.createTextNode('Collapse'));
-        btn.appendChild(caret('cpe-sidecol-caret'));
+        btn.appendChild(caret('dcf-rail-caret'));
         btn.addEventListener('click', function () {
-            var collapsed = document.body.classList.toggle('cpe-sidecol-collapsed');
+            var collapsed = document.body.classList.toggle('dcf-rail-collapsed');
             btn.firstChild.nodeValue = collapsed ? 'Expand' : 'Collapse';
-            var c = btn.querySelector('.cpe-sidecol-caret');
+            var c = btn.querySelector('.dcf-rail-caret');
             if (c) c.style.transform = collapsed ? 'rotate(90deg)' : '';
-            btn.style.justifyContent = collapsed ? 'center' : 'flex-end';
         });
-        side.insertBefore(btn, side.firstChild);
+        // Put the toggle right under the "Course Information" title.
+        var title = rail.querySelector('.dcf-edit-sidebar-title');
+        if (title && title.nextSibling) {
+            rail.insertBefore(btn, title.nextSibling);
+        } else {
+            rail.insertBefore(btn, rail.firstChild);
+        }
     }
 
     function wireSections() {
-        var secs = document.querySelectorAll('.entry-edit');
+        var secs = document.querySelectorAll('.dcf-section');
         for (var i = 0; i < secs.length; i++) {
             var sec = secs[i];
-            if (sec.getAttribute('data-cpe')) continue;
-            var head = sec.querySelector(':scope > .entry-edit-head');
-            if (!head) continue;
-            sec.setAttribute('data-cpe', '1');
-            if (!head.querySelector('.cpe-caret')) head.appendChild(caret('cpe-caret'));
-            head.addEventListener('click', function (e) {
+            if (sec.getAttribute('data-dcf-coll')) continue;
+            var title = null, c = sec.firstElementChild;
+            while (c) {
+                if (c.classList && c.classList.contains('dcf-section-title')) { title = c; break; }
+                c = c.nextElementSibling;
+            }
+            if (!title) continue;
+            sec.setAttribute('data-dcf-coll', '1');
+            // Wrap everything after the title so one element toggles.
+            var body = document.createElement('div');
+            body.className = 'dcf-section-body';
+            var n = title.nextSibling;
+            while (n) { var nx = n.nextSibling; body.appendChild(n); n = nx; }
+            sec.appendChild(body);
+            if (!title.querySelector('.dcf-coll-caret')) {
+                title.style.cursor = 'pointer';
+                title.style.display = 'flex';
+                title.style.alignItems = 'center';
+                var cr = caret('dcf-coll-caret');
+                cr.style.marginLeft = 'auto';
+                cr.style.transition = 'transform .2s ease';
+                title.appendChild(cr);
+            }
+            title.addEventListener('click', function (e) {
                 if (e.target.closest &&
                     e.target.closest('a,button,input,select,textarea,label')) return;
-                this.parentNode.classList.toggle('cpe-collapsed');
+                var s = this.parentNode;
+                var b = s.querySelector(':scope > .dcf-section-body');
+                if (!b) return;
+                var hidden = b.style.display === 'none';
+                b.style.display = hidden ? '' : 'none';
+                var k = this.querySelector('.dcf-coll-caret');
+                if (k) k.style.transform = hidden ? '' : 'rotate(-90deg)';
             });
         }
     }
 
-    // Course products have no inventory / recurring / gift concepts
-    // (CLAUDE.md: virtual courses, no stock/shipping). Remove these
-    // tabs + their content panels from the editor. Matched by label,
-    // not tab id — Recurring Profile / Gift Options render as
-    // attribute-group tabs (group_N) whose ids vary per product /
-    // attribute set, so an id-based removeTab is unreliable.
-    var DROP_TABS = { 'recurring profile': 1, 'gift options': 1, 'inventory': 1 };
-
-    function removeUnwantedTabs() {
-        var links = document.querySelectorAll(
-            '.side-col ul.tabs li a, .side-col ul#product_info_tabs li a, ul.tabs.tabs-relocated li a');
-        for (var i = 0; i < links.length; i++) {
-            var a = links[i];
-            var label = (a.getAttribute('title') || a.textContent || '')
-                            .replace(/\s+/g, ' ').trim().toLowerCase();
-            if (!DROP_TABS[label]) continue;
-            var li = a.closest ? a.closest('li') : a.parentNode;
-            if (li && !li.classList.contains('cpe-tab-hidden')) {
-                li.classList.add('cpe-tab-hidden');
-            }
-            // Hide the matching content panel (id = <anchor id>_content).
-            if (a.id) {
-                var panel = document.getElementById(a.id + '_content');
-                if (panel) panel.classList.add('cpe-tab-content-hidden');
-            }
-        }
-    }
-
     function run() {
-        if (!isProductEdit()) return;
-        removeUnwantedTabs();
-        wireSideCol();
+        if (!document.querySelector('.dcf-edit-sidebar')) return;
+        wireRailToggle();
         wireSections();
     }
 
     function init() {
         run();
-        var host = document.querySelector('.main-col') ||
+        var host = document.querySelector('.dcf-wrap') ||
                    document.getElementById('anchor-content') || document.body;
         if (window.MutationObserver && host) {
             new MutationObserver(function () { run(); })
