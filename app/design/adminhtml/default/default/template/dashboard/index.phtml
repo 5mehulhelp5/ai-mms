@@ -2215,7 +2215,7 @@ function devSetView(view) {
                                             <td style="padding:8px 12px;"><select class="dcf-select" name="group_price[<?php echo $_i ?>][website_id]"><?php foreach ($_priceWebsites as $_wid => $_wn): ?><option value="<?php echo $_wid ?>"<?php echo $_wid === $_gp['website_id'] ? ' selected' : '' ?>><?php echo htmlspecialchars($_wn) ?></option><?php endforeach; ?></select></td>
                                             <td style="padding:8px 12px;"><select class="dcf-select" name="group_price[<?php echo $_i ?>][cust_group]"><?php foreach ($_priceCustGroups as $_cgid => $_cgn): ?><option value="<?php echo $_cgid ?>"<?php echo $_cgid === $_gp['cust_group'] ? ' selected' : '' ?>><?php echo htmlspecialchars($_cgn) ?></option><?php endforeach; ?></select></td>
                                             <td style="padding:8px 12px;"><input type="number" step="0.01" class="dcf-input" name="group_price[<?php echo $_i ?>][price]" value="<?php echo number_format($_gp['price'], 2, '.', '') ?>" /></td>
-                                            <td style="padding:8px 12px;text-align:right;"><button type="button" onclick="this.closest('tr').remove()" style="background:#7f1d1d;color:#fecaca;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer;">Remove</button></td>
+                                            <td style="padding:8px 12px;text-align:right;"><button type="button" class="cs-rm-btn" title="Remove" aria-label="Remove" onclick="this.closest('tr').remove()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>
                                         </tr>
                                         <?php endforeach; ?>
                                         <?php if (empty($_groupPrices)): ?>
@@ -2276,7 +2276,7 @@ function devSetView(view) {
                                             <td style="padding:8px 12px;"><select class="dcf-select" name="tier_price[<?php echo $_i ?>][cust_group]"><?php foreach ($_priceCustGroups as $_cgid => $_cgn): ?><option value="<?php echo $_cgid ?>"<?php echo $_cgid === $_tp['cust_group'] ? ' selected' : '' ?>><?php echo htmlspecialchars($_cgn) ?></option><?php endforeach; ?></select></td>
                                             <td style="padding:8px 12px;"><input type="number" step="1" min="1" class="dcf-input" name="tier_price[<?php echo $_i ?>][price_qty]" value="<?php echo (int)$_tp['price_qty'] ?>" style="width:80px;" /></td>
                                             <td style="padding:8px 12px;"><input type="number" step="0.01" class="dcf-input" name="tier_price[<?php echo $_i ?>][price]" value="<?php echo number_format($_tp['price'], 2, '.', '') ?>" /></td>
-                                            <td style="padding:8px 12px;text-align:right;"><button type="button" onclick="this.closest('tr').remove()" style="background:#7f1d1d;color:#fecaca;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer;">Remove</button></td>
+                                            <td style="padding:8px 12px;text-align:right;"><button type="button" class="cs-rm-btn" title="Remove" aria-label="Remove" onclick="this.closest('tr').remove()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>
                                         </tr>
                                         <?php endforeach; ?>
                                         <?php if (empty($_tierPrices)): ?>
@@ -3632,7 +3632,7 @@ function devSetView(view) {
                                     <td><input type="number" step="1" class="cs-input cs-w-sort" name="schedule_value[<?php echo $_vid ?>][sort]" value="<?php echo (int) $_v['sort'] ?>" /></td>
                                     <td>
                                         <input type="hidden" name="schedule_remove[<?php echo $_vid ?>]" value="0" />
-                                        <button type="button" class="cs-rm-btn" onclick="csToggleRemove(this, <?php echo $_vid ?>)">Remove</button>
+                                        <button type="button" class="cs-rm-btn" title="Remove" aria-label="Remove" onclick="csToggleRemove(this, <?php echo $_vid ?>)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -3656,7 +3656,7 @@ function devSetView(view) {
                                 '<td><input type="text" class="cs-input" name="schedule_new[' + optionId + '][' + n + '][title]" placeholder="e.g. 27 May 2026 (Tue)" /></td>' +
                                 '<td><input type="number" step="0.01" class="cs-input cs-w-price" name="schedule_new[' + optionId + '][' + n + '][price]" placeholder="0.00" /></td>' +
                                 '<td><input type="number" step="1" class="cs-input cs-w-sort" name="schedule_new[' + optionId + '][' + n + '][sort]" value="0" /></td>' +
-                                '<td><button type="button" class="cs-rm-btn" onclick="this.closest(\'tr\').remove()">Cancel</button></td>';
+                                '<td><button type="button" class="cs-rm-btn" title="Cancel" aria-label="Cancel" onclick="this.closest(\'tr\').remove()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
                             tbody.appendChild(tr);
                             tr.querySelector('input').focus();
                         };
@@ -3668,7 +3668,11 @@ function devSetView(view) {
                             hidden.value = marked ? '0' : '1';
                             tr.classList.toggle('cs-marked-remove', !marked);
                             btn.classList.toggle('active', !marked);
-                            btn.textContent = marked ? 'Remove' : 'Undo';
+                            var _trash = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+                            var _undo = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>';
+                            btn.title = marked ? 'Remove' : 'Undo';
+                            btn.setAttribute('aria-label', btn.title);
+                            btn.innerHTML = marked ? _trash : _undo;
                             // Disable inputs in marked-for-remove rows so they don't waste a save round-trip
                             tr.querySelectorAll('input.cs-input').forEach(function(el){ el.disabled = !marked; });
                         };
@@ -3745,7 +3749,7 @@ function devSetView(view) {
             '<td style="padding:8px 12px;"><select class="dcf-select" name="group_price[' + i + '][website_id]">' + wsOpts() + '</select></td>' +
             '<td style="padding:8px 12px;"><select class="dcf-select" name="group_price[' + i + '][cust_group]">' + cgOpts() + '</select></td>' +
             '<td style="padding:8px 12px;"><input type="number" step="0.01" class="dcf-input" name="group_price[' + i + '][price]" value="0.00" /></td>' +
-            '<td style="padding:8px 12px;text-align:right;"><button type="button" onclick="this.closest(\'tr\').remove()" style="background:#7f1d1d;color:#fecaca;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer;">Remove</button></td>';
+            '<td style="padding:8px 12px;text-align:right;"><button type="button" class="cs-rm-btn" title="Remove" aria-label="Remove" onclick="this.closest(\'tr\').remove()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
         body.appendChild(tr);
     };
     window.dcfAddTierPriceRow = function() {
@@ -3759,7 +3763,7 @@ function devSetView(view) {
             '<td style="padding:8px 12px;"><select class="dcf-select" name="tier_price[' + i + '][cust_group]">' + cgOpts() + '</select></td>' +
             '<td style="padding:8px 12px;"><input type="number" step="1" min="1" class="dcf-input" name="tier_price[' + i + '][price_qty]" value="1" style="width:80px;" /></td>' +
             '<td style="padding:8px 12px;"><input type="number" step="0.01" class="dcf-input" name="tier_price[' + i + '][price]" value="0.00" /></td>' +
-            '<td style="padding:8px 12px;text-align:right;"><button type="button" onclick="this.closest(\'tr\').remove()" style="background:#7f1d1d;color:#fecaca;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer;">Remove</button></td>';
+            '<td style="padding:8px 12px;text-align:right;"><button type="button" class="cs-rm-btn" title="Remove" aria-label="Remove" onclick="this.closest(\'tr\').remove()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
         body.appendChild(tr);
     };
 })();
