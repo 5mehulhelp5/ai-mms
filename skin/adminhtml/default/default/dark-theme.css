@@ -785,6 +785,53 @@ div.collapseable::after {
 .grid table.data tbody td .row-action-wrap {
     overflow: visible !important;
 }
+/* The per-row "Actions ▾" dropdown is injected into a brand-new <td>
+   with no class (sidebar-nav-v2.js → injectRowActions), so the generic
+   `.grid table.data tbody td { overflow:hidden }` truncation rule
+   clipped the absolutely-positioned .row-action-menu down to the
+   compact one-line cell height — the menu showed as a squashed sliver.
+   Let the cell (and its row) that hosts the dropdown overflow so the
+   menu can drop out of the cell fully. */
+.grid table.data tbody td:has(.row-action-wrap),
+.grid table.data tbody td:has(.row-action-menu),
+.grid table.data tbody tr:has(.row-action-wrap.open) td {
+    overflow: visible !important;
+}
+/* Sit the open menu above neighbouring rows / sticky headers. */
+.row-action-wrap.open .row-action-menu {
+    z-index: 1000 !important;
+}
+/* The rounded .grid card uses overflow:hidden for its corners, which
+   would still clip a menu opened on the lower rows. Relax it ONLY while
+   a row menu is open (transient), so the card keeps its clipped corners
+   the rest of the time. */
+.grid:has(.row-action-wrap.open) {
+    overflow: visible !important;
+}
+/* Universal safety net: on short grids the open menu can drop past the
+   .grid box and be clipped by a CONTAINER above it instead. While ANY
+   row-action menu is open, relax overflow on every wrapper that could
+   clip it — every admin grid's dropdown is .row-action-wrap inside
+   .grid table.data (injectRowActions), so this covers all of them on
+   all pages. Transient (open-state only) → no effect on normal layout
+   or the rounded-card look. */
+.grid table.data:has(.row-action-wrap.open),
+.grid table.data:has(.row-action-wrap.open) tbody,
+.grid table.data:has(.row-action-wrap.open) tbody tr,
+div:has(> .grid .row-action-wrap.open),
+.col-main:has(.row-action-wrap.open),
+.main-col:has(.row-action-wrap.open),
+.main-col-inner:has(.row-action-wrap.open),
+.box:has(.row-action-wrap.open),
+.box-left:has(.row-action-wrap.open),
+.box-right:has(.row-action-wrap.open),
+.entry-edit:has(.row-action-wrap.open),
+.dash-wrap:has(.row-action-wrap.open),
+.middle:has(.row-action-wrap.open),
+[id="anchor-content"]:has(.row-action-wrap.open),
+[id="page:main-container"]:has(.row-action-wrap.open) {
+    overflow: visible !important;
+}
 .grid table.data tbody tr:hover td { background: rgba(37,139,182,0.06) !important; }
 
 /* === 7. DATA GRIDS (most critical) === */
