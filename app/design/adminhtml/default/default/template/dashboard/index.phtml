@@ -132,7 +132,7 @@ $_dashOnAdminMaster = ($_dashSubPanel === '' || $_dashSubPanel === 'admin') && !
 // view, otherwise sub-panels see empty data because $statusAid=0
 // matches no rows. One small query, always runs for admin role.
 if ($activeRole === 'admin'):
-foreach ($read->fetchAll("SELECT attribute_id, attribute_code FROM eav_attribute WHERE entity_type_id=4 AND attribute_code IN ('name','software','news_from_date','news_to_date','status')") as $r) {
+foreach ($read->fetchAll("SELECT attribute_id, attribute_code FROM eav_attribute WHERE entity_type_id=4 AND attribute_code IN ('name','software','news_from_date','news_to_date','status','trainers')") as $r) {
     $attrMap[$r['attribute_code']] = (int)$r['attribute_id'];
 }
 $nameAid   = isset($attrMap['name'])           ? $attrMap['name']           : 71;
@@ -144,33 +144,75 @@ endif;
 
 if ($activeRole === 'admin' && $_dashOnAdminMaster):
 
-// Country scope from the logged-in admin (admin.<cc>@…). Default SG.
-// Applied as an INNER JOIN on catalog_product_website to every query
-// below so the master list, KPI counts, and learner / trainer
-// roll-ups all reflect the admin's country.
-$_adminWid     = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
-$_adminWidJoin = " INNER JOIN catalog_product_website pwx ON pwx.product_id=p.entity_id AND pwx.website_id={$_adminWid} ";
+// Country scope from the **Branchscope pill strip** (All / Singapore /
+// Malaysia / …). 0 = All Stores → no website filter applied; KPIs and
+// the master list aggregate across every website. Each store_id maps
+// 1:1 to its website_id in this install (core_store rows 1–7), so we
+// pass the same integer straight through as the website filter.
+$_adminWid = (int) Mage::helper('branchscope')->getActiveStoreId();
+if ($_adminWid > 0) {
+    $_adminWidJoin   = " INNER JOIN catalog_product_website pwx ON pwx.product_id=p.entity_id AND pwx.website_id={$_adminWid} ";
+    $_adminWidJoinCo = " INNER JOIN catalog_product_website pwx ON pwx.product_id=cpo.product_id AND pwx.website_id={$_adminWid} ";
+    $_adminWidOrder  = " AND cs.website_id={$_adminWid} ";
+} else {
+    // "All Stores" — drop every per-website filter so counts and rows
+    // aggregate across SG/MY/GH/NG/BT/IN/Infotech.
+    $_adminWidJoin   = '';
+    $_adminWidJoinCo = '';
+    $_adminWidOrder  = '';
+}
 
-$ongoingCount = ($startAid && $endAid) ? (int)$read->fetchOne("
-    SELECT COUNT(DISTINCT p.entity_id) FROM catalog_product_entity p
-    {$_adminWidJoin}
-    JOIN catalog_product_entity_datetime d1 ON p.entity_id=d1.entity_id AND d1.attribute_id={$startAid} AND d1.store_id=0 AND d1.value<='{$today}'
-    JOIN catalog_product_entity_datetime d2 ON p.entity_id=d2.entity_id AND d2.attribute_id={$endAid}   AND d2.store_id=0 AND d2.value>='{$today}'
-") : 0;
-$upcomingCount = $startAid ? (int)$read->fetchOne("
-    SELECT COUNT(DISTINCT p.entity_id) FROM catalog_product_entity p
-    {$_adminWidJoin}
-    JOIN catalog_product_entity_datetime d1 ON p.entity_id=d1.entity_id AND d1.attribute_id={$startAid} AND d1.store_id=0 AND d1.value>'{$today}'
-") : 0;
-$completedCount = $endAid ? (int)$read->fetchOne("
-    SELECT COUNT(DISTINCT p.entity_id) FROM catalog_product_entity p
-    {$_adminWidJoin}
-    JOIN catalog_product_entity_datetime d2 ON p.entity_id=d2.entity_id AND d2.attribute_id={$endAid} AND d2.store_id=0 AND d2.value<'{$today}'
-") : 0;
+// KPI counts driven by **Course Date custom options** scoped to this
+// website (not news_from_date — which is empty for ~all courses).
+// Same parsing logic as the master $courseRows build below.
+$ongoingCount = $upcomingCount = $completedCount = 0;
+$_kpiSessions = $read->fetchAll("
+    SELECT cpo.product_id, ott.title AS date_label
+    FROM catalog_product_option cpo
+    {$_adminWidJoinCo}
+    JOIN catalog_product_option_title ot ON ot.option_id=cpo.option_id AND ot.store_id=0
+    JOIN catalog_product_option_type_value ov ON ov.option_id=cpo.option_id
+    JOIN catalog_product_option_type_title ott ON ott.option_type_id=ov.option_type_id AND ott.store_id=0
+    WHERE ot.title='Course Date'
+");
+$_kpiTodayTs    = strtotime('today');
+$_kpiLast90Ts   = strtotime('-90 days', $_kpiTodayTs);
+$_kpiUpcomingPids = array();
+foreach ($_kpiSessions as $_ks) {
+    if (!preg_match('#(\d{1,2})(?:/(\d{1,2}))?\s+([A-Za-z]{3,})\s+(\d{4})#', $_ks['date_label'], $_m)) continue;
+    $_startTs = strtotime($_m[1] . ' ' . $_m[3] . ' ' . $_m[4]);
+    if (!$_startTs) continue;
+    $_endTs = !empty($_m[2]) ? strtotime($_m[2] . ' ' . $_m[3] . ' ' . $_m[4]) : $_startTs;
+    if ($_startTs <= $_kpiTodayTs && $_endTs >= $_kpiTodayTs) {
+        $ongoingCount++;
+    } elseif ($_startTs > $_kpiTodayTs) {
+        $upcomingCount++;
+        $_kpiUpcomingPids[(int)$_ks['product_id']] = true;
+    } elseif ($_startTs >= $_kpiLast90Ts) {
+        // Cap "completed" to the last 90 days so the count stays
+        // meaningful instead of accumulating years of legacy sessions.
+        $completedCount++;
+    }
+}
 
+// Trainer roll-up scoped to products with upcoming sessions on this
+// website. Trainers are linked to a course via the `trainers` EAV text
+// attribute (attribute_id 170) storing a comma-separated list of
+// courses_trainers IDs. A product counts as "assigned" if the value is
+// non-empty.
 $trainerTable  = $resource->getTableName('courses_trainers');
-$assignedLocal = (int)$read->fetchOne("SELECT COUNT(DISTINCT relation_id) FROM {$trainerTable} WHERE status=1");
-$missingLocal  = max(0, $upcomingCount - $assignedLocal);
+$assignedLocal = 0;
+if (!empty($_kpiUpcomingPids)) {
+    $_upcPidsCsv      = implode(',', array_keys($_kpiUpcomingPids));
+    $_trainersAttrId  = isset($attrMap['trainers']) ? (int)$attrMap['trainers'] : 170;
+    $assignedLocal = (int) $read->fetchOne("
+        SELECT COUNT(DISTINCT entity_id) FROM catalog_product_entity_text
+         WHERE attribute_id={$_trainersAttrId}
+           AND entity_id IN ({$_upcPidsCsv})
+           AND value IS NOT NULL AND value <> ''
+    ");
+}
+$missingLocal = max(0, count($_kpiUpcomingPids) - $assignedLocal);
 
 $classTypeOptions = array();
 if ($typeAid) {
@@ -191,8 +233,128 @@ $cE = $endAid   ? "dend.value AS end_date,"     : "NULL AS end_date,";
 // 300-row LIMIT and JS load timing. "Ongoing" is lenient — a course
 // that has started and has no explicit end is treated as still running.
 $_dashFilter = (string) Mage::app()->getRequest()->getParam('dash_filter', '');
-$_dashFilterWhere = '';
-if ($startAid && $endAid) {
+
+// Build the master upcoming-classes table from **Course Date custom options**
+// (the real per-session schedule that learners book against), not from the
+// product-level news_from_date attribute — which is empty for ~all courses.
+// One row per session; pax counts come from sales_flat_order_item by
+// matching the chosen Course Date option_value in product_options.
+$courseRows = array();
+$_dashFilterWhere = ''; // kept for the legacy ongoing/upcoming/completed sidebar filters below
+if ($_dashFilter === '' && $statusAid) {
+    $_todayTs   = strtotime('today');
+    $_today90Ts = strtotime('+90 days', $_todayTs);
+
+    // 1. All Course Date option_type_values for products on this website.
+    $_sessionsRaw = $read->fetchAll("
+        SELECT cpo.product_id, ov.option_type_id, ott.title AS date_label
+        FROM catalog_product_option cpo
+        {$_adminWidJoinCo}
+        JOIN catalog_product_option_title ot ON ot.option_id=cpo.option_id AND ot.store_id=0
+        JOIN catalog_product_option_type_value ov ON ov.option_id=cpo.option_id
+        JOIN catalog_product_option_type_title ott ON ott.option_type_id=ov.option_type_id AND ott.store_id=0
+        WHERE ot.title='Course Date'
+    ");
+
+    // 2. Parse the date label, keep sessions whose first date is in (today, today+90d].
+    $_sessions = array();      // option_type_id => ['product_id'=>..,'ts'=>..,'label'=>..]
+    $_sessionPids = array();
+    foreach ($_sessionsRaw as $s) {
+        if (preg_match('#(\d{1,2})(?:/\d{1,2})?\s+([A-Za-z]{3,})\s+(\d{4})#', $s['date_label'], $m)) {
+            $ts = strtotime($m[1] . ' ' . $m[2] . ' ' . $m[3]);
+            if ($ts && $ts > $_todayTs && $ts <= $_today90Ts) {
+                $_sessions[(int)$s['option_type_id']] = array(
+                    'product_id' => (int)$s['product_id'],
+                    'ts'         => $ts,
+                    'label'      => $s['date_label'],
+                );
+                $_sessionPids[(int)$s['product_id']] = true;
+            }
+        }
+    }
+
+    if (!empty($_sessions)) {
+        // 3. Bulk-fetch product attributes (name, sku, class type, status).
+        $_pidsCsv = implode(',', array_keys($_sessionPids));
+        $_typeJoin = $typeAid
+            ? "LEFT JOIN catalog_product_entity_int vtype ON p.entity_id=vtype.entity_id AND vtype.attribute_id={$typeAid} AND vtype.store_id=0"
+            : '';
+        $_typeCol  = $typeAid ? "vtype.value" : "NULL";
+        $_prodRows = $read->fetchAll("
+            SELECT p.entity_id, p.sku,
+                   vname.value AS name,
+                   {$_typeCol} AS type_id,
+                   vstatus.value AS status_val
+            FROM catalog_product_entity p
+            LEFT JOIN catalog_product_entity_varchar vname ON p.entity_id=vname.entity_id AND vname.attribute_id={$nameAid} AND vname.store_id=0
+            {$_typeJoin}
+            LEFT JOIN catalog_product_entity_int vstatus ON p.entity_id=vstatus.entity_id AND vstatus.attribute_id={$statusAid} AND vstatus.store_id=0
+            WHERE p.entity_id IN ({$_pidsCsv})
+        ");
+        $_prodById = array();
+        foreach ($_prodRows as $pr) $_prodById[(int)$pr['entity_id']] = $pr;
+
+        // 4. Aggregate # of Pax by parsing product_options on each order item.
+        //    sales_flat_order_item.product_options is a serialized PHP array
+        //    containing the chosen Course Date option_value (= option_type_id).
+        $_paxMap = array(); // option_type_id => qty_sum
+        $_orderItems = $read->fetchAll("
+            SELECT oi.product_id, oi.qty_ordered, oi.product_options
+            FROM sales_flat_order_item oi
+            INNER JOIN sales_flat_order o ON oi.order_id=o.entity_id AND o.state NOT IN ('canceled','holded')
+            INNER JOIN core_store cs ON cs.store_id=o.store_id {$_adminWidOrder}
+            WHERE oi.product_id IN ({$_pidsCsv})
+              AND oi.product_options LIKE '%Course Date%'
+        ");
+        foreach ($_orderItems as $oi) {
+            $opts = @unserialize($oi['product_options']);
+            if (!is_array($opts) || empty($opts['options'])) continue;
+            foreach ($opts['options'] as $opt) {
+                if (isset($opt['label'], $opt['option_value']) && $opt['label'] === 'Course Date') {
+                    $otid = (int)$opt['option_value'];
+                    if (isset($_sessions[$otid])) {
+                        if (!isset($_paxMap[$otid])) $_paxMap[$otid] = 0.0;
+                        $_paxMap[$otid] += (float)$oi['qty_ordered'];
+                    }
+                }
+            }
+        }
+
+        // 5. Build one $courseRows entry per session.
+        //    SG (website_id=1) hides WSQ class types; other websites show all.
+        foreach ($_sessions as $otid => $sess) {
+            $pid = $sess['product_id'];
+            if (!isset($_prodById[$pid])) continue;
+            $pi  = $_prodById[$pid];
+            $tid = (int)$pi['type_id'];
+            if ($_adminWid === 1 && $tid && isset($classTypeOptions[$tid])
+                && stripos($classTypeOptions[$tid], 'wsq') !== false) {
+                continue;
+            }
+            $courseRows[] = array(
+                'run_id'       => $pid,                                   // product entity_id for edit links
+                'ref_code'     => $pi['sku'],
+                'course_title' => $pi['name'],
+                'type_id'      => $tid,
+                'start_date'   => date('Y-m-d H:i:s', $sess['ts']),
+                'end_date'     => null,
+                'status_val'   => (int)$pi['status_val'],
+                'learners'     => isset($_paxMap[$otid]) ? (int) round($_paxMap[$otid]) : 0,
+                'session_label'=> $sess['label'],
+            );
+        }
+        usort($courseRows, function ($a, $b) {
+            return strcmp($a['start_date'], $b['start_date']);
+        });
+        if (count($courseRows) > 300) $courseRows = array_slice($courseRows, 0, 300);
+    }
+}
+
+// Legacy sidebar filters (Ongoing / Upcoming / Completed Classes) still
+// use the old product-attribute path so the KPI tiles' SQL counts keep
+// working. The master master view above always overrides this when no
+// dash_filter is set.
+if ($_dashFilter !== '' && $startAid && $endAid) {
     if ($_dashFilter === 'ongoing') {
         $_dashFilterWhere = "WHERE dstart.value IS NOT NULL AND dstart.value <= '{$today}'
                               AND (dend.value IS NULL OR dend.value = '' OR dend.value >= '{$today}')";
@@ -201,24 +363,23 @@ if ($startAid && $endAid) {
     } elseif ($_dashFilter === 'completed') {
         $_dashFilterWhere = "WHERE dend.value IS NOT NULL AND dend.value <> '' AND dend.value < '{$today}'";
     }
+    $courseRows = $read->fetchAll("
+        SELECT p.entity_id AS run_id, p.sku AS ref_code, vname.value AS course_title,
+               {$cT} {$cS} {$cE} vstatus.value AS status_val, COALESCE(lc.cnt,0) AS learners
+        FROM catalog_product_entity p
+        {$_adminWidJoin}
+        LEFT JOIN catalog_product_entity_varchar vname  ON p.entity_id=vname.entity_id  AND vname.attribute_id={$nameAid}   AND vname.store_id=0
+        {$sT} {$sS} {$sE}
+        LEFT JOIN catalog_product_entity_int vstatus ON p.entity_id=vstatus.entity_id AND vstatus.attribute_id={$statusAid} AND vstatus.store_id=0
+        LEFT JOIN (SELECT oi.product_id, COALESCE(SUM(oi.qty_ordered),0) AS cnt
+                   FROM sales_flat_order_item oi
+                   INNER JOIN sales_flat_order o ON oi.order_id=o.entity_id AND o.state NOT IN ('canceled','holded')
+                   INNER JOIN core_store cs ON cs.store_id=o.store_id {$_adminWidOrder}
+                   GROUP BY oi.product_id) lc ON p.entity_id=lc.product_id
+        {$_dashFilterWhere}
+        ORDER BY dstart.value ASC, p.entity_id ASC LIMIT 300
+    ");
 }
-
-$courseRows = $read->fetchAll("
-    SELECT p.entity_id AS run_id, p.sku AS ref_code, vname.value AS course_title,
-           {$cT} {$cS} {$cE} vstatus.value AS status_val, COALESCE(lc.cnt,0) AS learners
-    FROM catalog_product_entity p
-    {$_adminWidJoin}
-    LEFT JOIN catalog_product_entity_varchar vname  ON p.entity_id=vname.entity_id  AND vname.attribute_id={$nameAid}   AND vname.store_id=0
-    {$sT} {$sS} {$sE}
-    LEFT JOIN catalog_product_entity_int vstatus ON p.entity_id=vstatus.entity_id AND vstatus.attribute_id={$statusAid} AND vstatus.store_id=0
-    LEFT JOIN (SELECT oi.product_id, COUNT(DISTINCT oi.order_id) AS cnt
-               FROM sales_flat_order_item oi
-               INNER JOIN sales_flat_order o ON oi.order_id=o.entity_id AND o.state NOT IN ('canceled','holded')
-               INNER JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id={$_adminWid}
-               GROUP BY oi.product_id) lc ON p.entity_id=lc.product_id
-    {$_dashFilterWhere}
-    ORDER BY dstart.value DESC, p.entity_id DESC LIMIT 300
-");
 
 // For the filtered KPI tiles — totals before LIMIT, plus learner sum
 $_dashFilterTotal = 0;
@@ -239,7 +400,7 @@ if ($_dashFilter !== '' && $startAid && $endAid) {
                    COALESCE((SELECT COUNT(DISTINCT oi.order_id)
                              FROM sales_flat_order_item oi
                              INNER JOIN sales_flat_order o ON oi.order_id=o.entity_id
-                             INNER JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id={$_adminWid}
+                             INNER JOIN core_store cs ON cs.store_id=o.store_id {$_adminWidOrder}
                              WHERE oi.product_id=p.entity_id AND o.state NOT IN ('canceled','holded')),0) AS cnt
             FROM catalog_product_entity p
             {$_adminWidJoin}
@@ -1444,9 +1605,9 @@ if ($_selectedCourseId) {
         <div class="dash-table-wrap">
             <table class="dash-table">
                 <thead><tr>
-                    <th>Course Run ID</th><th>Course Title</th>
-                    <th>Class Type</th><th>Start Date</th><th>End Date</th>
-                    <th>Class Status</th><th>Learners</th>
+                    <th>Course Run ID</th><th>Course Title</th><th>Course Code</th>
+                    <th>Class Type</th><th>Start Date</th>
+                    <th>Class Status</th><th># of Pax</th>
                     <th>Trainer</th>
                     <th>Cal</th>
                 </tr></thead>
@@ -1458,25 +1619,22 @@ if ($_selectedCourseId) {
                     $tcls  = (stripos($tlbl, 'virtual') !== false || stripos($tlbl, 'online') !== false)
                               ? 'badge-type-virtual' : 'badge-type';
                     $sFmt  = $row['start_date'] ? date('d/m/Y', strtotime($row['start_date'])) : '—';
-                    $eFmt  = $row['end_date']   ? date('d/m/Y', strtotime($row['end_date']))   : '—';
                     $sv    = (int)$row['status_val'];
-                    // Status: disabled → Cancelled; enabled + has start date → Confirmed; enabled + no date → Pending
-                    if ($sv !== 1)                 { $slbl = 'Cancelled'; $scls = 'badge-cancelled'; }
-                    elseif (empty($row['start_date'])) { $slbl = 'Pending';   $scls = 'badge-pending'; }
-                    else                           { $slbl = 'Confirmed'; $scls = 'badge-confirmed'; }
+                    // Upcoming master view: disabled product → Cancelled; everything else defaults to Pending.
+                    if ($sv !== 1) { $slbl = 'Cancelled'; $scls = 'badge-cancelled'; }
+                    else           { $slbl = 'Pending';   $scls = 'badge-pending'; }
                     $eurl  = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => $row['run_id']));
                     $viewUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $row['run_id']));
                     $ttl   = htmlspecialchars($row['course_title'] ?: '(No Name)');
                     $rcode = htmlspecialchars($row['ref_code']);
                     $sraw  = $row['start_date'] ? date('Y-m-d', strtotime($row['start_date'])) : '';
-                    $eraw  = $row['end_date']   ? date('Y-m-d', strtotime($row['end_date']))   : '';
                 ?>
-                <tr data-title="<?php echo strtolower($ttl) ?>" data-ref="<?php echo strtolower($rcode) ?>" data-type="<?php echo htmlspecialchars($tlbl) ?>" data-status="<?php echo $slbl ?>" data-start="<?php echo $sraw ?>" data-end="<?php echo $eraw ?>">
+                <tr data-title="<?php echo strtolower($ttl) ?>" data-ref="<?php echo strtolower($rcode) ?>" data-type="<?php echo htmlspecialchars($tlbl) ?>" data-status="<?php echo $slbl ?>" data-start="<?php echo $sraw ?>">
                     <td class="run-id"><?php echo (int)$row['run_id'] ?></td>
                     <td><a href="#" class="dash-course-link" onclick="event.preventDefault();var p=window._dashPage||1;window.location.href='<?php echo $viewUrl ?>from_page/'+p+'/';"><?php echo $ttl ?></a> <a href="<?php echo $eurl ?>" title="Edit in Magento" style="color:#64748b;text-decoration:none;margin-left:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a></td>
+                    <td style="font-family:monospace;color:#cbd5e1;"><?php echo $rcode ?: '—' ?></td>
                     <td><span class="dash-badge <?php echo $tcls ?>"><?php echo htmlspecialchars($tlbl) ?></span></td>
                     <td><?php echo $sFmt ?></td>
-                    <td><?php echo $eFmt ?></td>
                     <td><span class="dash-badge <?php echo $scls ?>"><?php echo $slbl ?></span></td>
                     <td><?php echo (int)$row['learners'] ?></td>
                     <td style="color:#94a3b8;">—</td>
@@ -2036,11 +2194,11 @@ function devSetView(view) {
         $_dcfTabs = array(
             'general'          => 'General',
             'course-details'   => 'Course Details',
+            'schedule'         => 'Course Schedule',
             'lesson-details'   => 'Lesson Details',
             'trainer-details'  => 'Trainer Details',
             'images'           => 'Course Images',
             'categories'       => 'Categories',
-            'schedule'         => 'Course Schedule',
             'reviews'          => 'Course Review',
             '__group_marketing' => array(
                 'label'    => 'Marketing',

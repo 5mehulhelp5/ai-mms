@@ -98,12 +98,47 @@ a.dash-icon-btn:hover{
 .dash-no-results{text-align:center;padding:40px;color:#64748b;font-size:14px}
 .dash-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;font-size:12px;color:#94a3b8;flex-wrap:wrap}
 .dash-pager-info{color:#64748b}
-.dash-pager-ctrls{display:flex;gap:4px;align-items:center}
-.dash-pg-btn{background:transparent;border:1px solid var(--b1);color:var(--t2);padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;min-width:32px;transition:background .12s,border-color .12s}
-.dash-pg-btn:hover:not(.disabled){background:#1e293b;border-color:var(--b2)}
-.dash-pg-btn.active{background:#22d3ee;color:#0f172a;border-color:#22d3ee;font-weight:600}
-.dash-pg-btn.disabled{opacity:.4;cursor:not-allowed}
-.dash-pg-ellipsis{color:#64748b;padding:0 4px}
+/* ===== Minimalist admin pagination (global) =====
+   Flat text only. No backgrounds, no borders, no chips. Matches any pager
+   item class ending in `-pg-btn`, `-page-btn`, or matching `pagination-btn`.
+   Both <button> and <a> elements supported. Overrides the OpenMage legacy
+   adminhtml button gradient/border via specificity + !important. Match
+   this design for every new paged table. */
+[class*="-pager-ctrls"],
+.dev-pagination,
+.modern-pagination{display:flex !important;gap:14px !important;align-items:center;justify-content:center;background:transparent !important;border:0 !important;padding:0 !important}
+button[class*="-pg-btn"],
+a[class*="-pg-btn"],
+button[class*="-page-btn"],
+a[class*="-page-btn"],
+button.pagination-btn,
+a.pagination-btn{display:inline-block !important;background:transparent !important;background-color:transparent !important;background-image:none !important;border:0 !important;box-shadow:none !important;color:#64748b !important;padding:2px 4px !important;border-radius:0 !important;font-size:12px !important;font-weight:400 !important;cursor:pointer;min-width:0 !important;height:auto !important;line-height:1.4 !important;text-shadow:none !important;text-decoration:none !important;transition:color .12s}
+button[class*="-pg-btn"]:hover:not(.disabled),
+a[class*="-pg-btn"]:hover:not(.disabled),
+button[class*="-page-btn"]:hover:not(.disabled),
+a[class*="-page-btn"]:hover:not(.disabled),
+button.pagination-btn:hover:not(.disabled),
+a.pagination-btn:hover:not(.disabled){color:#e2e8f0 !important;background:transparent !important;border:0 !important;box-shadow:none !important;text-decoration:none !important}
+button[class*="-pg-btn"]:focus,button[class*="-pg-btn"]:active,
+a[class*="-pg-btn"]:focus,a[class*="-pg-btn"]:active,
+button[class*="-page-btn"]:focus,button[class*="-page-btn"]:active,
+a[class*="-page-btn"]:focus,a[class*="-page-btn"]:active,
+button.pagination-btn:focus,button.pagination-btn:active{outline:none !important;box-shadow:none !important;background:transparent !important;border:0 !important}
+button[class*="-pg-btn"].active,
+a[class*="-pg-btn"].active,
+button[class*="-page-btn"].active,
+a[class*="-page-btn"].active,
+button.pagination-btn.active,
+a.pagination-btn.active{color:#22d3ee !important;font-weight:600 !important;background:transparent !important;border:0 !important}
+button[class*="-pg-btn"].disabled,
+a[class*="-pg-btn"].disabled,
+button[class*="-page-btn"].disabled,
+a[class*="-page-btn"].disabled,
+button.pagination-btn.disabled,
+a.pagination-btn.disabled{opacity:.35 !important;cursor:not-allowed;pointer-events:none}
+[class*="-pg-ellipsis"],
+[class*="-page-ellipsis"],
+.pagination-ellipsis{color:#475569 !important;padding:0 2px !important;background:transparent !important}
 
 /* --- Block 2 (template line 1393) --- */
 /* Kill top gap: the admin layout's .middle has ~24px padding and .content-header has
@@ -198,12 +233,12 @@ button.dev-country-btn.active,button.dev-country-btn.active:hover,button.dev-cou
     border-color:#2563eb !important;
     color:#fff !important
 }
-.dev-pagination{display:flex;justify-content:center;align-items:center;gap:6px;margin:28px 0 10px;flex-wrap:wrap}
-.dev-pagination a.dev-page-btn,.dev-pagination a.dev-page-btn:hover{display:inline-flex;align-items:center;justify-content:center;min-width:36px;height:36px;padding:0 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#94a3b8;font-size:13px;font-weight:600;text-decoration:none !important;transition:all .15s}
-.dev-pagination a.dev-page-btn:hover{background:#334155;color:#fff}
-.dev-pagination a.dev-page-btn.active{background:#2563eb;border-color:#2563eb;color:#fff}
-.dev-pagination a.dev-page-btn.disabled{opacity:.4;pointer-events:none}
-.dev-page-ellipsis{color:#64748b;padding:0 4px}
+/* Legacy filled-chip `.dev-pagination` rules retired 2026-05-19 — the
+   global minimalist pager block (further down this file) now styles
+   `[class$="-page-btn"]` / `[class$="-pg-btn"]` uniformly. Keep this
+   container declaration only for layout (margin); colors/borders come
+   from the global rule. */
+.dev-pagination{margin:28px 0 10px;flex-wrap:wrap}
 
 /* --- Block 4 (template line 2092) --- */
 /* Editing mode replaces the project's standard left sidebar (Manage Courses,
@@ -2154,3 +2189,25 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
 
 /* Minimalist button system moved to dark-theme.css so it applies
    on every admin page (this file only loads on dashboard surfaces). */
+
+/* ===== Global page-title type ramp =====
+   Every admin page heading collapses to one canonical size — 28px / 700 —
+   regardless of which panel it lives in. Each MMD panel previously
+   declared its own `.dash-title`, `.dev-title`, `.edt-title`,
+   `.lmc-title`, `.trn-title`, `.dce-title`, `.cnc-title`, `.at-title`,
+   `.al-title`, `.el-title` with bespoke sizes (24/26/28px). The single
+   selector below normalises all of them; existing per-class rules above
+   keep their non-typographic properties (margins, line-height tweaks).
+   Native Magento `.content-header h3` is rolled in for parity on stock
+   admin pages (Cache, System Config, customer grid, etc.). */
+.admin-main h1[class*="-title"],
+.admin-main h2.lmc-title,
+.admin-main .content-header h3,
+.admin-main .content-header h3.icon-head{
+  font-size:28px !important;
+  font-weight:700 !important;
+  color:var(--t1,#f1f5f9) !important;
+  line-height:1.2 !important;
+  margin:0 0 24px !important;
+  text-shadow:none !important;
+}

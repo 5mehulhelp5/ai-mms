@@ -120,6 +120,88 @@ Anti-patterns:
 
 Reference: the **Course Review** table in `dashboard/index.phtml` (tab `data-tab="reviews"`).
 
+## Minimalist pagination (admin-wide — `admin-dashboard.css`)
+
+For any paged table in MMD admin panels (dashboards, role manager, course
+manager, etc.) the pager is **flat text only — no buttons, no borders, no
+chips**. The global rule lives in
+`skin/adminhtml/default/default/admin-dashboard.css` and matches any class
+ending in `-pg-btn` or `-page-btn` (e.g. `dash-pg-btn`, `al-pg-btn`,
+`at-pg-btn`, `dev-page-btn`) plus the legacy `pagination-btn`. Works on
+both `<button>` and `<a>` elements.
+
+Specs:
+- Container: `display:flex; gap:14px; align-items:center` — applied via
+  `[class$="-pager-ctrls"]`.
+- Item: `background:transparent`, `border:0`, `box-shadow:none`,
+  `padding:2px 4px`, `font-size:12px`, `font-weight:400`, `color:#64748b`.
+- Hover (not disabled): `color:#e2e8f0`. Nothing else changes.
+- Active page: `color:#22d3ee`, `font-weight:600`. No background.
+- Disabled (Prev at page 1, Next at last page): `opacity:.35`,
+  `cursor:not-allowed`.
+- Ellipsis: a `<span class="…-pg-ellipsis">` with `color:#475569`.
+
+Markup convention (used by every existing pager):
+```js
+var b = document.createElement('button');
+b.className = '<prefix>-pg-btn' + (opts.active ? ' active' : '')
+                                + (opts.disabled ? ' disabled' : '');
+b.textContent = label;     // 'Prev', '1', '2', …, 'Next'
+```
+
+Hard rules:
+- **Never reintroduce filled "chip" pagination** (sky-blue background,
+  rounded border, fixed `32×32` cells). The retired
+  `button.pagination-btn` block in `sidebar-nav.css` was deliberately
+  collapsed to a one-line comment pointer — don't restore it.
+- New pagers MUST adopt the `-pg-btn` / `-pager-ctrls` / `-pg-ellipsis`
+  suffix so the global rule applies automatically. No new bespoke CSS.
+- The OpenMage legacy adminhtml `<button>` style ships a gradient + border;
+  the global rule beats it via specificity + `!important`. Don't strip the
+  `!important`s.
+
+Reference implementation: dashboard master table pager
+(`dashRenderPager` in `dashboard/index.phtml`).
+
+## Grid Action column — icon-only (global rewrite)
+
+Every adminhtml grid column declared as `'type' => 'action'` renders as
+**icon buttons**, not text links or dropdowns. This is wired by a class
+rewrite of `Mage_Adminhtml_Block_Widget_Grid_Column_Renderer_Action` to
+`MMD_Adminhtml_Block_Widget_Grid_Column_Renderer_Action`
+(see `app/code/local/MMD/Adminhtml/etc/config.xml`, key
+`widget_grid_column_renderer_action`). Because the rewrite is global, you
+do **not** add a `'renderer' => …` key on the column — the standard
+`type => action` already resolves to the icon renderer.
+
+How the renderer maps captions to icons:
+- Caption is lowercased + stripped of HTML, then substring-matched.
+- `view` / `show` → eye, `edit` → pencil, `delete` / `remove` → trash,
+  `cancel` → ×, `print` / `pdf` → printer, `send` / `email` → paper plane.
+- Anything unmatched falls back to the raw caption text inside the same
+  styled anchor, so a new uncategorised action stays clickable.
+
+Per-row markup (auto-emitted):
+```html
+<div class="mmd-grid-actions">
+  <a class="mmd-grid-action mmd-grid-action--view"   title="View"   href="…">SVG</a>
+  <a class="mmd-grid-action mmd-grid-action--cancel" title="Cancel" href="…" onclick="…">SVG</a>
+</div>
+```
+
+CSS is the existing `.mmd-grid-actions` / `.mmd-grid-action[--view|--edit|--delete|--cancel|--print|--send]`
+block in `dark-theme.css`. Hover tints: cancel turns red (`#f87171`),
+the rest tint blue (`#60a5fa`). Each anchor is a 26×26 ghost square with
+a 1px border — same shape as the toolbar icon-only buttons described below.
+
+Hard rules:
+- **Never set `'renderer' => '…'` on an action column** — that bypasses
+  the global rewrite and you'll get inconsistent text-link cells.
+- **Never extend the icon table per-grid**. Add new icons to the
+  `_icons` array in the global renderer so every grid benefits.
+- Action columns should be **narrow** — 60–90px depending on icon count.
+  Don't reserve the legacy 110px+ that the text-link version needed.
+
 ## Icon-only buttons (28×28 ghost pattern)
 
 For toolbar icons (Editor/HTML mode toggle on rich-text textareas, delete row, etc.)
