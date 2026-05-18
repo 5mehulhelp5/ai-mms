@@ -1700,6 +1700,18 @@ html.is-order-view #ovActionsRow .form-buttons button {
     margin: 0 !important;
     float: none !important;
 }
+/* === Order View — global 20% shrink ===
+   Scale the whole order-view content area down to 80% so text, padding,
+   tables, cards and gaps all shrink proportionally in one go (on top of
+   the COMPACT density tweaks below). Scoped to the content column only,
+   so the shared top bar and left sidebar keep their normal size. `zoom`
+   (not transform:scale) so layout/flow reflows naturally with no width
+   compensation or clipping. */
+body.is-order-view .main-col-inner,
+html.is-order-view .main-col-inner {
+    zoom: 0.8;
+}
+
 /* === Order View — COMPACT density (match standard Magento size) ===
    The global dark-theme card/button/font rules inflate this page well
    beyond Magento's default. Scope a tighter set to body.is-order-view
