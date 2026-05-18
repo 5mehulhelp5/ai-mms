@@ -1529,8 +1529,20 @@ body.has-overlay-sidecol .side-col.side-col-overlay {
     min-width: 0 !important;
     display: block !important;
 }
+/* Open the flyout flush against the RIGHT edge of the fixed admin
+   sidebar, not at viewport x=0. The overlay's z-index (1500) is above
+   the admin sidebar's (1200), but the overlay is nested inside
+   .admin-main so it's confined to that ancestor's stacking context and
+   the fixed .admin-sidebar (width 250px, 60px collapsed) still paints
+   over its left edge. Offsetting `left` by the sidebar width sidesteps
+   the stacking-context trap entirely — the panel opens fully visible
+   beside the sidebar. `body.sidebar-collapsed` (sidebar-nav.css) shrinks
+   the sidebar to 60px, so match that. */
 body.has-overlay-sidecol.side-col-overlay-open .side-col.side-col-overlay {
-    left: 0 !important;
+    left: 250px !important;
+}
+body.has-overlay-sidecol.sidebar-collapsed.side-col-overlay-open .side-col.side-col-overlay {
+    left: 60px !important;
 }
 body.has-overlay-sidecol .side-col-overlay-toggle-wrap {
     margin: 12px 0 8px !important;
