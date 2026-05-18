@@ -1649,6 +1649,57 @@ html.is-order-view ul#sales_order_view_tabs li a.active span {
     box-shadow: none !important;
     margin: 0 0 -2px 0 !important;
 }
+/* === Order View — tabs + action buttons on ONE row ===
+   order-view-actions-row.js wraps the relocated tabs UL and the
+   .form-buttons into #ovActionsRow. Tabs sit left, action buttons
+   right, sharing a single underline. The "Order # … | <date>" <h3>
+   stays in .content-header on its own row above. */
+body.is-order-view #ovActionsRow,
+html.is-order-view #ovActionsRow {
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 4px 16px !important;
+    margin: 2px 0 18px 0 !important;
+    border-bottom: 2px solid var(--b1) !important;
+}
+/* Tabs UL now lives inside the row: drop its own underline/margin and
+   let it take the left side; the row owns the border. */
+body.is-order-view #ovActionsRow ul#sales_order_view_tabs,
+html.is-order-view #ovActionsRow ul#sales_order_view_tabs {
+    border-bottom: none !important;
+    margin: 0 !important;
+    flex: 1 1 auto !important;
+    width: auto !important;
+}
+/* Smaller tabs */
+body.is-order-view ul#sales_order_view_tabs li a,
+html.is-order-view ul#sales_order_view_tabs li a,
+body.is-order-view ul#sales_order_view_tabs li a.active,
+html.is-order-view ul#sales_order_view_tabs li a.active {
+    padding: 6px 11px !important;
+    font-size: 12px !important;
+}
+/* Action buttons grouped on the right of the row */
+body.is-order-view #ovActionsRow .form-buttons,
+html.is-order-view #ovActionsRow .form-buttons,
+body.is-order-view #ovActionsRow .content-buttons,
+html.is-order-view #ovActionsRow .content-buttons {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    margin: 0 0 4px 0 !important;
+    padding: 0 !important;
+    white-space: normal !important;
+    text-align: right !important;
+    flex: 0 0 auto !important;
+}
+body.is-order-view #ovActionsRow .form-buttons button,
+html.is-order-view #ovActionsRow .form-buttons button {
+    margin: 0 !important;
+    float: none !important;
+}
 /* === Order View — COMPACT density (match standard Magento size) ===
    The global dark-theme card/button/font rules inflate this page well
    beyond Magento's default. Scope a tighter set to body.is-order-view
