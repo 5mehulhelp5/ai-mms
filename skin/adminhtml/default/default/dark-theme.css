@@ -3815,3 +3815,16 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     height: 40px !important;
     min-height: 40px !important;
 }
+
+/* === Course-detail view: remove Course Sessions + Additional Documents ===
+   Requested removal of the "Course Sessions" and "Additional Documents"
+   section boxes (and their left-nav links) from the learner / trainer /
+   developer "View Course" panel. The same ids/classes render in every
+   role variant inside the ~12k-line dashboard template, so hide by id —
+   role-agnostic and safe (no structural edits to that churned file). */
+#dash-panel-course-detail .lcd-section#course-sessions,
+#dash-panel-course-detail .lcd-section#additional-documents,
+#dash-panel-course-detail .lcd-nav-item[href="#course-sessions"],
+#dash-panel-course-detail .lcd-nav-item[href="#additional-documents"] {
+    display: none !important;
+}
