@@ -199,18 +199,26 @@ body:has(.dcf-edit-sidebar) .sidebar-toggle { display: none !important; }
     text-shadow: none !important;
     height: auto !important;
 }
-.dcf-edit-sidebar .lms-nav-item span {
+/* The label sits in an inner <span>; §18's `.admin-main button span`
+   forces it white. Scope the gray onto the span itself with high
+   specificity (+ body .admin-main) so it actually wins. */
+body .admin-main .dcf-edit-sidebar .lms-nav-item span {
     text-align: left !important;
     flex: 0 0 auto !important;
     width: auto !important;
+    color: #94a3b8 !important;
 }
-.dcf-edit-sidebar .lms-nav-item:hover {
+body .admin-main .dcf-edit-sidebar .lms-nav-item:hover,
+body .admin-main .dcf-edit-sidebar .lms-nav-item:hover span {
     background: transparent !important;
     color: #94a3b8 !important;
 }
-.dcf-edit-sidebar .lms-nav-item.active {
+body .admin-main .dcf-edit-sidebar .lms-nav-item.active,
+body .admin-main .dcf-edit-sidebar .lms-nav-item.active span {
     background: rgba(37,139,182,0.12) !important;
     color: #258bb6 !important;
+}
+body .admin-main .dcf-edit-sidebar .lms-nav-item.active {
     border-left-color: #258bb6 !important;
 }
 /* Collapsible dcf editor sidebar — JS injects .dcf-rail-toggle and
