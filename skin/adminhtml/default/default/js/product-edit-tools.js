@@ -31,9 +31,32 @@
         return s;
     }
 
+    var RAIL_KEY = 'dcfRailCollapsed';
+
+    function railSaved() {
+        try { return window.localStorage &&
+            localStorage.getItem(RAIL_KEY) === '1'; } catch (e) { return false; }
+    }
+
+    // Keep the toggle's label + caret in sync with the body class so a
+    // re-render (or restored localStorage state) shows the right affordance.
+    function syncRailToggle(btn) {
+        var collapsed = document.body.classList.contains('dcf-rail-collapsed');
+        if (btn.firstChild) {
+            btn.firstChild.nodeValue = collapsed ? 'Expand' : 'Collapse';
+        }
+        var c = btn.querySelector('.dcf-rail-caret');
+        if (c) c.style.transform = collapsed ? 'rotate(90deg)' : '';
+    }
+
     function wireRailToggle() {
         var rail = document.querySelector('.dcf-edit-sidebar');
-        if (!rail || rail.querySelector('.dcf-rail-toggle')) return;
+        if (!rail) return;
+        // Restore the persisted collapsed state (mirrors the standard
+        // sidebar's localStorage behaviour) before the toggle is wired.
+        if (railSaved()) document.body.classList.add('dcf-rail-collapsed');
+        var existing = rail.querySelector('.dcf-rail-toggle');
+        if (existing) { syncRailToggle(existing); return; }
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'dcf-rail-toggle';
@@ -41,10 +64,14 @@
         btn.appendChild(caret('dcf-rail-caret'));
         btn.addEventListener('click', function () {
             var collapsed = document.body.classList.toggle('dcf-rail-collapsed');
-            btn.firstChild.nodeValue = collapsed ? 'Expand' : 'Collapse';
-            var c = btn.querySelector('.dcf-rail-caret');
-            if (c) c.style.transform = collapsed ? 'rotate(90deg)' : '';
+            try {
+                if (window.localStorage) {
+                    localStorage.setItem(RAIL_KEY, collapsed ? '1' : '0');
+                }
+            } catch (e) {}
+            syncRailToggle(btn);
         });
+        syncRailToggle(btn);
         // Put the toggle right under the "Course Information" title.
         var title = rail.querySelector('.dcf-edit-sidebar-title');
         if (title && title.nextSibling) {

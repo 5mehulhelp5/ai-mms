@@ -234,11 +234,28 @@ body .admin-main .dcf-edit-sidebar .lms-nav-item.active {
     text-transform: none !important; box-shadow: none !important;
 }
 .dcf-rail-toggle svg { transition: transform .2s ease; flex: 0 0 auto; }
+/* Collapsed = narrow icon-rail, NOT hidden — mirrors the project's
+   standard sidebar (body.sidebar-collapsed → 60px). The toggle stays
+   visible so the rail can be re-opened without a page reload. */
 body.dcf-rail-collapsed .dcf-edit-sidebar {
-    width: 0 !important; padding: 0 !important;
-    overflow: hidden !important; border-right: none !important;
+    width: 60px !important; padding: 14px 0 !important;
+    overflow: hidden !important;
 }
-body.dcf-rail-collapsed .admin-main { margin-left: 0 !important; }
+body.dcf-rail-collapsed .admin-main { margin-left: 60px !important; }
+body.dcf-rail-collapsed .dcf-edit-sidebar-title { display: none !important; }
+body.dcf-rail-collapsed .dcf-edit-sidebar .lms-nav-item span,
+body.dcf-rail-collapsed .dcf-edit-sidebar .lms-nav-item svg {
+    display: none !important;
+}
+body.dcf-rail-collapsed .dcf-edit-sidebar .lms-nav-item {
+    justify-content: center !important; padding: 14px 0 !important;
+}
+/* Keep the toggle reachable: icon-only, centred (hide its text node,
+   the caret svg has explicit dims so it survives font-size:0). */
+body.dcf-rail-collapsed .dcf-rail-toggle {
+    justify-content: center !important; padding: 14px 0 !important;
+    font-size: 0 !important;
+}
 
 /* Editing form — same layout as read-only view, just with input fields */
 .dcf-wrap{max-width:1400px;margin:0 auto}
