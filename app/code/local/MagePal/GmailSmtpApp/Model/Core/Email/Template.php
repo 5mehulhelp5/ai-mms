@@ -8,6 +8,7 @@ class MagePal_GmailSmtpApp_Model_Core_Email_Template extends Mage_Core_Model_Ema
     const MODULE_SETTINGS_PATH = 'system/magepal_gmailsmtpapp';
     const MODULE_SETTINGS_PATH_SET_RETURN_PATH =  'system/magepal_gmailsmtpapp/set_return_path';
     const MODULE_SETTINGS_PATH_SET_REPLY_TO =  'system/magepal_gmailsmtpapp/set_reply_to';
+    const MODULE_SETTINGS_PATH_SENDER_NAME =  'system/magepal_gmailsmtpapp/sender_name';
 
     /**
      * Send mail to recipient
@@ -76,7 +77,9 @@ class MagePal_GmailSmtpApp_Model_Core_Email_Template extends Mage_Core_Model_Ema
         }
 
         $mail->setSubject('=?utf-8?B?' . base64_encode($this->getProcessedTemplateSubject($variables)) . '?=');
-        $mail->setFrom($this->getSenderEmail(), $this->getSenderName());
+        $senderNameOverride = trim((string) Mage::getStoreConfig(self::MODULE_SETTINGS_PATH_SENDER_NAME));
+        $fromName = $senderNameOverride !== '' ? $senderNameOverride : $this->getSenderName();
+        $mail->setFrom($this->getSenderEmail(), $fromName);
 
         try {
             $systemStoreConfig = Mage::getStoreConfig(self::MODULE_SETTINGS_PATH);

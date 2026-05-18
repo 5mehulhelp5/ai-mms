@@ -74,6 +74,17 @@
                             <show_in_website>1</show_in_website>
                             <show_in_store>1</show_in_store>
                         </set_return_path>
+                        <sender_name translate="label comment">
+                            <label>Override Sender Name</label>
+                            <comment>
+                                <![CDATA[Display name applied to the From: header for every email sent via this SMTP transport. Overrides the per-template identity name (trans_email/ident_*/name) so all outgoing mail across all websites appears under one brand. Leave blank to fall back to the per-template identity.]]>
+                            </comment>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>65</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                        </sender_name>
                         <set_reply_to translate="label comment">
                             <label>Set Reply-to</label>
                             <comment>
