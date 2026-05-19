@@ -1632,40 +1632,47 @@ body .admin-main [id$="_massaction"] button span span span {
     outline: none !important;
     box-shadow: 0 0 0 3px var(--ring) !important;
 }
-/* Primary (default) — brand gradient + soft elevation */
+/* Per request: ALL page-action buttons use the quiet OUTLINE style
+   (transparent fill + var(--blue) border + text, faint blue hover
+   wash) — the same look as the former Back/Secondary variant and the
+   order-view toolbar. No more solid-fill primary; the semantic
+   classes (.add/.save/.success/.delete/.cancel) collapse into the
+   same outline (the single-colour rule was already in force —
+   emphasis is now uniform outline everywhere). Massaction Submit
+   pills (§16, higher specificity) and mm-btn-primary are handled
+   separately. */
 .admin-main button,
 .admin-main button.scalable,
-.admin-main input[type="submit"] {
-    background: var(--btn-primary) !important;
-    color: #fff !important;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.3),
-                0 0 0 1px rgba(96,165,250,0.12) inset !important;
-}
-.admin-main button:hover,
-.admin-main button.scalable:hover,
-.admin-main input[type="submit"]:hover {
-    background: var(--btn-primary-hover) !important;
-    box-shadow: 0 3px 10px rgba(37,99,235,0.35) !important;
-}
-/* SINGLE-COLOR RULE: every backend button uses the same blue.
-   No red for delete/cancel, no green for success, no other colors.
-   Outline (back/secondary) keeps a blue accent instead of gray. */
+.admin-main input[type="submit"],
 .admin-main button.add,
 .admin-main button.scalable.add,
 .admin-main button.save,
 .admin-main button.success,
 .admin-main button.delete,
 .admin-main button.cancel {
-    background: var(--btn-primary) !important;
-    color: #fff !important;
+    background: transparent !important;
+    background-image: none !important;
+    border: 1px solid var(--blue) !important;
+    color: var(--blue) !important;
+    box-shadow: none !important;
 }
+.admin-main button span,
+.admin-main button span span,
+.admin-main button.scalable span,
+.admin-main input[type="submit"] span {
+    color: var(--blue) !important;
+}
+.admin-main button:hover,
+.admin-main button.scalable:hover,
+.admin-main input[type="submit"]:hover,
 .admin-main button.add:hover,
 .admin-main button.save:hover,
 .admin-main button.success:hover,
 .admin-main button.delete:hover,
 .admin-main button.cancel:hover {
-    background: var(--btn-primary-hover) !important;
-    box-shadow: 0 3px 10px rgba(37,99,235,0.35) !important;
+    background: rgba(96, 165, 250, 0.12) !important;
+    border-color: var(--blue) !important;
+    box-shadow: none !important;
 }
 /* Back / Secondary — quiet outline, blue-tinted (not gray) */
 .admin-main button.back,
@@ -3904,4 +3911,79 @@ body.adminhtml-catalog_search-index #catalogSearchGrid_table th:last-child,
 body.adminhtml-catalog_search-index #catalogSearchGrid_table td:last-child {
     width: 72px !important;
     text-align: center !important;
+}
+
+/* === Review add/edit — Detailed Rating matrix full-width ===
+   The rating matrix (rating/detailed.phtml -> table#product-review-table,
+   in the value cell of #review_details) was squeezed: the 5 star
+   headers wrapped to two lines and the radios misaligned because the
+   table wasn't stretching and the responsive form rules rendered its
+   rows as non-table (DevTools "grid" badge). Force a clean, full-width
+   real table. Scoped by the IDs #review_details / #product-review-table
+   which exist only on the review add/edit form — no body-class guess,
+   no leak to other pages. */
+.admin-main #review_details,
+.admin-main #review_details .hor-scroll,
+.admin-main #review_details table.form-list,
+.admin-main #review_details td.value {
+    width: 100% !important;
+    max-width: none !important;
+    overflow: visible !important;
+}
+.admin-main #product-review-table {
+    display: table !important;
+    width: 100% !important;
+    /* fixed layout + explicit column widths so the matrix SPREADS
+       across the full value area (question col wide, the 5 star
+       columns share the rest) instead of bunching content-sized. */
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+}
+.admin-main #product-review-table th:first-child,
+.admin-main #product-review-table td:first-child {
+    width: 40% !important;
+}
+.admin-main #product-review-table th:not(:first-child),
+.admin-main #product-review-table td:not(:first-child) {
+    width: 12% !important;
+}
+.admin-main #product-review-table thead,
+.admin-main #product-review-table tbody {
+    display: table-row-group !important;
+}
+.admin-main #product-review-table tr {
+    display: table-row !important;
+}
+.admin-main #product-review-table th,
+.admin-main #product-review-table td {
+    display: table-cell !important;
+    white-space: nowrap !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+    padding: 6px 10px !important;
+}
+.admin-main #product-review-table th:first-child,
+.admin-main #product-review-table td:first-child {
+    text-align: left !important;
+    white-space: normal !important;
+}
+/* Per request: make the Detailed-Rating matrix wrapper ~30% bigger.
+   #detailed_rating is an inline <span> (shrink-wrapped to ~492px,
+   which is why width:100% on the inner table couldn't expand it);
+   give it a real box + 1.3 zoom so the whole matrix scales up. ID is
+   unique to the review add/edit form — no leak. */
+.admin-main #detailed_rating {
+    display: inline-block !important;
+    zoom: 1.3 !important;
+}
+
+/* === Review add/edit — nudge content up a touch ===
+   Per request: the review form feels sparse with unused space on the
+   right. A small zoom fills it without the layout problems the old
+   global zoom:0.8 caused. Scoped to the review form pages only
+   (catalog_product_review route, hyphen + underscore body-class
+   variants) so nothing else is affected. */
+body[class*="catalog_product_review"] .admin-main .middle,
+body[class*="catalog-product-review"] .admin-main .middle {
+    zoom: 1.12;
 }
