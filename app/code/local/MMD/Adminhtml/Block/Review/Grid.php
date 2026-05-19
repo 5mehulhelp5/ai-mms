@@ -62,24 +62,46 @@ class MMD_Adminhtml_Block_Review_Grid extends Mage_Adminhtml_Block_Review_Grid
     {
         parent::_prepareCollection();
 
+        // Per-rating columns are best-effort: if anything in the
+        // join/inject path throws (missing rating tables in a fresh DB,
+        // schema drift, oddly-shaped data), the grid itself must still
+        // render. Log and bail.
+        try {
+            $this->_injectRatingValues();
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
+        return $this;
+    }
+
+    protected function _injectRatingValues()
+    {
         // The EAV product collection strips ad-hoc joined columns during
         // _loadEntities → setData, so a plain joinLeft() doesn't survive.
-        // Instead, force-load the (already paginated/filtered) collection
+        // Instead, iterate the (already paginated/filtered) collection
         // and inject rating values per review in a single follow-up query.
         $collection = $this->getCollection();
-        $collection->load();
+        if (!$collection) {
+            return;
+        }
+        if (method_exists($collection, 'isLoaded') && !$collection->isLoaded()) {
+            $collection->load();
+        }
 
         $reviewIds = array();
         foreach ($collection as $item) {
-            $reviewIds[] = (int) $item->getReviewId();
+            $rid = (int) $item->getReviewId();
+            if ($rid > 0) {
+                $reviewIds[] = $rid;
+            }
         }
         if (!$reviewIds) {
-            return $this;
+            return;
         }
 
         $ratingIds = array_keys($this->_getRatings());
         if (!$ratingIds) {
-            return $this;
+            return;
         }
 
         $conn = $collection->getConnection();
@@ -104,13 +126,22 @@ class MMD_Adminhtml_Block_Review_Grid extends Mage_Adminhtml_Block_Review_Grid
                 }
             }
         }
-        return $this;
     }
 
     protected function _prepareColumns()
     {
         parent::_prepareColumns();
 
+        try {
+            $this->_customiseColumns();
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
+        return $this;
+    }
+
+    protected function _customiseColumns()
+    {
         // Rename existing columns
         if ($this->getColumn('title')) {
             $this->getColumn('title')->setHeader(Mage::helper('review')->__('Review Summary'));
@@ -181,8 +212,9 @@ class MMD_Adminhtml_Block_Review_Grid extends Mage_Adminhtml_Block_Review_Grid
             }
         }
         $this->_columns = $sorted;
-        $this->_lastColumnId = array_key_last($sorted);
-
-        return $this;
+        if ($sorted) {
+            end($sorted);
+            $this->_lastColumnId = key($sorted);
+        }
     }
 }

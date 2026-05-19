@@ -762,11 +762,12 @@ div.collapseable::after {
     letter-spacing: 0.6px !important;
     text-transform: uppercase !important;
     color: #6aa9c8 !important;
-    padding: 10px 12px !important;
+    padding: 4px 8px !important;
 }
 .grid table.data tbody td, .grid td {
-    font-size: 12.5px !important;
-    padding: 9px 12px !important;
+    font-size: 12px !important;
+    padding: 2px 8px !important;
+    line-height: 1.25 !important;
 }
 /* Compact rows: one record = one line — only applied to actual GRID DATA
    tables (table.data inside .grid). The Configuration page nests its
@@ -863,7 +864,7 @@ body .grid th, body .grid tr.headings th {
     border-bottom: 2px solid var(--b2) !important;
     border-right: 1px solid var(--b1) !important;
     font-weight: 700 !important;
-    padding: 12px 14px !important;
+    padding: 4px 8px !important;
     text-transform: uppercase !important;
     font-size: 11px !important;
     letter-spacing: 0.8px !important;
@@ -887,9 +888,9 @@ body .grid td, body .data td {
     color: var(--t2) !important;
     border-bottom: 1px solid var(--b1) !important;
     border-right: 1px solid rgba(45,63,85,0.5) !important;
-    padding: 12px 14px !important;
-    font-size: 13px !important;
-    line-height: 1.5 !important;
+    padding: 2px 8px !important;
+    font-size: 12px !important;
+    line-height: 1.25 !important;
 }
 .grid td:last-child { border-right: none !important; }
 .grid td a { color: var(--blue) !important; }
@@ -3839,6 +3840,20 @@ body[class*="customoptions-options-index"] table.data tbody tr {
 /* Hide the legacy " | " separators emitted by some custom Actionlinks renderers
    when they fall inside an .mmd-grid-actions wrapper (icons handle separation). */
 .mmd-grid-actions { line-height: 1 !important; }
+
+/* When a grid's PHP action column already rendered .mmd-grid-actions
+   icons, suppress the JS-injected "Actions ▾" dropdown column
+   (sidebar-nav-v2.js → injectRowActions) so we don't show two action
+   columns side-by-side. Belt-and-suspenders for races where the JS
+   runs before mmd-grid-actions is visible to its querySelector check. */
+.grid table.data:has(.mmd-grid-actions) .row-actions-th,
+.grid table.data:has(.mmd-grid-actions) .row-actions-filter,
+.grid table.data:has(.mmd-grid-actions) td:has(> .row-action-wrap),
+.grid table.data:has(.row-edit-actions) .row-actions-th,
+.grid table.data:has(.row-edit-actions) .row-actions-filter,
+.grid table.data:has(.row-edit-actions) td:has(> .row-action-wrap) {
+    display: none !important;
+}
 
 /* === Course Manager — Edit Template page (Template Options editor) ===
    Body class: adminhtml-mmd-customoptions-options-edit
