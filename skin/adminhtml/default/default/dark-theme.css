@@ -1889,7 +1889,7 @@ body.is-order-view .box-head h4,
 html.is-order-view .box-head h4,
 body.is-order-view .box-head h3,
 html.is-order-view .box-head h3 {
-    font-size: 12px !important;
+    font-size: 14px !important;
     font-weight: 700 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.4px !important;
@@ -1904,13 +1904,13 @@ html.is-order-view .form-list td,
 body.is-order-view .form-list th,
 html.is-order-view .form-list th {
     padding: 4px 10px 4px 0 !important;
-    font-size: 12px !important;
+    font-size: 15px !important;
     line-height: 1.45 !important;
 }
 body.is-order-view .order-account-information td,
 html.is-order-view .order-account-information td {
     padding: 4px 10px 4px 0 !important;
-    font-size: 12px !important;
+    font-size: 15px !important;
 }
 /* Items Ordered grid + Order Totals — compact cells */
 body.is-order-view .grid table.data th,
@@ -1922,20 +1922,20 @@ html.is-order-view .order-totals td,
 body.is-order-view .order-totals th,
 html.is-order-view .order-totals th {
     padding: 6px 10px !important;
-    font-size: 12px !important;
+    font-size: 14px !important;
     line-height: 1.4 !important;
 }
 /* Tighter tab bar */
 body.is-order-view ul#sales_order_view_tabs li a,
 html.is-order-view ul#sales_order_view_tabs li a {
     padding: 7px 14px !important;
-    font-size: 12px !important;
+    font-size: 14px !important;
 }
 body.is-order-view ul#sales_order_view_tabs,
 html.is-order-view ul#sales_order_view_tabs { margin: 4px 0 12px 0 !important; }
 /* Comments History box compact */
 body.is-order-view #order_history_block textarea,
-html.is-order-view #order_history_block textarea { min-height: 60px !important; font-size: 12px !important; }
+html.is-order-view #order_history_block textarea { min-height: 60px !important; font-size: 14px !important; }
 /* Kill the blue selected/hover accents on the Items Ordered grid —
    it's a read-only summary, the long blue left-bar (tr.selected td
    border-left) and per-row hover highlight just look like noise here.
