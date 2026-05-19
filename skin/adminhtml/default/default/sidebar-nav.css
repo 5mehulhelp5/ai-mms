@@ -4065,7 +4065,34 @@ body[class*="catalog-product-review"] .admin-main .massaction,
 body[class*="catalog_product_review"] .admin-main .massaction fieldset,
 body[class*="catalog-product-review"] .admin-main .massaction fieldset,
 body[class*="catalog_product_review"] .admin-main .massaction form,
-body[class*="catalog-product-review"] .admin-main .massaction form {
+body[class*="catalog-product-review"] .admin-main .massaction form,
+/* widget/grid.phtml:56 wraps the toolbar/mass-action in
+   <table class="actions"> — THAT is the leftover bordered box (the
+   "0 / ACTIONS / Submit / items selected" container). Flatten the
+   table + its rows/cells too; controls stay, the box goes. */
+body[class*="catalog_product_review"] .admin-main table.actions,
+body[class*="catalog-product-review"] .admin-main table.actions,
+body[class*="catalog_product_review"] .admin-main table.actions tbody,
+body[class*="catalog-product-review"] .admin-main table.actions tbody,
+body[class*="catalog_product_review"] .admin-main table.actions tr,
+body[class*="catalog-product-review"] .admin-main table.actions tr,
+body[class*="catalog_product_review"] .admin-main table.actions td,
+body[class*="catalog-product-review"] .admin-main table.actions td,
+/* The actual bordered box (confirmed via rendered DOM): the
+   mass-action wraps Actions+Submit in
+   #reviwGrid_massaction > table.massaction > div.right >
+   div.entry-edit > form > fieldset. The generic admin .entry-edit
+   paints that as a gray card. Flatten EVERY massaction wrapper
+   (the id container, .right, .entry-edit, and any nested div) so
+   nothing draws a box — controls stay, container goes. */
+body[class*="catalog_product_review"] .admin-main [id$="_massaction"],
+body[class*="catalog-product-review"] .admin-main [id$="_massaction"],
+body[class*="catalog_product_review"] .admin-main .massaction .right,
+body[class*="catalog-product-review"] .admin-main .massaction .right,
+body[class*="catalog_product_review"] .admin-main .massaction .entry-edit,
+body[class*="catalog-product-review"] .admin-main .massaction .entry-edit,
+body[class*="catalog_product_review"] .admin-main .massaction div,
+body[class*="catalog-product-review"] .admin-main .massaction div {
     background: transparent !important;
     border: none !important;
     border-radius: 0 !important;
