@@ -2171,25 +2171,6 @@ document.addEventListener('keydown', function(e){if(e.key==='Escape')dashCloseDe
         <div class="chart-card"><div class="chart-header"><h4>Popular Search Terms</h4><span class="chart-subtitle">Top 10 by popularity</span></div><div class="chart-body"><canvas id="popularSearchesChart" height="320"></canvas></div></div>
         <div class="chart-card"><div class="chart-header"><h4>Orders by Country</h4><span class="chart-subtitle">Top 10 countries</span></div><div class="chart-body"><canvas id="ordersByCountryChart" height="320"></canvas></div></div>
     </div>
-    <div class="dashboard-tables">
-        <div class="chart-card">
-            <div class="chart-header"><h4>Last 10 Searches</h4><span class="chart-subtitle">Most recent queries</span></div>
-            <div class="chart-body" style="padding-top:8px;">
-                <table class="dashboard-table">
-                    <thead><tr><th>Search Term</th><th>Popularity</th><th>Results</th><th>Date</th></tr></thead>
-                    <tbody>
-                        <?php foreach ($recentSearches as $s): ?>
-                        <tr>
-                            <td><a href="<?php echo $s['edit_url'] ?>" style="color:var(--blue)!important;text-decoration:none;"><strong><?php echo $this->escapeHtml($s['term']) ?></strong></a></td>
-                            <td><?php echo $s['popularity'] ?></td><td><?php echo number_format($s['count']) ?></td><td><?php echo $s['date'] ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                        <?php if (empty($recentSearches)): ?><tr><td colspan="4" style="text-align:center;color:var(--t5);">No data</td></tr><?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
 </div>
 </div>
 
