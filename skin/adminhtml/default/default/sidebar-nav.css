@@ -3879,3 +3879,29 @@ body.adminhtml-catalog-product-edit li.cpe-tab-hidden,
 body.adminhtml-catalog-product-edit .cpe-tab-content-hidden {
     display: none !important;
 }
+
+/* ============================================================
+   Search Terms grid — compact rows + narrow icon action column.
+   Per backend-design skill: 6–10px cell padding for grids; action
+   columns 60–90px. Global icon renderer already supplies SVG
+   icons for the action cell via the widget_grid_column_renderer_action
+   rewrite; this block just tightens spacing on this route.
+   ============================================================ */
+body.adminhtml-catalog_search-index .admin-main .grid table.data th,
+body.adminhtml-catalog_search-index .admin-main .grid table.data tr.headings th {
+    padding: 6px 12px !important;
+    line-height: 1.4 !important;
+}
+body.adminhtml-catalog_search-index .admin-main .grid table.data td,
+body.adminhtml-catalog_search-index .admin-main .grid table.data tbody tr td,
+body.adminhtml-catalog_search-index .admin-main .grid table.data tbody tr:nth-child(even) td,
+body.adminhtml-catalog_search-index .admin-main .grid table.data tbody tr:nth-child(odd) td {
+    padding: 6px 12px !important;
+    line-height: 1.4 !important;
+}
+/* Action column narrow — icon-only cell does not need the legacy width. */
+body.adminhtml-catalog_search-index #catalogSearchGrid_table th:last-child,
+body.adminhtml-catalog_search-index #catalogSearchGrid_table td:last-child {
+    width: 72px !important;
+    text-align: center !important;
+}
