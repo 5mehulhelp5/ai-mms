@@ -221,6 +221,19 @@ if ($typeAid) {
     }
 }
 
+/**
+ * Course Type display bucket. Since migration 093 the underlying EAV
+ * options are already collapsed to "Funded" / "Non-funded", but this
+ * helper keeps the dashboard safe against any legacy value that might
+ * sneak back in (e.g. from imports).
+ */
+function _mmd_classTypeBucket($rawLabel) {
+    $s = strtolower((string)$rawLabel);
+    if ($s === '') return '';
+    if (strpos($s, 'non') !== false) return 'Non-funded';
+    return 'Funded';
+}
+
 $sT = $typeAid  ? "LEFT JOIN catalog_product_entity_int vtype ON p.entity_id=vtype.entity_id AND vtype.attribute_id={$typeAid} AND vtype.store_id=0" : "";
 $sS = $startAid ? "LEFT JOIN catalog_product_entity_datetime dstart ON p.entity_id=dstart.entity_id AND dstart.attribute_id={$startAid} AND dstart.store_id=0" : "";
 $sE = $endAid   ? "LEFT JOIN catalog_product_entity_datetime dend ON p.entity_id=dend.entity_id AND dend.attribute_id={$endAid} AND dend.store_id=0" : "";
@@ -239,11 +252,26 @@ $_dashFilter = (string) Mage::app()->getRequest()->getParam('dash_filter', '');
 // product-level news_from_date attribute — which is empty for ~all courses.
 // One row per session; pax counts come from sales_flat_order_item by
 // matching the chosen Course Date option_value in product_options.
-$courseRows = array();
+$courseRows     = array();
+$_learnerMap    = array();   // session_key => list of {name,email,phone,order,date}
+$_classTrainers = array();   // product_id => list of {name,email,phone}
 $_dashFilterWhere = ''; // kept for the legacy ongoing/upcoming/completed sidebar filters below
-if ($_dashFilter === '' && $statusAid) {
+if (in_array($_dashFilter, array('', 'ongoing', 'upcoming', 'completed'), true) && $statusAid) {
     $_todayTs   = strtotime('today');
-    $_today90Ts = strtotime('+90 days', $_todayTs);
+    // Date window per filter — applied to the parsed Course Date label below.
+    // master (no filter): next 90 days (excluding today)
+    // ongoing:            today only
+    // upcoming:           any future date (cap 365 days)
+    // completed:          past 365 days
+    if ($_dashFilter === 'ongoing') {
+        $_winFromTs = $_todayTs;                        $_winToTs = strtotime('+1 day', $_todayTs) - 1;
+    } elseif ($_dashFilter === 'upcoming') {
+        $_winFromTs = strtotime('+1 day', $_todayTs);   $_winToTs = strtotime('+365 days', $_todayTs);
+    } elseif ($_dashFilter === 'completed') {
+        $_winFromTs = strtotime('-365 days', $_todayTs); $_winToTs = $_todayTs - 1;
+    } else {
+        $_winFromTs = strtotime('+1 day', $_todayTs);   $_winToTs = strtotime('+90 days', $_todayTs);
+    }
 
     // 1. All Course Date option_type_values for products on this website.
     $_sessionsRaw = $read->fetchAll("
@@ -256,20 +284,30 @@ if ($_dashFilter === '' && $statusAid) {
         WHERE ot.title='Course Date'
     ");
 
-    // 2. Parse the date label, keep sessions whose first date is in (today, today+90d].
-    $_sessions = array();      // option_type_id => ['product_id'=>..,'ts'=>..,'label'=>..]
+    // 2. Parse the date label. Build maps so that multiple option_type_id
+    //    rows sharing the same (product_id, course-date-label) collapse into
+    //    a single session — orders booked against any of them roll up to one
+    //    pax total. Keep only sessions whose first date is in (today, today+90d].
+    $_sessions    = array();    // session_key => ['product_id'=>..,'ts'=>..,'label'=>..]
+    $_otidToKey   = array();    // option_type_id => session_key (ALL otids, even out-of-window)
     $_sessionPids = array();
     foreach ($_sessionsRaw as $s) {
-        if (preg_match('#(\d{1,2})(?:/\d{1,2})?\s+([A-Za-z]{3,})\s+(\d{4})#', $s['date_label'], $m)) {
-            $ts = strtotime($m[1] . ' ' . $m[2] . ' ' . $m[3]);
-            if ($ts && $ts > $_todayTs && $ts <= $_today90Ts) {
-                $_sessions[(int)$s['option_type_id']] = array(
-                    'product_id' => (int)$s['product_id'],
-                    'ts'         => $ts,
-                    'label'      => $s['date_label'],
-                );
-                $_sessionPids[(int)$s['product_id']] = true;
-            }
+        $label = trim((string) $s['date_label']);
+        if (!preg_match('#(\d{1,2})(?:/\d{1,2})?\s+([A-Za-z]{3,})\s+(\d{4})#', $label, $m)) continue;
+        $ts = strtotime($m[1] . ' ' . $m[2] . ' ' . $m[3]);
+        if (!$ts) continue;
+        // Bucket by parsed date (Y-m-d) — not the raw label — so two slightly
+        // different label spellings for the same date (e.g. "20 May 2026" and
+        // "20/21 May 2026 Evening") collapse into a single class row.
+        $key = (int)$s['product_id'] . '|' . date('Y-m-d', $ts);
+        $_otidToKey[(int)$s['option_type_id']] = $key;
+        if ($ts >= $_winFromTs && $ts <= $_winToTs && !isset($_sessions[$key])) {
+            $_sessions[$key] = array(
+                'product_id' => (int)$s['product_id'],
+                'ts'         => $ts,
+                'label'      => $label,
+            );
+            $_sessionPids[(int)$s['product_id']] = true;
         }
     }
 
@@ -297,38 +335,112 @@ if ($_dashFilter === '' && $statusAid) {
         // 4. Aggregate # of Pax by parsing product_options on each order item.
         //    sales_flat_order_item.product_options is a serialized PHP array
         //    containing the chosen Course Date option_value (= option_type_id).
-        $_paxMap = array(); // option_type_id => qty_sum
+        //    We bucket by session_key = product_id + lowercased date label so
+        //    duplicate option_type_id rows (same date label) roll up together.
+        $_paxMap      = array(); // session_key => qty_sum
         $_orderItems = $read->fetchAll("
-            SELECT oi.product_id, oi.qty_ordered, oi.product_options
+            SELECT oi.product_id, oi.qty_ordered, oi.product_options,
+                   o.entity_id AS order_id, o.increment_id, o.customer_email,
+                   o.customer_firstname, o.customer_lastname, o.created_at,
+                   o.store_id AS order_store_id,
+                   ba.firstname AS bf, ba.lastname AS bl, ba.telephone AS btel
             FROM sales_flat_order_item oi
             INNER JOIN sales_flat_order o ON oi.order_id=o.entity_id AND o.state NOT IN ('canceled','holded')
             INNER JOIN core_store cs ON cs.store_id=o.store_id {$_adminWidOrder}
+            LEFT  JOIN sales_flat_order_address ba ON ba.entity_id=o.billing_address_id
             WHERE oi.product_id IN ({$_pidsCsv})
               AND oi.product_options LIKE '%Course Date%'
+            ORDER BY o.created_at ASC
         ");
+        $_sessStore = array(); // session_key => store_id (first registration wins)
         foreach ($_orderItems as $oi) {
             $opts = @unserialize($oi['product_options']);
             if (!is_array($opts) || empty($opts['options'])) continue;
             foreach ($opts['options'] as $opt) {
-                if (isset($opt['label'], $opt['option_value']) && $opt['label'] === 'Course Date') {
-                    $otid = (int)$opt['option_value'];
-                    if (isset($_sessions[$otid])) {
-                        if (!isset($_paxMap[$otid])) $_paxMap[$otid] = 0.0;
-                        $_paxMap[$otid] += (float)$oi['qty_ordered'];
-                    }
+                if (!isset($opt['label']) || $opt['label'] !== 'Course Date') continue;
+                $key = null;
+                if (isset($opt['option_value']) && isset($_otidToKey[(int)$opt['option_value']])) {
+                    $key = $_otidToKey[(int)$opt['option_value']];
+                } elseif (isset($opt['print_value'])
+                       && preg_match('#(\d{1,2})(?:/\d{1,2})?\s+([A-Za-z]{3,})\s+(\d{4})#', (string)$opt['print_value'], $_pvm)) {
+                    // Fallback: parse the printed date text when option_value
+                    // doesn't resolve (e.g. option row deleted/recreated).
+                    $_pvTs = strtotime($_pvm[1] . ' ' . $_pvm[2] . ' ' . $_pvm[3]);
+                    if ($_pvTs) $key = (int)$oi['product_id'] . '|' . date('Y-m-d', $_pvTs);
+                }
+                if ($key !== null && isset($_sessions[$key])) {
+                    if (!isset($_paxMap[$key]))     $_paxMap[$key]     = 0.0;
+                    if (!isset($_learnerMap[$key])) $_learnerMap[$key] = array();
+                    if (!isset($_sessStore[$key]))  $_sessStore[$key]  = (int)$oi['order_store_id'];
+                    $_paxMap[$key] += (float)$oi['qty_ordered'];
+                    $_name = trim(trim((string)$oi['bf']) . ' ' . trim((string)$oi['bl']));
+                    if ($_name === '') $_name = trim(trim((string)$oi['customer_firstname']) . ' ' . trim((string)$oi['customer_lastname']));
+                    $_learnerMap[$key][] = array(
+                        'name'     => $_name ?: '(guest)',
+                        'email'    => (string)$oi['customer_email'],
+                        'phone'    => (string)$oi['btel'],
+                        'order'    => (string)$oi['increment_id'],
+                        'order_id' => (int)$oi['order_id'],
+                        'date'     => $oi['created_at'] ? date('d/m/Y', strtotime($oi['created_at'])) : '',
+                    );
                 }
             }
         }
 
-        // 5. Build one $courseRows entry per session.
+        // Per-product trainer list for the View/Edit Details modal.
+        // Read the `trainers` attribute (CSV of courses_trainers.trainers_id)
+        // off each course product, then look up name/email/telephone.
+        $_trainersAid   = isset($attrMap['trainers']) ? (int)$attrMap['trainers'] : 170;
+        $_trainerCsv    = $read->fetchPairs("
+            SELECT entity_id, value
+              FROM catalog_product_entity_text
+             WHERE attribute_id={$_trainersAid}
+               AND entity_id IN ({$_pidsCsv})
+               AND value IS NOT NULL AND value <> ''
+        ");
+        $_allTids = array();
+        foreach ($_trainerCsv as $_csv) {
+            foreach (preg_split('/[\s,]+/', (string)$_csv) as $_tid) {
+                $_tid = (int)$_tid;
+                if ($_tid > 0) $_allTids[$_tid] = true;
+            }
+        }
+        $_tnTbl = $resource->getTableName('courses_trainers');
+        $_tnById = array();
+        if (!empty($_allTids)) {
+            $_tnIdsCsv = implode(',', array_keys($_allTids));
+            foreach ($read->fetchAll("SELECT trainers_id, title, email, telephone FROM {$_tnTbl} WHERE trainers_id IN ({$_tnIdsCsv})") as $_tn) {
+                $_tnById[(int)$_tn['trainers_id']] = $_tn;
+            }
+        }
+        foreach ($_trainerCsv as $_pid => $_csv) {
+            $_list = array();
+            foreach (preg_split('/[\s,]+/', (string)$_csv) as $_tid) {
+                $_tid = (int)$_tid;
+                if ($_tid > 0 && isset($_tnById[$_tid])) {
+                    $_list[] = array(
+                        'name'  => (string)$_tnById[$_tid]['title'],
+                        'email' => (string)$_tnById[$_tid]['email'],
+                        'phone' => (string)$_tnById[$_tid]['telephone'],
+                    );
+                }
+            }
+            if ($_list) $_classTrainers[(int)$_pid] = $_list;
+        }
+
+        // 5. Build one $courseRows entry per session — only sessions with at
+        //    least one registration are shown (the table is driven by the
+        //    Sales Registration data, so empty sessions are hidden).
         //    SG (website_id=1) hides WSQ class types; other websites show all.
-        foreach ($_sessions as $otid => $sess) {
+        foreach ($_sessions as $sessKey => $sess) {
             $pid = $sess['product_id'];
             if (!isset($_prodById[$pid])) continue;
+            if (empty($_paxMap[$sessKey])) continue;
             $pi  = $_prodById[$pid];
             $tid = (int)$pi['type_id'];
+            // SG (website_id=1) shows only Unfunded courses; other websites show all.
             if ($_adminWid === 1 && $tid && isset($classTypeOptions[$tid])
-                && stripos($classTypeOptions[$tid], 'wsq') !== false) {
+                && _mmd_classTypeBucket($classTypeOptions[$tid]) === 'Funded') {
                 continue;
             }
             $courseRows[] = array(
@@ -339,47 +451,80 @@ if ($_dashFilter === '' && $statusAid) {
                 'start_date'   => date('Y-m-d H:i:s', $sess['ts']),
                 'end_date'     => null,
                 'status_val'   => (int)$pi['status_val'],
-                'learners'     => isset($_paxMap[$otid]) ? (int) round($_paxMap[$otid]) : 0,
+                'learners'     => isset($_paxMap[$sessKey]) ? (int) round($_paxMap[$sessKey]) : 0,
                 'session_label'=> $sess['label'],
+                'session_key'  => $sessKey,
             );
         }
         usort($courseRows, function ($a, $b) {
             return strcmp($a['start_date'], $b['start_date']);
         });
         if (count($courseRows) > 300) $courseRows = array_slice($courseRows, 0, 300);
+
+        // Assign / look up the formatted Class ID (e.g. SG000001) for each
+        // displayed row. IDs are persisted in mmd_class_id_map so they stay
+        // stable across page loads; the running number is per store_id.
+        $_classIdTbl = $resource->getTableName('mmd_class_id_map');
+        $_write      = $resource->getConnection('core_write');
+        // store_id → 2-letter code used for the Class ID prefix and the
+        // Branch column. India is "ID" (not "IN") to avoid clashing with the
+        // Infotech store, which keeps "IN".
+        $_storeToCc2 = array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'ID', 7 => 'IN');
+        $_needAlloc  = array(); // tuples to look up: store_id|pid|date => [store_id,pid,date]
+        foreach ($courseRows as $_r) {
+            $_sid = isset($_sessStore[$_r['session_key']]) ? (int)$_sessStore[$_r['session_key']] : 0;
+            if ($_sid <= 0) $_sid = $_adminWid > 0 ? $_adminWid : 1; // ALL Stores → fall back to SG
+            $_dt  = date('Y-m-d', strtotime($_r['start_date']));
+            $_needAlloc[$_sid . '|' . (int)$_r['run_id'] . '|' . $_dt] = array($_sid, (int)$_r['run_id'], $_dt);
+        }
+        // Bulk-fetch existing mappings.
+        $_existing = array();
+        if (!empty($_needAlloc)) {
+            $_orParts = array();
+            foreach ($_needAlloc as $tup) {
+                $_orParts[] = '(store_id=' . $tup[0] . ' AND product_id=' . $tup[1] . " AND course_date='" . $tup[2] . "')";
+            }
+            foreach ($_write->fetchAll("SELECT store_id, product_id, course_date, class_no FROM {$_classIdTbl} WHERE " . implode(' OR ', $_orParts)) as $_em) {
+                $_existing[$_em['store_id'] . '|' . $_em['product_id'] . '|' . $_em['course_date']] = (int)$_em['class_no'];
+            }
+        }
+        // Insert any missing mappings — next class_no per store_id.
+        foreach ($_needAlloc as $key => $tup) {
+            if (isset($_existing[$key])) continue;
+            $_maxNo = (int)$_write->fetchOne("SELECT COALESCE(MAX(class_no),0) FROM {$_classIdTbl} WHERE store_id={$tup[0]}");
+            $_next  = $_maxNo + 1;
+            try {
+                $_write->insert($_classIdTbl, array(
+                    'store_id'    => $tup[0],
+                    'product_id'  => $tup[1],
+                    'course_date' => $tup[2],
+                    'class_no'    => $_next,
+                ));
+                $_existing[$key] = $_next;
+            } catch (Exception $e) {
+                // Race condition — another request inserted first; re-read.
+                $_cn = (int)$_write->fetchOne(
+                    "SELECT class_no FROM {$_classIdTbl} WHERE store_id={$tup[0]} AND product_id={$tup[1]} AND course_date='{$tup[2]}'"
+                );
+                if ($_cn) $_existing[$key] = $_cn;
+            }
+        }
+        // Apply to courseRows.
+        foreach ($courseRows as &$_r) {
+            $_sid = isset($_sessStore[$_r['session_key']]) ? (int)$_sessStore[$_r['session_key']] : 0;
+            if ($_sid <= 0) $_sid = $_adminWid > 0 ? $_adminWid : 1;
+            $_dt  = date('Y-m-d', strtotime($_r['start_date']));
+            $_no  = isset($_existing[$_sid . '|' . (int)$_r['run_id'] . '|' . $_dt]) ? $_existing[$_sid . '|' . (int)$_r['run_id'] . '|' . $_dt] : 0;
+            $_cc  = isset($_storeToCc2[$_sid]) ? $_storeToCc2[$_sid] : '??';
+            $_r['class_code'] = $_no ? ($_cc . str_pad($_no, 6, '0', STR_PAD_LEFT)) : '';
+            $_r['branch']     = $_cc;
+        }
+        unset($_r);
     }
 }
 
-// Legacy sidebar filters (Ongoing / Upcoming / Completed Classes) still
-// use the old product-attribute path so the KPI tiles' SQL counts keep
-// working. The master master view above always overrides this when no
-// dash_filter is set.
-if ($_dashFilter !== '' && $startAid && $endAid) {
-    if ($_dashFilter === 'ongoing') {
-        $_dashFilterWhere = "WHERE dstart.value IS NOT NULL AND dstart.value <= '{$today}'
-                              AND (dend.value IS NULL OR dend.value = '' OR dend.value >= '{$today}')";
-    } elseif ($_dashFilter === 'upcoming') {
-        $_dashFilterWhere = "WHERE dstart.value IS NOT NULL AND dstart.value > '{$today}'";
-    } elseif ($_dashFilter === 'completed') {
-        $_dashFilterWhere = "WHERE dend.value IS NOT NULL AND dend.value <> '' AND dend.value < '{$today}'";
-    }
-    $courseRows = $read->fetchAll("
-        SELECT p.entity_id AS run_id, p.sku AS ref_code, vname.value AS course_title,
-               {$cT} {$cS} {$cE} vstatus.value AS status_val, COALESCE(lc.cnt,0) AS learners
-        FROM catalog_product_entity p
-        {$_adminWidJoin}
-        LEFT JOIN catalog_product_entity_varchar vname  ON p.entity_id=vname.entity_id  AND vname.attribute_id={$nameAid}   AND vname.store_id=0
-        {$sT} {$sS} {$sE}
-        LEFT JOIN catalog_product_entity_int vstatus ON p.entity_id=vstatus.entity_id AND vstatus.attribute_id={$statusAid} AND vstatus.store_id=0
-        LEFT JOIN (SELECT oi.product_id, COALESCE(SUM(oi.qty_ordered),0) AS cnt
-                   FROM sales_flat_order_item oi
-                   INNER JOIN sales_flat_order o ON oi.order_id=o.entity_id AND o.state NOT IN ('canceled','holded')
-                   INNER JOIN core_store cs ON cs.store_id=o.store_id {$_adminWidOrder}
-                   GROUP BY oi.product_id) lc ON p.entity_id=lc.product_id
-        {$_dashFilterWhere}
-        ORDER BY dstart.value ASC, p.entity_id ASC LIMIT 300
-    ");
-}
+// Ongoing / Upcoming / Completed Classes share the same Course-Date-based
+// pipeline as the master view above — only the date window differs.
 
 // For the filtered KPI tiles — totals before LIMIT, plus learner sum
 $_dashFilterTotal = 0;
@@ -1533,20 +1678,7 @@ if ($_selectedCourseId) {
     if ($_dashFilter === 'upcoming')  $_dashTitle = 'Upcoming Classes';
     if ($_dashFilter === 'completed') $_dashTitle = 'Completed Classes';
     ?>
-    <?php if ($_dashFilter === 'upcoming'): ?>
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:18px;">
-        <h1 class="dash-title" style="margin:0;"><?php echo $_dashTitle ?></h1>
-        <div style="display:flex;flex-wrap:wrap;gap:10px;">
-            <button type="button" onclick="window.location.reload()" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Refresh</button>
-            <button type="button" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;">Sync Google Calendar</button>
-            <button type="button" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;">Check Calendar</button>
-            <button type="button" style="background:#334155;color:#fbbf24;border:1px solid #475569;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Invite All Pending</button>
-            <button type="button" style="background:#22d3ee;color:#0f172a;border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Import Course Run</button>
-        </div>
-    </div>
-    <?php else: ?>
     <h1 class="dash-title"><?php echo $_dashTitle ?></h1>
-    <?php endif; ?>
 
     <div class="dash-kpi-grid" data-assigned-local="<?php echo (int)$assignedLocal ?>">
         <?php if ($_dashFilter === 'ongoing'): ?>
@@ -1572,6 +1704,16 @@ if ($_selectedCourseId) {
         <?php endif; ?>
     </div>
 
+    <?php if ($_dashFilter === 'upcoming'): ?>
+    <div class="dash-action-bar">
+        <button type="button" class="dash-action-link" onclick="window.location.reload()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Refresh</button>
+        <button type="button" class="dash-action-link">Sync Google Calendar</button>
+        <button type="button" class="dash-action-link">Check Calendar</button>
+        <button type="button" class="dash-action-link dash-action-link--warn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Invite All Pending</button>
+        <button type="button" class="dash-action-link dash-action-link--accent"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Import Course Run</button>
+    </div>
+    <?php endif; ?>
+
     <div class="dash-search-wrap">
         <div class="dash-search-label">General Search</div>
         <div class="dash-search-row">
@@ -1584,10 +1726,11 @@ if ($_selectedCourseId) {
         </div>
 
         <div id="dashAdvFilters" class="dash-adv-filters">
-            <div><div class="dash-adv-label">Class Type</div>
+            <div><div class="dash-adv-label">Course Type</div>
                 <select id="fType" class="dash-adv-select" onchange="dashFilter()">
                     <option value="">All Types</option>
-                    <?php foreach ($classTypeOptions as $oid => $olabel): ?><option value="<?php echo htmlspecialchars($olabel) ?>"><?php echo htmlspecialchars($olabel) ?></option><?php endforeach; ?>
+                    <option value="Funded">Funded</option>
+                    <option value="Non-funded">Non-funded</option>
                 </select>
             </div>
             <div><div class="dash-adv-label">Class Status</div>
@@ -1598,47 +1741,87 @@ if ($_selectedCourseId) {
                     <option value="Cancelled">Cancelled</option>
                 </select>
             </div>
-            <div><div class="dash-adv-label">Start Date From</div><input type="date" id="fDateFrom" class="dash-adv-input" oninput="dashFilter()" /></div>
-            <div><div class="dash-adv-label">Start Date To</div><input type="date" id="fDateTo" class="dash-adv-input" oninput="dashFilter()" /></div>
+            <div><div class="dash-adv-label">Course Date From</div><input type="date" id="fDateFrom" class="dash-adv-input" oninput="dashFilter()" /></div>
+            <div><div class="dash-adv-label">Course Date To</div><input type="date" id="fDateTo" class="dash-adv-input" oninput="dashFilter()" /></div>
         </div>
 
         <div class="dash-table-wrap">
             <table class="dash-table">
                 <thead><tr>
-                    <th>Course Run ID</th><th>Course Title</th><th>Course Code</th>
-                    <th>Class Type</th><th>Start Date</th>
+                    <th>Class ID</th><th>Course Title</th><th>Course Code</th>
+                    <th>Course Date</th>
+                    <th>MOT</th>
                     <th>Class Status</th><th># of Pax</th>
                     <th>Trainer</th>
-                    <th>Cal</th>
+                    <th>Course Type</th>
+                    <th>Branch</th>
+                    <th>Action</th>
                 </tr></thead>
                 <tbody id="dashTableBody">
                 <?php foreach ($courseRows as $row):
                     $tid   = (int)$row['type_id'];
-                    $tlbl  = isset($classTypeOptions[$tid]) ? $classTypeOptions[$tid] : '—';
-                    // Type badge class: Virtual → blue, Physical/others → gray
-                    $tcls  = (stripos($tlbl, 'virtual') !== false || stripos($tlbl, 'online') !== false)
-                              ? 'badge-type-virtual' : 'badge-type';
+                    $tRaw  = isset($classTypeOptions[$tid]) ? $classTypeOptions[$tid] : '';
+                    $tlbl  = $tRaw !== '' ? _mmd_classTypeBucket($tRaw) : '—';
+                    // Type badge class: Funded → blue tint, Unfunded → gray.
+                    $tcls  = ($tlbl === 'Funded') ? 'badge-type-virtual' : 'badge-type';
+                    $_mot    = !empty($row['mot']) ? $row['mot'] : 'Physical';
+                    $_motCls = ($_mot === 'Virtual') ? 'badge-type-virtual' : (($_mot === 'Hybrid') ? 'badge-pending' : 'badge-type');
                     $sFmt  = $row['start_date'] ? date('d/m/Y', strtotime($row['start_date'])) : '—';
                     $sv    = (int)$row['status_val'];
                     // Upcoming master view: disabled product → Cancelled; everything else defaults to Pending.
                     if ($sv !== 1) { $slbl = 'Cancelled'; $scls = 'badge-cancelled'; }
                     else           { $slbl = 'Pending';   $scls = 'badge-pending'; }
                     $eurl  = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => $row['run_id']));
+                    $durl  = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/delete', array('id' => $row['run_id'], 'form_key' => Mage::getSingleton('core/session')->getFormKey()));
                     $viewUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $row['run_id']));
                     $ttl   = htmlspecialchars($row['course_title'] ?: '(No Name)');
                     $rcode = htmlspecialchars($row['ref_code']);
                     $sraw  = $row['start_date'] ? date('Y-m-d', strtotime($row['start_date'])) : '';
                 ?>
                 <tr data-title="<?php echo strtolower($ttl) ?>" data-ref="<?php echo strtolower($rcode) ?>" data-type="<?php echo htmlspecialchars($tlbl) ?>" data-status="<?php echo $slbl ?>" data-start="<?php echo $sraw ?>">
-                    <td class="run-id"><?php echo (int)$row['run_id'] ?></td>
-                    <td><a href="#" class="dash-course-link" onclick="event.preventDefault();var p=window._dashPage||1;window.location.href='<?php echo $viewUrl ?>from_page/'+p+'/';"><?php echo $ttl ?></a> <a href="<?php echo $eurl ?>" title="Edit in Magento" style="color:#64748b;text-decoration:none;margin-left:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a></td>
+                    <td class="run-id" style="font-family:monospace;"><?php echo htmlspecialchars(!empty($row['class_code']) ? $row['class_code'] : (string)(int)$row['run_id']) ?></td>
+                    <?php
+                        $_lnList = isset($_learnerMap[$row['session_key']]) ? array_values($_learnerMap[$row['session_key']]) : array();
+                    // Per-learner cancel link goes to the order view page.
+                    foreach ($_lnList as &$_ln) {
+                        $_ln['cancelUrl'] = isset($_ln['order_id'])
+                            ? Mage::helper('adminhtml')->getUrl('adminhtml/sales_order/view', array('order_id' => (int)$_ln['order_id']))
+                            : Mage::helper('adminhtml')->getUrl('adminhtml/sales_order');
+                    }
+                    unset($_ln);
+                    $_detail = array(
+                            'title'         => $row['course_title'],
+                            'code'          => $row['ref_code'],
+                            'classId'       => !empty($row['class_code']) ? $row['class_code'] : (string)(int)$row['run_id'],
+                            'date'          => $row['session_label'],
+                            'mot'           => $_mot,
+                            'type'          => $tlbl,
+                            'status'        => $slbl,
+                            'pax'           => (int)$row['learners'],
+                            'editUrl'       => $eurl,
+                            'addLearnerUrl' => Mage::helper('adminhtml')->getUrl('adminhtml/sales_order_create/start'),
+                            'learners'      => $_lnList,
+                            'trainers'      => isset($_classTrainers[(int)$row['run_id']]) ? array_values($_classTrainers[(int)$row['run_id']]) : array(),
+                        );
+                    ?>
+                    <td><a href="#" class="dash-course-link" onclick="event.preventDefault();var p=window._dashPage||1;window.location.href='<?php echo $viewUrl ?>from_page/'+p+'/';"><?php echo $ttl ?></a> <a href="#" title="View/Edit Details" class="dash-detail-link" onclick="event.preventDefault();dashOpenDetails(<?php echo htmlspecialchars(json_encode($_detail), ENT_QUOTES) ?>);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a></td>
                     <td style="font-family:monospace;color:#cbd5e1;"><?php echo $rcode ?: '—' ?></td>
-                    <td><span class="dash-badge <?php echo $tcls ?>"><?php echo htmlspecialchars($tlbl) ?></span></td>
                     <td><?php echo $sFmt ?></td>
+                    <td><span class="dash-badge <?php echo $_motCls ?>"><?php echo htmlspecialchars($_mot) ?></span></td>
                     <td><span class="dash-badge <?php echo $scls ?>"><?php echo $slbl ?></span></td>
                     <td><?php echo (int)$row['learners'] ?></td>
                     <td style="color:#94a3b8;">—</td>
-                    <td><a href="#" title="Calendar" class="dash-icon-btn" onclick="event.preventDefault();"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></a></td>
+                    <td><span class="dash-badge <?php echo $tcls ?>"><?php echo htmlspecialchars($tlbl) ?></span></td>
+                    <td style="font-family:monospace;color:#cbd5e1;"><?php echo htmlspecialchars(!empty($row['branch']) ? $row['branch'] : '—') ?></td>
+                    <td>
+                        <div class="mmd-grid-actions">
+                            <a href="<?php echo $eurl ?>#trainers" title="Assign Trainer" class="mmd-grid-action mmd-grid-action--assign-trainer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></a>
+                            <a href="#" title="Calendar" class="mmd-grid-action mmd-grid-action--calendar" onclick="event.preventDefault();"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></a>
+                            <?php if ($_dashFilter === 'upcoming'): ?>
+                            <a href="<?php echo $durl ?>" title="Delete Class" class="mmd-grid-action mmd-grid-action--delete" onclick="return confirm('Delete this class? This cannot be undone.');"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg></a>
+                            <?php endif; ?>
+                        </div>
+                    </td>
                 </tr>
                 <?php endforeach; ?>
                 </tbody>
@@ -1652,6 +1835,73 @@ if ($_selectedCourseId) {
     </div>
 </div>
 </div>
+
+<?php /* ===== Class details modal — opened by the View/Edit Details icon next to the course title ===== */ ?>
+<div id="dashDetailModal" class="dash-detail-modal" style="display:none;" onclick="if(event.target===this)dashCloseDetails()">
+    <div class="dash-detail-card">
+        <div class="dash-detail-head">
+            <div>
+                <div class="dash-detail-title" id="ddmTitle">—</div>
+                <div class="dash-detail-sub" id="ddmSub">—</div>
+            </div>
+            <button type="button" class="dash-detail-close" onclick="dashCloseDetails()" aria-label="Close">&times;</button>
+        </div>
+        <div class="dash-detail-body">
+            <div class="dash-detail-grid" id="ddmInfo"></div>
+            <div class="dash-detail-section-head">
+                <h4 class="dash-detail-h4">Trainers <span id="ddmTrainerCount" class="dash-detail-count">(0)</span></h4>
+                <a href="#" id="ddmAddTrainer" title="Add Trainer" class="dash-detail-iconbtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg><span>Add</span></a>
+            </div>
+            <div class="dash-detail-table-wrap"><table class="dash-detail-table" id="ddmTrainers"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th style="width:50px;text-align:center;">&nbsp;</th></tr></thead><tbody></tbody></table></div>
+            <div class="dash-detail-section-head" style="margin-top:18px;">
+                <h4 class="dash-detail-h4">Learners <span id="ddmLearnerCount" class="dash-detail-count">(0)</span></h4>
+                <a href="#" id="ddmAddLearner" title="Add Learner" class="dash-detail-iconbtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg><span>Add</span></a>
+            </div>
+            <div class="dash-detail-table-wrap"><table class="dash-detail-table" id="ddmLearners"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Order #</th><th>Registered</th><th style="width:50px;text-align:center;">&nbsp;</th></tr></thead><tbody></tbody></table></div>
+        </div>
+    </div>
+</div>
+<script>
+function dashCloseDetails(){var m=document.getElementById('dashDetailModal');if(m)m.style.display='none';}
+function dashOpenDetails(d){
+    var esc=function(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
+    document.getElementById('ddmTitle').textContent = d.title || '(No Name)';
+    document.getElementById('ddmSub').textContent   = (d.code||'') + ' · ' + (d.date||'');
+    var rows = [
+        ['Class ID',    d.classId],
+        ['Course Code', d.code || '—'],
+        ['Course Date', d.date || '—'],
+        ['MOT',         d.mot  || '—'],
+        ['Course Type', d.type || '—'],
+        ['Status',      d.status || '—'],
+        ['# of Pax',    d.pax]
+    ];
+    var info = '';
+    rows.forEach(function(r){info += '<div class="dash-detail-cell"><div class="dash-detail-lbl">'+esc(r[0])+'</div><div class="dash-detail-val">'+esc(r[1])+'</div></div>';});
+    document.getElementById('ddmInfo').innerHTML = info;
+
+    var removeIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
+
+    var tns = d.trainers || [];
+    document.getElementById('ddmTrainerCount').textContent = '(' + tns.length + ')';
+    var tnTbody = document.querySelector('#ddmTrainers tbody');
+    tnTbody.innerHTML = tns.length
+        ? tns.map(function(t){return '<tr><td>'+esc(t.name)+'</td><td>'+esc(t.email)+'</td><td>'+esc(t.phone)+'</td><td style="text-align:center;"><a href="'+esc(d.editUrl)+'#trainers" title="Remove Trainer" class="dash-detail-rm" onclick="return confirm(\'Remove this trainer from the class?\');">'+removeIcon+'</a></td></tr>';}).join('')
+        : '<tr><td colspan="4" class="dash-detail-empty">No trainer assigned.</td></tr>';
+
+    var lns = d.learners || [];
+    document.getElementById('ddmLearnerCount').textContent = '(' + lns.length + ')';
+    var lnTbody = document.querySelector('#ddmLearners tbody');
+    lnTbody.innerHTML = lns.length
+        ? lns.map(function(l){return '<tr><td>'+esc(l.name)+'</td><td>'+esc(l.email)+'</td><td>'+esc(l.phone)+'</td><td>'+esc(l.order)+'</td><td>'+esc(l.date)+'</td><td style="text-align:center;"><a href="'+esc(l.cancelUrl||'#')+'" title="Cancel Registration" class="dash-detail-rm" onclick="return confirm(\'Cancel this registration?\');">'+removeIcon+'</a></td></tr>';}).join('')
+        : '<tr><td colspan="6" class="dash-detail-empty">No learners registered yet.</td></tr>';
+
+    document.getElementById('ddmAddTrainer').href = (d.editUrl || '#') + '#trainers';
+    document.getElementById('ddmAddLearner').href = d.addLearnerUrl || '#';
+    document.getElementById('dashDetailModal').style.display = 'flex';
+}
+document.addEventListener('keydown', function(e){if(e.key==='Escape')dashCloseDetails();});
+</script>
 
 <?php /* ===== PANEL 2: Super Admin — Charts / Revenue ===== */ ?>
 <div id="dash-panel-superadmin" style="display:none;">
@@ -2338,13 +2588,19 @@ function devSetView(view) {
                     <div class="dcf-row">
                         <div class="dcf-row-label">Course Type</div>
                         <div class="dcf-row-input">
+                            <?php
+                                // Legacy values (WSQ / IBF / CASL / HRDF / SkillsFuture) have
+                                // been collapsed into "Funded" — see migration 093. Treat any
+                                // non-empty, non-"Non-funded" stored value as Funded for the
+                                // dropdown's current selection.
+                                $_ct  = (string) $_editCourseData['course_type'];
+                                $_ctN = $_ct === 'Non-funded';
+                                $_ctF = $_ct !== '' && !$_ctN;
+                            ?>
                             <select class="dcf-select" name="course_type_select">
                                 <option value="">— Select —</option>
-                                <option value="Non-funded" <?php echo $_editCourseData['course_type'] === 'Non-funded' ? 'selected' : '' ?>>Non-funded</option>
-                                <option value="WSQ"        <?php echo $_editCourseData['course_type'] === 'WSQ'        ? 'selected' : '' ?>>WSQ</option>
-                                <option value="IBF"        <?php echo $_editCourseData['course_type'] === 'IBF'        ? 'selected' : '' ?>>IBF</option>
-                                <option value="CASL"       <?php echo $_editCourseData['course_type'] === 'CASL'       ? 'selected' : '' ?>>CASL</option>
-                                <option value="HRDF"       <?php echo $_editCourseData['course_type'] === 'HRDF'       ? 'selected' : '' ?>>HRDF</option>
+                                <option value="Funded"     <?php echo $_ctF ? 'selected' : '' ?>>Funded</option>
+                                <option value="Non-funded" <?php echo $_ctN ? 'selected' : '' ?>>Non-funded</option>
                             </select>
                         </div>
                         <div class="dcf-row-scope">[GLOBAL]</div>

@@ -224,24 +224,39 @@
                its data layer are rebuilt. */ ?>
             <div class="tools-group tools-subgroup">
                 <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
-                    <span>View Classes</span>
+                    <span>Classes</span>
                     <svg class="tools-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
                 </div>
                 <div class="tools-group-items">
+                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/new') ?>" class="tools-sub-item"><span>Create Class</span></a>
                     <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('dash_filter' => 'ongoing'))) ?>" class="tools-sub-item"><span>Ongoing Classes</span></a>
                     <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('dash_filter' => 'upcoming'))) ?>" class="tools-sub-item"><span>Upcoming Classes</span></a>
                     <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('dash_filter' => 'completed'))) ?>" class="tools-sub-item"><span>Completed Classes</span></a>
                 </div>
             </div>
-            <div class="tools-sub-divider"></div>
-            <a href="<?php echo $customersUrl ?>" class="tools-sub-item"><span>View Learners</span></a>
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/customer_group') ?>" class="tools-sub-item"><span>Learner Group</span></a>
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/customer/new') ?>" class="tools-sub-item"><span>Create Learners</span></a>
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'assign_learner'))) ?>" class="tools-sub-item"><span>Assign Learners</span></a>
-            <div class="tools-sub-divider"></div>
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'trainers'))) ?>" class="tools-sub-item"><span>View Trainer</span></a>
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'create_trainer'))) ?>" class="tools-sub-item"><span>Create Trainer</span></a>
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'assign_trainer'))) ?>" class="tools-sub-item"><span>Assign Trainer</span></a>
+            <div class="tools-group tools-subgroup">
+                <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
+                    <span>Learners</span>
+                    <svg class="tools-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+                <div class="tools-group-items">
+                    <a href="<?php echo $customersUrl ?>" class="tools-sub-item"><span>View Learners</span></a>
+                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/customer_group') ?>" class="tools-sub-item"><span>Learner Group</span></a>
+                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/customer/new') ?>" class="tools-sub-item"><span>Create Learners</span></a>
+                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'assign_learner'))) ?>" class="tools-sub-item"><span>Assign Learners</span></a>
+                </div>
+            </div>
+            <div class="tools-group tools-subgroup">
+                <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
+                    <span>Trainer</span>
+                    <svg class="tools-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+                <div class="tools-group-items">
+                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'trainers'))) ?>" class="tools-sub-item"><span>View Trainer</span></a>
+                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'create_trainer'))) ?>" class="tools-sub-item"><span>Create Trainer</span></a>
+                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'assign_trainer'))) ?>" class="tools-sub-item"><span>Assign Trainer</span></a>
+                </div>
+            </div>
         </div>
     </div>
     <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'courses'))) ?>" class="lms-nav-item">

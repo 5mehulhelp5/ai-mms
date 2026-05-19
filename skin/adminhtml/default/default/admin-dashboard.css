@@ -30,6 +30,60 @@
 .dash-kpi-card{background:#1f2937;border:1px solid var(--b1);border-radius:12px;padding:28px 24px;text-align:center}
 .dash-kpi-num{font-size:42px;font-weight:700;color:#22d3ee;line-height:1.1;margin-bottom:8px}
 .dash-kpi-lbl{font-size:14px;color:var(--t2);font-weight:500}
+.dash-detail-modal{position:fixed;inset:0;background:rgba(2,6,23,.78);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:60px 20px;overflow-y:auto}
+.dash-detail-card{background:#0f172a;border:1px solid #1e293b;border-radius:14px;width:100%;max-width:880px;box-shadow:0 24px 80px rgba(0,0,0,.6);display:flex;flex-direction:column;max-height:calc(100vh - 120px)}
+.dash-detail-head{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #1e293b;gap:12px}
+.dash-detail-title{font-size:18px;font-weight:700;color:#f1f5f9;line-height:1.3}
+.dash-detail-sub{font-size:13px;color:#94a3b8;margin-top:2px}
+button.dash-detail-close,
+.dash-detail-head button.dash-detail-close{background:transparent !important;background-image:none !important;border:0 !important;box-shadow:none !important;border-radius:0 !important;color:#94a3b8 !important;font-size:26px !important;font-weight:400 !important;line-height:1 !important;cursor:pointer;padding:0 4px !important;text-shadow:none !important;height:auto !important;min-width:0 !important}
+button.dash-detail-close:hover,
+.dash-detail-head button.dash-detail-close:hover{background:transparent !important;color:#f1f5f9 !important}
+.dash-detail-body{padding:20px 24px;overflow-y:auto;flex:1 1 auto}
+.dash-detail-grid{display:flex;flex-direction:column;gap:6px;margin-bottom:20px;padding:0}
+.dash-detail-cell{background:transparent;border:0;border-radius:0;padding:0;display:flex;align-items:baseline;gap:8px}
+.dash-detail-lbl{font-size:13px;color:#94a3b8;text-transform:none;letter-spacing:0;margin:0;font-weight:500;min-width:120px}
+.dash-detail-lbl::after{content:":"}
+.dash-detail-val{font-size:13px;color:#f1f5f9;font-weight:600}
+.dash-detail-section-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px;gap:12px}
+.dash-detail-h4{font-size:13px;font-weight:700;color:#cbd5e1;text-transform:uppercase;letter-spacing:.04em;margin:0}
+.dash-detail-count{color:#64748b;font-weight:500}
+a.dash-detail-iconbtn{display:inline-flex;align-items:center;gap:5px;color:#22d3ee;text-decoration:none;font-size:12px;font-weight:600;padding:2px 4px;border-radius:6px;transition:color .15s}
+a.dash-detail-iconbtn:hover{color:#67e8f9}
+a.dash-detail-rm{display:inline-flex;color:#64748b;text-decoration:none;padding:2px;border-radius:4px;transition:color .15s}
+a.dash-detail-rm:hover{color:#ef4444}
+.dash-detail-table-wrap{border:1px solid #1e293b;border-radius:8px;overflow:hidden}
+.dash-detail-table{width:100%;border-collapse:collapse;font-size:13px}
+.dash-detail-table thead th{background:#1e293b;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em;text-align:left;padding:8px 12px;border-bottom:1px solid #334155}
+.dash-detail-table tbody td{padding:8px 12px;color:#e2e8f0;border-bottom:1px solid #1e293b}
+.dash-detail-table tbody tr:last-child td{border-bottom:0}
+.dash-detail-empty{color:#64748b;text-align:center;padding:14px !important}
+.dash-detail-foot{display:flex;justify-content:flex-end;gap:24px;padding:14px 24px;border-top:1px solid #1e293b;align-items:center}
+a.dash-detail-btn,
+button.dash-detail-btn,
+.dash-detail-foot a.dash-detail-btn,
+.dash-detail-foot button.dash-detail-btn{background:transparent !important;background-image:none !important;background-color:transparent !important;border:0 !important;box-shadow:none !important;border-radius:0 !important;padding:4px 0 !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;text-shadow:none !important;text-decoration:none !important;display:inline-flex !important;align-items:center;gap:6px;cursor:pointer;height:auto !important;min-width:0 !important;line-height:1.2 !important;transition:color .15s ease}
+a.dash-detail-btn:hover,
+button.dash-detail-btn:hover{background:transparent !important;color:#e2e8f0 !important}
+.dash-detail-foot a.dash-detail-btn--primary,
+.dash-detail-foot .dash-detail-btn--primary{color:#22d3ee !important}
+.dash-detail-foot a.dash-detail-btn--primary:hover,
+.dash-detail-foot .dash-detail-btn--primary:hover{color:#67e8f9 !important}
+.dash-detail-link{color:#64748b;text-decoration:none;margin-left:4px;display:inline-flex;vertical-align:middle}
+.dash-detail-link:hover{color:#22d3ee}
+.dash-action-bar{display:flex;flex-wrap:wrap;gap:20px;align-items:center;margin:14px 0 18px;padding:0 4px}
+button.dash-action-link,
+.dash-action-bar button.dash-action-link,
+.dash-action-bar .dash-action-link{background:transparent !important;background-image:none !important;background-color:transparent !important;border:0 !important;box-shadow:none !important;border-radius:0 !important;padding:4px 0 !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;text-shadow:none !important;display:inline-flex !important;align-items:center;gap:6px;cursor:pointer;transition:color .15s ease;line-height:1.2 !important;height:auto !important;min-width:0 !important}
+button.dash-action-link:hover,
+.dash-action-bar button.dash-action-link:hover,
+.dash-action-bar .dash-action-link:hover{background:transparent !important;color:#e2e8f0 !important}
+.dash-action-bar .dash-action-link svg{opacity:.7}
+.dash-action-bar .dash-action-link:hover svg{opacity:1}
+.dash-action-bar .dash-action-link--warn{color:#f59e0b !important}
+.dash-action-bar .dash-action-link--warn:hover{color:#fbbf24 !important}
+.dash-action-bar .dash-action-link--accent{color:#22d3ee !important}
+.dash-action-bar .dash-action-link--accent:hover{color:#67e8f9 !important}
 .dash-search-wrap{background:#1f2937;border:1px solid var(--b1);border-radius:12px;padding:24px}
 .dash-search-label{font-size:13px;color:#94a3b8;margin-bottom:10px}
 .dash-search-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
