@@ -44,14 +44,14 @@
     --brand: #2563eb;            /* Tertiary admin primary accent */
     --brand-2: #3b82f6;
     --ring: rgba(96,165,250,0.45);   /* focus-visible ring */
-    /* SINGLE BUTTON COLOR — sky blue. Used by every backend button
-       (Submit, Save, Flush, Delete, Cancel, Add). Matches the
-       canonical cache-page Submit pill. See backend-design SKILL.md. */
-    --btn-sky:        #65b7d5;
-    --btn-sky-hover:  #55a9c9;
-    --btn-sky-active: #4a98b6;
-    --btn-primary:        linear-gradient(180deg, #65b7d5 0%, #55a9c9 100%);
-    --btn-primary-hover:  linear-gradient(180deg, #55a9c9 0%, #4a98b6 100%);
+    /* SINGLE BUTTON COLOR — navy blue. Used by every backend button
+       (Submit, Save, Flush, Delete, Cancel, Add). Token names kept as
+       --btn-sky-* for backwards-compatibility with existing rules. */
+    --btn-sky:        #2563eb;
+    --btn-sky-hover:  #1d4ed8;
+    --btn-sky-active: #1e40af;
+    --btn-primary:        linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    --btn-primary-hover:  linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
     --btn-success: linear-gradient(180deg, #10b981 0%, #059669 100%);
     --btn-success-hover: linear-gradient(180deg, #059669 0%, #047857 100%);
     --btn-danger: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
