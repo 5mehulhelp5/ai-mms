@@ -3931,21 +3931,15 @@ body.adminhtml-catalog_search-index #catalogSearchGrid_table td:last-child {
     overflow: visible !important;
 }
 .admin-main #product-review-table {
+    /* Normal size (no enlarge/fill): content-sized, left-aligned,
+       sitting directly under the Detailed Rating header. Keep the
+       real-table display fix below (the responsive form rules had
+       rendered its rows non-table). */
     display: table !important;
-    width: 100% !important;
-    /* fixed layout + explicit column widths so the matrix SPREADS
-       across the full value area (question col wide, the 5 star
-       columns share the rest) instead of bunching content-sized. */
-    table-layout: fixed !important;
+    width: auto !important;
+    table-layout: auto !important;
     border-collapse: collapse !important;
-}
-.admin-main #product-review-table th:first-child,
-.admin-main #product-review-table td:first-child {
-    width: 40% !important;
-}
-.admin-main #product-review-table th:not(:first-child),
-.admin-main #product-review-table td:not(:first-child) {
-    width: 12% !important;
+    margin: 0 !important;
 }
 .admin-main #product-review-table thead,
 .admin-main #product-review-table tbody {
@@ -3967,14 +3961,78 @@ body.adminhtml-catalog_search-index #catalogSearchGrid_table td:last-child {
     text-align: left !important;
     white-space: normal !important;
 }
-/* Per request: make the Detailed-Rating matrix wrapper ~30% bigger.
-   #detailed_rating is an inline <span> (shrink-wrapped to ~492px,
-   which is why width:100% on the inner table couldn't expand it);
-   give it a real box + 1.3 zoom so the whole matrix scales up. ID is
-   unique to the review add/edit form — no leak. */
-.admin-main #detailed_rating {
-    display: inline-block !important;
-    zoom: 1.3 !important;
+/* Per request: back to NORMAL size (zoom removed) and shoved left to
+   sit directly under the "Detailed Rating" header — block, no left
+   indent, left-aligned. ID-scoped to the review form. */
+.admin-main #detailed_rating,
+.admin-main #rating_detail,
+.admin-main #detailed_rating .product-review-box {
+    display: block !important;
+    zoom: 1 !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    text-align: left !important;
+}
+/* Per request: move "Visible In" (select_stores / name="stores[]")
+   to the BOTTOM of the review form. The form rows are display:grid
+   (admin-components .form-list tr), so make the rows' container a
+   flex column and order that one row last; every other row keeps
+   source order (default order:0). Scoped to #review_details. */
+.admin-main #review_details table.form-list > tbody {
+    display: flex !important;
+    flex-direction: column !important;
+}
+.admin-main #review_details table.form-list > tbody > tr {
+    width: 100% !important;
+}
+.admin-main #review_details table.form-list > tbody > tr:has(#select_stores),
+.admin-main #review_details table.form-list > tbody > tr:has(select[name^="stores"]) {
+    order: 999 !important;
+}
+/* Minimalist radios in the rating matrix — the legacy native radio
+   has a GRAY filled circle when unselected; the design system bans
+   gray fills on inputs. Match the minimalist checkbox spec but round:
+   transparent + slate ring unselected, blue ring + dot when checked.
+   Scoped to the review matrix only. */
+.admin-main #product-review-table input[type="radio"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    border-radius: 50% !important;
+    border: 1.5px solid #475569 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    cursor: pointer !important;
+    vertical-align: middle !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+.admin-main #product-review-table input[type="radio"]:hover {
+    border-color: #64748b !important;
+}
+.admin-main #product-review-table input[type="radio"]:checked {
+    border-color: #2563eb !important;
+    background: radial-gradient(#2563eb 0 38%, transparent 42%) !important;
+}
+.admin-main #product-review-table input[type="radio"]:focus-visible {
+    outline: 2px solid var(--ring) !important;
+    outline-offset: 2px !important;
+}
+/* Per request: nothing in the review form is bold — the "Visible In"
+   multiselect renders website / store-group labels (and optgroups)
+   bold; flatten everything in #review_details to normal weight. */
+.admin-main #review_details,
+.admin-main #review_details *,
+.admin-main #review_details select,
+.admin-main #review_details optgroup,
+.admin-main #review_details option,
+.admin-main #review_details label,
+.admin-main #review_details strong,
+.admin-main #review_details b {
+    font-weight: 400 !important;
 }
 
 /* === Review add/edit — nudge content up a touch ===
@@ -3986,4 +4044,32 @@ body.adminhtml-catalog_search-index #catalogSearchGrid_table td:last-child {
 body[class*="catalog_product_review"] .admin-main .middle,
 body[class*="catalog-product-review"] .admin-main .middle {
     zoom: 1.12;
+}
+
+/* === Reviews list (catalog_product_review) — kill the extra container ===
+   The reworked Reviews page wraps the grid / mass-action in an extra
+   bordered box that reads as a redundant nested container. Flatten the
+   grid wrapper + its container + the mass-action to sit flush on the
+   page (same as every other grid post-§14). Scoped to the reviews
+   route only (hyphen + underscore body-class variants). */
+body[class*="catalog_product_review"] .admin-main #reviwGrid,
+body[class*="catalog-product-review"] .admin-main #reviwGrid,
+body[class*="catalog_product_review"] .admin-main .grid,
+body[class*="catalog-product-review"] .admin-main .grid,
+body[class*="catalog_product_review"] .admin-main .grid-container,
+body[class*="catalog-product-review"] .admin-main .grid-container,
+body[class*="catalog_product_review"] .admin-main #reviwGrid .hor-scroll,
+body[class*="catalog-product-review"] .admin-main #reviwGrid .hor-scroll,
+body[class*="catalog_product_review"] .admin-main .massaction,
+body[class*="catalog-product-review"] .admin-main .massaction,
+body[class*="catalog_product_review"] .admin-main .massaction fieldset,
+body[class*="catalog-product-review"] .admin-main .massaction fieldset,
+body[class*="catalog_product_review"] .admin-main .massaction form,
+body[class*="catalog-product-review"] .admin-main .massaction form {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
 }
