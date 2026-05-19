@@ -1952,6 +1952,69 @@ html.is-order-view .grid table.data tbody tr:hover td {
     border-left: 0 !important;
     box-shadow: none !important;
 }
+/* Order-view toolbar: make every action button (Edit / Cancel / Send
+   Email / Hold / Invoice / Reorder …) match the quiet outline style of
+   the Back button — per request. Sales_Order_View extends
+   Widget_Form_Container, whose container.phtml wraps the buttons in
+   <p class="form-buttons"> (header + footer) — NOT .content-buttons.
+   Scoped to .form-buttons on the order view page only, so other admin
+   pages keep the filled primary button and the comment-submit /
+   address links are untouched. Specificity (0,3,2) beats §18. */
+body.is-order-view .form-buttons button,
+html.is-order-view .form-buttons button,
+body.is-order-view .form-buttons button.scalable,
+html.is-order-view .form-buttons button.scalable,
+body.is-order-view .form-buttons input[type="submit"],
+html.is-order-view .form-buttons input[type="submit"] {
+    background: transparent !important;
+    background-image: none !important;
+    border: 1px solid var(--blue) !important;
+    color: var(--blue) !important;
+    box-shadow: none !important;
+}
+body.is-order-view .form-buttons button span,
+html.is-order-view .form-buttons button span,
+body.is-order-view .form-buttons button span span,
+html.is-order-view .form-buttons button span span {
+    color: var(--blue) !important;
+}
+body.is-order-view .form-buttons button:hover,
+html.is-order-view .form-buttons button:hover,
+body.is-order-view .form-buttons button.scalable:hover,
+html.is-order-view .form-buttons button.scalable:hover {
+    background: rgba(96, 165, 250, 0.12) !important;
+    border-color: var(--blue) !important;
+    box-shadow: none !important;
+}
+/* Transaction View: the legacy "Transaction Data" box ships a light
+   #fafafa background + #d6d6d6 border from boxes.css (.log-details).
+   Re-skin it as a dark card using the standard tokens so it matches
+   the rest of the admin and the grids right below it. Cells go
+   transparent (no gray fill — see the hard rule) with the same muted
+   label / bright value split + ~14px size used elsewhere on this page. */
+body.is-order-view .log-details,
+html.is-order-view .log-details {
+    background: var(--d3) !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 10px !important;
+    padding: 14px 18px !important;
+}
+body.is-order-view .log-details table th,
+html.is-order-view .log-details table th,
+body.is-order-view .log-details table td,
+html.is-order-view .log-details table td {
+    background: transparent !important;
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+}
+body.is-order-view .log-details table th,
+html.is-order-view .log-details table th {
+    color: var(--t4) !important;
+}
+body.is-order-view .log-details table td,
+html.is-order-view .log-details table td {
+    color: var(--t1) !important;
+}
 
 /* === Registrations page (sales_order index) — top-bar tidy ===
    MMD_Enhancedsalesgrid_Block_Sales_Order::getGridHtml() injects an
