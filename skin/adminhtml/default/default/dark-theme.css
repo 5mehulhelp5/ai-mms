@@ -1906,10 +1906,10 @@ body.is-order-view .order-account-information td,
 html.is-order-view .order-account-information td,
 body.is-order-view address,
 html.is-order-view address,
-body.is-order-view .entry-edit:has(.head-payment-method) .fieldset,
-html.is-order-view .entry-edit:has(.head-payment-method) .fieldset,
-body.is-order-view .entry-edit:has(.head-payment-method) .fieldset *,
-html.is-order-view .entry-edit:has(.head-payment-method) .fieldset *,
+body.is-order-view .entry-edit fieldset,
+html.is-order-view .entry-edit fieldset,
+body.is-order-view .entry-edit fieldset *,
+html.is-order-view .entry-edit fieldset *,
 body.is-order-view .log-details table th,
 html.is-order-view .log-details table th,
 body.is-order-view .log-details table td,
@@ -1941,6 +1941,105 @@ html.is-order-view #order_history_block .note-list,
 body.is-order-view #order_history_block .note-list *,
 html.is-order-view #order_history_block .note-list * {
     font-size: 15px !important;
+}
+/* Comments History — make it more compact (per request): slightly
+   smaller text, tighter label/field gaps, shorter textarea, denser
+   note list. Comes after the 15px rule so it wins. */
+body.is-order-view #order_history_block,
+html.is-order-view #order_history_block,
+body.is-order-view #order_history_block label,
+html.is-order-view #order_history_block label,
+body.is-order-view #order_history_block select,
+html.is-order-view #order_history_block select,
+body.is-order-view #order_history_block textarea,
+html.is-order-view #order_history_block textarea,
+body.is-order-view #order_history_block .note-list,
+html.is-order-view #order_history_block .note-list,
+body.is-order-view #order_history_block .note-list * {
+    font-size: 13px !important;
+    line-height: 1.4 !important;
+}
+body.is-order-view #order_history_block .field-row,
+html.is-order-view #order_history_block .field-row {
+    margin: 0 0 8px 0 !important;
+}
+body.is-order-view #order_history_block label,
+html.is-order-view #order_history_block label {
+    margin: 0 0 3px 0 !important;
+    padding: 0 !important;
+}
+body.is-order-view #order_history_block select,
+html.is-order-view #order_history_block select {
+    padding: 3px 8px !important;
+    height: auto !important;
+}
+body.is-order-view #order_history_block textarea,
+html.is-order-view #order_history_block textarea {
+    min-height: 48px !important;
+    padding: 6px 8px !important;
+}
+body.is-order-view #order_history_block .divider,
+html.is-order-view #order_history_block .divider {
+    margin: 8px 0 !important;
+}
+body.is-order-view #order_history_block .note-list li,
+html.is-order-view #order_history_block .note-list li {
+    padding: 6px 10px !important;
+    margin: 0 0 4px 0 !important;
+}
+body.is-order-view #order_history_block .f-left,
+html.is-order-view #order_history_block .f-left,
+body.is-order-view #order_history_block .f-right,
+html.is-order-view #order_history_block .f-right {
+    margin: 0 !important;
+}
+/* Put the "Add Order Comments" heading and the Status field on the
+   same row (they were stacked: bare <div> then the first
+   <span class="field-row">). */
+body.is-order-view #order_history_block .order-history-form > div:first-child,
+html.is-order-view #order_history_block .order-history-form > div:first-child {
+    display: inline-block !important;
+    vertical-align: top !important;
+    margin: 0 16px 8px 0 !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+}
+body.is-order-view #order_history_block .order-history-form > span.field-row:first-of-type,
+html.is-order-view #order_history_block .order-history-form > span.field-row:first-of-type {
+    display: inline-block !important;
+    vertical-align: top !important;
+    margin: 0 0 8px 0 !important;
+}
+/* Funding/Payment block: font-size is handled above (15px). The
+   getPaymentHtml() output uses <p>/<br>/<dl> with large default
+   margins, so it reads much airier than the tight rest of the page.
+   Normalise line-height + collapse the oversized paragraph / list
+   spacing so it matches the other panels. */
+body.is-order-view .entry-edit fieldset,
+html.is-order-view .entry-edit fieldset {
+    line-height: 1.5 !important;
+}
+body.is-order-view .entry-edit fieldset p,
+html.is-order-view .entry-edit fieldset p,
+body.is-order-view .entry-edit fieldset div,
+html.is-order-view .entry-edit fieldset div,
+body.is-order-view .entry-edit fieldset dl,
+html.is-order-view .entry-edit fieldset dl,
+body.is-order-view .entry-edit fieldset dt,
+html.is-order-view .entry-edit fieldset dt,
+body.is-order-view .entry-edit fieldset dd,
+html.is-order-view .entry-edit fieldset dd,
+body.is-order-view .entry-edit fieldset table,
+html.is-order-view .entry-edit fieldset table,
+body.is-order-view .entry-edit fieldset td,
+html.is-order-view .entry-edit fieldset td {
+    margin: 0 0 6px 0 !important;
+    padding: 0 !important;
+    line-height: 1.5 !important;
+}
+body.is-order-view .entry-edit fieldset br,
+html.is-order-view .entry-edit fieldset br {
+    line-height: 1.5 !important;
 }
 /* Items Ordered grid: the Course cell is tall (nested options table)
    while Magento renders every other column vertical-align:middle, so
