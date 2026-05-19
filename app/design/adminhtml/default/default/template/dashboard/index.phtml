@@ -3021,12 +3021,34 @@ function devSetView(view) {
                             }
                         }
                         if (empty($_seed) && $_loRaw !== ''
-                            && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_loRaw, $_lm)) {
-                            foreach ($_lm[1] as $_t) {
+                            && preg_match('#<strong>\s*(?:LU|Lesson|Topic|Module)\s*\d+#i', $_loRaw)) {
+                            // Split on each LU heading so the T#: … lines
+                            // listed under it (legacy Course-Topics HTML)
+                            // seed as Section rows, not just the LU title.
+                            $_sdParts = preg_split(
+                                '#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i',
+                                $_loRaw, -1, PREG_SPLIT_DELIM_CAPTURE
+                            );
+                            for ($_sdPi = 1; $_sdPi < count($_sdParts); $_sdPi += 2) {
+                                $_sdT = trim(html_entity_decode($_sdParts[$_sdPi]), " :\t\n\r\0\x0B");
+                                if ($_sdT === '') continue;
+                                $_sdBody = isset($_sdParts[$_sdPi + 1]) ? $_sdParts[$_sdPi + 1] : '';
+                                $_sdSubs = array();
+                                if (preg_match_all('#<em>(.*?)</em>#is', $_sdBody, $_sdEm)) {
+                                    foreach ($_sdEm[1] as $_st) {
+                                        $_st = trim(html_entity_decode(strip_tags($_st)), " :\t\n\r\0\x0B");
+                                        if ($_st !== '') $_sdSubs[] = $_st;
+                                    }
+                                } else {
+                                    foreach (preg_split('#</?(?:p|li|br|div)[^>]*>#i', $_sdBody) as $_ln) {
+                                        $_ln = trim(html_entity_decode(strip_tags($_ln)), " :\t\n\r\0\x0B");
+                                        if ($_ln !== '') $_sdSubs[] = $_ln;
+                                    }
+                                }
                                 $_seed[] = array(
-                                    'title'  => trim(html_entity_decode($_t), " :\t\n\r\0\x0B"),
-                                    'subsec' => '',
-                                    'links'  => array(),
+                                    'title'   => $_sdT,
+                                    'subsecs' => $_sdSubs,
+                                    'links'   => array(),
                                 );
                             }
                         }
@@ -4755,12 +4777,31 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
             }
         }
         if (empty($_devLessonTopics) && $_descRaw !== ''
-            && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_descRaw, $_ltm)) {
-            foreach ($_ltm[1] as $_lt) {
-                $_lt = trim(html_entity_decode($_lt), " :\t\n\r\0\x0B");
-                if ($_lt !== '') {
-                    $_devLessonTopics[] = array('title' => $_lt, 'subsecs' => array(), 'links' => array());
+            && preg_match('#<strong>\s*(?:LU|Lesson|Topic|Module)\s*\d+#i', $_descRaw)) {
+            // Split on each LU heading so we also collect the
+            // <em>T#: …</em> sub-topic lines that follow it (legacy
+            // Course-Topics HTML lists the T#s under each LU).
+            $_dvParts = preg_split(
+                '#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i',
+                $_descRaw, -1, PREG_SPLIT_DELIM_CAPTURE
+            );
+            for ($_dvPi = 1; $_dvPi < count($_dvParts); $_dvPi += 2) {
+                $_lt = trim(html_entity_decode($_dvParts[$_dvPi]), " :\t\n\r\0\x0B");
+                if ($_lt === '') continue;
+                $_dvBody = isset($_dvParts[$_dvPi + 1]) ? $_dvParts[$_dvPi + 1] : '';
+                $_dvSubs = array();
+                if (preg_match_all('#<em>(.*?)</em>#is', $_dvBody, $_dvEm)) {
+                    foreach ($_dvEm[1] as $_st) {
+                        $_st = trim(html_entity_decode(strip_tags($_st)), " :\t\n\r\0\x0B");
+                        if ($_st !== '') $_dvSubs[] = $_st;
+                    }
+                } else {
+                    foreach (preg_split('#</?(?:p|li|br|div)[^>]*>#i', $_dvBody) as $_ln) {
+                        $_ln = trim(html_entity_decode(strip_tags($_ln)), " :\t\n\r\0\x0B");
+                        if ($_ln !== '') $_dvSubs[] = $_ln;
+                    }
                 }
+                $_devLessonTopics[] = array('title' => $_lt, 'subsecs' => $_dvSubs, 'links' => array());
             }
         }
     } catch (Exception $e) {}
@@ -5227,12 +5268,32 @@ $_digitalAttId  = 'RA' . str_pad($_lcdCourseId * 13, 6, '0', STR_PAD_LEFT);
             }
         }
         if (empty($_sharedLessonTopics) && $_sharedDescRaw !== ''
-            && preg_match_all('#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i', $_sharedDescRaw, $_sltm)) {
-            foreach ($_sltm[1] as $_lt) {
-                $_lt = trim(html_entity_decode($_lt), " :\t\n\r\0\x0B");
-                if ($_lt !== '') {
-                    $_sharedLessonTopics[] = array('title' => $_lt, 'subsecs' => array(), 'links' => array());
+            && preg_match('#<strong>\s*(?:LU|Lesson|Topic|Module)\s*\d+#i', $_sharedDescRaw)) {
+            // Split on each LU/Lesson/Topic/Module heading so we also
+            // collect the <em>T#: …</em> sub-topic lines that follow it
+            // (legacy Course-Topics HTML lists the T#s under each LU).
+            // Earlier code only kept the <strong> titles and dropped them.
+            $_shParts = preg_split(
+                '#<strong>\s*((?:LU|Lesson|Topic|Module)\s*\d+[^<]*?)\s*</strong>#i',
+                $_sharedDescRaw, -1, PREG_SPLIT_DELIM_CAPTURE
+            );
+            for ($_shPi = 1; $_shPi < count($_shParts); $_shPi += 2) {
+                $_lt = trim(html_entity_decode($_shParts[$_shPi]), " :\t\n\r\0\x0B");
+                if ($_lt === '') continue;
+                $_shBody = isset($_shParts[$_shPi + 1]) ? $_shParts[$_shPi + 1] : '';
+                $_shSubs = array();
+                if (preg_match_all('#<em>(.*?)</em>#is', $_shBody, $_shEm)) {
+                    foreach ($_shEm[1] as $_st) {
+                        $_st = trim(html_entity_decode(strip_tags($_st)), " :\t\n\r\0\x0B");
+                        if ($_st !== '') $_shSubs[] = $_st;
+                    }
+                } else {
+                    foreach (preg_split('#</?(?:p|li|br|div)[^>]*>#i', $_shBody) as $_ln) {
+                        $_ln = trim(html_entity_decode(strip_tags($_ln)), " :\t\n\r\0\x0B");
+                        if ($_ln !== '') $_shSubs[] = $_ln;
+                    }
                 }
+                $_sharedLessonTopics[] = array('title' => $_lt, 'subsecs' => $_shSubs, 'links' => array());
             }
         }
     } catch (Exception $e) {}
