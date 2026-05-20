@@ -21,6 +21,20 @@ if [ ! -f "$LOCAL_XML" ]; then
     exec apache2-foreground
 fi
 
+apply_local_db_mode() {
+    if [ "${LOCAL_DB_MODE:-0}" = "1" ]; then
+        echo "entrypoint: LOCAL_DB_MODE=1 — applying local dev URL overrides..."
+        php /var/www/html/scripts/local-dev/apply-local-dev-urls.php \
+            || echo "entrypoint: WARNING — local dev URL override failed (non-fatal)"
+    fi
+}
+
+if [ "${SKIP_MIGRATIONS:-0}" = "1" ]; then
+    echo "entrypoint: SKIP_MIGRATIONS=1, skipping migrations"
+    apply_local_db_mode
+    exec apache2-foreground
+fi
+
 # Clear Magento runtime cache so template/config/layout changes in this
 # deploy are picked up on first request. Dockerfile clears at build time,
 # but Coolify volume mounts can shadow that; this guarantees freshness.
@@ -69,6 +83,7 @@ SLEEP=5
 for i in $(seq 1 $MAX_ATTEMPTS); do
     if php "$MIGRATION_RUNNER"; then
         echo "entrypoint: migrations complete"
+        apply_local_db_mode
         break
     fi
     if [ "$i" -eq "$MAX_ATTEMPTS" ]; then

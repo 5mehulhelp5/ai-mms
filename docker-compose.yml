@@ -34,6 +34,8 @@ services:
       - /var/www/html/var/locks:mode=1777
     environment:
       - MAGE_IS_DEVELOPER_MODE=1
+      - SKIP_MIGRATIONS=1
+      - LOCAL_DB_MODE=0
     depends_on:
       db_mysql:
         condition: service_healthy
