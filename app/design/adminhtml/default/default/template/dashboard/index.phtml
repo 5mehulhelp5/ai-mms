@@ -3375,7 +3375,14 @@ function devSetView(view) {
                         function flushTopicsToTextarea(){
                             if (!topics.length) return;
                             var ta = dcfForm.querySelector('textarea[name="learning_outcomes"]');
-                            if (ta) ta.value = serializeTopicsToHtml();
+                            if (!ta) return;
+                            // If the user has typed inside the Quill / contenteditable
+                            // surface for this field (course-topics-tools.js sets
+                            // data-ct-edited on user input), their edits win — leave
+                            // whatever they wrote alone instead of serialising the
+                            // legacy topic cards on top of it.
+                            if (ta.getAttribute('data-ct-edited') === '1') return;
+                            ta.value = serializeTopicsToHtml();
                         }
 
                         // Three paths cover every way this form can submit:

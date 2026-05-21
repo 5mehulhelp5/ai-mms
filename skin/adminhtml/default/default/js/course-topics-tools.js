@@ -116,12 +116,41 @@
      *   - if all <li>s are data-list="ordered" → keep <ol>, drop attrs
      *   - if mixed → split into consecutive same-type runs, each its own list
      */
+    // Strip every inline `background-color: ...` declaration. They almost
+    // always arrive via paste from Google Docs / Word, where the source
+    // app marks ranges with a light grey (rgb(221,221,221) / #dddddd /
+    // #d3d3d3 / #f4f4f4 / white) that becomes a visible bar on the dark
+    // course-edit and course-detail surfaces. Stripping the lot is more
+    // robust than chasing individual shades, and the Quill toolbar's
+    // "background" picker on this page isn't expected to be load-bearing
+    // for editorial content -- if a user really wants a colour fill they
+    // can apply it again. `color:` (foreground) is left alone.
+    function stripInlineBackgrounds(root) {
+        var els = root.querySelectorAll('[style*="background"]');
+        for (var i = 0; i < els.length; i++) {
+            var s = els[i].getAttribute('style') || '';
+            var cleaned = s
+                .replace(/background-color\s*:\s*[^;"]+;?/gi, '')
+                .replace(/background\s*:\s*[^;"]+;?/gi, '')
+                .trim()
+                .replace(/;\s*;/g, ';')
+                .replace(/^;|;$/g, '');
+            if (cleaned) els[i].setAttribute('style', cleaned);
+            else         els[i].removeAttribute('style');
+        }
+    }
+
     function normalizeQuillLists(html) {
-        if (!html || html.indexOf('data-list=') === -1) return html;
+        var hasLists = html && html.indexOf('data-list=') !== -1;
+        var hasBg    = html && /background(-color)?\s*:/i.test(html);
+        if (!hasLists && !hasBg) return html;
         var doc  = new DOMParser().parseFromString('<div id="__nlz">' + html + '</div>', 'text/html');
         var root = doc.getElementById('__nlz');
         if (!root) return html;
 
+        if (hasBg) stripInlineBackgrounds(root);
+
+        if (!hasLists) return root.innerHTML;
         var lists = root.querySelectorAll('ol');
         for (var i = 0; i < lists.length; i++) {
             var ol = lists[i];
@@ -216,7 +245,10 @@
             ed.style.cssText = 'min-height:220px;overflow:auto;white-space:normal;padding:12px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#e2e8f0;';
             wrap.appendChild(ed);
             ed.innerHTML = ta.value.replace(/<!--[\s\S]*?-->/g, '');
-            ed.addEventListener('input', function () { ta.value = ed.innerHTML; });
+            ed.addEventListener('input', function () {
+                ta.value = ed.innerHTML;
+                ta.setAttribute('data-ct-edited', '1');
+            });
             quill = { __fallback: true, root: ed };
         } else {
             // Seed Quill from the textarea's existing HTML (stripping LSN_DATA
@@ -226,9 +258,14 @@
                 var delta = quill.clipboard.convert({ html: initial });
                 quill.setContents(delta, 'silent');
             }
-            quill.on('text-change', function () {
+            quill.on('text-change', function (delta, oldDelta, source) {
                 var html = quill.root.innerHTML;
                 ta.value = (html === '<p><br></p>') ? '' : normalizeQuillLists(html);
+                // Mark this textarea as Quill-owned so the lsn-topics
+                // serializer (which otherwise re-serializes its topic
+                // cards into learning_outcomes on submit) defers to the
+                // user's Quill edits.
+                if (source === 'user') ta.setAttribute('data-ct-edited', '1');
             });
         }
 
