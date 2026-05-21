@@ -149,6 +149,13 @@
    (profile.phtml etc.) live in their respective inline <style>. */
 :root[data-theme="light"] .lms-header .header-brand-text { color: #0f172a !important; }
 :root[data-theme="light"] .lms-header .header-brand-img { background: #f1f5f9 !important; }
+/* Order/Invoice/Transaction view header — boxes.css:332 paints
+   `.entry-edit .entry-edit-head strong` and `a` as color:#fff. White
+   text on the light page background makes "(confirmation email sent)"
+   etc. invisible. Lift strong to near-black; the <a> still picks up
+   blue link color globally. */
+:root[data-theme="light"] .entry-edit .entry-edit-head strong { color: #0f172a !important; }
+:root[data-theme="light"] .entry-edit .entry-edit-head h4 { color: #0f172a !important; }
 /* User-avatar button on dark uses #4b5563 / #60a5fa; flip the surface
    so it doesn't look like a dark medallion punched out of a light bar. */
 :root[data-theme="light"] .header-top button.user-avatar-btn,
