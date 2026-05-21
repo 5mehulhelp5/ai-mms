@@ -30,6 +30,23 @@
     --admin-transition-fast: 140ms ease;
 }
 
+/* Light theme — flip the admin-* tokens. Many form/label/text styles
+   in admin-components.css reach for var(--admin-text), so the flip
+   automatically darkens the left-column labels (Name, Is Active,
+   Description, etc.) in light mode. */
+:root[data-theme="light"] {
+    --admin-bg-canvas: #f8fafc;
+    --admin-bg-shell: #ffffff;
+    --admin-bg-surface: #ffffff;
+    --admin-bg-surface-2: #f1f5f9;
+    --admin-bg-hover: #e2e8f0;
+    --admin-border-subtle: #e2e8f0;
+    --admin-border-strong: #cbd5e1;
+    --admin-text-strong: #0f172a;
+    --admin-text: #1e293b;
+    --admin-text-muted: #64748b;
+}
+
 html,
 body {
     color: var(--admin-text);

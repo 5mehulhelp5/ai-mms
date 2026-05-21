@@ -58,6 +58,116 @@
     --btn-danger-hover: linear-gradient(180deg, #dc2626 0%, #b91c1c 100%);
 }
 
+/* === 1b. Light theme — toggled via [data-theme="light"] on <html> ===
+   Pure token flip: every component that uses var(--dX/--bX/--tX) is
+   re-painted on a light surface. Brand stays blue (works on both).
+   Components with hardcoded colors (status pills, gradients) will
+   still look right because the semantic blues/greens/reds carry over;
+   only neutrals change. */
+:root[data-theme="light"] {
+    color-scheme: light;
+
+    --d0: #ffffff;
+    --d1: #f8fafc;   /* page background */
+    --d2: #ffffff;   /* header chrome */
+    --d3: #ffffff;   /* cards */
+    --d4: #f1f5f9;   /* raised surfaces (grid thead, hover bands) */
+    --d5: #e2e8f0;   /* hover */
+    --d6: #cbd5e1;
+
+    --b1: #e2e8f0;   /* hairline */
+    --b2: #cbd5e1;   /* default border */
+    --b3: #94a3b8;   /* strong */
+
+    --t1: #0f172a;   /* headings */
+    --t2: #1e293b;   /* body text */
+    --t3: #334155;
+    --t4: #64748b;   /* muted / labels */
+    --t5: #94a3b8;   /* faint */
+
+    --ring: rgba(37, 99, 235, 0.35);
+}
+
+/* Theme toggle button (lives in .header-right, left of the role
+   selector). Always visible, regardless of how many roles the user
+   has. Icons are inline SVGs in header.phtml; we just choose which
+   one is visible per active theme. !important is needed because
+   boxes.css `button` rule (line 431) paints a legacy orange bg + bold
+   white text on ALL buttons and overrides icon color via inheritance. */
+.header-right .theme-toggle,
+.header-top .theme-toggle {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    background: transparent !important;
+    background-image: none !important;
+    border: 1px solid var(--b2) !important;
+    border-radius: 999px !important;
+    color: var(--t2) !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    margin-right: 8px !important;
+    font: inherit !important;
+    text-shadow: none !important;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.header-right .theme-toggle:hover,
+.header-top .theme-toggle:hover {
+    background: rgba(96, 165, 250, 0.10) !important;
+    color: var(--blue) !important;
+    border-color: var(--blue) !important;
+}
+.header-right .theme-toggle:focus-visible,
+.header-top .theme-toggle:focus-visible {
+    outline: none !important;
+    box-shadow: 0 0 0 3px var(--ring) !important;
+}
+.header-right .theme-toggle svg,
+.header-top .theme-toggle svg {
+    width: 18px !important;
+    height: 18px !important;
+    flex-shrink: 0 !important;
+    stroke: currentColor !important;
+    fill: none !important;
+}
+/* Show only the destination icon: in dark mode, show the sun (we'd
+   click to go to light); in light mode, show the moon. */
+.header-right .theme-toggle-icon,
+.header-top .theme-toggle-icon { display: none !important; }
+:root:not([data-theme="light"]) .header-right .theme-toggle-sun,
+:root:not([data-theme="light"]) .header-top   .theme-toggle-sun { display: block !important; }
+:root[data-theme="light"] .header-right .theme-toggle-moon,
+:root[data-theme="light"] .header-top   .theme-toggle-moon { display: block !important; }
+
+/* Hardcoded color overrides for light theme — templates with literal
+   hex/rgba colors (instead of design tokens) don't auto-flip. Patch
+   the most visible globally-shared ones here; per-page overrides
+   (profile.phtml etc.) live in their respective inline <style>. */
+:root[data-theme="light"] .lms-header .header-brand-text { color: #0f172a !important; }
+:root[data-theme="light"] .lms-header .header-brand-img { background: #f1f5f9 !important; }
+/* User-avatar button on dark uses #4b5563 / #60a5fa; flip the surface
+   so it doesn't look like a dark medallion punched out of a light bar. */
+:root[data-theme="light"] .header-top button.user-avatar-btn,
+:root[data-theme="light"] button.user-avatar-btn {
+    background: #f1f5f9 !important;
+    background-color: #f1f5f9 !important;
+    border-color: #2563eb !important;
+    color: #0f172a !important;
+}
+:root[data-theme="light"] .header-top button.user-avatar-btn:hover,
+:root[data-theme="light"] button.user-avatar-btn:hover {
+    background: #e2e8f0 !important;
+    background-color: #e2e8f0 !important;
+    border-color: #1d4ed8 !important;
+}
+/* Footer / version line */
+:root[data-theme="light"] .admin-page-footer,
+:root[data-theme="light"] .footer-copyright { color: #64748b !important; }
+
 /* === 2. Global Reset for Dark === */
 * { border-color: var(--b1) !important; }
 
@@ -1407,12 +1517,22 @@ body.has-relocated-tabs ul.tabs.tabs-relocated a:hover {
     background: transparent !important;
     color: var(--blue) !important;
 }
-body.has-relocated-tabs ul.tabs.tabs-relocated a.active,
-body.has-relocated-tabs ul.tabs.tabs-relocated a.active span {
+/* Active underline goes on the <a> ONLY. Magento's markup is
+   <a class="active"><span>…</span></a>; putting border-bottom on
+   both draws two stacked blue lines (the "double bar" bug).
+   Same fix the order-view tabs use at lines 1883-1896. */
+body.has-relocated-tabs ul.tabs.tabs-relocated a.active {
     background: transparent !important;
     background-image: none !important;
     color: var(--blue) !important;
     border-bottom: 2px solid var(--blue) !important;
+    font-weight: 600 !important;
+}
+body.has-relocated-tabs ul.tabs.tabs-relocated a.active span {
+    background: transparent !important;
+    background-image: none !important;
+    color: var(--blue) !important;
+    border-bottom: none !important;
     font-weight: 600 !important;
 }
 

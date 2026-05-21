@@ -2283,3 +2283,357 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
   margin:0 0 24px !important;
   text-shadow:none !important;
 }
+
+/* ============================================================
+   LIGHT THEME — dashboard panel overrides
+   ============================================================
+   Every dashboard panel hardcodes #1e293b/#334155/#fff/#94a3b8
+   instead of design tokens, so the global token flip doesn't reach
+   them. Re-paint the most visible surfaces on a light background.
+   Add more selectors here as we spot pages that haven't been
+   covered. */
+:root[data-theme="light"] .lmc-title { color:#0f172a !important }
+:root[data-theme="light"] .lmc-kpi-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .lmc-kpi-lbl { color:#64748b !important }
+:root[data-theme="light"] .lmc-kpi-num.gray { color:#64748b !important }
+
+:root[data-theme="light"] .lmc-tabs { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] button.lmc-tab,
+:root[data-theme="light"] button.lmc-tab:hover,
+:root[data-theme="light"] button.lmc-tab:focus,
+:root[data-theme="light"] button.lmc-tab:active { color:#64748b !important }
+:root[data-theme="light"] button.lmc-tab:hover { color:#0f172a !important; background:rgba(148,163,184,0.18) !important }
+:root[data-theme="light"] button.lmc-tab.active { background:rgba(37,99,235,0.10) !important; color:#1d4ed8 !important }
+
+:root[data-theme="light"] .lmc-search input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .lmc-search input::placeholder { color:#94a3b8 !important }
+:root[data-theme="light"] .lmc-search-input-wrap > svg { color:#94a3b8 !important }
+
+:root[data-theme="light"] .lmc-view-toggle { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] button.lmc-view-btn,
+:root[data-theme="light"] button.lmc-view-btn:hover,
+:root[data-theme="light"] button.lmc-view-btn:focus,
+:root[data-theme="light"] button.lmc-view-btn:active { color:#64748b !important }
+:root[data-theme="light"] button.lmc-view-btn.active { background:#e2e8f0 !important; color:#0f172a !important }
+:root[data-theme="light"] button.lmc-link-btn,
+:root[data-theme="light"] button.lmc-link-btn:hover,
+:root[data-theme="light"] button.lmc-link-btn:focus,
+:root[data-theme="light"] button.lmc-link-btn:active { color:#64748b !important }
+:root[data-theme="light"] button.lmc-link-btn:hover { color:#0f172a !important }
+
+:root[data-theme="light"] .lmc-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .lmc-card:hover { box-shadow:0 12px 28px rgba(15,23,42,0.10) !important }
+:root[data-theme="light"] .lmc-card-title { color:#0f172a !important }
+:root[data-theme="light"] .lmc-card:hover .lmc-card-title { color:#2563eb !important }
+:root[data-theme="light"] .lmc-card-label { color:#64748b !important }
+:root[data-theme="light"] .lmc-card-value { color:#1e293b !important }
+:root[data-theme="light"] .lmc-card-img-placeholder { background:linear-gradient(135deg,#e2e8f0,#cbd5e1) !important; color:#94a3b8 !important }
+:root[data-theme="light"] .lmc-card-footer { border-top-color:rgba(15,23,42,0.08) !important }
+:root[data-theme="light"] .lmc-card-footer span { color:#2563eb !important }
+:root[data-theme="light"] .lmc-grid-list .lmc-card-row:not(:first-of-type)::before { background:#cbd5e1 !important }
+
+/* Generic dashboard KPI cards used elsewhere (dash-kpi-card) — same
+   hardcoded slate. */
+:root[data-theme="light"] .dash-kpi-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dash-kpi-lbl { color:#64748b !important }
+
+/* Billing / Certificate History panels — heavily inline-styled
+   (style="background:#1e293b...", style="color:#cbd5e1..." etc.)
+   directly on <div>/<td>/<th> with no class hooks. Use attribute
+   substring selectors with !important to win over the inline styles.
+   Scoped to the two panel ids so nothing else is affected. */
+:root[data-theme="light"] #dash-panel-billing [style*="background:#1e293b"],
+:root[data-theme="light"] #dash-panel-billing [style*="background:#131d2e"],
+:root[data-theme="light"] #dash-panel-certhistory [style*="background:#131d2e"],
+:root[data-theme="light"] #dash-panel-certhistory [style*="background:#1e293b"] {
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
+}
+/* Lift bright body text (white-ish slate) to near-black */
+:root[data-theme="light"] #dash-panel-billing [style*="color:#cbd5e1"],
+:root[data-theme="light"] #dash-panel-certhistory [style*="color:#cbd5e1"] {
+    color: #0f172a !important;
+}
+/* Muted text — keep muted but tweak hue for light background */
+:root[data-theme="light"] #dash-panel-billing [style*="color:#94a3b8"],
+:root[data-theme="light"] #dash-panel-certhistory [style*="color:#94a3b8"] {
+    color: #64748b !important;
+}
+/* Inline borders use #1e293b or #1a2535 — both invisible on white;
+   re-paint as light hairline. */
+:root[data-theme="light"] #dash-panel-billing [style*="border-bottom:1px solid #1e293b"],
+:root[data-theme="light"] #dash-panel-billing [style*="border-bottom:1px solid #1a2535"],
+:root[data-theme="light"] #dash-panel-certhistory [style*="border-bottom:1px solid #1e293b"],
+:root[data-theme="light"] #dash-panel-certhistory [style*="border-bottom:1px solid #1a2535"] {
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+
+/* ============================================================
+   Light theme — Course Detail panel (lcd-* class family).
+   Used by learner / trainer / developer "View Course" views.
+   Surfaces are hardcoded #1e293b / #0f172a / #334155 / #fff;
+   we re-paint each on a light background and lift text to dark. */
+:root[data-theme="light"] .lcd-sidebar-details,
+:root[data-theme="light"] .lcd-section { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .lcd-section-title,
+:root[data-theme="light"] .lcd-drawer-section-title,
+:root[data-theme="light"] .lcd-topic-title,
+:root[data-theme="light"] .lcd-tile-title,
+:root[data-theme="light"] .lcd-duration-title { color:#0f172a !important }
+:root[data-theme="light"] .lcd-detail-value { color:#0f172a !important }
+:root[data-theme="light"] .lcd-detail-label,
+:root[data-theme="light"] .lcd-tile-sub,
+:root[data-theme="light"] .lcd-topic-caret,
+:root[data-theme="light"] .lcd-cert-sub,
+:root[data-theme="light"] .lcd-footer { color:#64748b !important }
+:root[data-theme="light"] .lcd-footer strong { color:#1e293b !important }
+
+/* Tiles (Google Meet / Courseware items) */
+:root[data-theme="light"] .lcd-tile { background:#f8fafc !important; border-color:#e2e8f0 !important; color:#1e293b !important }
+:root[data-theme="light"] .lcd-tile:hover { background:#e2e8f0 !important; color:#0f172a !important }
+
+/* Lesson topic rows */
+:root[data-theme="light"] .lcd-topic { border-bottom-color:#e2e8f0 !important }
+
+/* Progress bar */
+:root[data-theme="light"] .lcd-progress-bar { background:#e2e8f0 !important }
+
+/* Mark-as-complete button */
+:root[data-theme="light"] button.lcd-mark-btn,
+:root[data-theme="light"] button.lcd-mark-btn:hover,
+:root[data-theme="light"] button.lcd-mark-btn:focus,
+:root[data-theme="light"] button.lcd-mark-btn:active { background:#ffffff !important; border-color:#cbd5e1 !important; color:#1e293b !important }
+:root[data-theme="light"] button.lcd-mark-btn:hover { background:#e2e8f0 !important; color:#0f172a !important }
+
+/* Empty / cert boxes (cert of achievement placeholder) */
+:root[data-theme="light"] .lcd-empty-box { border-color:#cbd5e1 !important; color:#64748b !important }
+:root[data-theme="light"] .lcd-empty-title { color:#1e293b !important }
+:root[data-theme="light"] .lcd-cert-box { background:#f8fafc !important; border-color:#e2e8f0 !important; color:#64748b !important }
+:root[data-theme="light"] .lcd-cert-title { color:#1e293b !important }
+
+/* Side drawer */
+:root[data-theme="light"] .lcd-drawer { background:#ffffff !important; border-right-color:#e2e8f0 !important; box-shadow:4px 0 20px rgba(15,23,42,0.12) !important }
+:root[data-theme="light"] .lcd-drawer-header { color:#0f172a !important; border-bottom-color:#e2e8f0 !important }
+:root[data-theme="light"] button.lcd-drawer-close,
+:root[data-theme="light"] button.lcd-drawer-close:hover,
+:root[data-theme="light"] button.lcd-drawer-close:focus,
+:root[data-theme="light"] button.lcd-drawer-close:active { color:#64748b !important }
+:root[data-theme="light"] button.lcd-drawer-close:hover { color:#0f172a !important; background:#e2e8f0 !important }
+
+/* Duration block */
+:root[data-theme="light"] .lcd-duration-row { color:#1e293b !important }
+:root[data-theme="light"] .lcd-duration-row strong { color:#0f172a !important }
+:root[data-theme="light"] .lcd-duration-divider { background:#e2e8f0 !important }
+:root[data-theme="light"] .lcd-duration-total span,
+:root[data-theme="light"] .lcd-duration-total strong { color:#0f172a !important }
+
+/* Drawer / sidebar nav */
+:root[data-theme="light"] .lcd-drawer-nav { border-top-color:#e2e8f0 !important }
+:root[data-theme="light"] .lcd-nav-item { color:#334155 !important }
+:root[data-theme="light"] .lcd-nav-item:hover { background:#e2e8f0 !important; color:#0f172a !important }
+:root[data-theme="light"] .lcd-nav-item.active { background:rgba(37,99,235,0.10) !important; color:#1d4ed8 !important }
+
+/* Topic cards inside Lesson — LU1/LU2/... accordion sections. Each
+   card uses its OWN hardcoded color set (separate from the parent
+   `.lcd-section`), and inside the body there's another whole nested
+   set of classes (`.lcd-topic-card-head`, `-title`, `-body`,
+   `-subsec`, `-link`, `-link-title`) that all hardcode dark colors. */
+:root[data-theme="light"] .lcd-topic-card,
+:root[data-theme="light"] .lcd-shared-topic { background:#f8fafc !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .lcd-topic-card-head:hover,
+:root[data-theme="light"] .lcd-shared-topic-head:hover { background:#e2e8f0 !important }
+:root[data-theme="light"] .lcd-topic-card-title,
+:root[data-theme="light"] .lcd-shared-topic-title { color:#0f172a !important }
+:root[data-theme="light"] .lcd-topic-card-caret,
+:root[data-theme="light"] .lcd-shared-topic-caret { color:#64748b !important }
+:root[data-theme="light"] .lcd-topic-card-body,
+:root[data-theme="light"] .lcd-shared-topic-body { border-top-color:#e2e8f0 !important }
+/* Note: the "shared" topic variant drops "-topic-" from the inner
+   class names — `.lcd-shared-subsec` (not `.lcd-shared-topic-subsec`),
+   `.lcd-shared-link`, `.lcd-shared-empty`. Verified via DevTools on
+   the live course-detail page. */
+:root[data-theme="light"] .lcd-topic-subsec,
+:root[data-theme="light"] .lcd-topic-subsec span,
+:root[data-theme="light"] .lcd-shared-subsec,
+:root[data-theme="light"] .lcd-shared-subsec span { color:#0f172a !important }
+:root[data-theme="light"] .lcd-topic-link,
+:root[data-theme="light"] .lcd-shared-link { background:#ffffff !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .lcd-topic-link:hover,
+:root[data-theme="light"] .lcd-shared-link:hover { border-color:#2563eb !important }
+:root[data-theme="light"] .lcd-topic-link-title,
+:root[data-theme="light"] .lcd-shared-link-title { color:#0f172a !important }
+:root[data-theme="light"] .lcd-topic-empty,
+:root[data-theme="light"] .lcd-shared-empty { color:#64748b !important }
+
+/* Inline-styled bits in template/dashboard/index.phtml around the
+   course-detail panel: white text labels, slate dividers. Use
+   attribute substring selectors scoped to the panel. */
+:root[data-theme="light"] #dash-panel-course-detail [style*="color:#fff"] { color:#0f172a !important }
+:root[data-theme="light"] #dash-panel-course-detail [style*="color:#cbd5e1"] { color:#1e293b !important }
+:root[data-theme="light"] #dash-panel-course-detail [style*="background:#1e293b"] { background:#e2e8f0 !important }
+
+/* ============================================================
+   Help & Support panel (#dash-panel-helpsupport)
+   ============================================================ */
+.hsp-header-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap}
+.hsp-grid{display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start}
+@media(max-width:1100px){.hsp-grid{grid-template-columns:1fr}}
+.hsp-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:28px}
+.hsp-card-title{font-size:20px;font-weight:700;color:#f1f5f9;margin:0 0 22px}
+.hsp-info-block{margin-bottom:22px}
+.hsp-info-block:last-child{margin-bottom:0}
+.hsp-info-label{font-size:13px;color:#94a3b8;margin-bottom:6px;font-weight:500}
+.hsp-info-value{font-size:15px;color:#f1f5f9;font-weight:500;line-height:1.5}
+.hsp-info-value a{color:#60a5fa;text-decoration:none}
+.hsp-info-value a:hover{text-decoration:underline}
+.hsp-tickets-empty{background:#131d2e;border:1px solid #334155;border-radius:12px;padding:48px 32px;text-align:center}
+.hsp-tickets-icon{display:flex;justify-content:center;color:#06b6d4;margin-bottom:18px}
+.hsp-tickets-title{font-size:22px;font-weight:700;color:#f1f5f9;margin-bottom:6px}
+.hsp-tickets-sub{font-size:15px;color:#cbd5e1;margin-bottom:14px;font-weight:600}
+.hsp-tickets-desc{font-size:13.5px;color:#94a3b8;max-width:480px;margin:0 auto 22px;line-height:1.6}
+
+/* §18 in sidebar-nav.css applies its outline-style to every .admin-main
+   button. Force every property on these custom buttons with !important
+   and use `.admin-main button.hsp-cta-btn` selectors to win specificity. */
+.admin-main button.hsp-cta-btn,
+.admin-main button.hsp-cta-btn:hover,
+.admin-main button.hsp-cta-btn:focus,
+.admin-main button.hsp-cta-btn:active{
+    display:inline-flex !important;align-items:center !important;gap:8px !important;
+    background:#06b6d4 !important;background-image:none !important;
+    border:1px solid #06b6d4 !important;color:#fff !important;
+    padding:11px 22px !important;border-radius:10px !important;
+    font-size:14px !important;font-weight:600 !important;
+    min-height:auto !important;line-height:normal !important;
+    cursor:pointer !important;text-decoration:none !important;
+    transition:background .15s !important;box-shadow:none !important;text-shadow:none !important;
+}
+.admin-main button.hsp-cta-btn:hover{background:#0891b2 !important;border-color:#0891b2 !important}
+
+/* ----- Modal ----- */
+.hsp-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.55);opacity:0;visibility:hidden;transition:opacity .2s;z-index:99998}
+.hsp-modal-backdrop.open{opacity:1;visibility:visible}
+.hsp-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.96);width:min(560px, calc(100vw - 32px));background:#1e293b;border:1px solid #334155;border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,0.6);opacity:0;visibility:hidden;transition:opacity .2s, transform .2s;z-index:99999;display:flex;flex-direction:column;max-height:calc(100vh - 32px);overflow:hidden}
+.hsp-modal.open{opacity:1;visibility:visible;transform:translate(-50%,-50%) scale(1)}
+.hsp-modal-header{background:linear-gradient(135deg,#3b82f6 0%,#6366f1 100%);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.hsp-modal-header h3{margin:0;color:#fff;font-size:18px;font-weight:700}
+.admin-main button.hsp-modal-close,
+.admin-main button.hsp-modal-close:hover,
+.admin-main button.hsp-modal-close:focus,
+.admin-main button.hsp-modal-close:active,
+button.hsp-modal-close{
+    background:transparent !important;background-image:none !important;border:none !important;
+    color:#fff !important;padding:4px !important;margin:0 !important;cursor:pointer !important;
+    display:inline-flex !important;align-items:center !important;justify-content:center !important;
+    min-height:0 !important;min-width:0 !important;border-radius:6px !important;
+    box-shadow:none !important;text-shadow:none !important;
+}
+.admin-main button.hsp-modal-close:hover,button.hsp-modal-close:hover{background:rgba(255,255,255,0.18) !important}
+.hsp-modal-form{display:flex;flex-direction:column;flex:1;min-height:0}
+.hsp-modal-body{padding:24px;overflow-y:auto}
+.hsp-form-field{margin-bottom:18px}
+.hsp-form-field:last-child{margin-bottom:0}
+.hsp-form-label{display:block;font-size:14px;color:#f1f5f9;font-weight:600;margin-bottom:8px}
+.hsp-form-required{color:#ef4444;font-weight:700}
+.hsp-form-input,.hsp-form-select,.hsp-form-textarea{
+    width:100% !important;background:#0f172a !important;border:1px solid #334155 !important;
+    border-radius:8px !important;color:#f1f5f9 !important;font-size:14px !important;
+    padding:11px 14px !important;box-sizing:border-box !important;font-family:inherit !important;
+    min-height:auto !important;
+}
+.hsp-form-input:focus,.hsp-form-select:focus,.hsp-form-textarea:focus{border-color:#3b82f6 !important;outline:none !important;box-shadow:0 0 0 3px rgba(59,130,246,0.15) !important}
+.hsp-form-input::placeholder,.hsp-form-textarea::placeholder{color:#64748b}
+.hsp-form-textarea{resize:vertical;min-height:120px !important}
+.hsp-modal-footer{display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid #334155;flex-shrink:0}
+.admin-main button.hsp-btn-cancel,
+.admin-main button.hsp-btn-cancel:hover,
+.admin-main button.hsp-btn-cancel:focus,
+.admin-main button.hsp-btn-cancel:active,
+button.hsp-btn-cancel{
+    background:transparent !important;background-image:none !important;border:none !important;
+    color:#94a3b8 !important;padding:10px 20px !important;font-size:14px !important;font-weight:500 !important;
+    cursor:pointer !important;border-radius:8px !important;box-shadow:none !important;min-height:auto !important;
+}
+.admin-main button.hsp-btn-cancel:hover{color:#f1f5f9 !important;background:transparent !important}
+.admin-main button.hsp-btn-submit,
+.admin-main button.hsp-btn-submit:hover,
+.admin-main button.hsp-btn-submit:focus,
+.admin-main button.hsp-btn-submit:active,
+button.hsp-btn-submit{
+    background:#06b6d4 !important;background-image:none !important;border:1px solid #06b6d4 !important;
+    color:#fff !important;padding:10px 22px !important;font-size:14px !important;font-weight:600 !important;
+    cursor:pointer !important;border-radius:8px !important;box-shadow:none !important;min-height:auto !important;
+}
+.admin-main button.hsp-btn-submit:hover{background:#0891b2 !important;border-color:#0891b2 !important}
+
+/* ----- Light theme overrides for Help & Support ----- */
+:root[data-theme="light"] .hsp-card{background:#ffffff !important;border-color:#e2e8f0 !important}
+:root[data-theme="light"] .hsp-card-title{color:#0f172a !important}
+:root[data-theme="light"] .hsp-info-label{color:#64748b !important}
+:root[data-theme="light"] .hsp-info-value{color:#0f172a !important}
+:root[data-theme="light"] .hsp-info-value a{color:#2563eb !important}
+:root[data-theme="light"] .hsp-tickets-empty{background:#ffffff !important;border-color:#e2e8f0 !important}
+:root[data-theme="light"] .hsp-tickets-title{color:#0f172a !important}
+:root[data-theme="light"] .hsp-tickets-sub{color:#1e293b !important}
+:root[data-theme="light"] .hsp-tickets-desc{color:#64748b !important}
+:root[data-theme="light"] .hsp-modal{background:#ffffff !important;border-color:#e2e8f0 !important}
+:root[data-theme="light"] .hsp-form-label{color:#0f172a !important}
+:root[data-theme="light"] .hsp-form-input,
+:root[data-theme="light"] .hsp-form-select,
+:root[data-theme="light"] .hsp-form-textarea{background:#ffffff !important;border-color:#cbd5e1 !important;color:#0f172a !important}
+:root[data-theme="light"] .hsp-form-input::placeholder,
+:root[data-theme="light"] .hsp-form-textarea::placeholder{color:#94a3b8 !important}
+:root[data-theme="light"] .hsp-modal-footer{border-top-color:#e2e8f0 !important}
+:root[data-theme="light"] .admin-main button.hsp-btn-cancel{color:#64748b !important}
+:root[data-theme="light"] .admin-main button.hsp-btn-cancel:hover{color:#0f172a !important}
+
+/* Trainer dashboard's General Search wrapper — the dark `<div>` that
+   bands across the search row. Inline style="background:#1e293b...",
+   so we override with !important via the .trn-search-card class added
+   in template/dashboard/index.phtml. Also lift the muted labels +
+   Reset/Show Filters buttons inside (color:#94a3b8 inline) so they
+   stay readable on the white surface. */
+:root[data-theme="light"] .trn-search-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .trn-search-label { color:#64748b !important }
+:root[data-theme="light"] .trn-search-card [style*="color:#94a3b8"] { color:#64748b !important }
+
+/* Trainer Ed Tools / GenAI Tools cards (.edt-card) — hardcoded
+   #1f2937 background. Lift to white + lighter shadow on hover. The
+   icon medallion uses a cyan tint that works on both surfaces, so
+   we leave it alone. */
+:root[data-theme="light"] .edt-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .edt-card:hover { border-color:#cbd5e1 !important; box-shadow:0 10px 24px rgba(15,23,42,0.08) !important }
+:root[data-theme="light"] .edt-card-desc { color:#64748b !important }
+
+/* Developer dashboard — Manage Courses view. The `.dev-*` class
+   family hardcodes #1e293b / #334155 / #fff / #94a3b8 / #e2e8f0
+   throughout. Flip every surface + every text color for light. */
+:root[data-theme="light"] .dev-search-wrap { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dev-search-label { color:#64748b !important }
+:root[data-theme="light"] .dev-search-input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .dev-search-input::placeholder { color:#94a3b8 !important }
+:root[data-theme="light"] .dev-search-input-wrap svg { color:#94a3b8 !important }
+
+:root[data-theme="light"] .dev-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dev-card-title { color:#0f172a !important }
+:root[data-theme="light"] .dev-card-row { border-bottom-color:rgba(15,23,42,0.06) !important }
+:root[data-theme="light"] .dev-card-lbl { color:#64748b !important }
+:root[data-theme="light"] .dev-card-val { color:#1e293b !important }
+:root[data-theme="light"] .dev-card-footer { border-top-color:rgba(15,23,42,0.08) !important }
+:root[data-theme="light"] .dev-card-img-placeholder { background:linear-gradient(135deg,#e2e8f0,#cbd5e1) !important; color:#94a3b8 !important }
+:root[data-theme="light"] .dev-grid.dev-grid-list .dev-card { border-bottom-color:#e2e8f0 !important }
+:root[data-theme="light"] .dev-grid.dev-grid-list .dev-card:last-child { border-bottom-color:#e2e8f0 !important }
+
+/* "Total Courses" h2 (inline style="color:#f1f5f9...") above the
+   search wrapper, plus the muted-slate inline buttons (Reset,
+   Show/Hide Filters, "View:" label). Use attribute selectors scoped
+   to .dev-search-wrap and its siblings. */
+:root[data-theme="light"] .dev-search-wrap [style*="color:#94a3b8"],
+:root[data-theme="light"] .dev-search-row [style*="color:#94a3b8"] { color:#64748b !important }
+:root[data-theme="light"] .dev-search-row [style*="color:#e2e8f0"] { color:#0f172a !important }
+
+/* Edit Course button — idle is muted gray, hover sets color:#fff in
+   dark mode which becomes invisible on white. Idle muted is fine on
+   light too (#64748b reads well), hover lifts to near-black. */
+:root[data-theme="light"] .dev-edit-btn { color:#64748b !important }
+:root[data-theme="light"] .dev-edit-btn:hover { color:#0f172a !important; background:rgba(15,23,42,0.04) !important; border-radius:6px !important }

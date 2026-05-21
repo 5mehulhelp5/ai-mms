@@ -5478,8 +5478,8 @@ if (isset($_lmcRunMap[$_lcdCourseId])) {
             <button class="lmc-tab" onclick="lmcFilter('past',this)">Past Classes</button>
         </div>
         <?php if ($activeRole === 'trainer'): ?>
-        <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:16px;">
-            <div style="font-size:13px;color:#94a3b8;font-weight:600;margin-bottom:10px;">General Search</div>
+        <div class="trn-search-card" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:16px;">
+            <div class="trn-search-label" style="font-size:13px;color:#94a3b8;font-weight:600;margin-bottom:10px;">General Search</div>
             <div class="lmc-search" style="margin-bottom:0;">
                 <div class="lmc-search-input-wrap">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -5735,6 +5735,117 @@ function lmcSetView(view, btn) {
         </table>
     </div>
 </div>
+</div>
+
+<?php /* ===== PANEL: Help & Support (all roles — opened from user menu) ===== */ ?>
+<div id="dash-panel-helpsupport" style="display:none;">
+<div class="edt-wrap" style="max-width:1200px;">
+    <div class="hsp-header-row">
+        <h1 class="edt-title" style="margin:0;">Help &amp; Support</h1>
+        <button type="button" class="hsp-cta-btn" onclick="hspOpenModal()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Raise a New Ticket
+        </button>
+    </div>
+    <div class="hsp-grid">
+        <div class="hsp-card">
+            <h2 class="hsp-card-title">Contact Information</h2>
+            <div class="hsp-info-block">
+                <div class="hsp-info-label">Opening Hours</div>
+                <div class="hsp-info-value">Mon &mdash; Fri, 9:00 AM &mdash; 6:00 PM</div>
+            </div>
+            <div class="hsp-info-block">
+                <div class="hsp-info-label">Support Email</div>
+                <div class="hsp-info-value"><a href="mailto:enquiry@tertiaryinfotech.com">enquiry@tertiaryinfotech.com</a></div>
+            </div>
+        </div>
+        <div class="hsp-card">
+            <h2 class="hsp-card-title">All Tickets</h2>
+            <div class="hsp-tickets-empty">
+                <div class="hsp-tickets-icon">
+                    <svg width="62" height="62" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                </div>
+                <div class="hsp-tickets-title">Need assistance?</div>
+                <div class="hsp-tickets-sub">Go ahead and raise your first ticket</div>
+                <div class="hsp-tickets-desc">Our team will address any issues related to the course, connectivity, sessions, payments and more.</div>
+                <button type="button" class="hsp-cta-btn" onclick="hspOpenModal()">Raise a New Ticket</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Raise Ticket Modal -->
+<div class="hsp-modal-backdrop" id="hsp-modal-backdrop" onclick="hspCloseModal()"></div>
+<div class="hsp-modal" id="hsp-modal" role="dialog" aria-labelledby="hsp-modal-title" aria-hidden="true">
+    <div class="hsp-modal-header">
+        <h3 id="hsp-modal-title">Raise a New Ticket</h3>
+        <button type="button" class="hsp-modal-close" onclick="hspCloseModal()" aria-label="Close">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+    </div>
+    <form class="hsp-modal-form" onsubmit="return hspSubmitTicket(event)">
+        <div class="hsp-modal-body">
+            <div class="hsp-form-field">
+                <label for="hsp-subject" class="hsp-form-label">Subject <span class="hsp-form-required">*</span></label>
+                <input type="text" id="hsp-subject" name="subject" class="hsp-form-input" placeholder="Brief summary of your issue" required>
+            </div>
+            <div class="hsp-form-field">
+                <label for="hsp-category" class="hsp-form-label">Category</label>
+                <select id="hsp-category" name="category" class="hsp-form-select">
+                    <option value="General">General</option>
+                    <option value="Technical Issue">Technical Issue</option>
+                    <option value="Course Content">Course Content</option>
+                    <option value="Billing/Payment">Billing/Payment</option>
+                    <option value="Session/Schedule">Session/Schedule</option>
+                </select>
+            </div>
+            <div class="hsp-form-field">
+                <label for="hsp-description" class="hsp-form-label">Description <span class="hsp-form-required">*</span></label>
+                <textarea id="hsp-description" name="description" class="hsp-form-textarea" placeholder="Describe your issue in detail..." rows="5" required></textarea>
+            </div>
+        </div>
+        <div class="hsp-modal-footer">
+            <button type="button" class="hsp-btn-cancel" onclick="hspCloseModal()">Cancel</button>
+            <button type="submit" class="hsp-btn-submit">Submit Ticket</button>
+        </div>
+    </form>
+</div>
+
+<script type="text/javascript">
+window.hspOpenModal = function() {
+    var b = document.getElementById('hsp-modal-backdrop');
+    var m = document.getElementById('hsp-modal');
+    if (b) b.classList.add('open');
+    if (m) { m.classList.add('open'); m.setAttribute('aria-hidden', 'false'); }
+    var s = document.getElementById('hsp-subject');
+    if (s) setTimeout(function(){ try{s.focus();}catch(e){} }, 60);
+};
+window.hspCloseModal = function() {
+    var b = document.getElementById('hsp-modal-backdrop');
+    var m = document.getElementById('hsp-modal');
+    if (b) b.classList.remove('open');
+    if (m) { m.classList.remove('open'); m.setAttribute('aria-hidden', 'true'); }
+};
+window.hspSubmitTicket = function(ev) {
+    if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+    var s = document.getElementById('hsp-subject');
+    var d = document.getElementById('hsp-description');
+    if (!s || !s.value.trim()) { if (s) s.focus(); return false; }
+    if (!d || !d.value.trim()) { if (d) d.focus(); return false; }
+    /* Frontend mock — no backend persistence wired yet. */
+    alert('Your ticket has been submitted. Our team will be in touch shortly.');
+    var f = document.querySelector('.hsp-modal-form');
+    if (f && typeof f.reset === 'function') f.reset();
+    hspCloseModal();
+    return false;
+};
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        var m = document.getElementById('hsp-modal');
+        if (m && m.classList.contains('open')) hspCloseModal();
+    }
+});
+</script>
 </div>
 
 <?php /* ===== PANEL 5: Ed Tools (Trainer sub-view) ===== */ ?>
@@ -12352,6 +12463,16 @@ document.addEventListener('keydown', function (ev) {
         if ((qsPanel === 'certhistory' || hash === '#certhistory')
             && (role === 'Learner' || role === 'Trainer')) {
             showTrainerSubPanel('certhistory');
+            return;
+        }
+        if (qsPanel === 'helpsupport' || hash === '#helpsupport') {
+            // Help & Support is role-agnostic — accessible from the
+            // user-menu dropdown for every role. Hide all dash panels
+            // manually (no role check) and show only the help panel.
+            var allHP = document.querySelectorAll('[id^="dash-panel-"]');
+            for (var iHP = 0; iHP < allHP.length; iHP++) allHP[iHP].style.display = 'none';
+            var hp = document.getElementById('dash-panel-helpsupport');
+            if (hp) hp.style.display = '';
             return;
         }
         if ((qsPanel === 'classes' || hash === '#classes')

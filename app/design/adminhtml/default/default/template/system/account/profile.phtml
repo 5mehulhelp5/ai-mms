@@ -90,6 +90,66 @@ $roleColors = array(
 .avatar-upload{position:relative;cursor:pointer}
 .avatar-upload input[type=file]{display:none}
 .avatar-upload-label{display:block;text-align:center;color:#06b6d4;font-size:11px;margin-top:6px;cursor:pointer}
+
+/* Appearance section — theme toggle */
+.appearance-section{background:rgba(30,41,59,0.85);border:1px solid #374151;border-radius:16px;padding:32px;margin-bottom:24px}
+.appearance-row{display:flex;align-items:center;gap:16px;padding:16px 20px;background:rgba(15,23,42,0.5);border:1px solid #374151;border-radius:12px}
+.appearance-icon{width:44px;height:44px;border-radius:10px;background:#374151;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.appearance-icon svg{display:none}
+:root:not([data-theme="light"]) .appearance-icon .appearance-icon-moon{display:block}
+:root[data-theme="light"] .appearance-icon .appearance-icon-sun{display:block}
+.appearance-text{flex:1;min-width:0}
+.appearance-title{color:#f1f5f9;font-size:15px;font-weight:600;margin:0 0 2px}
+.appearance-sub{color:#94a3b8;font-size:13px;margin:0}
+/* §18 in sidebar-nav.css has `.admin-main button` rule (specificity
+   0,0,1,1) with !important padding/min-height/border/etc. To win,
+   our selector must be MORE specific — we prefix every rule with
+   `.admin-main` so the selector becomes `.admin-main .theme-mode-switch`
+   (0,0,2,0) which beats `.admin-main button` on the class count. */
+.admin-main .theme-mode-switch{width:64px !important;height:32px !important;min-height:32px !important;min-width:64px !important;max-width:64px !important;border-radius:999px !important;background:#4b5563 !important;background-image:none !important;border:0 !important;border-width:0 !important;position:relative !important;cursor:pointer !important;padding:0 !important;margin:0 !important;transition:background 0.2s ease;flex-shrink:0;display:inline-block !important;box-shadow:none !important;color:transparent !important;font-size:0 !important;line-height:1 !important;vertical-align:middle !important;overflow:visible !important}
+.admin-main .theme-mode-switch.on{background:#2563eb !important;background-image:none !important}
+.admin-main .theme-mode-switch:hover{background:#525f70 !important;border:0 !important}
+.admin-main .theme-mode-switch.on:hover{background:#1d4ed8 !important}
+.admin-main .theme-mode-switch:focus-visible{outline:none !important;box-shadow:0 0 0 3px rgba(96,165,250,0.35) !important}
+.admin-main .theme-mode-switch-thumb{position:absolute !important;top:3px !important;left:3px !important;width:26px !important;height:26px !important;background:#fff !important;border-radius:999px !important;transition:transform 0.22s ease;box-shadow:0 1px 3px rgba(0,0,0,0.3) !important;display:block !important}
+.admin-main .theme-mode-switch.on .theme-mode-switch-thumb{transform:translateX(32px)}
+
+/* Light theme overrides — every card on this page hardcodes its
+   colors (rgba(30,41,59,0.85), #374151, #f1f5f9, #94a3b8) instead of
+   the design tokens, so the global theme flip can't reach them.
+   Re-paint each surface on a light background and lift text to dark. */
+:root[data-theme="light"] .profile-card,
+:root[data-theme="light"] .bio-section,
+:root[data-theme="light"] .login-section,
+:root[data-theme="light"] .appearance-section,
+:root[data-theme="light"] .edit-section { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .profile-name,
+:root[data-theme="light"] .bio-title,
+:root[data-theme="light"] .bio-item .bio-value,
+:root[data-theme="light"] .login-item .bio-value,
+:root[data-theme="light"] .appearance-title,
+:root[data-theme="light"] .edit-title { color:#0f172a !important }
+:root[data-theme="light"] .profile-subtitle,
+:root[data-theme="light"] .bio-item .bio-label,
+:root[data-theme="light"] .login-item .bio-label,
+:root[data-theme="light"] .appearance-sub,
+:root[data-theme="light"] .edit-field label,
+:root[data-theme="light"] .edit-note { color:#64748b !important }
+:root[data-theme="light"] .appearance-row { background:#f8fafc !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .appearance-icon { background:#e2e8f0 !important }
+:root[data-theme="light"] .admin-main .theme-mode-switch { background:#cbd5e1 !important }
+:root[data-theme="light"] .admin-main .theme-mode-switch.on { background:#2563eb !important }
+:root[data-theme="light"] .admin-main .theme-mode-switch:hover { background:#94a3b8 !important }
+:root[data-theme="light"] .admin-main .theme-mode-switch.on:hover { background:#1d4ed8 !important }
+:root[data-theme="light"] .btn-reset-pw { color:#0f172a !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .btn-reset-pw:hover { border-color:#64748b !important }
+:root[data-theme="light"] .edit-section-divider { border-top-color:#e2e8f0 !important }
+:root[data-theme="light"] .edit-field input,
+:root[data-theme="light"] .edit-field select { background:#ffffff !important; color:#0f172a !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .btn-cancel { color:#64748b !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .btn-cancel:hover { color:#0f172a !important; border-color:#64748b !important }
+:root[data-theme="light"] .avatar-upload-label { color:#2563eb !important }
+:root[data-theme="light"] .login-dots { color:#0f172a !important }
 </style>
 
 <?php echo $this->getMessagesBlock()->toHtml() ?>
@@ -152,6 +212,24 @@ $roleColors = array(
         <div class="login-item"><p class="bio-label">Login ID</p><p class="bio-value"><?php echo $email ?></p></div>
         <div class="login-item"><p class="bio-label">Password</p><p class="bio-value login-dots">••••••••••</p></div>
         <button type="button" class="btn-reset-pw" onclick="toggleEdit(); document.getElementById('pf-new-pw').focus();">Reset Password</button>
+    </div>
+</div>
+
+<!-- APPEARANCE -->
+<div class="appearance-section" id="appearance-section">
+    <h3 class="bio-title">Appearance</h3>
+    <div class="appearance-row">
+        <div class="appearance-icon">
+            <svg class="appearance-icon-moon" width="22" height="22" viewBox="0 0 24 24" fill="#fbbf24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="appearance-icon-sun" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4" fill="#fbbf24"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        </div>
+        <div class="appearance-text">
+            <p class="appearance-title">Theme Mode</p>
+            <p class="appearance-sub" id="appearance-sub">Dark theme active</p>
+        </div>
+        <button type="button" class="theme-mode-switch" id="theme-mode-switch" onclick="adminToggleTheme(); refreshAppearanceUI();" role="switch" aria-label="Toggle theme">
+            <span class="theme-mode-switch-thumb"></span>
+        </button>
     </div>
 </div>
 
@@ -272,4 +350,12 @@ function previewImage(input) {
         reader.readAsDataURL(input.files[0]);
     }
 }
+function refreshAppearanceUI() {
+    var t = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    var sub = document.getElementById('appearance-sub');
+    var sw  = document.getElementById('theme-mode-switch');
+    if (sub) sub.textContent = (t === 'light') ? 'Light theme active' : 'Dark theme active';
+    if (sw)  sw.classList.toggle('on', t === 'dark');
+}
+refreshAppearanceUI();
 </script>
