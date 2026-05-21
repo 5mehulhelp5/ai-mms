@@ -75,6 +75,26 @@ if [ -d "$SEED_DIR" ]; then
     chmod -R a+r "$TARGET_DIR" 2>/dev/null || true
 fi
 
+# Seed WYSIWYG assets referenced by CMS / product descriptions (e.g. the
+# HRD Corp Claimable logo on Malaysia course pages). The media/ tree is a
+# Coolify-mounted volume, so the build-time COPY can't reach it. Use a
+# COPY-IF-MISSING policy — never overwrite, because admins upload arbitrary
+# wysiwyg files via the CMS and we must not clobber them.
+WYS_SEED_DIR=/var/www/html/docker/seeds/wysiwyg
+WYS_TARGET_DIR=/var/www/html/media/wysiwyg
+if [ -d "$WYS_SEED_DIR" ]; then
+    mkdir -p "$WYS_TARGET_DIR"
+    for f in "$WYS_SEED_DIR"/*; do
+        [ -f "$f" ] || continue
+        name=$(basename "$f")
+        if [ ! -f "$WYS_TARGET_DIR/$name" ]; then
+            cp "$f" "$WYS_TARGET_DIR/$name" && echo "entrypoint: seeded $WYS_TARGET_DIR/$name"
+        fi
+    done
+    chown -R www-data:www-data "$WYS_TARGET_DIR" 2>/dev/null || true
+    chmod -R a+r "$WYS_TARGET_DIR" 2>/dev/null || true
+fi
+
 echo "entrypoint: running migrations..."
 
 MAX_ATTEMPTS=12

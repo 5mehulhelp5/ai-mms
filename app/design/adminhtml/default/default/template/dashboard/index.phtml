@@ -2207,7 +2207,17 @@ if ($_devLegacyCountry !== '' && $_devReq->getParam('store', null) === null
     Mage::helper('branchscope')->persistFromRequest();
 }
 
-$_devActiveStoreId = (int) Mage::helper('branchscope')->getActiveStoreId();
+// Manage Courses defaults to "All stores" so developers see every country's
+// catalog in one list. Only honour an EXPLICIT ?store= in the URL — we
+// intentionally ignore branchscope's session stickiness here, otherwise a
+// Singapore pill picked on some other admin page bleeds in and hides
+// other-country courses (e.g. Malaysia M945).
+$_devStoreParam = Mage::app()->getRequest()->getParam('store', null);
+if ($_devStoreParam !== null && ctype_digit((string) $_devStoreParam)) {
+    $_devActiveStoreId = (int) $_devStoreParam;
+} else {
+    $_devActiveStoreId = 0; // All
+}
 $_devCountry       = isset($_devStoreToCountry[$_devActiveStoreId])
     ? $_devStoreToCountry[$_devActiveStoreId]
     : 'All';
@@ -2386,6 +2396,37 @@ try {
         );
     }
 } catch (Exception $e) {}
+
+// Country / store badges per card. Look up catalog_product_website rows for
+// the products on this page so each card can show small SG / MY / NG / GH /
+// BT / IN pills indicating which country storefronts carry the course.
+// Keyed by product_id → array of website_ids (matches $_devCountryMap).
+$_devProductWebsites = array();
+$_devWebsiteLabels   = array(
+    1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG',
+    5 => 'BT', 6 => 'IN', 7 => 'INF',
+);
+$_devWebsiteFlags    = array(
+    1 => '🇸🇬', 2 => '🇲🇾', 3 => '🇬🇭', 4 => '🇳🇬',
+    5 => '🇧🇹', 6 => '🇮🇳', 7 => '',
+);
+if (!empty($_devCourses)) {
+    try {
+        $_pids = array();
+        foreach ($_devCourses as $_dc) { $_pids[] = (int) $_dc['id']; }
+        if ($_pids) {
+            $_pwRead = Mage::getSingleton('core/resource')->getConnection('core_read');
+            $_pwTbl2 = $_pwRead->getTableName('catalog_product_website');
+            $_pwRows = $_pwRead->fetchAll(
+                "SELECT product_id, website_id FROM {$_pwTbl2} WHERE product_id IN (" . implode(',', $_pids) . ")"
+            );
+            foreach ($_pwRows as $_pwR) {
+                $_devProductWebsites[(int) $_pwR['product_id']][] = (int) $_pwR['website_id'];
+            }
+        }
+    } catch (Exception $_pwEx) {}
+}
+
 $_devTotalPages = max(1, (int) ceil($_devTotalCount / $_devPageSize));
 // "Total Courses" header value. Stable per-tab count, independent of
 // search / type / courseware filters.
@@ -2480,6 +2521,17 @@ endif; // end if ($_courseManagerActive) — closes the $_devCollection block
             </div>
             <div class="dev-card-body">
                 <div class="dev-card-title"><span><?php echo htmlspecialchars($_dc['name']) ?></span><?php if ($_dcRef): ?><span class="dev-card-tgs-sub"><?php echo htmlspecialchars($_dcRef) ?></span><?php endif; ?></div>
+                <?php
+                $_dcWebsites = isset($_devProductWebsites[(int)$_dc['id']]) ? $_devProductWebsites[(int)$_dc['id']] : array();
+                sort($_dcWebsites);
+                ?>
+                <?php if (!empty($_dcWebsites)): ?>
+                <div class="dev-card-row" style="align-items:center;"><span class="dev-card-lbl">Stores:</span><span class="dev-card-val" style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;">
+                    <?php foreach ($_dcWebsites as $_wid): if (!isset($_devWebsiteLabels[$_wid])) continue; ?>
+                        <span class="dev-store-badge" style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#1e3a5f;color:#bfdbfe;border:1px solid #3b82f6;border-radius:10px;font-size:11px;font-weight:600;line-height:1.4;"><?php echo $_devWebsiteFlags[$_wid] ?> <?php echo $_devWebsiteLabels[$_wid] ?></span>
+                    <?php endforeach; ?>
+                </span></div>
+                <?php endif; ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Course Code:</span><span class="dev-card-val"><?php echo $_dcRef ? htmlspecialchars($_dcRef) : '—' ?></span></div>
                 <?php $_runRank = isset($_devRankMap[(int)$_dc['id']]) ? $_devRankMap[(int)$_dc['id']] : 0; ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Course Run ID:</span><span class="dev-card-val"><?php echo $_devPrefix . '-' . (100000 + $_runRank) ?></span></div>
