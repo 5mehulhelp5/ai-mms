@@ -2949,3 +2949,42 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .trn-table tbody tr { border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .trn-table tbody tr:hover { background:rgba(37,99,235,0.05) !important }
 /* tbody td uses var(--t2), auto-flips */
+
+/* ============================================================
+   Light theme — Assign Trainer panel (.at-* class family)
+   ============================================================ */
+:root[data-theme="light"] .at-title { color:#0f172a !important }
+:root[data-theme="light"] .at-back-link { color:#2563eb !important }
+:root[data-theme="light"] .at-back-link:hover { color:#1d4ed8 !important }
+
+/* KPI cards (Upcoming / Trainers Assigned / Missing Trainers) */
+:root[data-theme="light"] .at-kpi { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .at-kpi-lbl { color:#64748b !important }
+/* Nums keep blue/green/red semantic colors */
+
+/* Tabs strip */
+:root[data-theme="light"] .at-tabs { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] button.at-tab,
+:root[data-theme="light"] button.at-tab:hover,
+:root[data-theme="light"] button.at-tab:focus { color:#64748b !important }
+:root[data-theme="light"] button.at-tab:hover { color:#0f172a !important }
+/* .active stays solid blue */
+
+/* Search input */
+:root[data-theme="light"] .at-search-input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .at-search-input:focus { border-color:#2563eb !important }
+:root[data-theme="light"] .at-search-input::placeholder { color:#94a3b8 !important }
+
+/* Filter row */
+:root[data-theme="light"] .at-checkbox-wrap { color:#1e293b !important }
+:root[data-theme="light"] .at-filter-label { color:#64748b !important }
+
+/* Table */
+:root[data-theme="light"] .at-table-wrap { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .at-table thead th { background:#f8fafc !important; color:#64748b !important; border-bottom-color:#e2e8f0 !important }
+:root[data-theme="light"] .at-table tbody td { color:#1e293b !important; border-bottom-color:#e2e8f0 !important }
+:root[data-theme="light"] .at-table tbody tr:hover { background:rgba(37,99,235,0.05) !important }
+:root[data-theme="light"] .at-course-code { color:#1e293b !important }
+:root[data-theme="light"] .at-trainer-empty { color:#64748b !important }
+/* Trainer pills + action buttons (edit/assign) already use semantic
+   blue/green tints — read fine on both themes */

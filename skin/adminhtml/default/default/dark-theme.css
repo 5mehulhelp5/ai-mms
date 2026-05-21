@@ -417,6 +417,19 @@ body .header-top {
     margin-left: 0 !important;
 }
 /* Wider tree column on the Categories page — Magento's default reserved 25em. */
+/* Category edit form: Magento renders an empty <tr class="grid">
+   at the top of every fieldset's form-list table — it carries only
+   hidden inputs (form_key, hidden defaults) but still reserves a
+   row's worth of vertical space (~24px), showing as a blank band
+   between the GENERAL INFORMATION header and the Name field.
+   Hide any tr inside #category_edit_form that contains only hidden
+   inputs (no visible label / input / select / textarea / button).
+   Inspected element: tr.grid 399.2x24.8 — verified empty placeholder.
+   Scoped to the catalog_category routes via #category_edit_form. */
+#category_edit_form table.form-list > tbody > tr:has(input[type="hidden"]):not(:has(label, input[type="text"], input[type="number"], input[type="email"], input[type="url"], input[type="password"], input[type="checkbox"], input[type="radio"], input[type="file"], select, textarea, button, a)) {
+    display: none !important;
+}
+
 body.adminhtml-catalog-category-edit .side-col,
 body.adminhtml-catalog-category-index .side-col,
 body.catalog-categories .side-col {
