@@ -84,13 +84,16 @@ WYS_SEED_DIR=/var/www/html/docker/seeds/wysiwyg
 WYS_TARGET_DIR=/var/www/html/media/wysiwyg
 if [ -d "$WYS_SEED_DIR" ]; then
     mkdir -p "$WYS_TARGET_DIR"
-    for f in "$WYS_SEED_DIR"/*; do
-        [ -f "$f" ] || continue
-        name=$(basename "$f")
-        if [ ! -f "$WYS_TARGET_DIR/$name" ]; then
-            cp "$f" "$WYS_TARGET_DIR/$name" && echo "entrypoint: seeded $WYS_TARGET_DIR/$name"
+    # find -type f handles nested seed paths (e.g. infortis/ultimo/custom/*).
+    # Relative path is preserved on the target side.
+    while IFS= read -r f; do
+        rel="${f#$WYS_SEED_DIR/}"
+        target="$WYS_TARGET_DIR/$rel"
+        if [ ! -f "$target" ]; then
+            mkdir -p "$(dirname "$target")"
+            cp "$f" "$target" && echo "entrypoint: seeded $target"
         fi
-    done
+    done < <(find "$WYS_SEED_DIR" -type f)
     chown -R www-data:www-data "$WYS_TARGET_DIR" 2>/dev/null || true
     chmod -R a+r "$WYS_TARGET_DIR" 2>/dev/null || true
 fi
