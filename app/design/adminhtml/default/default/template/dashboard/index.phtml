@@ -4341,6 +4341,12 @@ function devSetView(view) {
     .qrt-wrap .ql-editor strong{color:#f1f5f9;}
     .qrt-wrap .ql-editor blockquote{border-left:3px solid #334155;color:#cbd5e1;}
     .qrt-wrap .ql-editor pre.ql-syntax{background:#1e293b;color:#e2e8f0;}
+    /* Neutralise inline background-color / background on saved content so paste-spam
+       greys AND legitimate frontend funding-panel greys do not render as opaque bars
+       over the dark admin theme. Editor-only — the saved HTML keeps its styles intact
+       so the storefront still renders the grey panel. */
+    .qrt-wrap .ql-editor [style*="background"]{background-color:transparent !important;background-image:none !important;}
+    .qrt-wrap .ql-editor [style*="background"] *{background-color:transparent !important;background-image:none !important;}
     /* Font family picker labels — show font name in its own face */
     .ql-font-arial            { font-family: Arial, sans-serif; }
     .ql-font-helvetica        { font-family: Helvetica, sans-serif; }
