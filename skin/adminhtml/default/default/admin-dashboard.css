@@ -2988,3 +2988,60 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .at-trainer-empty { color:#64748b !important }
 /* Trainer pills + action buttons (edit/assign) already use semantic
    blue/green tints — read fine on both themes */
+
+/* ============================================================
+   Light theme — API Summary + Credentials panels (.cs-* family)
+   ============================================================
+   #dash-panel-api_summary + #dash-panel-credentials share .cs-wrap,
+   .cs-section, .cs-card classes and tons of inline-styled blocks
+   (badge pills, request-body <pre>, error tables). Flip all the
+   neutrals — cyan accents preserved. */
+:root[data-theme="light"] .cs-wrap { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .cs-header { border-bottom-color:#e2e8f0 !important }
+:root[data-theme="light"] .cs-header-info h1 { color:#0f172a !important }
+:root[data-theme="light"] .cs-header-info p { color:#64748b !important }
+/* .cs-logo + .cs-edit-btn keep their cyan accent — works on both */
+:root[data-theme="light"] .cs-section-head { border-bottom-color:#e2e8f0 !important }
+:root[data-theme="light"] .cs-section-head h2 { color:#0f172a !important }
+:root[data-theme="light"] .cs-section-head .cs-caret { color:#64748b !important }
+:root[data-theme="light"] .cs-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .cs-card-title { color:#0f172a !important }
+:root[data-theme="light"] .cs-status.disabled { color:#64748b !important }
+:root[data-theme="light"] .cs-input-masked { background:#ffffff !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .cs-input { color:#0f172a !important; border-color:#cbd5e1 !important }
+
+/* Inline-styled API pills, Copy buttons, X-Api-Key chips, request/
+   response <pre> blocks, error-table cells — all live inside
+   #dash-panel-api_summary. Attribute selectors flip the common
+   inline patterns. */
+:root[data-theme="light"] #dash-panel-api_summary [style*="background:#0f172a"] {
+    background: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+}
+:root[data-theme="light"] #dash-panel-api_summary [style*="color:#e2e8f0"] { color:#0f172a !important }
+:root[data-theme="light"] #dash-panel-api_summary [style*="color:#94a3b8"] { color:#64748b !important }
+:root[data-theme="light"] #dash-panel-api_summary [style*="color:#64748b"] { color:#64748b !important } /* keep muted */
+:root[data-theme="light"] #dash-panel-api_summary [style*="border:1px solid #334155"] { border-color:#cbd5e1 !important }
+/* Cyan ACTIVE pill border + text stay cyan — semantic */
+
+/* ============================================================
+   Light theme — Credentials panel (.crd-* class family)
+   ============================================================
+   Inline <style> block at index.phtml:8405+. Each .crd-card holds a
+   labeled API-key/secret form (Anthropic, MailerLite, Sender Identity,
+   etc.). Flip all the dark neutrals; cyan accent on .has-value dot
+   stays. */
+:root[data-theme="light"] .crd-title { color:#0f172a !important }
+:root[data-theme="light"] .crd-sub { color:#64748b !important }
+:root[data-theme="light"] .crd-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .crd-card h3 { color:#0f172a !important }
+:root[data-theme="light"] .crd-card h3 .crd-dot { background:#cbd5e1 !important }
+/* .has-value dot keeps cyan tint, semantic — works on both */
+:root[data-theme="light"] .crd-label { color:#64748b !important }
+:root[data-theme="light"] .crd-input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .crd-input::placeholder { color:#94a3b8 !important }
+:root[data-theme="light"] .crd-input[readonly] { color:#64748b !important }
+:root[data-theme="light"] .crd-hint { color:#64748b !important }
+:root[data-theme="light"] .crd-btn-ghost { color:#64748b !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .crd-btn-ghost:hover { color:#0f172a !important; border-color:#94a3b8 !important }
+/* .crd-btn-primary keeps its cyan gradient — works on both surfaces */

@@ -48,4 +48,19 @@
 .fieldset>.field:not(.choice)>.label { text-align:left !important; }
 #search_mini_form .form-search .input-text {color:#000; font-weight:bold; border-color:#999;}
 
-.sp-methods .form-list { padding:0px 10px 0px 22px !important; } 
+.sp-methods .form-list { padding:0px 10px 0px 22px !important; }
+
+/* Course detail page → "Course Details" tab content. The course
+   description is rendered as alternating <p> rows:
+       <p><strong>Topic N: ...</strong></p>     (topic heading)
+       <p><em>Item ...</em></p>                  (item rows)
+   Topic headings keep their default top margin so each topic group
+   is visually separated. Item rows: collapse all margins so they
+   sit flush against each other, and prepend a bullet glyph. */
+.tabs-panels .panel .std p:not(:has(strong)) {
+    margin: 0 !important;
+}
+.tabs-panels .panel .std p:not(:has(strong))::before {
+    content: "\2022\00a0\00a0"; /* bullet + two nbsp */
+    color: inherit;
+}
