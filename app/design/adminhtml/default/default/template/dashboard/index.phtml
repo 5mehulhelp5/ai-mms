@@ -4245,6 +4245,115 @@ function devSetView(view) {
     <?php /* per-panel footer removed — the single site footer is page.phtml's .admin-page-footer */ ?>
 </div>
 </form>
+
+<?php /* ===== Quill (WYSIWYG) loader =====
+        Loads Quill 2.x via single-UMD CDN. The actual editor wiring
+        happens in skin/adminhtml/default/default/js/course-topics-tools.js
+        (Editor / HTML / Clean-Up toggle around each .dcf-textarea-rich). */ ?>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
+<style>
+    /* Minimalist, transparent toolbar. No card / border / accent colors —
+       just icon glyphs floating above the editor surface. The 28x28 button
+       size matches the Editor / HTML toggle buttons sitting above. */
+    .qrt-wrap{border:0;border-radius:0;background:transparent;overflow:visible;}
+    .qrt-wrap .ql-toolbar.ql-snow{
+        background:transparent !important;border:0 !important;
+        padding:0 0 6px !important;display:flex;flex-wrap:wrap;align-items:center;gap:2px;
+    }
+    /* The global `body button` rule blows up toolbar buttons (28 → ~50px,
+       font-size lost, SVGs invisible). Pin everything to 28x28 transparent. */
+    .qrt-wrap .ql-toolbar.ql-snow button,
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker-label{
+        width:28px !important;min-width:28px !important;max-width:28px !important;
+        height:28px !important;min-height:28px !important;max-height:28px !important;
+        padding:4px !important;margin:0 !important;
+        border:0 !important;border-radius:4px !important;
+        background:transparent !important;background-image:none !important;
+        box-shadow:none !important;text-shadow:none !important;
+        line-height:1 !important;font-size:0 !important;
+        display:inline-flex !important;align-items:center !important;justify-content:center !important;
+        flex:0 0 28px !important;box-sizing:border-box !important;
+        color:#94a3b8 !important;
+    }
+    .qrt-wrap .ql-toolbar.ql-snow button:hover,
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker-label:hover{
+        background:rgba(148,163,184,.08) !important;color:#e2e8f0 !important;
+    }
+    .qrt-wrap .ql-toolbar.ql-snow button.ql-active,
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker-label.ql-active{
+        color:#60a5fa !important;background:transparent !important;
+    }
+    .qrt-wrap .ql-toolbar.ql-snow button svg,
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker-label svg{
+        width:14px !important;height:14px !important;float:none !important;
+    }
+    .qrt-wrap .ql-toolbar.ql-snow .ql-stroke{stroke:currentColor !important;}
+    .qrt-wrap .ql-toolbar.ql-snow .ql-fill{fill:currentColor !important;}
+    /* Picker dropdowns (heading / font) need width for label text. */
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker.ql-header,
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker.ql-font{display:inline-flex !important;}
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker.ql-header .ql-picker-label,
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker.ql-font   .ql-picker-label{
+        width:auto !important;min-width:90px !important;max-width:none !important;
+        padding:0 20px 0 6px !important;font-size:12px !important;
+        justify-content:flex-start !important;color:#94a3b8 !important;
+    }
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker-label::before{font-size:12px !important;color:inherit !important;}
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker-options{
+        background:#0f172a !important;border:1px solid #334155 !important;border-radius:6px !important;
+        box-shadow:0 8px 24px rgba(0,0,0,.4) !important;
+    }
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker-item{color:#cbd5e1 !important;font-size:12px !important;}
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker-item:hover,
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker-item.ql-selected{color:#60a5fa !important;}
+    .qrt-wrap .ql-toolbar.ql-snow .ql-formats{display:inline-flex;align-items:center;margin-right:10px !important;}
+    .qrt-wrap .ql-toolbar.ql-snow .ql-formats + .ql-formats{
+        border-left:1px solid rgba(148,163,184,.15);padding-left:8px;
+    }
+    .qrt-wrap .ql-toolbar.ql-snow .ql-stroke{stroke:#cbd5e1;}
+    .qrt-wrap .ql-toolbar.ql-snow .ql-fill,.qrt-wrap .ql-toolbar.ql-snow .ql-stroke.ql-fill{fill:#cbd5e1;}
+    .qrt-wrap .ql-toolbar.ql-snow button:hover .ql-stroke,
+    .qrt-wrap .ql-toolbar.ql-snow button.ql-active .ql-stroke,
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker-label:hover .ql-stroke,
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker-label.ql-active .ql-stroke{stroke:#60a5fa;}
+    .qrt-wrap .ql-toolbar.ql-snow button:hover .ql-fill,
+    .qrt-wrap .ql-toolbar.ql-snow button.ql-active .ql-fill{fill:#60a5fa;}
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker{color:#cbd5e1;}
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker-options{background:#0f172a;border-color:#334155;}
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker-item{color:#cbd5e1;}
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker-item:hover,
+    .qrt-wrap .ql-toolbar.ql-snow .ql-picker-item.ql-selected{color:#60a5fa;}
+    .qrt-wrap .ql-container.ql-snow{
+        border:1px solid rgba(148,163,184,.15) !important;border-radius:6px !important;
+        background:transparent !important;font-family:inherit;font-size:14px;
+    }
+    .qrt-wrap .ql-editor{min-height:180px;max-height:520px;color:#e2e8f0;background:transparent !important;line-height:1.6;padding:10px 12px;}
+    .qrt-wrap .ql-editor.ql-blank::before{color:#64748b;font-style:normal;}
+    .qrt-wrap .ql-editor h1,.qrt-wrap .ql-editor h2,.qrt-wrap .ql-editor h3{color:#f1f5f9;}
+    .qrt-wrap .ql-editor a{color:#60a5fa;}
+    .qrt-wrap .ql-editor strong{color:#f1f5f9;}
+    .qrt-wrap .ql-editor blockquote{border-left:3px solid #334155;color:#cbd5e1;}
+    .qrt-wrap .ql-editor pre.ql-syntax{background:#1e293b;color:#e2e8f0;}
+    /* Font family picker labels — show font name in its own face */
+    .ql-font-arial            { font-family: Arial, sans-serif; }
+    .ql-font-helvetica        { font-family: Helvetica, sans-serif; }
+    .ql-font-verdana          { font-family: Verdana, sans-serif; }
+    .ql-font-times-new-roman  { font-family: "Times New Roman", serif; }
+    .ql-font-courier-new      { font-family: "Courier New", monospace; }
+    .ql-font-georgia          { font-family: Georgia, serif; }
+    .ql-font-tahoma           { font-family: Tahoma, sans-serif; }
+    .ql-font-trebuchet-ms     { font-family: "Trebuchet MS", sans-serif; }
+    .ql-picker.ql-font .ql-picker-label[data-value="arial"]::before,           .ql-picker.ql-font .ql-picker-item[data-value="arial"]::before           { content: "Arial"; font-family: Arial; }
+    .ql-picker.ql-font .ql-picker-label[data-value="helvetica"]::before,       .ql-picker.ql-font .ql-picker-item[data-value="helvetica"]::before       { content: "Helvetica"; font-family: Helvetica; }
+    .ql-picker.ql-font .ql-picker-label[data-value="verdana"]::before,         .ql-picker.ql-font .ql-picker-item[data-value="verdana"]::before         { content: "Verdana"; font-family: Verdana; }
+    .ql-picker.ql-font .ql-picker-label[data-value="times-new-roman"]::before, .ql-picker.ql-font .ql-picker-item[data-value="times-new-roman"]::before { content: "Times New Roman"; font-family: "Times New Roman"; }
+    .ql-picker.ql-font .ql-picker-label[data-value="courier-new"]::before,     .ql-picker.ql-font .ql-picker-item[data-value="courier-new"]::before     { content: "Courier New"; font-family: "Courier New"; }
+    .ql-picker.ql-font .ql-picker-label[data-value="georgia"]::before,         .ql-picker.ql-font .ql-picker-item[data-value="georgia"]::before         { content: "Georgia"; font-family: Georgia; }
+    .ql-picker.ql-font .ql-picker-label[data-value="tahoma"]::before,          .ql-picker.ql-font .ql-picker-item[data-value="tahoma"]::before          { content: "Tahoma"; font-family: Tahoma; }
+    .ql-picker.ql-font .ql-picker-label[data-value="trebuchet-ms"]::before,    .ql-picker.ql-font .ql-picker-item[data-value="trebuchet-ms"]::before    { content: "Trebuchet MS"; font-family: "Trebuchet MS"; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+
 <script>
 window.dcfToggleNavGroup = function(headBtn){
     var grp = headBtn.closest('.dcf-nav-group');

@@ -1,8 +1,70 @@
- <script src="https://www.google.com/recaptcha/api.js"></script>
+<script src="https://www.google.com/recaptcha/api.js"></script>
+<?php /* All styles below are scoped to `.tc-contact` so they don't bleed into
+        the rest of the Ultimo theme. The form keeps its original field
+        names (name/email/company/telephone/courses/comment) so that the
+        existing "Tertiary Courses Contact Form" email template still
+        resolves `{{var data.*}}` correctly. */ ?>
 <style>
-.form-list textarea {
-    height: 13em !important;
-    width: 90% !important;
+.tc-contact{max-width:680px;margin:0 auto;}
+.tc-contact .tc-hero{background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 100%);color:#fff;border-radius:14px;padding:28px 28px;margin-bottom:22px;box-shadow:0 10px 30px rgba(30,58,138,.18);}
+.tc-contact .tc-hero h1{color:#fff;margin:0 0 8px;font-size:28px;line-height:1.2;font-weight:700;}
+.tc-contact .tc-hero p{color:#dbeafe;margin:0;font-size:15px;line-height:1.55;}
+.tc-contact .tc-hero ul{list-style:none;padding:0;margin:14px 0 0;display:flex;flex-wrap:wrap;gap:8px 18px;}
+.tc-contact .tc-hero ul li{color:#e0e7ff;font-size:13px;display:inline-flex;align-items:center;gap:6px;}
+.tc-contact .tc-hero ul li::before{content:"";width:16px;height:16px;background:#22c55e;border-radius:50%;display:inline-block;position:relative;}
+.tc-contact .tc-hero ul li{position:relative;padding-left:22px;}
+.tc-contact .tc-hero ul li::after{content:"";position:absolute;left:4px;top:50%;width:8px;height:4px;border:2px solid #fff;border-top:0;border-right:0;transform:translateY(-70%) rotate(-45deg);}
+
+.tc-contact .tc-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:26px 28px;box-shadow:0 4px 14px rgba(15,23,42,.04);}
+.tc-contact .tc-card h2{font-size:20px;font-weight:700;color:#0f172a;margin:0 0 18px;padding:0;border:0;}
+
+.tc-contact form ul.form-list{list-style:none;padding:0;margin:0;}
+.tc-contact form ul.form-list li{margin:0 0 14px;background:transparent;border:0;padding:0;}
+.tc-contact form ul.form-list li.fields{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.tc-contact form ul.form-list li.fields .field{margin:0;}
+.tc-contact form label{display:block;font-weight:600;color:#0f172a;font-size:13.5px;margin:0 0 6px;}
+.tc-contact form label.required em{color:#e11d48;font-style:normal;margin-right:3px;}
+.tc-contact form .input-box{width:100%;}
+.tc-contact form input.input-text,
+.tc-contact form textarea.input-text{
+  width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid #d1d5db;border-radius:10px;
+  font-size:14.5px;color:#0f172a;background:#fff;transition:border-color .15s ease,box-shadow .15s ease;
+  font-family:inherit;line-height:1.4;height:auto !important;
+}
+.tc-contact form input.input-text:focus,
+.tc-contact form textarea.input-text:focus{
+  outline:0;border-color:#2563eb;box-shadow:0 0 0 4px rgba(37,99,235,.14);
+}
+.tc-contact form input.input-text::placeholder,
+.tc-contact form textarea.input-text::placeholder{color:#9ca3af;}
+.tc-contact form textarea.input-text{min-height:140px;resize:vertical;width:100% !important;}
+
+.tc-contact .buttons-set{margin-top:18px;padding:0;border:0;text-align:left;display:flex;flex-direction:column;gap:10px;}
+.tc-contact .buttons-set p.required{color:#6b7280;font-size:12.5px;margin:0;}
+.tc-contact .buttons-set .error{color:#dc2626;font-size:13px;line-height:1.5;min-height:0;}
+.tc-contact .buttons-set .error:empty{display:none;}
+.tc-contact button.tc-submit{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 100%);
+  color:#fff;border:0;border-radius:12px;padding:14px 28px;
+  font-size:15.5px;font-weight:700;letter-spacing:.2px;cursor:pointer;
+  box-shadow:0 8px 18px rgba(30,58,138,.28);
+  transition:transform .15s ease,box-shadow .15s ease,filter .15s ease;
+  width:auto;align-self:flex-start;min-width:200px;
+}
+.tc-contact button.tc-submit:hover{transform:translateY(-1px);box-shadow:0 12px 24px rgba(30,58,138,.34);filter:brightness(1.05);}
+.tc-contact button.tc-submit:active{transform:translateY(0);box-shadow:0 6px 14px rgba(30,58,138,.28);}
+.tc-contact button.tc-submit svg{width:18px;height:18px;}
+
+.tc-contact .tc-trust{color:#6b7280;font-size:12.5px;margin:10px 0 0;display:inline-flex;align-items:center;gap:6px;}
+.tc-contact .tc-trust svg{width:14px;height:14px;color:#22c55e;}
+
+@media (max-width:600px){
+  .tc-contact form ul.form-list li.fields{grid-template-columns:1fr;}
+  .tc-contact .tc-hero{padding:22px 20px;}
+  .tc-contact .tc-hero h1{font-size:23px;}
+  .tc-contact .tc-card{padding:20px 18px;}
+  .tc-contact button.tc-submit{width:100%;}
 }
 </style>
 <div id="messages_product_view"><?php echo $this->getMessagesBlock()->getGroupedHtml() ?></div>
@@ -12,134 +74,150 @@
 <div class=" grid12-12">
 <div class=" grid12-6">
 
-    <?php  $iframeUrl= "";   $storeCode =  Mage::app()->getStore()->getStoreId();
-    if( $storeCode==1) { $iframeUrl = "https://docs.google.com/forms/d/e/1FAIpQLSdaUK2Xqs6_qDxGm1l_FRNWhpPrdNrMIHjUpDmgQbRhgiOWEQ/viewform?embedded=true"; }
-    elseif($storeCode==2) { $iframeUrl = "https://docs.google.com/forms/d/e/1FAIpQLSeJpmoZP-mSvbCpPg9FNbW4GxGjc--CiaDqqcSvb1wuduFBHg/viewform?embedded=true";  }
-    elseif($storeCode==3) { $iframeUrl = "https://docs.google.com/forms/d/e/1FAIpQLSdB6grSRfDaOCIUO1MYHFQ2UO35yNhgFBGnMUa2b7iS_sx8QA/viewform?embedded=true";  }
-    elseif($storeCode==4) { $iframeUrl = "https://docs.google.com/forms/d/e/1FAIpQLSc7OIR-NtlkfhQZ5tf1q2hOMlcduGmzMINuKiT3k0x_cNDECw/viewform?embedded=true";  }
-    elseif($storeCode==5) { $iframeUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfRT_UNXpx46WomOZUDgZie9aNKRLWBGusIgftgNYPPkpn81A/viewform?embedded=true";  }
-    elseif($storeCode==6) { $iframeUrl = "https://docs.google.com/forms/d/e/1FAIpQLScJGl3hP7KdRpV1HC8GqM7YFH-sfFAHPgqXdskR8lHe3zjjww/viewform?embedded=true";  }
-    
-    if(  $iframeUrl!="") { // Singapore  ?>
-    <iframe src="<?php echo  $iframeUrl; ?>" width="100%" height="1247" frameborder="0" marginheight="0" marginwidth="0">Loading…</iframe>
-    <?php  } else { ?>
+<div class="tc-contact">
 
-<form action="<?php echo $this->getFormAction() ?>" name="contactForm" id="contactForm" method="post" >
+  <?php
+    /* Hero copy is tailored per storefront. SG (WSQ/CSAL/IBF/SkillsFuture)
+       and MY (HRDF) have their own funding hooks; other countries get a
+       generic course-info / fee-enquiry pitch since there's no public
+       subsidy scheme to lean on. */
+    $heroHeadline = 'Tell us about your learning goals';
+    $heroSubcopy  = 'Have a course in mind, a team to upskill, or just a fee question? Send us a note — our training consultants reply within one business day.';
+    $heroBullets  = array(
+        'Personalised course advice',
+        'Course fees & schedule',
+        'Group & in-house training',
+    );
+    switch (Mage::app()->getStore()->getCode()) {
+        case 'singapore':
+            $heroHeadline = 'Talk to us about WSQ, CSAL, IBF & SkillsFuture';
+            $heroSubcopy  = 'Ask about WSQ, CSAL or IBF-accredited courses, claim SkillsFuture Credit, or get help shortlisting the right programme. Our training consultants reply within one business day.';
+            $heroBullets  = array(
+                'WSQ, CSAL & IBF course advice',
+                'SkillsFuture Credit & subsidy guidance',
+                'Group & in-house training',
+            );
+            break;
+        case 'malaysia':
+            $heroHeadline = 'HRD Corp claimable courses — talk to us';
+            $heroSubcopy  = 'Ask about HRD Corp (HRDF) claimable training, course fees, schedules, or in-house programmes for your team. Our training consultants reply within one business day.';
+            $heroBullets  = array(
+                'HRD Corp (HRDF) claimable courses',
+                'Course fees & schedule',
+                'Group & in-house training',
+            );
+            break;
+    }
+  ?>
+  <div class="tc-hero">
+    <h1><?php echo Mage::helper('contacts')->__($heroHeadline) ?></h1>
+    <p><?php echo Mage::helper('contacts')->__($heroSubcopy) ?></p>
+    <ul>
+      <?php foreach ($heroBullets as $bullet): ?>
+      <li><?php echo Mage::helper('contacts')->__($bullet) ?></li>
+      <?php endforeach; ?>
+    </ul>
+  </div>
+
+  <div class="tc-card">
+    <h2><?php echo Mage::helper('contacts')->__('Send us a Message') ?></h2>
+
+    <form action="<?php echo $this->getFormAction() ?>" name="contactForm" id="contactForm" method="post">
       <?php echo $this->getBlockHtml('formkey')?>
-    <div class="fieldset">
-        <h2 class="legend"><?php echo Mage::helper('contacts')->__('Send us a Message') ?></h2>
-        <ul class="form-list">
-            <li class="fields">
-                <div class="field">
-                    <label for="name" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Name') ?></label>
-                    <div class="input-box">
-                        <input name="name" id="name" title="<?php echo Mage::helper('contacts')->__('Name') ?>" value="<?php echo $this->htmlEscape($this->helper('contacts')->getUserName()) ?>" class="input-text required-entry" type="text" />
-                    </div>
-                </div>
-                <div class="field">
-                    <label for="email" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Email') ?></label>
-                    <div class="input-box">
-                        <input name="email" id="email" title="<?php echo Mage::helper('contacts')->__('Email') ?>" value="<?php echo $this->htmlEscape($this->helper('contacts')->getUserEmail()) ?>" class="input-text required-entry validate-email" type="text" />
-                    </div>
-                </div>
-            </li>
-            
-            <li class="fields">
-             
-             <div class="field">
-                    <label for="name"><?php echo Mage::helper('contacts')->__('Company') ?></label>
-                    <div class="input-box">
-                        <input name="company" id="company" title="<?php echo Mage::helper('contacts')->__('Company') ?>"  class="input-text " type="text" />
-                    </div>
-                </div>
-                <div class="field">
-                <label for="telephone"  class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Telephone') ?></label>
-                <div class="input-box">
-                    <input name="telephone" id="telephone" title="<?php echo Mage::helper('contacts')->__('Telephone') ?>" value="" class="input-text required-entry" type="text" maxlength="8" />
-                </div>
-                </div>
-            </li>
-			 <li class="wide">
-                <label for="courses" ><?php echo Mage::helper('contacts')->__('Course Title') ?></label>
-                <div class="input-box">
-                    <input name="courses" id="courses" title="<?php echo Mage::helper('contacts')->__('Courses Title') ?>" class="input-text" />
-                </div>
-            </li>
-            <li class="wide">
-                <label for="comment" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Message') ?></label>
-                <div class="input-box">
-                    <textarea name="comment" id="comment" title="<?php echo Mage::helper('contacts')->__('Comment') ?>" class="required-entry input-text" cols="5" rows="3"></textarea>
-                </div>
-            </li>
+      <ul class="form-list">
+        <li class="fields">
+          <div class="field">
+            <label for="name" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Name') ?></label>
+            <div class="input-box">
+              <input name="name" id="name" placeholder="<?php echo Mage::helper('contacts')->__('Your full name') ?>" value="<?php echo $this->htmlEscape($this->helper('contacts')->getUserName()) ?>" class="input-text required-entry" type="text" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="email" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Email') ?></label>
+            <div class="input-box">
+              <input name="email" id="email" placeholder="you@example.com" value="<?php echo $this->htmlEscape($this->helper('contacts')->getUserEmail()) ?>" class="input-text required-entry validate-email" type="email" />
+            </div>
+          </div>
+        </li>
+        <li class="fields">
+          <div class="field">
+            <label for="company"><?php echo Mage::helper('contacts')->__('Company') ?></label>
+            <div class="input-box">
+              <input name="company" id="company" placeholder="<?php echo Mage::helper('contacts')->__('Optional') ?>" class="input-text" type="text" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="telephone" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Telephone') ?></label>
+            <div class="input-box">
+              <input name="telephone" id="telephone" placeholder="+65 9XXX XXXX" value="" class="input-text required-entry" type="tel" />
+            </div>
+          </div>
+        </li>
+        <li class="wide">
+          <label for="courses"><?php echo Mage::helper('contacts')->__('Which Course Are You Interested In?') ?></label>
+          <div class="input-box">
+            <input name="courses" id="courses" placeholder="<?php echo Mage::helper('contacts')->__('e.g. Python, ChatGPT, WSQ Data Analytics…') ?>" class="input-text" type="text" />
+          </div>
+        </li>
+        <li class="wide">
+          <label for="comment" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Message') ?></label>
+          <div class="input-box">
+            <textarea name="comment" id="comment" placeholder="<?php echo Mage::helper('contacts')->__('Tell us about your goals, preferred dates, or any questions…') ?>" class="required-entry input-text" rows="5"></textarea>
+          </div>
+        </li>
+      </ul>
 
-        </ul>
-    </div>
-    <div class="buttons-set">
-    
-        <p class="required"><?php echo Mage::helper('contacts')->__('* Required Fields') ?></p>
+      <div class="buttons-set">
+        <p class="required"><?php echo Mage::helper('contacts')->__('* Required fields') ?></p>
         <div id="error" class="error"></div>
-        <input type="text" name="hideit" id="hideit" value="" style="display:none !important;"/>
-        <button type="submit" title="<?php echo Mage::helper('contacts')->__('Submit') ?>" class="button g-recaptcha"
-        data-sitekey="<?php echo Mage::getStoreConfig('magentocaptcha/general/site_key'); ?>" 
-        data-callback='onSubmit' 
-        data-action='submit'
-      >
-            <span><span><?php echo Mage::helper('contacts')->__('Submit') ?></span></span></button>
-    </div>
-</form>
-<script type="text/javascript">
-   //  var contactForm = new VarienForm('contactForm', false);
-    
-    
-    function onSubmit(token) {
-        var error ="";
-     let name = document.forms["contactForm"]["name"].value;
-      if (name == "") {
-        error +="Please enter name<br/>";
-      } 
-    let email = document.forms["contactForm"]["email"].value;
-      if (/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email))
-          {
-           
-          }
-        else
-            {
-                 error +="Please enter valid email id<br/>";
-            }
-     
-     let telephone = document.forms["contactForm"]["telephone"].value;
-      if (telephone == "") {
-        error +="Please enter telephone<br/>";
-      } 
-     let comment = document.forms["contactForm"]["comment"].value;
-      if (comment == "") {
-        error +="Please enter message<br/>";
-      } 
-        if(error=="")
-            {
-                 document.getElementById("error").innerHTML ="";
-                document.getElementById("contactForm").submit(); 
-                return true;
-            }
-        else
-            {
-                 document.getElementById("error").innerHTML = error;
-                return false;
-            }
-     
-   }
-    
+        <input type="text" name="hideit" id="hideit" value="" style="display:none !important;" />
+        <button type="submit" title="<?php echo Mage::helper('contacts')->__('Send Message') ?>"
+                class="tc-submit g-recaptcha"
+                data-sitekey="<?php echo Mage::getStoreConfig('magentocaptcha/general/site_key'); ?>"
+                data-callback="onSubmit"
+                data-action="submit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          <?php echo Mage::helper('contacts')->__('Send Message') ?>
+        </button>
+        <p class="tc-trust">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+          <?php echo Mage::helper('contacts')->__('We reply within 1 business day. Your details stay private.') ?>
+        </p>
+      </div>
+    </form>
+  </div>
 
-  if ('NodeList' in window) {
+</div>
+
+<script type="text/javascript">
+    function onSubmit(token) {
+        var error = "";
+        var name = document.forms["contactForm"]["name"].value;
+        if (name == "") { error += "Please enter your name<br/>"; }
+        var email = document.forms["contactForm"]["email"].value;
+        if (!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(email)) {
+            error += "Please enter a valid email<br/>";
+        }
+        var telephone = document.forms["contactForm"]["telephone"].value;
+        if (telephone == "") { error += "Please enter your telephone<br/>"; }
+        var comment = document.forms["contactForm"]["comment"].value;
+        if (comment == "") { error += "Please enter a message<br/>"; }
+        if (error == "") {
+            document.getElementById("error").innerHTML = "";
+            document.getElementById("contactForm").submit();
+            return true;
+        } else {
+            document.getElementById("error").innerHTML = error;
+            return false;
+        }
+    }
+
+    if ('NodeList' in window) {
         if (!NodeList.prototype.each && NodeList.prototype.forEach) {
             NodeList.prototype.each = NodeList.prototype.forEach;
         }
     }
-    
-    
 </script>
-    <?php
-}  ?>
 </div>
 <div class=" grid12-6">
 <?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('contacts')->toHtml() ?>
