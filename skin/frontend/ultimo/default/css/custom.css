@@ -64,3 +64,10 @@
     content: "\2022\00a0\00a0"; /* bullet + two nbsp */
     color: inherit;
 }
+/* Separate topic groups visually: when a topic-heading paragraph
+   follows an item paragraph, push it down. The first topic stays
+   flush with the top because it has no preceding item to trigger
+   the adjacent-sibling match. */
+.tabs-panels .panel .std p:not(:has(strong)) + p:has(strong) {
+    margin-top: 18px !important;
+}
