@@ -3025,6 +3025,18 @@ body.adminhtml-cache-index .admin-main #cache_grid_table {
     table-layout: auto !important;
 }
 
+/* Hide the per-row checkbox column entirely. The mass-action workflow
+   (select rows → Actions → Submit) is being replaced by the explicit
+   buttons in the toolbar + "Flush *" buttons under Additional Cache
+   Management. Removing the empty gray boxes that read as clutter on
+   every row. Also drop the matching <colgroup> col so the layout
+   doesn't reserve the column's width. */
+body.adminhtml-cache-index .admin-main #cache_grid_table > colgroup > col:first-child,
+body.adminhtml-cache-index .admin-main #cache_grid_table > thead > tr > th:first-child,
+body.adminhtml-cache-index .admin-main #cache_grid_table > tbody > tr > td:first-child {
+    display: none !important;
+}
+
 /* Compact rows — one entry per row, tight padding, no wrapping */
 body.adminhtml-cache-index .admin-main .grid th,
 body.adminhtml-cache-index .admin-main .grid tr.headings th {
@@ -3313,6 +3325,16 @@ body.adminhtml-process-list .admin-main #indexer_processes_grid_table {
     width: 100% !important;
     min-width: 0 !important;
     table-layout: auto !important;
+}
+
+/* Hide the per-row checkbox column entirely — same treatment as the
+   cache management page. The mass-action workflow is replaced by the
+   toolbar's Actions → Submit + per-row controls; the row checkboxes
+   read as clutter. */
+body.adminhtml-process-list .admin-main #indexer_processes_grid_table > colgroup > col:first-child,
+body.adminhtml-process-list .admin-main #indexer_processes_grid_table > thead > tr > th:first-child,
+body.adminhtml-process-list .admin-main #indexer_processes_grid_table > tbody > tr > td:first-child {
+    display: none !important;
 }
 
 /* Compact rows */
@@ -4131,3 +4153,73 @@ body[class*="catalog-product-review"] .admin-main .massaction div {
     padding: 0 !important;
     margin: 0 !important;
 }
+
+/* === Manage Stores (/system_store/) — force full viewport width ===
+   On wider displays the page rendered centered with empty space on
+   both sides ("zoomed out" look reported by a user on a larger
+   monitor). Strip every common width constraint and force 100% width
+   on the main content + the stores table. Scoped to the system_store
+   route (hyphen + underscore body-class variants — controller keeps
+   underscores per OpenMage convention). */
+body[class*="adminhtml-system_store"] .admin-main,
+body[class*="adminhtml-system-store"] .admin-main,
+body[class*="adminhtml-system_store"] .col-main,
+body[class*="adminhtml-system-store"] .col-main,
+body[class*="adminhtml-system_store"] .main-col,
+body[class*="adminhtml-system-store"] .main-col,
+body[class*="adminhtml-system_store"] .main-col-inner,
+body[class*="adminhtml-system-store"] .main-col-inner,
+body[class*="adminhtml-system_store"] .middle,
+body[class*="adminhtml-system-store"] .middle {
+    max-width: none !important;
+    width: auto !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+body[class*="adminhtml-system_store"] .admin-main table,
+body[class*="adminhtml-system-store"] .admin-main table,
+body[class*="adminhtml-system_store"] .admin-main .grid,
+body[class*="adminhtml-system-store"] .admin-main .grid {
+    width: 100% !important;
+    max-width: none !important;
+}
+
+/* === CMS Page edit (/cms_page/edit/) — minimal fixes ===
+   Earlier attempts at td.value width:auto + table-layout overrides
+   accidentally collapsed td.value from 1401px down to 220px
+   (because in table-layout:auto, a colspan=3 cell with width:auto
+   on a row whose siblings have set widths shrinks to its content).
+   Keep only the two essentials:
+   1. Textarea — defeat the HTML cols="15" attribute by forcing
+      width:100% so it fills its parent td.value.
+   2. Buttons-set — flex row so the 4 WYSIWYG buttons sit
+      horizontally instead of stacking. */
+body[class*="adminhtml-cms-page"] #page_content,
+body[class*="adminhtml-cms-block"] #block_content {
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+body[class*="adminhtml-cms-page"] .buttons-set,
+body[class*="adminhtml-cms-page"] #buttonspage_content,
+body[class*="adminhtml-cms-block"] .buttons-set,
+body[class*="adminhtml-cms-block"] #buttonsblock_content {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    float: none !important;
+    /* Push td.value to grow with us — 4 buttons total ~565px,
+       set min-width so the parent table cell can't shrink below this */
+    min-width: 640px !important;
+}
+/* Also pin the textarea to a minimum width so the column doesn't
+   collapse to cols="15" intrinsic size. */
+body[class*="adminhtml-cms-page"] #page_content,
+body[class*="adminhtml-cms-block"] #block_content {
+    min-width: 640px !important;
+}
+/* (Removed) The previous version of this block stripped margin-left
+   from .admin-main / .col-main on cms_page/edit. That margin clears
+   the fixed left sidebar — without it the sidebar overlaps the form
+   content. The textarea-width fixes above already cover the
+   actual WYSIWYG narrowing issue; the parent containers should stay
+   at their normal layout widths. */
