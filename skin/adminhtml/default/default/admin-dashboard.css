@@ -2705,3 +2705,247 @@ button.hsp-btn-submit{
    column) and color:#94a3b8 (Tax column). */
 :root[data-theme="light"] .dash-summary-table tbody td[style*="color:#cbd5e1"] { color:#1e293b !important }
 :root[data-theme="light"] .dash-summary-table tbody td[style*="color:#94a3b8"] { color:#64748b !important }
+
+/* Admin dashboard master class list (Ongoing / Upcoming / Completed
+   Classes pages) — .dash-search-wrap is the dark slate panel with
+   the General Search input, advanced filters, and the class table.
+   Most borders + button colors already use tokens (auto-flip) but
+   the wrapper bg + the dash-search-input / .dash-adv-input bg are
+   hardcoded #1f2937 / #111827. */
+:root[data-theme="light"] .dash-search-wrap { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dash-search-label { color:#64748b !important }
+:root[data-theme="light"] .dash-search-input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .dash-search-input:focus { border-color:#2563eb !important }
+:root[data-theme="light"] .dash-search-input-wrap svg { color:#94a3b8 !important }
+:root[data-theme="light"] .dash-adv-input,
+:root[data-theme="light"] .dash-adv-select { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .dash-adv-label { color:#64748b !important }
+:root[data-theme="light"] .dash-no-results { color:#64748b !important }
+
+/* Back-to-Dashboard / Back-to-All-Courses buttons on the course
+   detail page. .lcd-back is admin-dashboard.css:846 (background:
+   #334155); "Back to All Courses" uses identical INLINE styles, so
+   we catch it with an attribute selector scoped to the panel. */
+:root[data-theme="light"] .lcd-back { background:#f1f5f9 !important; color:#1e293b !important; border:1px solid #cbd5e1 !important }
+:root[data-theme="light"] .lcd-back:hover { background:#e2e8f0 !important; color:#0f172a !important; border-color:#94a3b8 !important }
+:root[data-theme="light"] #dash-panel-course-detail a[style*="background:#334155"] {
+    background: #f1f5f9 !important;
+    color: #1e293b !important;
+    border: 1px solid #cbd5e1 !important;
+}
+:root[data-theme="light"] #dash-panel-course-detail a[style*="background:#334155"]:hover {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+}
+
+/* ============================================================
+   Light theme — DCF (course editor) page (.dcf-* class family)
+   ============================================================
+   Loaded on dashboard/?mode=edit (per project memory). Every card,
+   input, button hardcodes #1e293b / #283548 / #334155 / #fff /
+   #cbd5e1 / #f1f5f9 — all of which need flipping. */
+
+/* Top KPI meta bar (Course Type / Duration / Sessions / Level / Price / Funding From) */
+:root[data-theme="light"] .dcf-meta-bar { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-meta-lbl { color:#64748b !important }
+:root[data-theme="light"] .dcf-meta-input { background:#f8fafc !important; border-color:#e2e8f0 !important; color:#0f172a !important }
+:root[data-theme="light"] .dcf-meta-input:focus { border-color:#2563eb !important }
+
+/* Title pill (course code badge) keeps its cyan tint — works on both surfaces */
+
+/* Main sections (Course Details, Course Topics, Lesson, Courseware, Trainers, etc.) */
+:root[data-theme="light"] .dcf-section { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-section-title { color:#0f172a !important; border-bottom-color:#e2e8f0 !important }
+
+/* Magento-styled inner card (.dcf-mag) and its bar */
+:root[data-theme="light"] .dcf-mag { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-mag-bar { background:linear-gradient(to bottom,#f1f5f9,#e2e8f0) !important; color:#0f172a !important; border-bottom-color:#e2e8f0 !important }
+
+/* Rows / labels */
+:root[data-theme="light"] .dcf-row-label { color:#1e293b !important }
+:root[data-theme="light"] .dcf-row-help,
+:root[data-theme="light"] .dcf-row-scope { color:#64748b !important }
+:root[data-theme="light"] .dcf-label { color:#64748b !important }
+
+/* Inputs / selects / textareas */
+:root[data-theme="light"] .dcf-input,
+:root[data-theme="light"] .dcf-select,
+:root[data-theme="light"] .dcf-textarea { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .dcf-input:focus,
+:root[data-theme="light"] .dcf-select:focus,
+:root[data-theme="light"] .dcf-textarea:focus { border-color:#2563eb !important }
+
+/* Document row + assessment box + add-doc placeholder */
+:root[data-theme="light"] .dcf-doc-row { background:#f8fafc !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-doc-add { background:#ffffff !important; border-color:#cbd5e1 !important; color:#1e293b !important }
+:root[data-theme="light"] .dcf-assess-box { background:#f8fafc !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-assess-row { color:#0f172a !important }
+
+/* Image preview border */
+:root[data-theme="light"] .dcf-img-preview { border-color:#e2e8f0 !important }
+
+/* Empty / placeholder block */
+:root[data-theme="light"] .dcf-placeholder { background:#f8fafc !important; border-color:#cbd5e1 !important; color:#64748b !important }
+:root[data-theme="light"] .dcf-placeholder strong { color:#1e293b !important }
+
+/* Footer */
+:root[data-theme="light"] .dcf-footer { color:#64748b !important }
+:root[data-theme="light"] .dcf-footer strong { color:#1e293b !important }
+
+/* Toggle (visibility, etc.) */
+:root[data-theme="light"] .dcf-toggle-label { color:#0f172a !important }
+:root[data-theme="light"] .dcf-toggle-sub { color:#64748b !important }
+:root[data-theme="light"] .dcf-toggle-slider { background:#cbd5e1 !important }
+
+/* Top-of-page action buttons (Cancel / Edit / Save / Save & Continue) */
+:root[data-theme="light"] button.dcf-btn-cancel,
+:root[data-theme="light"] button.dcf-btn-edit { background:#f1f5f9 !important; color:#1e293b !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] button.dcf-btn-cancel:hover,
+:root[data-theme="light"] button.dcf-btn-edit:hover { background:#e2e8f0 !important; color:#0f172a !important }
+:root[data-theme="light"] button.dcf-btn-save-cont { background:#94a3b8 !important; color:#ffffff !important }
+:root[data-theme="light"] button.dcf-btn-save-cont:hover { background:#64748b !important }
+
+/* ============================================================
+   Light theme — DCE (course detail edit-mode view) class family
+   ============================================================
+   Loaded on dashboard/?mode=edit (the read-only view with the Edit
+   button — sibling of the dcf editor). Different class prefix (.dce-)
+   from the dcf editor, so it needs its own overrides. */
+
+/* Cancel button — was dark slate; lift to a light pill */
+:root[data-theme="light"] button.dce-cancel-btn,
+:root[data-theme="light"] button.dce-cancel-btn:hover,
+:root[data-theme="light"] button.dce-cancel-btn:focus { background:#f1f5f9 !important; color:#1e293b !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] button.dce-cancel-btn:hover { background:#e2e8f0 !important; color:#0f172a !important }
+
+/* KPI meta bar (Course Type / Duration / Sessions / Level / Price / Funding From) */
+:root[data-theme="light"] .dce-meta-bar { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dce-meta-lbl { color:#64748b !important }
+:root[data-theme="light"] .dce-meta-val { color:#0f172a !important }
+/* .dce-meta-val.dce-meta-badge-ok keeps green semantic, fine */
+
+/* Section cards (Course Details / Course Topics / Trainers) */
+:root[data-theme="light"] .dce-section { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dce-section-title { color:#0f172a !important; border-bottom-color:#e2e8f0 !important }
+:root[data-theme="light"] .dce-label { color:#64748b !important }
+
+/* Long-form value blocks (.dce-value) — the inner scrollable card
+   holding course description with paragraphs, headings, lists, table */
+:root[data-theme="light"] div.dce-value { background:#f8fafc !important; border-color:#e2e8f0 !important; color:#0f172a !important }
+:root[data-theme="light"] div.dce-value::-webkit-scrollbar-thumb { background:#cbd5e1 !important; border-color:#f8fafc !important }
+:root[data-theme="light"] div.dce-value::-webkit-scrollbar-thumb:hover { background:#94a3b8 !important }
+:root[data-theme="light"] .dce-value a { color:#2563eb !important }
+:root[data-theme="light"] .dce-value p,
+:root[data-theme="light"] .dce-value h3,
+:root[data-theme="light"] .dce-value ul,
+:root[data-theme="light"] .dce-value ol,
+:root[data-theme="light"] .dce-value li,
+:root[data-theme="light"] .dce-value span { color:#0f172a !important }
+:root[data-theme="light"] .dce-value h2 { color:#0f172a !important; border-top-color:#cbd5e1 !important }
+:root[data-theme="light"] .dce-value strong { color:#0f172a !important }
+:root[data-theme="light"] .dce-value table { background:#ffffff !important }
+:root[data-theme="light"] .dce-value table td { color:#0f172a !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .dce-value table td strong,
+:root[data-theme="light"] .dce-value table td:first-child { color:#0f172a !important }
+:root[data-theme="light"] .dce-value hr { border-top-color:#cbd5e1 !important }
+:root[data-theme="light"] .dce-value div[style*="background-color"],
+:root[data-theme="light"] .dce-value span[style*="background-color"] { color:#0f172a !important }
+
+/* Misc surrounding pieces */
+:root[data-theme="light"] .dce-img-preview { border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dce-trainer-list li { color:#1e293b !important; border-bottom-color:#e2e8f0 !important }
+:root[data-theme="light"] .dce-lo-item { background:#f8fafc !important; border-color:#e2e8f0 !important; color:#1e293b !important }
+:root[data-theme="light"] .dce-empty,
+:root[data-theme="light"] .dce-footer { color:#64748b !important }
+:root[data-theme="light"] .dce-footer strong { color:#1e293b !important }
+
+/* Topic accordion cards inside dce panel (LU1/LU2/...) */
+:root[data-theme="light"] .dce-topic-card { background:#f8fafc !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dce-topic-card-head:hover { background:#e2e8f0 !important }
+:root[data-theme="light"] .dce-topic-card-title { color:#0f172a !important }
+:root[data-theme="light"] .dce-topic-card-caret { color:#64748b !important }
+
+/* Trainer picker (.tr-picker-*) — used inside the dcf editor's
+   "Assigned Trainers" section. Search input + scrollable list of
+   trainers, each row a flex with name + email. Hardcoded #1e293b /
+   #334155 / #e2e8f0 throughout. */
+:root[data-theme="light"] .tr-picker-label { color:#0f172a !important }
+:root[data-theme="light"] .tr-picker-search { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .tr-picker-search:focus { border-color:#2563eb !important }
+:root[data-theme="light"] .tr-picker-list { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .tr-picker-list::-webkit-scrollbar-thumb { background:#cbd5e1 !important; border-color:#ffffff !important }
+:root[data-theme="light"] .tr-picker-item { color:#0f172a !important; border-bottom-color:#e2e8f0 !important }
+:root[data-theme="light"] .tr-picker-email { color:#64748b !important }
+:root[data-theme="light"] .tr-picker-item:hover { background:#f1f5f9 !important }
+:root[data-theme="light"] .tr-picker-item.selected { background:rgba(37,99,235,0.10) !important; color:#1d4ed8 !important }
+:root[data-theme="light"] .tr-picker-count { color:#64748b !important }
+
+/* DCF editor inline-styled tables (Media Gallery, Categories tree,
+   Related Products, Up-sells, Cross-sells, Reviews). Each panel
+   hardcodes #283548 wrappers, #334155 thead, #384a60 row borders,
+   #cbd5e1 text — directly on inline style attributes. Attribute
+   selectors scoped to `.dcf-mag-body` flip them without leaking
+   to other panels. */
+:root[data-theme="light"] .dcf-mag-body [style*="background:#283548"] { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-mag-body [style*="background:#334155"] { background:#f1f5f9 !important; color:#0f172a !important }
+:root[data-theme="light"] .dcf-mag-body [style*="background:#0f172a"] { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-mag-body [style*="border-top:1px solid #384a60"] { border-top-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-mag-body [style*="border-top:1px solid #334155"] { border-top-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-mag-body [style*="color:#cbd5e1"] { color:#1e293b !important }
+:root[data-theme="light"] .dcf-mag-body [style*="color:#e2e8f0"] { color:#1e293b !important }
+:root[data-theme="light"] .dcf-mag-body [style*="color:#94a3b8"] { color:#64748b !important }
+:root[data-theme="light"] .dcf-mag-body [style*="color:#64748b"] { color:#64748b !important } /* already muted, keep */
+:root[data-theme="light"] .dcf-mag-body [style*="color:#60a5fa"] { color:#2563eb !important }
+
+/* ============================================================
+   Light theme — Assign Learners panel (.al-* class family)
+   ============================================================ */
+:root[data-theme="light"] .al-back-link { color:#2563eb !important }
+:root[data-theme="light"] .al-back-link:hover { color:#1d4ed8 !important }
+
+/* KPI cards */
+:root[data-theme="light"] .al-kpi { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .al-kpi-lbl { color:#64748b !important }
+/* .al-kpi-num color is semantic (blue/green/red), works on both */
+
+/* Tabs strip (Upcoming / Ongoing / Completed) */
+:root[data-theme="light"] .al-tabs { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] button.al-tab,
+:root[data-theme="light"] button.al-tab:hover,
+:root[data-theme="light"] button.al-tab:focus { color:#64748b !important }
+:root[data-theme="light"] button.al-tab:hover { color:#0f172a !important }
+/* .active tab keeps solid blue, fine */
+
+/* Search row + input */
+:root[data-theme="light"] .al-search-row { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .al-search-input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .al-search-input:focus { border-color:#2563eb !important }
+
+/* Table */
+:root[data-theme="light"] .al-table-wrap { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .al-table thead th { background:#f8fafc !important; color:#64748b !important; border-bottom-color:#e2e8f0 !important }
+:root[data-theme="light"] .al-table tbody td { color:#1e293b !important; border-bottom-color:#e2e8f0 !important }
+:root[data-theme="light"] .al-table tbody tr:hover { background:rgba(37,99,235,0.05) !important }
+
+/* Course Run ID link cells, "47 enrolled" green pill, "Add / Edit
+   Learners" blue button — all semantic, read on both surfaces */
+
+/* ============================================================
+   Light theme — View Trainers panel (.trn-* class family)
+   ============================================================ */
+/* KPI cards (Trainers / ACLP Trainers / Non-ACLP Trainers) */
+:root[data-theme="light"] .trn-kpi-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+/* KPI nums keep blue/green/pink semantic colors */
+
+/* Search wrapper + input */
+:root[data-theme="light"] .trn-search-wrap { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .trn-search-input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .trn-search-input:focus { border-color:#2563eb !important }
+:root[data-theme="light"] .trn-search-input-wrap svg { color:#94a3b8 !important }
+
+/* Table */
+:root[data-theme="light"] .trn-table-wrap { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .trn-table thead th { color:#64748b !important; border-bottom-color:#e2e8f0 !important }
+:root[data-theme="light"] .trn-table tbody tr { border-bottom-color:#e2e8f0 !important }
+:root[data-theme="light"] .trn-table tbody tr:hover { background:rgba(37,99,235,0.05) !important }
+/* tbody td uses var(--t2), auto-flips */
