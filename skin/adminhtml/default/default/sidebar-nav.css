@@ -4217,6 +4217,181 @@ body[class*="adminhtml-cms-page"] #page_content,
 body[class*="adminhtml-cms-block"] #block_content {
     min-width: 640px !important;
 }
+
+/* === Custom Options "Delete Row" button — trash icon ===
+   widget_button renders <button class="delete delete-select-row
+   icon-btn"><span>Delete Row</span></button>. Exception to §18's
+   outline-blue rule: this button gets a red trash SVG icon via
+   background-image. Body-class-independent so it works on
+   /catalog_product/edit/ AND /mmd/customoptions_options/edit/
+   (and anywhere else custom options are edited). The class
+   .delete-select-row is specific enough to scope globally.
+   `body button.delete-select-row` has specificity 0,0,1,2 — beats
+   §18's `.admin-main button` (0,0,1,1) so the !important properties
+   here win cleanly. */
+body button.delete-select-row.icon-btn,
+body button.delete-select-row.icon-btn:hover,
+body button.delete-select-row.icon-btn:focus,
+body button.delete-select-row.icon-btn:active,
+.admin-main button.delete-select-row.icon-btn,
+.admin-main button.delete-select-row.icon-btn:hover,
+.admin-main button.delete-select-row.icon-btn:focus,
+.admin-main button.delete-select-row.icon-btn:active {
+    width: 36px !important;
+    min-width: 36px !important;
+    max-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    border: 1px solid #ef4444 !important;
+    border-radius: 8px !important;
+    background-color: transparent !important;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='3 6 5 6 21 6'/><path d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/><line x1='10' y1='11' x2='10' y2='17'/><line x1='14' y1='11' x2='14' y2='17'/></svg>") !important;
+    background-repeat: no-repeat !important;
+    background-position: center center !important;
+    color: transparent !important;
+    text-indent: -9999em !important;
+    overflow: hidden !important;
+    font-size: 0 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    line-height: 1 !important;
+    cursor: pointer !important;
+}
+body button.delete-select-row.icon-btn:hover,
+.admin-main button.delete-select-row.icon-btn:hover {
+    background-color: rgba(239,68,68,0.10) !important;
+    border-color: #dc2626 !important;
+}
+body button.delete-select-row.icon-btn span,
+body button.delete-select-row.icon-btn span span,
+.admin-main button.delete-select-row.icon-btn span,
+.admin-main button.delete-select-row.icon-btn span span {
+    display: none !important;
+}
+
+/* "Delete Option" button (.delete-product-option) — the per-option
+   delete button at the top-right of each Custom Option section.
+   The button sits in its own <th class="a-right"> at the end of
+   the settings header. With auto table-layout, that column was
+   absorbing a big slice of width (~170px) leaving an empty gap
+   between LEARNER GROUPS and Delete Option. Shrink-to-fit the
+   column so Delete Option sits flush next to LEARNER GROUPS. */
+.product-custom-options th.a-right,
+.admin-main .product-custom-options th.a-right {
+    width: 1px !important;          /* table shrink-to-fit trick */
+    white-space: nowrap !important;
+    padding-right: 8px !important;
+    padding-left: 12px !important;
+}
+body button.delete-product-option,
+.admin-main button.delete-product-option {
+    margin: 0 !important;
+}
+
+/* Align the option-header table (containing Delete Option button)
+   with the values table below it. Both tables sit inside the same
+   .product-custom-options container; forcing both to width:100%
+   makes them share the same total width, so the data rows extend
+   right to match the option header — no more empty rectangle of
+   blank space under the Delete Option button. */
+.product-custom-options table,
+.admin-main .product-custom-options table {
+    width: 100% !important;
+}
+
+/* At 100% browser zoom with sidebar expanded, the Delete Option
+   button still sticks out ~8% past the visible area. Auto-zoom
+   the whole custom-options block to 0.93x so it fits cleanly
+   without the user having to zoom out manually. Browsers without
+   `zoom` support (Firefox older versions) fall back gracefully. */
+.product-custom-options,
+.admin-main .product-custom-options {
+    zoom: 0.93 !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+}
+/* Stock .hor-scroll (boxes.css:552) wraps the values table with
+   overflow:auto, producing a second horizontal scrollbar inside the
+   already-scrollable custom-options block. Since the zoom makes the
+   content fit anyway, disable overflow on the inner wrapper. */
+.product-custom-options .hor-scroll,
+.admin-main .product-custom-options .hor-scroll {
+    overflow: visible !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+}
+/* The values table has an INLINE style="width:<X>px" set from PHP
+   that calculates total column widths. On wide column counts that
+   total can exceed the container, creating overflow. Force the
+   inline px width override via !important + min-width:0. */
+.product-custom-options table.border,
+.admin-main .product-custom-options table.border {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+}
+/* Any other lingering overflow inside the custom-options block —
+   kill ALL scrollbars under .product-custom-options. */
+.product-custom-options,
+.product-custom-options *,
+.admin-main .product-custom-options,
+.admin-main .product-custom-options * {
+    overflow-x: visible !important;
+}
+/* Stock .grid.tier.form-list wrapper has its own overflow:auto
+   (28px of horizontal overflow per inspect). Body-scope to ensure
+   it applies even if outside .product-custom-options nesting. */
+body div.grid.tier.form-list,
+.admin-main div.grid.tier.form-list {
+    overflow: visible !important;
+    overflow-x: visible !important;
+}
+
+/* Row-select checkboxes in the custom options values table.
+   Transparent fill, light slate border. Lets users select rows
+   for future bulk actions. The header has a "select all" toggle. */
+.product-custom-options th.type-row-select,
+.product-custom-options td.type-row-select,
+.admin-main .product-custom-options th.type-row-select,
+.admin-main .product-custom-options td.type-row-select {
+    width: 28px !important;
+    text-align: center !important;
+    padding: 4px 6px !important;
+}
+.product-custom-options input.row-select-all,
+.product-custom-options input.row-select-cb,
+.admin-main .product-custom-options input.row-select-all,
+.admin-main .product-custom-options input.row-select-cb {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    background: transparent !important;
+    border: 1px solid var(--b2, #4b5563) !important;
+    border-radius: 4px !important;
+    width: 16px !important;
+    height: 16px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    cursor: pointer !important;
+    vertical-align: middle !important;
+    box-shadow: none !important;
+}
+.product-custom-options input.row-select-all:hover,
+.product-custom-options input.row-select-cb:hover,
+.admin-main .product-custom-options input.row-select-all:hover,
+.admin-main .product-custom-options input.row-select-cb:hover {
+    border-color: var(--blue, #60a5fa) !important;
+}
+.product-custom-options input.row-select-all:checked,
+.product-custom-options input.row-select-cb:checked,
+.admin-main .product-custom-options input.row-select-all:checked,
+.admin-main .product-custom-options input.row-select-cb:checked {
+    background-color: var(--blue, #2563eb) !important;
+    border-color: var(--blue, #2563eb) !important;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>") !important;
+    background-repeat: no-repeat !important;
+    background-position: center center !important;
+}
 /* (Removed) The previous version of this block stripped margin-left
    from .admin-main / .col-main on cms_page/edit. That margin clears
    the fixed left sidebar — without it the sidebar overlaps the form

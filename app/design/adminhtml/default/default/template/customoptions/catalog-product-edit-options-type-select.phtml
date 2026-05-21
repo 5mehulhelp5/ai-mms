@@ -42,6 +42,14 @@ if ($helper->isInventoryEnabled()) $width += 50;
     OptionTemplateSelect = '<table class="border" cellpadding="0" cellspacing="0" style="width:<?php echo $width ?>px;">'+        
         '<thead>'+
         '<tr class="headings">'+
+        <?php
+        // Row-select checkbox column — added ONLY on the MMD Manage
+        // Schedule edit page (/mmd/customoptions_options/edit/). Same
+        // template is also rendered by stock catalog product edit and
+        // others, which should NOT get the column.
+        $_isMmdScheduleEdit = strpos((string) Mage::app()->getRequest()->getRequestUri(), '/mmd/customoptions_options/') !== false;
+        if ($_isMmdScheduleEdit):
+        ?>'<th class="type-row-select"><input type="checkbox" class="row-select-all" onclick="(function(cb){var rows=cb.closest(\'table\').querySelectorAll(\'tbody input.row-select-cb\');for(var i=0;i<rows.length;i++)rows[i].checked=cb.checked;})(this)" /></th>'+<?php endif; ?>
         <?php if ($helper->isDependentEnabled()) { ?>'<th class="type-id"><?php echo $helper->__js('Id') ?></th>'+<?php } ?>
         '<th class="type-title"><?php echo $helper->__js('Title') ?> <span class="required">*</span></th>'+
 		'<th class="type-reg_course"><?php echo $helper->__js('Course Date &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;') ?> </th>'+
@@ -71,14 +79,16 @@ if ($helper->isInventoryEnabled()) $width += 50;
         '</tbody>'+
         '<tfoot>'+
         '<tr>'+
-        '<td colspan="100" class="a-right">'+                
-            '<?php echo $this->jsQuoteEscape($this->getAddButtonHtml()) ?>'+            
+        '<td colspan="100" class="a-right">'+
+            <?php if ($_isMmdScheduleEdit): ?>'<button type="button" class="scalable delete-selected-rows" onclick="mmdDeleteSelectedSelectRows({{option_id}})" style="margin-right:8px;background:transparent !important;background-image:none !important;border:1px solid #ef4444 !important;color:#ef4444 !important;border-radius:8px !important;padding:6px 14px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;"><span>Delete Selected Rows</span></button>'+<?php endif; ?>
+            '<?php echo $this->jsQuoteEscape($this->getAddButtonHtml()) ?>'+
          '</td>'+
         '</tr>'+
         '</tfoot>'+
         '</table>';
 
     OptionTemplateSelectRow = '<tr id="product_option_{{id}}_select_{{select_id}}">'+
+            <?php if ($_isMmdScheduleEdit): ?>'<td class="type-row-select"><input type="checkbox" class="row-select-cb" /></td>'+<?php endif; ?>
             <?php if ($helper->isDependentEnabled()) { ?>'<td align="center">{{in_group_id_view}}</td>'+<?php } ?>
             '<td>'+
                 '<input type="hidden" name="product[options][{{id}}][values][{{select_id}}][option_type_id]" value="{{option_type_id}}">'+
@@ -88,7 +98,7 @@ if ($helper->isInventoryEnabled()) $width += 50;
 				
             '</td>'+
 			'<td>'+
-			'<input type="text" class="input-text select-type-reg_course" id="product_option_{{id}}_select_{{select_id}}_reg_course" name="product[options][{{id}}][values][{{select_id}}][reg_course]" value="{{reg_course}}" style="width:75% !important; margin: 0 3px 0 0;"><img title="Select date" id="product_option_{{id}}_select_{{select_id}}_reg_course_trig" src="<?php echo Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_SKIN) . 'adminhtml/default/default/images/grid-cal.gif'; ?>" class="v-middle">'+
+			'<input type="text" class="input-text select-type-reg_course" id="product_option_{{id}}_select_{{select_id}}_reg_course" name="product[options][{{id}}][values][{{select_id}}][reg_course]" value="{{reg_course}}" style="width:75% !important; margin: 0 3px 0 0;"><img title="Select date" id="product_option_{{id}}_select_{{select_id}}_reg_course_trig" src="data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'18\' height=\'18\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><rect x=\'3\' y=\'4\' width=\'18\' height=\'18\' rx=\'2\'/><line x1=\'16\' y1=\'2\' x2=\'16\' y2=\'6\'/><line x1=\'8\' y1=\'2\' x2=\'8\' y2=\'6\'/><line x1=\'3\' y1=\'10\' x2=\'21\' y2=\'10\'/></svg>" class="v-middle" style="cursor:pointer">'+
 			'</td>'+
 
 			
@@ -162,7 +172,7 @@ if ($helper->isInventoryEnabled()) $width += 50;
                         '</span>'+
                         '<span style="display:none;"><?php echo $helper->__js('Gallery') ?>: <input class="input-text" type="text" name="product[options][{{id}}][values][{{select_id}}][upload_gallery][{{count}}]" id="product_option_{{id}}_select_{{select_id}}_upload_{{count}}_gallery" value="" disabled /></span>'+
                     '</td>'+
-                    '<td style="border:none;"><button type="button" onclick="selectOptionType.removeFileRow(this)" class="delete icon-btn"><span><?php echo $helper->__js('Hide') ?></span></button></td>'+
+                    '<td style="border:none;"><button type="button" onclick="selectOptionType.removeFileRow(this)" class="delete icon-btn" title="<?php echo $helper->__js('Hide') ?>" style="display:inline-flex;align-items:center;justify-content:center;background:transparent;border:1px solid #ef4444;color:#ef4444;border-radius:8px;padding:6px 10px;cursor:pointer;min-width:auto;width:auto;height:auto;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button></td>'+
                 '</tr>'+
             '</table></td>'+
             <?php if ($helper->isTierPriceEnabled()) { ?>'<td>&nbsp;</td>'+<?php } ?>
@@ -586,5 +596,37 @@ if ($helper->isInventoryEnabled()) $width += 50;
     if($('add_select_row_button')){
         Event.observe('add_select_row_button', 'click', selectOptionType.add.bind(selectOptionType));
     }
+
+    <?php if ($_isMmdScheduleEdit): ?>
+    /* MMD Manage Schedule edit only — bulk-delete rows that have the
+       row-select checkbox ticked. Mirrors selectOptionType.remove():
+       set the row's _is_delete hidden field to '1', hide the <tr>,
+       and clean up the linked image row + tier-price rows. */
+    window.mmdDeleteSelectedSelectRows = function(optionId) {
+        var tbody = document.getElementById('select_option_type_row_' + optionId);
+        if (!tbody) return;
+        var checked = tbody.querySelectorAll('input.row-select-cb:checked');
+        if (!checked.length) { alert('No rows selected.'); return; }
+        if (!confirm('Delete ' + checked.length + ' selected row' + (checked.length === 1 ? '' : 's') + '? This cannot be undone after Save.')) return;
+        for (var i = 0; i < checked.length; i++) {
+            var tr = checked[i].closest('tr');
+            if (!tr || !tr.id) continue;
+            var hidden = document.getElementById(tr.id + '_is_delete');
+            if (hidden) hidden.value = '1';
+            tr.classList.add('no-display');
+            tr.classList.add('ignore-validate');
+            tr.style.display = 'none';
+            /* Drop the linked image-row + any file rows + tier-price rows */
+            var parts = tr.id.split('_');
+            var selectId = parts[parts.length - 1];
+            var imgRow = document.getElementById('image_option_row_' + selectId);
+            if (imgRow && imgRow.parentNode) imgRow.parentNode.removeChild(imgRow);
+            var fileRows = document.querySelectorAll('tr.file_option_rows_' + selectId);
+            for (var j = 0; j < fileRows.length; j++) fileRows[j].parentNode.removeChild(fileRows[j]);
+            var tierRows = document.querySelectorAll('tr[id^="' + tr.id + '_"]');
+            for (var k = 0; k < tierRows.length; k++) tierRows[k].parentNode.removeChild(tierRows[k]);
+        }
+    };
+    <?php endif; ?>
     //]]>
 </script>
