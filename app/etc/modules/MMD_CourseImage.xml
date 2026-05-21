@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_CourseImage>
+            <active>true</active>
+            <codePool>local</codePool>
+            <depends>
+                <Mage_Adminhtml/>
+                <Mage_Catalog/>
+            </depends>
+        </MMD_CourseImage>
+    </modules>
+</config>

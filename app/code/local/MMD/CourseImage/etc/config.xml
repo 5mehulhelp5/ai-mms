@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_CourseImage>
+            <version>1.0.0</version>
+        </MMD_CourseImage>
+    </modules>
+
+    <global>
+        <helpers>
+            <mmd_courseimage>
+                <class>MMD_CourseImage_Helper</class>
+            </mmd_courseimage>
+        </helpers>
+        <models>
+            <mmd_courseimage>
+                <class>MMD_CourseImage_Model</class>
+            </mmd_courseimage>
+        </models>
+    </global>
+
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <MMD_CourseImage before="Mage_Adminhtml">MMD_CourseImage_Adminhtml</MMD_CourseImage>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+</config>

@@ -71,3 +71,16 @@
 .tabs-panels .panel .std p:not(:has(strong)) + p:has(strong) {
     margin-top: 18px !important;
 }
+
+/* One course = one image.
+   The product detail page renders a "more views" thumbnail strip beneath
+   the main image (Ultimo + infortis_cloudzoom theme — .more-images is the
+   thumbnail-row wrapper, .product-image-thumbs is the legacy fallback).
+   Course products only ever have one canonical cover image, so the strip
+   is always a duplicate of the main image. Hide it storefront-wide
+   instead of branching the template. */
+.catalog-product-view .more-images,
+.catalog-product-view .product-image-thumbs,
+.catalog-product-view .more-views {
+    display: none !important;
+}

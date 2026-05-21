@@ -3577,15 +3577,42 @@ function devSetView(view) {
 
                 <div class="dcf-field">
                     <div class="dcf-label">Image URL Link</div>
-                    <div style="display:flex;gap:8px;align-items:center;">
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                         <input type="text" class="dcf-input" id="dcf-image-url" name="image_url" value="<?php echo htmlspecialchars($_editCourseData['image_url']) ?>" placeholder="Paste image URL or upload →" style="flex:1;min-width:0;" />
                         <button type="button" id="dcf-image-upload-btn" class="mm-btn mm-btn-ghost" style="flex:0 0 auto;">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                             <span id="dcf-image-upload-lbl">Upload</span>
                         </button>
+                        <button type="button" id="dcf-image-aigen-btn" class="mm-btn mm-btn-ghost" style="flex:0 0 auto;background:rgba(96,165,250,.12);border-color:rgba(96,165,250,.45);color:#bfdbfe;" title="Render a branded cover from the course title and upload to R2">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l1.9 5.9L20 10l-5.1 2.1L12 18l-2.9-5.9L4 10l6.1-2.1z"/></svg>
+                            <span id="dcf-image-aigen-lbl">AI Generate</span>
+                        </button>
                         <input type="file" id="dcf-image-file" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" />
                     </div>
                     <div id="dcf-image-upload-msg" style="margin-top:6px;font-size:12px;color:#94a3b8;display:none;"></div>
+                </div>
+
+                <?php
+                /* Funding-badge selector — controls which chips the AI Generate
+                   button renders into the bottom row of the cover PNG. Ephemeral:
+                   not persisted to a course attribute; the admin re-picks per
+                   regeneration. Defaults to WSQ + SkillsFuture Credit + PSEA when
+                   the SKU is TGS-* (WSQ-funded). */
+                $_aiBadges = ['WSQ', 'SkillsFuture Credit', 'PSEA', 'UTAP', 'IBF', 'HRDF'];
+                $_aiIsWsq  = Mage::helper('mmd_courseimage')->isWsqCourse((string) ($_selectedCourse['sku'] ?? ''));
+                $_aiDefault = $_aiIsWsq ? ['WSQ', 'SkillsFuture Credit', 'PSEA'] : [];
+                ?>
+                <div class="dcf-field">
+                    <div class="dcf-label">AI Cover Badges</div>
+                    <div id="dcf-aigen-badges" style="display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;">
+                        <?php foreach ($_aiBadges as $_b): $_id = 'dcf-badge-' . preg_replace('/[^a-z0-9]+/i', '-', strtolower($_b)); ?>
+                            <label for="<?php echo $_id ?>" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#cbd5e1;cursor:pointer;">
+                                <input type="checkbox" id="<?php echo $_id ?>" class="dcf-aigen-badge" value="<?php echo htmlspecialchars($_b) ?>" <?php echo in_array($_b, $_aiDefault, true) ? 'checked' : '' ?> />
+                                <span><?php echo htmlspecialchars($_b) ?></span>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                    <div style="margin-top:4px;font-size:11px;color:#64748b;">Select up to ~3 badges to show on the generated cover.</div>
                 </div>
                 <script>
                 /* Direct-upload helper for the Image URL Link field. Posts the
@@ -3659,87 +3686,94 @@ function devSetView(view) {
                           });
                     });
                 })();
+
+                /* MMD_CourseImage — AI Generate cover.
+                   Posts course_id to /tigerdragon/coursecover/generate, drops
+                   the returned R2 URL into the Image URL Link field, and
+                   refreshes the preview. The URL is NOT persisted until the
+                   admin clicks Save Changes (which routes through
+                   CoursesaveController -> course_image_url attribute). */
+                (function () {
+                    var aiBtn   = document.getElementById('dcf-image-aigen-btn');
+                    var aiLbl   = document.getElementById('dcf-image-aigen-lbl');
+                    var urlIn   = document.getElementById('dcf-image-url');
+                    var preview = document.getElementById('dcf-image-preview');
+                    var prevWrap = document.getElementById('dcf-image-preview-wrap');
+                    var msg     = document.getElementById('dcf-image-upload-msg');
+                    if (!aiBtn || !urlIn) return;
+
+                    var courseId = <?php echo (int) ($_selectedCourse['id'] ?? 0) ?>;
+                    var generateUrl = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/coursecover/generate')) ?>;
+
+                    function showMsg(text, color) {
+                        if (!msg) return;
+                        msg.style.display = 'block';
+                        msg.style.color = color || '#94a3b8';
+                        msg.textContent = text;
+                    }
+
+                    aiBtn.addEventListener('click', function () {
+                        if (!courseId) {
+                            showMsg('No course loaded — open a course in edit mode first.', '#fb7185');
+                            return;
+                        }
+                        aiBtn.disabled = true;
+                        aiLbl.textContent = 'Generating…';
+                        showMsg('Rendering cover and uploading to R2…');
+
+                        var fd = new FormData();
+                        fd.append('course_id', String(courseId));
+                        fd.append('form_key', (window.FORM_KEY || ''));
+                        var badgeBoxes = document.querySelectorAll('.dcf-aigen-badge:checked');
+                        for (var i = 0; i < badgeBoxes.length; i++) {
+                            fd.append('badges[]', badgeBoxes[i].value);
+                        }
+
+                        fetch(generateUrl, {
+                            method: 'POST',
+                            body: fd,
+                            credentials: 'same-origin'
+                        }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+                          .then(function (resp) {
+                            if (resp.data && resp.data.ok && resp.data.url) {
+                                urlIn.value = resp.data.url;
+                                if (preview && prevWrap) {
+                                    preview.src = resp.data.url;
+                                    prevWrap.style.display = '';
+                                }
+                                showMsg('Generated ' + (resp.data.wsq ? '(with WSQ badge)' : '') + ' — click Save Changes to persist.', '#34d399');
+                            } else {
+                                showMsg('Generate failed: ' + ((resp.data && resp.data.error) || 'unknown error'), '#fb7185');
+                            }
+                          })
+                          .catch(function (err) {
+                            showMsg('Network error: ' + err.message, '#fb7185');
+                          })
+                          .then(function () {
+                            aiBtn.disabled = false;
+                            aiLbl.textContent = 'AI Generate';
+                          });
+                    });
+                })();
                 </script>
             </div>
 
-            <div class="dcf-mag">
-                <div class="dcf-mag-bar">Media Gallery</div>
-                <div class="dcf-mag-body">
-                    <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);color:#93c5fd;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;">
-                        Read live from the product's media gallery. Toggle Exclude / Remove and pick which image is the Base / Small / Thumbnail. Save Changes commits everything. (File upload uses Magento's standard product editor for now.)
-                    </div>
-                    <?php
-                    // Live media gallery + currently-assigned image roles.
-                    $_imgRows = array();
-                    try {
-                        $_imgRoles = array(
-                            'image'       => (string) $_editProd->getData('image'),
-                            'small_image' => (string) $_editProd->getData('small_image'),
-                            'thumbnail'   => (string) $_editProd->getData('thumbnail'),
-                        );
-                        $_galleryImages = $_editProd->getMediaGalleryImages();
-                        if ($_galleryImages) {
-                            foreach ($_galleryImages as $_gi) {
-                                $_imgRows[] = array(
-                                    'value_id' => (int) $_gi->getValueId(),
-                                    'file'     => (string) $_gi->getFile(),
-                                    'url'      => (string) $_gi->getUrl(),
-                                    'label'    => (string) $_gi->getLabel(),
-                                    'position' => (int) $_gi->getPosition(),
-                                    'disabled' => (int) $_gi->getDisabled(),
-                                );
-                            }
-                        }
-                    } catch (Exception $_imgEx) { /* fall through to empty */ }
-                    ?>
-                    <input type="hidden" name="_images_loaded" value="1" />
-                    <div style="background:#283548;border:1px solid #384a60;border-radius:8px;overflow:hidden;">
-                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                            <thead>
-                                <tr style="background:#334155;color:#cbd5e1;">
-                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">Image</th>
-                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">Label</th>
-                                    <th style="padding:10px 12px;text-align:left;font-weight:600;">Sort</th>
-                                    <th style="padding:10px 12px;text-align:center;font-weight:600;">Base</th>
-                                    <th style="padding:10px 12px;text-align:center;font-weight:600;">Small</th>
-                                    <th style="padding:10px 12px;text-align:center;font-weight:600;">Thumb</th>
-                                    <th style="padding:10px 12px;text-align:center;font-weight:600;">Exclude</th>
-                                    <th style="padding:10px 12px;text-align:center;font-weight:600;">Remove</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if (empty($_imgRows)): ?>
-                                <tr><td colspan="8" style="padding:24px;color:#64748b;text-align:center;">No images in the gallery yet.</td></tr>
-                                <?php else: foreach ($_imgRows as $_ir):
-                                    $_isBase  = ($_imgRoles['image']       === $_ir['file']);
-                                    $_isSmall = ($_imgRoles['small_image'] === $_ir['file']);
-                                    $_isThumb = ($_imgRoles['thumbnail']   === $_ir['file']);
-                                ?>
-                                <tr style="border-top:1px solid #384a60;color:#e2e8f0;">
-                                    <td style="padding:10px 12px;"><img src="<?php echo htmlspecialchars($_ir['url']) ?>" style="width:80px;border-radius:4px;" /></td>
-                                    <td style="padding:10px 12px;"><input type="text" class="dcf-input" name="img_label[<?php echo (int)$_ir['value_id'] ?>]" value="<?php echo htmlspecialchars($_ir['label']) ?>" /></td>
-                                    <td style="padding:10px 12px;"><input type="number" class="dcf-input" name="img_position[<?php echo (int)$_ir['value_id'] ?>]" value="<?php echo (int)$_ir['position'] ?>" style="width:64px;" /></td>
-                                    <td style="padding:10px 12px;text-align:center;"><input type="radio" name="img_role_image" value="<?php echo htmlspecialchars($_ir['file']) ?>"<?php echo $_isBase  ? ' checked' : '' ?> /></td>
-                                    <td style="padding:10px 12px;text-align:center;"><input type="radio" name="img_role_small_image" value="<?php echo htmlspecialchars($_ir['file']) ?>"<?php echo $_isSmall ? ' checked' : '' ?> /></td>
-                                    <td style="padding:10px 12px;text-align:center;"><input type="radio" name="img_role_thumbnail" value="<?php echo htmlspecialchars($_ir['file']) ?>"<?php echo $_isThumb ? ' checked' : '' ?> /></td>
-                                    <td style="padding:10px 12px;text-align:center;"><input type="checkbox" name="img_disabled[<?php echo (int)$_ir['value_id'] ?>]" value="1"<?php echo $_ir['disabled'] ? ' checked' : '' ?> /></td>
-                                    <td style="padding:10px 12px;text-align:center;"><input type="checkbox" name="img_remove[<?php echo (int)$_ir['value_id'] ?>]" value="1" /></td>
-                                </tr>
-                                <?php endforeach; endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div style="margin-top:14px;padding-top:14px;border-top:1px solid #334155;">
-                        <div style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Upload new images</div>
-                        <input type="file" name="image_upload[]" accept="image/*" multiple style="color:#cbd5e1;font-size:13px;" />
-                        <div style="margin-top:6px;color:#64748b;font-size:12px;">JPG / PNG / GIF / WebP. Files are added to the gallery on Save Changes. The first uploaded image becomes the new Base / Small / Thumbnail unless one is already selected above.</div>
-                    </div>
-                    <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#64748b;">
-                        <span><?php echo count($_imgRows) ?> image(s) in gallery</span>
-                        <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => $_selectedCourse['id'])) ?>#product_info_tabs_images" target="_blank" style="color:#60a5fa;text-decoration:none;">Open in Magento product editor →</a>
-                    </div>
-                </div>
-            </div>
+            <?php
+            /*
+             * Media Gallery panel intentionally removed.
+             * Each course is a single deliverable with one canonical cover
+             * image (course_image_url, populated above via Upload / AI
+             * Generate). Magento's standard multi-image gallery added clutter
+             * — base / small / thumbnail role pickers, sort order, disabled
+             * flags, removal checkboxes — that has no analogue in a course
+             * catalog where there is no second image to choose from.
+             *
+             * If a single product ever needs more than one image, fall back
+             * to the standard Magento product editor — the existing
+             * "Open in Magento product editor →" link above the SEO panel
+             * still works.
+             */
+            ?>
         </div>
 
         <!-- ===== Tab: Meta Information ===== -->
