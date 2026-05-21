@@ -2637,3 +2637,53 @@ button.hsp-btn-submit{
    light too (#64748b reads well), hover lifts to near-black. */
 :root[data-theme="light"] .dev-edit-btn { color:#64748b !important }
 :root[data-theme="light"] .dev-edit-btn:hover { color:#0f172a !important; background:rgba(15,23,42,0.04) !important; border-radius:6px !important }
+
+/* Marketing Newsletter panel (.mn-* classes inside
+   #dash-panel-marketing-newsletter). Outer cards, template pickers,
+   inputs, drafts list, and the right-side preview all hardcode dark
+   slate. Flip each surface for light. The DEMO MODE pill and active
+   template tint use semantic colors that read on both surfaces. */
+:root[data-theme="light"] .mn-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .mn-card h3 { color:#0f172a !important }
+
+/* Template picker buttons */
+:root[data-theme="light"] button.mn-tpl,
+:root[data-theme="light"] button.mn-tpl:hover,
+:root[data-theme="light"] button.mn-tpl:focus { background:#f8fafc !important; border-color:#e2e8f0 !important; color:#1e293b !important }
+:root[data-theme="light"] button.mn-tpl.active,
+:root[data-theme="light"] button.mn-tpl.active:hover { background:rgba(37,99,235,0.10) !important; border-color:#2563eb !important; color:#1d4ed8 !important }
+:root[data-theme="light"] button.mn-tpl strong { color:inherit !important }
+:root[data-theme="light"] .mn-tpl small { color:#64748b !important }
+
+/* Form inputs / textarea / select / search results */
+:root[data-theme="light"] .mn-input,
+:root[data-theme="light"] textarea.mn-input,
+:root[data-theme="light"] select.mn-input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .mn-input:focus { border-color:#2563eb !important }
+:root[data-theme="light"] .mn-search-results { background:#ffffff !important; border-color:#cbd5e1 !important }
+
+/* Right-side preview frame */
+:root[data-theme="light"] .mn-preview { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .mn-preview-head { background:#ffffff !important; border-bottom-color:#e2e8f0 !important }
+:root[data-theme="light"] .mn-preview-head h3 { color:#0f172a !important }
+:root[data-theme="light"] .mn-preview-empty { background:#ffffff !important; color:#64748b !important }
+:root[data-theme="light"] .mn-preview-stage { background:#f1f5f9 !important }
+
+/* Desktop / Mobile viewport toggle (right of LIVE PREVIEW). The
+   wrapper has its own dark bg; the active button stays solid blue
+   on both themes. */
+:root[data-theme="light"] .mn-vp-toggle { background:#f1f5f9 !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] button.mn-vp-btn:hover { color:#0f172a !important; background:rgba(15,23,42,0.06) !important }
+
+/* Reference Images — Choose Files input. Custom `.mn-file-input`
+   class has its OWN dashed-border + slate bg styling (separate from
+   the global ::file-selector-button rule). Use the WebKit pseudo
+   here since this input also targets ::-webkit-file-upload-button. */
+:root[data-theme="light"] input.mn-file-input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#64748b !important }
+:root[data-theme="light"] input.mn-file-input::-webkit-file-upload-button { background:#f1f5f9 !important; color:#1e293b !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] input.mn-file-input::-webkit-file-upload-button:hover { background:#e2e8f0 !important; color:#0f172a !important }
+
+/* Conversation history box + assistant messages */
+:root[data-theme="light"] .mn-chat { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .mn-msg.assistant { background:#f1f5f9 !important; border-color:#e2e8f0 !important; color:#0f172a !important }
+:root[data-theme="light"] .mn-msg.user { background:rgba(37,99,235,0.10) !important; color:#1d4ed8 !important }
