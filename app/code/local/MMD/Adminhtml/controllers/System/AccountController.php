@@ -109,6 +109,11 @@ class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_Accou
         } catch (Mage_Core_Exception $e) {
             Mage::getSingleton('adminhtml/session')->addError($e->getMessage());
         } catch (Exception $e) {
+            // Log the real exception — the user-facing message is
+            // intentionally generic, but a swallowed trace makes
+            // prod-only failures (e.g. admin_user schema drift)
+            // impossible to diagnose. See var/log/exception.log.
+            Mage::logException($e);
             Mage::getSingleton('adminhtml/session')->addError(
                 Mage::helper('adminhtml')->__('An error occurred while saving account.')
             );
