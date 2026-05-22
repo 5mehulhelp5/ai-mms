@@ -3596,11 +3596,16 @@ function devSetView(view) {
                 /* Funding-badge selector — controls which chips the AI Generate
                    button renders into the bottom row of the cover PNG. Ephemeral:
                    not persisted to a course attribute; the admin re-picks per
-                   regeneration. Defaults to WSQ + SkillsFuture Credit + PSEA when
-                   the SKU is TGS-* (WSQ-funded). */
-                $_aiBadges = ['WSQ', 'SkillsFuture Credit', 'PSEA', 'UTAP', 'IBF', 'HRDF'];
-                $_aiIsWsq  = Mage::helper('mmd_courseimage')->isWsqCourse((string) ($_selectedCourse['sku'] ?? ''));
-                $_aiDefault = $_aiIsWsq ? ['WSQ', 'SkillsFuture Credit', 'PSEA'] : [];
+                   regeneration. Defaults are country-aware: SG → WSQ/MCES/UTAP,
+                   MY → HRDF, other countries → none ticked. */
+                $_ciHelper = Mage::helper('mmd_courseimage');
+                $_aiBadges = $_ciHelper->getAllBadges();
+                $_aiProduct = (!empty($_selectedCourse['id']))
+                    ? Mage::getModel('catalog/product')->load((int) $_selectedCourse['id'])
+                    : null;
+                $_aiDefault = ($_aiProduct && $_aiProduct->getId())
+                    ? $_ciHelper->getDefaultBadgesForProduct($_aiProduct)
+                    : [];
                 ?>
                 <div class="dcf-field">
                     <div class="dcf-label">AI Cover Badges</div>

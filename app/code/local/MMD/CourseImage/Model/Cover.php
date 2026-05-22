@@ -18,7 +18,7 @@
  */
 class MMD_CourseImage_Model_Cover
 {
-    public const WIDTH  = 1200;
+    public const WIDTH  = 1600;
     public const HEIGHT = 900;
     private const PADDING_X = 80;
     private const PADDING_Y = 80;
@@ -265,7 +265,10 @@ class MMD_CourseImage_Model_Cover
         $cyanSoft   = imagecolorallocatealpha($im, $cr, $cg, $cb, 70);
         $white      = imagecolorallocate($im, 255, 255, 255);
         $frosted    = imagecolorallocatealpha($im, 5, 16, 42, 50);
-        $headerCol  = imagecolorallocatealpha($im, $cr, $cg, $cb, 30);
+        // Yellow/amber header — the prior near-cyan tone blended into the
+        // blue gradient and was hard to read at small sizes. Tailwind
+        // amber-400 (#FBBF24) reads as a warm contrast against the navy.
+        $headerCol  = imagecolorallocate($im, 0xFB, 0xBF, 0x24);
 
         // Header label.
         $headerSize = 16;

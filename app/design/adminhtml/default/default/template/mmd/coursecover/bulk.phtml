@@ -1,0 +1,348 @@
+<?php
+/**
+ * Bulk AI Course Cover Generator
+ *
+ * Super-admin tool: regenerate course-cover PNGs for many products at once,
+ * scoped to a single Magento store. Nothing runs automatically — the admin
+ * picks the store + filters, clicks "Find matches" to see the candidate
+ * list, then "Run on selected" to process row-by-row via AJAX so the user
+ * can watch progress and abort.
+ *
+ * Endpoints used:
+ *   GET  tigerdragon/coursecover/bulkList   — return candidate products as JSON
+ *   POST tigerdragon/coursecover/bulkRun    — render+upload+save ONE product
+ */
+$_listUrl = Mage::helper('adminhtml')->getUrl('adminhtml/coursecover/bulkList');
+$_runUrl  = Mage::helper('adminhtml')->getUrl('adminhtml/coursecover/bulkRun');
+
+$_ciHelper = Mage::helper('mmd_courseimage');
+$_stores   = [];
+foreach (Mage::app()->getStores() as $_s) {
+    $_stores[] = [
+        'id'           => (int) $_s->getId(),
+        'website'      => $_s->getWebsite()->getName(),
+        'website_code' => $_s->getWebsite()->getCode(),
+        'code'         => $_s->getCode(),
+        'name'         => $_s->getName(),
+    ];
+}
+// Singapore = base website default store view. Pre-select it.
+$_defaultStoreId = 1;
+
+$_badges = $_ciHelper->getAllBadges();
+
+// Per-website defaults exported to JS so toggling the store dropdown
+// re-checks the appropriate badges client-side.
+$_badgeDefaultsByWebsite = [];
+foreach ($_stores as $_st) {
+    $_badgeDefaultsByWebsite[$_st['website_code']] = $_ciHelper->getDefaultBadgesForWebsite($_st['website_code']);
+}
+$_defaultChecked = $_ciHelper->getDefaultBadgesForWebsite('base');
+?>
+<style>
+.bac-wrap { padding: 24px; color: #cbd5e1; font-size: 13px; }
+.bac-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 10px; padding: 20px; margin-bottom: 18px; }
+.bac-card h2 { color: #f1f5f9; font-size: 18px; margin: 0 0 14px; font-weight: 600; }
+.bac-row { display: flex; flex-wrap: wrap; gap: 18px 28px; align-items: center; margin-bottom: 12px; }
+.bac-field { display: flex; flex-direction: column; gap: 6px; }
+.bac-field label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; }
+.bac-field select, .bac-field input[type=text] {
+    background: #1e293b; border: 1px solid #334155; color: #f1f5f9;
+    border-radius: 6px; padding: 8px 10px; font-size: 13px; min-width: 220px;
+}
+.bac-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; }
+.bac-check input { accent-color: #60a5fa; }
+.bac-btn {
+    background: rgba(96,165,250,.14); border: 1px solid rgba(96,165,250,.45);
+    color: #bfdbfe; border-radius: 6px; padding: 8px 16px; font-size: 13px;
+    font-weight: 600; cursor: pointer;
+}
+.bac-btn:hover { background: rgba(96,165,250,.22); }
+.bac-btn-primary { background: #22d3ee; border-color: #22d3ee; color: #0f172a; }
+.bac-btn-primary:hover { background: #06b6d4; }
+.bac-btn-danger { background: rgba(251,113,133,.14); border-color: rgba(251,113,133,.45); color: #fda4af; }
+.bac-btn[disabled] { opacity: .5; cursor: not-allowed; }
+.bac-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+.bac-table th, .bac-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #1e293b; }
+.bac-table th { color: #64748b; font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: .05em; }
+.bac-table tr.done { background: rgba(34,211,238,.05); }
+.bac-table tr.fail { background: rgba(251,113,133,.05); }
+.bac-status { font-size: 11px; }
+.bac-status.pending { color: #94a3b8; }
+.bac-status.running { color: #fbbf24; }
+.bac-status.done    { color: #34d399; }
+.bac-status.fail    { color: #fb7185; }
+.bac-summary { font-size: 12px; color: #94a3b8; margin: 8px 0; }
+</style>
+
+<div class="bac-wrap">
+
+    <div class="bac-card">
+        <h2>Bulk AI Cover Generator</h2>
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:14px;">
+            Regenerate course cover PNGs in bulk for a single store. Each product is
+            re-rendered with the badges you tick below, uploaded to Cloudflare R2,
+            and the new URL is written to <code>course_image_url</code>. Nothing
+            runs until you click <strong>Run on selected</strong>.
+        </div>
+
+        <div class="bac-row">
+            <div class="bac-field">
+                <label>Store</label>
+                <select id="bac-store">
+                    <?php foreach ($_stores as $_st): ?>
+                        <option value="<?php echo $_st['id'] ?>" data-website-code="<?php echo htmlspecialchars($_st['website_code']) ?>" <?php echo $_st['id'] === $_defaultStoreId ? 'selected' : '' ?>>
+                            <?php echo htmlspecialchars($_st['website'] . ' — ' . $_st['name'] . ' (' . $_st['code'] . ')') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="bac-field">
+                <label>SKU prefix</label>
+                <input type="text" id="bac-sku-prefix" placeholder="e.g. TGS- (leave blank to use WSQ-only)" />
+            </div>
+            <div class="bac-field">
+                <label>Keyword (matches SKU or name)</label>
+                <input type="text" id="bac-keyword" placeholder="e.g. python, agentic, autocad" />
+            </div>
+        </div>
+
+        <div class="bac-row">
+            <div class="bac-field" style="flex:1;">
+                <label>Filters</label>
+                <div style="display:flex;gap:18px;align-items:center;height:34px;">
+                    <label class="bac-check"><input type="checkbox" id="bac-wsq" checked /> WSQ-only (TGS-*)</label>
+                    <label class="bac-check"><input type="checkbox" id="bac-missing" /> Only products without a cover</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="bac-row">
+            <div class="bac-field" style="flex:1;">
+                <label>AI Cover Badges</label>
+                <div id="bac-badges" style="display:flex;gap:14px;flex-wrap:wrap;height:34px;align-items:center;">
+                    <?php foreach ($_badges as $_b): $_id = 'bac-badge-' . preg_replace('/[^a-z0-9]+/i', '-', strtolower($_b)); ?>
+                        <label class="bac-check" for="<?php echo $_id ?>">
+                            <input type="checkbox" id="<?php echo $_id ?>" class="bac-badge" value="<?php echo htmlspecialchars($_b) ?>" <?php echo in_array($_b, $_defaultChecked, true) ? 'checked' : '' ?> />
+                            <?php echo htmlspecialchars($_b) ?>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+
+        <div class="bac-row">
+            <button type="button" id="bac-find-btn" class="bac-btn">Find matches</button>
+            <button type="button" id="bac-run-btn" class="bac-btn bac-btn-primary" disabled>Run on selected (0)</button>
+            <button type="button" id="bac-stop-btn" class="bac-btn bac-btn-danger" style="display:none;">Stop</button>
+        </div>
+
+        <div id="bac-summary" class="bac-summary"></div>
+    </div>
+
+    <div class="bac-card" id="bac-results-card" style="display:none;">
+        <h2>Candidates</h2>
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:10px;">
+            Tick the rows you want to regenerate. Use the header checkbox to toggle all,
+            then click <strong>Run on selected</strong>. Unticked rows are skipped.
+        </div>
+        <div class="bac-row" style="margin-bottom:6px;">
+            <label class="bac-check"><input type="checkbox" id="bac-select-all" checked /> Select / deselect all</label>
+        </div>
+        <table class="bac-table">
+            <thead>
+                <tr>
+                    <th style="width:40px;"></th>
+                    <th style="width:60px;">ID</th>
+                    <th style="width:180px;">SKU</th>
+                    <th>Name</th>
+                    <th style="width:120px;">Status</th>
+                </tr>
+            </thead>
+            <tbody id="bac-tbody"></tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+(function () {
+    var listUrl = <?php echo json_encode($_listUrl) ?>;
+    var runUrl  = <?php echo json_encode($_runUrl) ?>;
+    var formKey = (window.FORM_KEY || '');
+    var badgeDefaultsByWebsite = <?php echo json_encode($_badgeDefaultsByWebsite, JSON_UNESCAPED_SLASHES) ?>;
+
+    var els = {
+        store:    document.getElementById('bac-store'),
+        wsq:      document.getElementById('bac-wsq'),
+        missing:  document.getElementById('bac-missing'),
+        skuPref:  document.getElementById('bac-sku-prefix'),
+        keyword:  document.getElementById('bac-keyword'),
+        findBtn:  document.getElementById('bac-find-btn'),
+        runBtn:   document.getElementById('bac-run-btn'),
+        stopBtn:  document.getElementById('bac-stop-btn'),
+        summary:  document.getElementById('bac-summary'),
+        card:     document.getElementById('bac-results-card'),
+        tbody:    document.getElementById('bac-tbody'),
+        selAll:   document.getElementById('bac-select-all'),
+    };
+
+    var state = { items: [], running: false, stopRequested: false };
+
+    function badges() {
+        var out = [];
+        document.querySelectorAll('.bac-badge:checked').forEach(function (cb) { out.push(cb.value); });
+        return out;
+    }
+
+    // When the store dropdown changes, re-check the badges that match the
+    // selected website's country defaults (SG → WSQ/MCES/UTAP, MY → HRDF,
+    // others → none). Avoids the admin having to retick by hand.
+    function applyBadgeDefaultsForCurrentStore() {
+        var opt = els.store.options[els.store.selectedIndex];
+        var code = opt ? (opt.getAttribute('data-website-code') || '') : '';
+        var defaults = badgeDefaultsByWebsite[code] || [];
+        document.querySelectorAll('.bac-badge').forEach(function (cb) {
+            cb.checked = defaults.indexOf(cb.value) !== -1;
+        });
+    }
+    els.store.addEventListener('change', applyBadgeDefaultsForCurrentStore);
+
+    function updateRunBtn() {
+        var n = document.querySelectorAll('.bac-row-check:checked').length;
+        els.runBtn.disabled = (n === 0 || state.running);
+        els.runBtn.textContent = 'Run on selected (' + n + ')';
+    }
+
+    els.findBtn.addEventListener('click', function () {
+        var url = listUrl
+            + (listUrl.indexOf('?') === -1 ? '?' : '&')
+            + 'store_id=' + encodeURIComponent(els.store.value)
+            + '&wsq_only=' + (els.wsq.checked ? 1 : 0)
+            + '&missing_only=' + (els.missing.checked ? 1 : 0)
+            + '&sku_prefix=' + encodeURIComponent(els.skuPref.value.trim())
+            + '&keyword=' + encodeURIComponent(els.keyword.value.trim());
+
+        els.findBtn.disabled = true;
+        els.summary.textContent = 'Searching…';
+
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d.ok) throw new Error(d.error || 'unknown error');
+                state.items = d.items;
+                renderRows();
+                els.summary.textContent = 'Found ' + d.count + ' product' + (d.count === 1 ? '' : 's') + '.';
+                els.card.style.display = d.count > 0 ? '' : 'none';
+            })
+            .catch(function (e) { els.summary.textContent = 'Error: ' + e.message; })
+            .then(function () { els.findBtn.disabled = false; });
+    });
+
+    function renderRows() {
+        els.tbody.innerHTML = '';
+        state.items.forEach(function (it) {
+            var tr = document.createElement('tr');
+            tr.dataset.id = String(it.id);
+            tr.innerHTML =
+                '<td><input type="checkbox" class="bac-row-check" checked /></td>' +
+                '<td>' + it.id + '</td>' +
+                '<td><code>' + escapeHtml(it.sku) + '</code></td>' +
+                '<td>' + escapeHtml(it.name) + '</td>' +
+                '<td><span class="bac-status pending">pending</span></td>';
+            els.tbody.appendChild(tr);
+        });
+        updateRunBtn();
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+        });
+    }
+
+    els.selAll.addEventListener('change', function () {
+        document.querySelectorAll('.bac-row-check').forEach(function (cb) { cb.checked = els.selAll.checked; });
+        updateRunBtn();
+    });
+    els.tbody.addEventListener('change', function (e) {
+        if (e.target.classList.contains('bac-row-check')) updateRunBtn();
+    });
+
+    els.stopBtn.addEventListener('click', function () {
+        state.stopRequested = true;
+        els.stopBtn.disabled = true;
+        els.stopBtn.textContent = 'Stopping…';
+    });
+
+    els.runBtn.addEventListener('click', function () {
+        if (state.running) return;
+        var selected = [];
+        document.querySelectorAll('.bac-row-check:checked').forEach(function (cb) {
+            selected.push(parseInt(cb.closest('tr').dataset.id, 10));
+        });
+        if (!selected.length) return;
+        if (!confirm('Generate covers for ' + selected.length + ' product' + (selected.length === 1 ? '' : 's') + '? This writes course_image_url on each.')) return;
+
+        state.running = true;
+        state.stopRequested = false;
+        els.runBtn.disabled = true;
+        els.findBtn.disabled = true;
+        els.stopBtn.style.display = '';
+        els.stopBtn.disabled = false;
+        els.stopBtn.textContent = 'Stop';
+
+        var b = badges();
+        var ok = 0, fail = 0, i = 0;
+
+        function next() {
+            if (state.stopRequested || i >= selected.length) return finish();
+            var id = selected[i++];
+            var row = els.tbody.querySelector('tr[data-id="' + id + '"]');
+            var statusEl = row ? row.querySelector('.bac-status') : null;
+            if (statusEl) { statusEl.className = 'bac-status running'; statusEl.textContent = 'rendering…'; }
+
+            var fd = new FormData();
+            fd.append('product_id', String(id));
+            fd.append('form_key', formKey);
+            b.forEach(function (v) { fd.append('badges[]', v); });
+
+            fetch(runUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d.ok) {
+                        ok++;
+                        if (row) row.classList.add('done');
+                        if (statusEl) { statusEl.className = 'bac-status done'; statusEl.textContent = 'done'; }
+                    } else {
+                        fail++;
+                        if (row) row.classList.add('fail');
+                        if (statusEl) { statusEl.className = 'bac-status fail'; statusEl.textContent = (d.error || 'failed').slice(0, 60); }
+                    }
+                })
+                .catch(function (e) {
+                    fail++;
+                    if (row) row.classList.add('fail');
+                    if (statusEl) { statusEl.className = 'bac-status fail'; statusEl.textContent = e.message.slice(0, 60); }
+                })
+                .then(function () {
+                    els.summary.textContent = 'Progress: ' + (ok + fail) + ' / ' + selected.length
+                        + '  (ok ' + ok + ', fail ' + fail + ')';
+                    next();
+                });
+        }
+
+        function finish() {
+            state.running = false;
+            els.runBtn.disabled = false;
+            els.findBtn.disabled = false;
+            els.stopBtn.style.display = 'none';
+            updateRunBtn();
+            var note = state.stopRequested ? ' — stopped by user' : '';
+            els.summary.textContent = 'Finished: ok ' + ok + ', fail ' + fail + note + '.';
+        }
+
+        next();
+    });
+})();
+</script>
