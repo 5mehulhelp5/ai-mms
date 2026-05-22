@@ -572,17 +572,12 @@ endif; // end if ($activeRole === 'admin' && $_dashOnAdminMaster)
 // =====================================================================
 // DATA — Admin master dashboard summaries (no dash_filter)
 // =====================================================================
-// Powers the four summary cards shown on the default Admin Dashboard view:
-// Latest Registrations, Latest Search Terms, Most Popular Search Terms,
-// Most Popular Courses. All scoped to the active branch via $_adminWid.
-$_admDashRecentOrders   = array();
-$_admDashRecentSearches = array();
-$_admDashTopSearches    = array();
-$_admDashTopCourses     = array();
-$_admDashTopRevenue     = array();
+// Powers the Latest 20 Registrations summary card. The marketing-flavoured
+// summaries (Latest/Top Search Terms, Most Popular/Top Revenue Courses) now
+// live on the Marketing Dashboard (MMD_Marketing module).
+$_admDashRecentOrders = array();
 if ($activeRole === 'admin' && $_dashOnAdminMaster && $_dashFilter === '') {
     $_admStoreWhere = $_adminWid > 0 ? "WHERE o.store_id={$_adminWid}" : '';
-    $_admSearchStoreWhere = $_adminWid > 0 ? "WHERE store_id={$_adminWid}" : '';
 
     // Latest 20 Registrations — fields mirror the Sales Registrations grid
     // (Reg #, Date, Learner Name/Email/Tel, Course, Course Date, Branch,
@@ -624,54 +619,10 @@ if ($activeRole === 'admin' && $_dashOnAdminMaster && $_dashFilter === '') {
     }
     unset($_orow);
 
-    // Latest 20 Search Terms
-    $_admDashRecentSearches = $read->fetchAll("
-        SELECT query_id, query_text, num_results, popularity, updated_at, store_id
-        FROM catalogsearch_query
-        {$_admSearchStoreWhere}
-        ORDER BY updated_at DESC
-        LIMIT 20
-    ");
-
-    // Most Popular Search Terms
-    $_admDashTopSearches = $read->fetchAll("
-        SELECT query_id, query_text, popularity, num_results, store_id
-        FROM catalogsearch_query
-        {$_admSearchStoreWhere}
-        ORDER BY popularity DESC, query_text ASC
-        LIMIT 20
-    ");
-
-    // Most Popular Courses BY VIEWS — from report_event (event_type_id=1
-    // is catalog_product_view).
-    $_viewStoreWhere = $_adminWid > 0 ? "AND re.store_id={$_adminWid}" : '';
-    $_admDashTopCourses = $read->fetchAll("
-        SELECT re.object_id AS product_id, p.sku,
-               COALESCE(vname.value, CONCAT('Product #', re.object_id)) AS name,
-               COUNT(*) AS views
-        FROM report_event re
-        LEFT JOIN catalog_product_entity p ON p.entity_id=re.object_id
-        LEFT JOIN catalog_product_entity_varchar vname
-               ON vname.entity_id=re.object_id
-              AND vname.attribute_id={$nameAid}
-              AND vname.store_id=0
-        WHERE re.event_type_id=1 {$_viewStoreWhere}
-        GROUP BY re.object_id
-        ORDER BY views DESC
-        LIMIT 10
-    ");
-
-    // Top Revenue Courses — SUM(row_total_incl_tax) per product, all-time.
-    $_admDashTopRevenue = $read->fetchAll("
-        SELECT oi.product_id, MAX(oi.name) AS name,
-               SUM(oi.row_total) AS revenue, SUM(oi.qty_ordered) AS qty
-        FROM sales_flat_order_item oi
-        INNER JOIN sales_flat_order o ON oi.order_id=o.entity_id AND o.state NOT IN ('canceled','holded')
-        " . ($_adminWid > 0 ? "WHERE o.store_id={$_adminWid} AND" : "WHERE") . " (oi.parent_item_id IS NULL)
-        GROUP BY oi.product_id
-        ORDER BY revenue DESC
-        LIMIT 10
-    ");
+    // Note: Latest/Top Search Terms + Most Popular/Top Revenue Courses moved
+    // to the dedicated Marketing Dashboard (MMD_Marketing module), reachable
+    // at /<adminFrontName>/marketingdashboard/. Admins still see Latest 20
+    // Registrations on this page.
 }
 
 // =====================================================================
@@ -1862,95 +1813,8 @@ if ($_selectedCourseId) {
         </div>
     </div>
 
-    <div class="dash-summary-grid">
-        <div class="dash-summary-card">
-            <div class="dash-summary-head">Most Popular Courses <span class="dash-summary-sub">(by views)</span></div>
-            <div class="dash-summary-body">
-                <table class="dash-summary-table dash-summary-table--compact">
-                    <thead><tr><th>Course</th><th style="text-align:right;width:70px;">Views</th><th style="width:32px;"></th></tr></thead>
-                    <tbody>
-                    <?php foreach ($_admDashTopCourses as $_c):
-                        $_cUrl = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => (int)$_c['product_id']));
-                    ?>
-                        <tr>
-                            <td class="dash-summary-trunc" title="<?php echo htmlspecialchars($_c['name']) ?>"><?php echo htmlspecialchars($_c['name']) ?></td>
-                            <td style="text-align:right;"><?php echo (int)$_c['views'] ?></td>
-                            <td><a href="<?php echo $_cUrl ?>" title="View course" class="dash-summary-icon"><?php echo $_extIcon ?></a></td>
-                        </tr>
-                    <?php endforeach; if (empty($_admDashTopCourses)): ?>
-                        <tr><td colspan="3" class="dash-summary-empty">No view data yet.</td></tr>
-                    <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <div class="dash-summary-card">
-            <div class="dash-summary-head">Top Revenue Courses</div>
-            <div class="dash-summary-body">
-                <table class="dash-summary-table dash-summary-table--compact">
-                    <thead><tr><th>Course</th><th style="text-align:right;width:60px;">Pax</th><th style="text-align:right;width:110px;">Revenue</th><th style="width:32px;"></th></tr></thead>
-                    <tbody>
-                    <?php foreach ($_admDashTopRevenue as $_c):
-                        $_cUrl = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => (int)$_c['product_id']));
-                    ?>
-                        <tr>
-                            <td class="dash-summary-trunc" title="<?php echo htmlspecialchars($_c['name']) ?>"><?php echo htmlspecialchars($_c['name']) ?></td>
-                            <td style="text-align:right;"><?php echo (int)$_c['qty'] ?></td>
-                            <td style="text-align:right;font-weight:600;"><?php echo Mage::helper('core')->currency($_c['revenue'], true, false) ?></td>
-                            <td><a href="<?php echo $_cUrl ?>" title="View course" class="dash-summary-icon"><?php echo $_extIcon ?></a></td>
-                        </tr>
-                    <?php endforeach; if (empty($_admDashTopRevenue)): ?>
-                        <tr><td colspan="4" class="dash-summary-empty">No revenue data yet.</td></tr>
-                    <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <div class="dash-summary-card">
-            <div class="dash-summary-head">Latest 20 Search Terms</div>
-            <div class="dash-summary-body">
-                <table class="dash-summary-table dash-summary-table--compact">
-                    <thead><tr><th>Term</th><th style="text-align:right;width:60px;">Results</th><th style="text-align:right;width:70px;">Popularity</th><th style="width:32px;"></th></tr></thead>
-                    <tbody>
-                    <?php foreach ($_admDashRecentSearches as $_s):
-                        $_sUrl = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_search/edit', array('id' => (int)$_s['query_id']));
-                    ?>
-                        <tr>
-                            <td class="dash-summary-trunc" title="<?php echo htmlspecialchars($_s['query_text']) ?>"><?php echo htmlspecialchars($_s['query_text']) ?></td>
-                            <td style="text-align:right;"><?php echo (int)$_s['num_results'] ?></td>
-                            <td style="text-align:right;"><?php echo (int)$_s['popularity'] ?></td>
-                            <td><a href="<?php echo $_sUrl ?>" title="View search term" class="dash-summary-icon"><?php echo $_extIcon ?></a></td>
-                        </tr>
-                    <?php endforeach; if (empty($_admDashRecentSearches)): ?>
-                        <tr><td colspan="4" class="dash-summary-empty">No search activity.</td></tr>
-                    <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <div class="dash-summary-card">
-            <div class="dash-summary-head">Top 20 Popular Search Terms</div>
-            <div class="dash-summary-body">
-                <table class="dash-summary-table dash-summary-table--compact">
-                    <thead><tr><th>Term</th><th style="text-align:right;width:60px;">Results</th><th style="text-align:right;width:70px;">Popularity</th><th style="width:32px;"></th></tr></thead>
-                    <tbody>
-                    <?php foreach ($_admDashTopSearches as $_s):
-                        $_sUrl = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_search/edit', array('id' => (int)$_s['query_id']));
-                    ?>
-                        <tr>
-                            <td class="dash-summary-trunc" title="<?php echo htmlspecialchars($_s['query_text']) ?>"><?php echo htmlspecialchars($_s['query_text']) ?></td>
-                            <td style="text-align:right;"><?php echo (int)$_s['num_results'] ?></td>
-                            <td style="text-align:right;"><?php echo (int)$_s['popularity'] ?></td>
-                            <td><a href="<?php echo $_sUrl ?>" title="View search term" class="dash-summary-icon"><?php echo $_extIcon ?></a></td>
-                        </tr>
-                    <?php endforeach; if (empty($_admDashTopSearches)): ?>
-                        <tr><td colspan="4" class="dash-summary-empty">No search activity.</td></tr>
-                    <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+    <?php /* Most Popular Courses, Top Revenue Courses, Latest/Top Search
+            Terms moved to the Marketing Dashboard (MMD_Marketing module). */ ?>
     <?php else: ?>
 
     <div class="dash-search-wrap">

@@ -81,6 +81,21 @@ $_admDashTopRevenue = $read->fetchAll("
     ORDER BY revenue DESC
     LIMIT 10
 ");
+
+// ---- Leads KPIs (real data from mmd_lead) ----
+// Wrapped so the dashboard never fatals if the leads module isn't installed
+// (e.g. on a fresh DB before migrations 114 land).
+$_mktLeadsTotal     = 0;
+$_mktLeadsLast30d   = 0;
+$_mktLeadsByStore   = array();
+try {
+    $_leadsTable = $resource->getTableName('mmd_leads/lead');
+    $_mktLeadsTotal   = (int) $read->fetchOne("SELECT COUNT(*) FROM {$_leadsTable}");
+    $_mktLeadsLast30d = (int) $read->fetchOne("SELECT COUNT(*) FROM {$_leadsTable} WHERE created_at >= (NOW() - INTERVAL 30 DAY)");
+    $_mktLeadsByStore = $read->fetchAll("SELECT COALESCE(NULLIF(store_code,''),'admin') AS store_code, COUNT(*) AS n FROM {$_leadsTable} GROUP BY store_code ORDER BY n DESC");
+} catch (Exception $e) {
+    // mmd_lead table not present yet — leave KPIs at zero.
+}
 ?>
 <style>
 /* Page-level wrapper so the cards have breathing room inside the admin
@@ -88,10 +103,88 @@ $_admDashTopRevenue = $read->fetchAll("
    admin-dashboard.css (loaded via the layout handle). */
 .mmd-marketing-dashboard{padding:14px 18px;}
 .mmd-marketing-dashboard h1{font-size:20px;font-weight:700;color:#e2e8f0;margin:0 0 18px;}
+
+/* KPI strip — 6 tiles in a responsive grid. Reuses dash-kpi-* tokens. */
+.mmd-mkt-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:18px;}
+.mmd-mkt-kpi{background:#1f2937;border:1px solid var(--b1,#384a60);border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:6px;}
+.mmd-mkt-kpi-label{font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;}
+.mmd-mkt-kpi-value{font-size:28px;font-weight:700;color:#22d3ee;line-height:1.1;}
+.mmd-mkt-kpi-value.mmd-mkt-kpi-pending{color:#64748b;font-size:24px;}
+.mmd-mkt-kpi-sub{font-size:11px;color:#64748b;font-style:italic;}
+
+/* Subscriber growth chart placeholder */
+.mmd-mkt-chart-card{background:#1f2937;border:1px solid var(--b1,#384a60);border-radius:10px;padding:18px 20px;margin-bottom:18px;}
+.mmd-mkt-chart-head{font-size:12px;font-weight:600;color:#cbd5e1;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;}
+.mmd-mkt-chart-body{height:140px;display:flex;align-items:end;gap:6px;padding:8px 0;border-bottom:1px solid rgba(56,74,96,.5);}
+.mmd-mkt-chart-bar{flex:1;background:linear-gradient(180deg,#475569 0%,#334155 100%);border-radius:3px 3px 0 0;opacity:.35;min-height:8px;}
+.mmd-mkt-chart-empty{color:#64748b;font-size:12px;font-style:italic;text-align:center;margin-top:10px;}
+
+/* Leads-by-store mini list */
+.mmd-mkt-leads-by-store{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.mmd-mkt-leads-chip{background:#0f172a;border:1px solid #334155;border-radius:999px;padding:4px 12px;font-size:12px;color:#e2e8f0;}
+.mmd-mkt-leads-chip strong{color:#22d3ee;margin-left:6px;}
 </style>
 
 <div class="mmd-marketing-dashboard">
     <h1>Marketing Dashboard</h1>
+
+    <!-- KPI strip — MailerLite tiles are placeholders until the API key is wired.
+         Leads tiles are live (sourced from mmd_lead). -->
+    <div class="mmd-mkt-kpis">
+        <div class="mmd-mkt-kpi">
+            <div class="mmd-mkt-kpi-label">MailerLite Subscribers (SG)</div>
+            <div class="mmd-mkt-kpi-value mmd-mkt-kpi-pending">—</div>
+            <div class="mmd-mkt-kpi-sub">Awaiting MailerLite API</div>
+        </div>
+        <div class="mmd-mkt-kpi">
+            <div class="mmd-mkt-kpi-label">MailerLite Subscribers (MY)</div>
+            <div class="mmd-mkt-kpi-value mmd-mkt-kpi-pending">—</div>
+            <div class="mmd-mkt-kpi-sub">Awaiting MailerLite API</div>
+        </div>
+        <div class="mmd-mkt-kpi">
+            <div class="mmd-mkt-kpi-label">Campaigns Sent (30 days)</div>
+            <div class="mmd-mkt-kpi-value mmd-mkt-kpi-pending">—</div>
+            <div class="mmd-mkt-kpi-sub">Awaiting MailerLite API</div>
+        </div>
+        <div class="mmd-mkt-kpi">
+            <div class="mmd-mkt-kpi-label">Next Campaign</div>
+            <div class="mmd-mkt-kpi-value mmd-mkt-kpi-pending">—</div>
+            <div class="mmd-mkt-kpi-sub">Awaiting MailerLite API</div>
+        </div>
+        <div class="mmd-mkt-kpi">
+            <div class="mmd-mkt-kpi-label">Total Leads</div>
+            <div class="mmd-mkt-kpi-value"><?php echo number_format($_mktLeadsTotal) ?></div>
+            <div class="mmd-mkt-kpi-sub">All-time, all stores</div>
+        </div>
+        <div class="mmd-mkt-kpi">
+            <div class="mmd-mkt-kpi-label">Leads (30 days)</div>
+            <div class="mmd-mkt-kpi-value"><?php echo number_format($_mktLeadsLast30d) ?></div>
+            <div class="mmd-mkt-kpi-sub">
+                <?php if (!empty($_mktLeadsByStore)): ?>
+                    <span class="mmd-mkt-leads-by-store">
+                        <?php foreach ($_mktLeadsByStore as $_lbs): ?>
+                            <span class="mmd-mkt-leads-chip"><?php echo htmlspecialchars($_lbs['store_code']) ?><strong><?php echo (int)$_lbs['n'] ?></strong></span>
+                        <?php endforeach; ?>
+                    </span>
+                <?php else: ?>
+                    No leads yet
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subscriber-growth chart placeholder. Phase C populates real bars
+         from mmd_mailerlite_snapshot. The grey bars are decorative so the
+         card has visual weight before data lands. -->
+    <div class="mmd-mkt-chart-card">
+        <div class="mmd-mkt-chart-head">MailerLite Subscriber Growth (last 30 days)</div>
+        <div class="mmd-mkt-chart-body">
+            <?php for ($i = 0; $i < 30; $i++): $_h = 12 + (($i * 7) % 80); ?>
+                <div class="mmd-mkt-chart-bar" style="height:<?php echo $_h ?>%;"></div>
+            <?php endfor; ?>
+        </div>
+        <div class="mmd-mkt-chart-empty">Connect MailerLite to populate this chart.</div>
+    </div>
 
     <div class="dash-summary-grid">
 
