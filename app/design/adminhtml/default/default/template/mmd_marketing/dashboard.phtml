@@ -126,13 +126,17 @@ try {
    it the canonical 28px/700 treatment — same as Role Management etc. */
 .mmd-marketing-dashboard{padding:14px 18px;}
 
-/* KPI strip — 6 tiles in a responsive grid. Reuses dash-kpi-* tokens. */
-.mmd-mkt-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:18px;}
-.mmd-mkt-kpi{background:#1f2937;border:1px solid var(--b1,#384a60);border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:6px;}
+/* KPI strip — 3 tiles per row, centered. Two rows of 3 for the
+   6 cards (MailerLite SG/MY/Campaigns + Next/Total Leads/Leads 30d).
+   Collapses to 2 then 1 column on narrow screens. */
+.mmd-mkt-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
+.mmd-mkt-kpi{background:#1f2937;border:1px solid var(--b1,#384a60);border-radius:10px;padding:22px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;min-height:140px;}
 .mmd-mkt-kpi-label{font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;}
-.mmd-mkt-kpi-value{font-size:28px;font-weight:700;color:#22d3ee;line-height:1.1;}
-.mmd-mkt-kpi-value.mmd-mkt-kpi-pending{color:#64748b;font-size:24px;}
+.mmd-mkt-kpi-value{font-size:32px;font-weight:700;color:#22d3ee;line-height:1.1;}
+.mmd-mkt-kpi-value.mmd-mkt-kpi-pending{color:#64748b;font-size:28px;}
 .mmd-mkt-kpi-sub{font-size:11px;color:#64748b;font-style:italic;}
+@media (max-width:1100px){.mmd-mkt-kpis{grid-template-columns:repeat(2,1fr);}}
+@media (max-width:680px){.mmd-mkt-kpis{grid-template-columns:1fr;}}
 
 /* Subscriber growth chart placeholder */
 .mmd-mkt-chart-card{background:#1f2937;border:1px solid var(--b1,#384a60);border-radius:10px;padding:18px 20px;margin-bottom:18px;}
