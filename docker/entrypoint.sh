@@ -11,6 +11,14 @@ set -e
 MIGRATION_RUNNER=/var/www/html/migrations/apply.php
 LOCAL_XML=/var/www/html/app/etc/local.xml
 
+# Defensive: re-enable the Apache modules referenced by .htaccess on every
+# container start. The Dockerfile already runs a2enmod, but certain restart
+# paths (image rebuilds without cache, volume-shadowed /etc/apache2 from
+# Coolify) have dropped them at runtime — without mod_headers the .htaccess
+# "Header" directive 500s every request. a2enmod is idempotent, so this is
+# a cheap safety net that costs nothing on a healthy container.
+a2enmod headers expires brotli rewrite deflate >/dev/null 2>&1 || true
+
 if [ ! -f "$MIGRATION_RUNNER" ]; then
     echo "entrypoint: $MIGRATION_RUNNER not found, skipping migrations"
     exec apache2-foreground
