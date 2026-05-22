@@ -50,6 +50,10 @@ services:
       - R2_ENDPOINT=${R2_ENDPOINT}
       - R2_BUCKET=${R2_BUCKET}
       - R2_PUBLIC_URL=${R2_PUBLIC_URL}
+      # Cloudflare Turnstile — read by MMD_MagentoCaptcha for the contact +
+      # review forms. Production mirrors these in Coolify's env panel.
+      - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY}
+      - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY}
     depends_on:
       db_mysql:
         condition: service_healthy

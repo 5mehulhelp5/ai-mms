@@ -1,4 +1,14 @@
-<script src="https://www.google.com/recaptcha/api.js"></script>
+<?php /* Cloudflare Turnstile (invisible) replaces Google reCAPTCHA v2 for the
+        contact form. The widget renders on page load, automatically obtains
+        a token, and writes it into the hidden cf-turnstile-response input
+        which the backend (MMD_MagentoCaptcha_Helper_Turnstile) verifies.
+        Site key comes from the TURNSTILE_SITE_KEY env var; when unset, the
+        widget is skipped and the backend fails open (dev mode). */ ?>
+<?php $tsHelper = Mage::helper('magentocaptcha/turnstile'); ?>
+<?php $tsSiteKey = $tsHelper->getSiteKey(); ?>
+<?php if ($tsSiteKey): ?>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<?php endif; ?>
 <?php /* All styles below are scoped to `.tc-contact` so they don't bleed into
         the rest of the Ultimo theme. The form keeps its original field
         names (name/email/company/telephone/courses/comment) so that the
@@ -171,11 +181,19 @@
         <p class="required"><?php echo Mage::helper('contacts')->__('* Required fields') ?></p>
         <div id="error" class="error"></div>
         <input type="text" name="hideit" id="hideit" value="" style="display:none !important;" />
-        <button type="submit" title="<?php echo Mage::helper('contacts')->__('Send Message') ?>"
-                class="tc-submit g-recaptcha"
-                data-sitekey="<?php echo Mage::getStoreConfig('magentocaptcha/general/site_key'); ?>"
-                data-callback="onSubmit"
-                data-action="submit">
+        <?php /* Hidden field auto-populated by the Turnstile callback.
+                Backend reads it as `cf-turnstile-response`. */ ?>
+        <input type="hidden" name="cf-turnstile-response" id="cf-turnstile-response" value="" />
+        <?php if ($tsSiteKey): ?>
+        <div class="cf-turnstile"
+             data-sitekey="<?php echo $this->htmlEscape($tsSiteKey) ?>"
+             data-size="invisible"
+             data-callback="onTurnstileSuccess"
+             data-error-callback="onTurnstileError"
+             data-expired-callback="onTurnstileExpired"></div>
+        <?php endif; ?>
+        <button type="submit" id="tc-submit-btn" title="<?php echo Mage::helper('contacts')->__('Send Message') ?>"
+                class="tc-submit">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           <?php echo Mage::helper('contacts')->__('Send Message') ?>
         </button>
@@ -190,33 +208,93 @@
 </div>
 
 <script type="text/javascript">
-    function onSubmit(token) {
-        var error = "";
-        var name = document.forms["contactForm"]["name"].value;
-        if (name == "") { error += "Please enter your name<br/>"; }
-        var email = document.forms["contactForm"]["email"].value;
-        if (!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(email)) {
-            error += "Please enter a valid email<br/>";
-        }
-        var telephone = document.forms["contactForm"]["telephone"].value;
-        if (telephone == "") { error += "Please enter your telephone<br/>"; }
-        var comment = document.forms["contactForm"]["comment"].value;
-        if (comment == "") { error += "Please enter a message<br/>"; }
-        if (error == "") {
-            document.getElementById("error").innerHTML = "";
-            document.getElementById("contactForm").submit();
-            return true;
-        } else {
-            document.getElementById("error").innerHTML = error;
-            return false;
-        }
-    }
+    /* Client-side validation + Turnstile gating.
+       Flow:
+         1. User clicks Send.
+         2. validateForm() runs; on failure shows errors, blocks submit.
+         3. On success, if Turnstile is configured, call turnstile.execute()
+            and wait for onTurnstileSuccess to actually submit. If Turnstile
+            isn't loaded (no key or script blocked), submit immediately —
+            backend fails open in that case.
+    */
+    (function () {
+        var TURNSTILE_ENABLED = <?php echo $tsSiteKey ? 'true' : 'false'; ?>;
+        var pendingSubmit = false;
 
-    if ('NodeList' in window) {
-        if (!NodeList.prototype.each && NodeList.prototype.forEach) {
-            NodeList.prototype.each = NodeList.prototype.forEach;
+        function validateForm() {
+            var error = "";
+            var f = document.forms["contactForm"];
+            if (!f["name"].value) { error += "Please enter your name<br/>"; }
+            if (!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value)) {
+                error += "Please enter a valid email<br/>";
+            }
+            if (!f["telephone"].value) { error += "Please enter your telephone<br/>"; }
+            if (!f["comment"].value) { error += "Please enter a message<br/>"; }
+            document.getElementById("error").innerHTML = error;
+            return error === "";
         }
-    }
+
+        function doSubmit() {
+            // Mark submitting to avoid double-fire; release the button afterward
+            // in case the navigation is cancelled by the browser.
+            var btn = document.getElementById("tc-submit-btn");
+            if (btn) { btn.disabled = true; }
+            document.forms["contactForm"].submit();
+        }
+
+        // Exposed for Turnstile callbacks (declared globally as required by data-callback).
+        window.onTurnstileSuccess = function (token) {
+            var input = document.getElementById("cf-turnstile-response");
+            if (input) { input.value = token; }
+            if (pendingSubmit) {
+                pendingSubmit = false;
+                doSubmit();
+            }
+        };
+        window.onTurnstileError = function () {
+            pendingSubmit = false;
+            document.getElementById("error").innerHTML =
+                "Spam check could not run. Please refresh the page and try again.";
+        };
+        window.onTurnstileExpired = function () {
+            var input = document.getElementById("cf-turnstile-response");
+            if (input) { input.value = ""; }
+        };
+
+        document.addEventListener("DOMContentLoaded", function () {
+            var form = document.getElementById("contactForm");
+            if (!form) { return; }
+            form.addEventListener("submit", function (e) {
+                e.preventDefault();
+                if (!validateForm()) { return; }
+
+                if (!TURNSTILE_ENABLED || typeof window.turnstile === "undefined") {
+                    doSubmit();
+                    return;
+                }
+
+                // If invisible widget already has a fresh token in the hidden input, just submit.
+                var input = document.getElementById("cf-turnstile-response");
+                if (input && input.value) { doSubmit(); return; }
+
+                // Otherwise trigger execution; submission happens in onTurnstileSuccess.
+                pendingSubmit = true;
+                try {
+                    window.turnstile.execute(); // executes the first invisible widget on page
+                } catch (err) {
+                    // Fallback: let the browser submit anyway; backend will reject if needed.
+                    pendingSubmit = false;
+                    doSubmit();
+                }
+            });
+        });
+
+        if ('NodeList' in window) {
+            if (!NodeList.prototype.each && NodeList.prototype.forEach) {
+                NodeList.prototype.each = NodeList.prototype.forEach;
+            }
+        }
+    })();
 </script>
 </div>
 <div class=" grid12-6">

@@ -176,7 +176,23 @@ class MMD_MagentoCaptcha_ProductController extends Mage_Core_Controller_Front_Ac
             $validate = $review->validate();
             if ($validate === true) {
                 try {
-				
+
+                // Cloudflare Turnstile — gate review submissions against
+                // spam bots before any DB work. Fails open if keys aren't
+                // configured (dev), surfaces the error to the visitor
+                // otherwise.
+                $turnstile = Mage::helper('magentocaptcha/turnstile');
+                /** @var MMD_MagentoCaptcha_Helper_Turnstile $turnstile */
+                $token = (string) $this->getRequest()->getPost(MMD_MagentoCaptcha_Helper_Turnstile::TOKEN_FIELD, '');
+                $tsResult = $turnstile->verify($token, $turnstile->getRemoteIp());
+                if (empty($tsResult['ok'])) {
+                    $session->addError($this->__('Spam check failed. Please refresh the page and try again.'));
+                    $this->setFlag('', Mage_Core_Controller_Varien_Action::FLAG_NO_DISPATCH, true);
+                    Mage::getSingleton('review/session')->setFormData($data);
+                    $this->getResponse()->setRedirect(Mage::getUrl('review/product/list/id/' . $productId));
+                    return;
+                }
+
 			$formId = 'review_form';
            $captchaModel = Mage::helper('captcha')->getCaptcha($formId);
            if ($captchaModel->isRequired()) {
@@ -188,7 +204,7 @@ class MMD_MagentoCaptcha_ProductController extends Mage_Core_Controller_Front_Ac
                 $this->getResponse()->setRedirect(Mage::getUrl('review/product/list/id/'. $productId));
                 return;
             }
-           } 
+           }
 				
 				
                     $review->setEntityId($review->getEntityIdByCode(Mage_Review_Model_Review::ENTITY_PRODUCT_CODE))

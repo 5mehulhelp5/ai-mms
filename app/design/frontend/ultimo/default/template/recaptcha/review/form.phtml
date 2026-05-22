@@ -1,3 +1,8 @@
+<?php $tsHelper = Mage::helper('magentocaptcha/turnstile'); ?>
+<?php $tsSiteKey = $tsHelper->getSiteKey(); ?>
+<?php if ($tsSiteKey): ?>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<?php endif; ?>
 <body>
 <div class="form-add">
     <h2><?php echo $this->__('Write Your Own Review') ?></h2>
@@ -106,17 +111,19 @@
                                           class="required-entry"><?php echo $this->escapeHtml($data->getDetail()) ?></textarea>
                             </div>
                         </li>
-                        <?php if ($this->helper('recaptcha')->showOnReview()) { ?>
+                        <?php if ($tsSiteKey): ?>
                             <li id="rcode">
-                                <div class="captcha">
-                                    <div class="g-recaptcha"
-                                         data-sitekey="<?php echo $this->helper('recaptcha')->getKey(); ?>"
-                                         data-theme="<?php echo($this->helper('recaptcha')->getTheme()); ?>"></div>
-                                </div>
+                                <input type="hidden" name="cf-turnstile-response" id="cf-turnstile-response" value="" />
+                                <div class="cf-turnstile"
+                                     data-sitekey="<?php echo $this->htmlEscape($tsSiteKey) ?>"
+                                     data-size="invisible"
+                                     data-callback="onTurnstileSuccessReview"
+                                     data-error-callback="onTurnstileErrorReview"
+                                     data-expired-callback="onTurnstileExpiredReview"></div>
                                 <span id="captcha-required"
-                                      style='display:none; color:#ff0000'><?php echo $this->__('Please Fill Recaptcha To Continue'); ?></span>
+                                      style='display:none; color:#ff0000'><?php echo $this->__('Spam check failed. Please refresh the page and try again.'); ?></span>
                             </li>
-                        <?php } ?>
+                        <?php endif; ?>
                     </ul>
                 </div>
             </fieldset>
@@ -160,19 +167,48 @@
         </script>
         <script type="text/javascript">
             var dataForm = new VarienForm('review-form', true);
-            function validateRecaptcha() {
-                <?php if($this->helper('recaptcha')->showOnReview()){ ?>
-                if (grecaptcha.getResponse() != "") {
-                    document.getElementById("captcha-required").style.display = "none";
-                    return true;
-                } else {
-                    document.getElementById("captcha-required").style.display = "block";
-                    return false;
-                }
-                <?php } else { ?>
-                return true;
-                <?php } ?>
-            }
+
+            /* Turnstile gating for review submissions. The widget runs
+               invisibly on page load; if a token is already present we let
+               the form submit immediately. Otherwise we call execute() and
+               submit from the success callback. */
+            (function () {
+                var TURNSTILE_ENABLED = <?php echo $tsSiteKey ? 'true' : 'false'; ?>;
+                var pendingSubmit = false;
+
+                window.onTurnstileSuccessReview = function (token) {
+                    var input = document.getElementById("cf-turnstile-response");
+                    if (input) { input.value = token; }
+                    if (pendingSubmit) {
+                        pendingSubmit = false;
+                        document.getElementById("review-form").submit();
+                    }
+                };
+                window.onTurnstileErrorReview = function () {
+                    pendingSubmit = false;
+                    var box = document.getElementById("captcha-required");
+                    if (box) { box.style.display = "block"; }
+                };
+                window.onTurnstileExpiredReview = function () {
+                    var input = document.getElementById("cf-turnstile-response");
+                    if (input) { input.value = ""; }
+                };
+
+                window.validateRecaptcha = function () {
+                    if (!TURNSTILE_ENABLED || typeof window.turnstile === "undefined") {
+                        return true;
+                    }
+                    var input = document.getElementById("cf-turnstile-response");
+                    if (input && input.value) {
+                        var box = document.getElementById("captcha-required");
+                        if (box) { box.style.display = "none"; }
+                        return true;
+                    }
+                    pendingSubmit = true;
+                    try { window.turnstile.execute(); } catch (e) { return true; }
+                    return false; // wait for callback
+                };
+            })();
         </script>
     <?php else: ?>
         <p class="review-nologged" id="review-form">
@@ -181,4 +217,3 @@
     <?php endif ?>
 </div>
 </body>
-<script src='https://www.google.com/recaptcha/api.js'></script>

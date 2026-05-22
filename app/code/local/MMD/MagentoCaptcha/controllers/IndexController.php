@@ -1,6 +1,23 @@
-<?php class MMD_MagentoCaptcha_IndexController extends Mage_Core_Controller_Front_Action
+<?php
+/**
+ * Front controller for the storefront Contact Us form.
+ *
+ * Spam protection: Cloudflare Turnstile (invisible widget). The form posts a
+ * `cf-turnstile-response` token alongside the user data; we verify it against
+ * Cloudflare's siteverify endpoint before sending the email. On verification
+ * failure we surface the error to the visitor — we deliberately do NOT
+ * silently show "your inquiry was submitted" the way the old reCAPTCHA path
+ * did, because that masked genuine spam-shield rejections AND any real
+ * delivery problems.
+ *
+ * Recipient routing: contacts/email/recipient_email is a comma- or
+ * semicolon-separated list, so each country store can deliver to multiple
+ * mailboxes (e.g. SG: sales@…sg + enquiry@…com). The values are split and
+ * passed as an array to sendTransactional, which adds each as a To: header.
+ */
+class MMD_MagentoCaptcha_IndexController extends Mage_Core_Controller_Front_Action
 {
-      const XML_PATH_EMAIL_RECIPIENT  = 'contacts/email/recipient_email';
+    const XML_PATH_EMAIL_RECIPIENT  = 'contacts/email/recipient_email';
     const XML_PATH_EMAIL_SENDER     = 'contacts/email/sender_email_identity';
     const XML_PATH_EMAIL_TEMPLATE   = 'contacts/email/email_template';
     const XML_PATH_ENABLED          = 'contacts/contacts/enabled';
@@ -8,298 +25,120 @@
     public function preDispatch()
     {
         parent::preDispatch();
-
-        if( !Mage::getStoreConfigFlag(self::XML_PATH_ENABLED) ) {
+        if (!Mage::getStoreConfigFlag(self::XML_PATH_ENABLED)) {
             $this->norouteAction();
         }
     }
-	 public function indexAction()
+
+    public function indexAction()
     {
-	
         $this->loadLayout();
         $this->getLayout()->getBlock('contactForm')
-            ->setFormAction( Mage::getUrl('*/*/post') );
+            ->setFormAction(Mage::getUrl('*/*/post'));
 
         $this->_initLayoutMessages('customer/session');
         $this->_initLayoutMessages('catalog/session');
         $this->renderLayout();
-		
-
     }
-    
-      
-   public function postAction()
+
+    public function postAction()
     {
-       
-       
-        $secretKey     = Mage::getStoreConfig('magentocaptcha/general/secret_key') ?: getenv('RECAPTCHA_SECRET_KEY') ?: 'CHANGE_ME'; 
-        if (!$this->_validateFormKey()) {
-           // $this->_redirect('*/*/index');
-           // return;
-        }
-        if(isset($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'],$_SERVER['HTTP_HOST'])!==false)
-		{
-        
-            
-            
-       // Mage::log($_SERVER['REMOTE_ADDR']."-".$_SERVER['REMOTE_ADDR'], null, 'contact.log', true);
-            
-        $post = $this->getRequest()->getPost();
-            
-        // echo '<pre>'; print_r($post);
-         //   die;   
-           
-        if ( $post ) {
-            $translate = Mage::getSingleton('core/translate');
-            /* @var $translate Mage_Core_Model_Translate */
-            $translate->setTranslateInline(false);
-            try {
-                
-                
-           if(!empty($_POST['g-recaptcha-response'])){ 
-               
-               
-          $api_url = 'https://www.google.com/recaptcha/api/siteverify'; 
-            $resq_data = array( 
-                'secret' => $secretKey, 
-                'response' => $_POST['g-recaptcha-response'], 
-                'remoteip' => $_SERVER['REMOTE_ADDR'] 
-            ); 
- 
-            $curlConfig = array( 
-                CURLOPT_URL => $api_url, 
-                CURLOPT_POST => true, 
-                CURLOPT_RETURNTRANSFER => true, 
-                CURLOPT_POSTFIELDS => $resq_data, 
-                CURLOPT_SSL_VERIFYPEER => false 
-            ); 
- 
-            $ch = curl_init(); 
-            curl_setopt_array($ch, $curlConfig); 
-            $response = curl_exec($ch); 
-            if (curl_errno($ch)) { 
-                $api_error = curl_error($ch); 
-            } 
-            curl_close($ch); 
- 
-            // Decode JSON data of API response in array 
-            $responseData = json_decode($response); 
- //echo '<pre>';
-        //    print_r($responseData);   die;
-               
-            // If the reCAPTCHA API response is valid 
-            if(!empty($responseData) && $responseData->success){ 
-                
-              
-                $postObject = new Varien_Object();
-                $postObject->setData($post);
-
-                $error = false;
-
-                if (!Zend_Validate::is(trim($post['name']) , 'NotEmpty')) {
-                    $error = true;
-                }
-
-                if (!Zend_Validate::is(trim($post['comment']) , 'NotEmpty')) {
-                    $error = true;
-                }
-
-                if (!Zend_Validate::is(trim($post['email']), 'EmailAddress')) {
-                    $error = true;
-                }
-
-                if (Zend_Validate::is(trim($post['hideit']), 'NotEmpty')) {
-                    $error = true;
-                }
-
-                if ($error) {
-                    throw new Exception();
-                }
-                
-                
-                if (preg_match('/[\'^:£$%&*()}{@#~?><>,|=_+¬-]/', $post['comment']))
-                {
-                    $this->_redirect('*/*/');
-                }
-                if (preg_match('/[\'^:£$%&*()}{@#~?><>,|=_+¬-]/', $post['name']))
-                {
-                    $this->_redirect('*/*/');
-                }
-                
-                
-                // contacts/email/recipient_email may hold a comma- or
-                // semicolon-separated list (e.g. "sales@…sg,enquiry@…com").
-                // sendTransactional accepts an array and adds each as a
-                // To: header. Single-address values still work unchanged.
-                $rawRecipients = (string) Mage::getStoreConfig(self::XML_PATH_EMAIL_RECIPIENT);
-                $recipients = array_values(array_filter(array_map('trim', preg_split('/[,;]+/', $rawRecipients) ?: array())));
-                if (empty($recipients)) {
-                    throw new Exception();
-                }
-
-                $mailTemplate = Mage::getModel('core/email_template');
-                /* @var $mailTemplate Mage_Core_Model_Email_Template */
-                $mailTemplate->setDesignConfig(array('area' => 'frontend'))
-                    ->setReplyTo($post['email'])
-                    ->sendTransactional(
-                        Mage::getStoreConfig(self::XML_PATH_EMAIL_TEMPLATE),
-                        Mage::getStoreConfig(self::XML_PATH_EMAIL_SENDER),
-                        $recipients,
-                        null,
-                        array('data' => $postObject)
-                    );
-
-                if (!$mailTemplate->getSentSuccess()) {
-                    throw new Exception();
-                }
-
-                $translate->setTranslateInline(true);
-
-                Mage::getSingleton('customer/session')->addSuccess(Mage::helper('contacts')->__('Your inquiry was submitted and will be responded to as soon as possible. Thank you for contacting us.'));
-                $this->_redirect('*/*/');
-
-                return;
-
-            } else
-                {
-                $this->_redirect('*/*/');
-                return;
-                }
-                } else { $this->_redirect('*/*/');
-                return;}
-                
-            } catch (Exception $e) {					
-				
-                $translate->setTranslateInline(true);
-                //Mage::getSingleton('customer/session')->addError(Mage::helper('contacts')->__('Unable to submit your request. Please, try again later'));
-                  Mage::getSingleton('customer/session')->addSuccess(Mage::helper('contacts')->__('Your inquiry was submitted and will be responded to as soon as possible. Thank you for contacting us.'));
-                $this->_redirect('*/*/');
-                return;
-            }
-
-        } else {
+        // Same-origin guard — keeps casual scripted POSTs at bay even before captcha.
+        if (empty($_SERVER['HTTP_REFERER'])
+            || strpos((string) $_SERVER['HTTP_REFERER'], (string) $_SERVER['HTTP_HOST']) === false) {
             $this->_redirect('*/*/');
-        }
-        }
-        else {
-            $this->_redirect('*/*/');
-        }
-    }     
-    
-	public function postAction_old()
-    {
-       
-        if (!$this->_validateFormKey()) {
-            $this->_redirect('*/*/index');
             return;
         }
-        if(isset($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'],$_SERVER['HTTP_HOST'])!==false)
-		{
-        
-            
-            
-        Mage::log($_SERVER['REMOTE_ADDR']."-".$_SERVER['REMOTE_ADDR'], null, 'contact.log', true);
-            
+
         $post = $this->getRequest()->getPost();
-        if ( $post ) {
-            $translate = Mage::getSingleton('core/translate');
-            /* @var $translate Mage_Core_Model_Translate */
-            $translate->setTranslateInline(false);
-            try {
-			
-			 $formId = 'contact_form';
-           $captchaModel = Mage::helper('captcha')->getCaptcha($formId);
-           if ($captchaModel->isRequired()) {
-            if (!$captchaModel->isCorrect($this->_getCaptchaString($this->getRequest(), $formId))) {
-                Mage::getSingleton('customer/session')->addError(Mage::helper('captcha')->__('Incorrect CAPTCHA.'));
-                $this->setFlag('', Mage_Core_Controller_Varien_Action::FLAG_NO_DISPATCH, true);
-                Mage::getSingleton('customer/session')->setCustomerFormData($this->getRequest()->getPost());
-                $this->getResponse()->setRedirect(Mage::getUrl('*/*/'));
-                return;
-            }
-           } 
-          
-			
-			
-                $postObject = new Varien_Object();
-                $postObject->setData($post);
+        if (!$post) {
+            $this->_redirect('*/*/');
+            return;
+        }
 
-                $error = false;
+        $session = Mage::getSingleton('customer/session');
+        $translate = Mage::getSingleton('core/translate');
+        /** @var Mage_Core_Model_Translate $translate */
+        $translate->setTranslateInline(false);
 
-                if (!Zend_Validate::is(trim($post['name']) , 'NotEmpty')) {
-                    $error = true;
-                }
-
-                if (!Zend_Validate::is(trim($post['comment']) , 'NotEmpty')) {
-                    $error = true;
-                }
-
-                if (!Zend_Validate::is(trim($post['email']), 'EmailAddress')) {
-                    $error = true;
-                }
-
-                if (Zend_Validate::is(trim($post['hideit']), 'NotEmpty')) {
-                    $error = true;
-                }
-
-                if ($error) {
-                    throw new Exception();
-                }
-                
-                
-                if (preg_match('/[\'^:£$%&*()}{@#~?><>,|=_+¬-]/', $post['comment']))
-                {
-                    $this->_redirect('*/*/');
-                }
-                if (preg_match('/[\'^:£$%&*()}{@#~?><>,|=_+¬-]/', $post['name']))
-                {
-                    $this->_redirect('*/*/');
-                }
-                
-                
-                $mailTemplate = Mage::getModel('core/email_template');
-                /* @var $mailTemplate Mage_Core_Model_Email_Template */
-                $mailTemplate->setDesignConfig(array('area' => 'frontend'))
-                    ->setReplyTo($post['email'])
-                    ->sendTransactional(
-                        Mage::getStoreConfig(self::XML_PATH_EMAIL_TEMPLATE),
-                        Mage::getStoreConfig(self::XML_PATH_EMAIL_SENDER),
-                        Mage::getStoreConfig(self::XML_PATH_EMAIL_RECIPIENT),
-                        null,
-                        array('data' => $postObject)
-                    );
-
-                if (!$mailTemplate->getSentSuccess()) {
-                    throw new Exception();
-                }
-
-                $translate->setTranslateInline(true);
-
-                Mage::getSingleton('customer/session')->addSuccess(Mage::helper('contacts')->__('Your inquiry was submitted and will be responded to as soon as possible. Thank you for contacting us.'));
-                $this->_redirect('*/*/');
-
-                return;
-            } catch (Exception $e) {					
-				
-                $translate->setTranslateInline(true);
-                //Mage::getSingleton('customer/session')->addError(Mage::helper('contacts')->__('Unable to submit your request. Please, try again later'));
-                  Mage::getSingleton('customer/session')->addSuccess(Mage::helper('contacts')->__('Your inquiry was submitted and will be responded to as soon as possible. Thank you for contacting us.'));
-                $this->_redirect('*/*/');
-                return;
+        try {
+            // Honeypot — bots fill all visible fields including the hidden one.
+            if (!empty($post['hideit']) && trim($post['hideit']) !== '') {
+                Mage::throwException($this->__('Unable to submit your request. Please, try again later'));
             }
 
-        } else {
-            $this->_redirect('*/*/');
+            // Form validation
+            $error = false;
+            if (!Zend_Validate::is(trim($post['name'] ?? ''), 'NotEmpty')) {
+                $error = true;
+            } elseif (!Zend_Validate::is(trim($post['comment'] ?? ''), 'NotEmpty')) {
+                $error = true;
+            } elseif (!Zend_Validate::is(trim($post['email'] ?? ''), 'EmailAddress')) {
+                $error = true;
+            }
+            if ($error) {
+                Mage::throwException($this->__('Please fill in all required fields with a valid email.'));
+            }
+
+            // Reject obvious junk in free-text fields (legacy filter kept for parity).
+            if (preg_match('/[\'^:£$%&*()}{@#~?><>,|=_+¬-]/', (string)($post['comment'] ?? ''))
+                || preg_match('/[\'^:£$%&*()}{@#~?><>,|=_+¬-]/', (string)($post['name'] ?? ''))) {
+                Mage::throwException($this->__('Your message contains characters we cannot accept.'));
+            }
+
+            // Cloudflare Turnstile verification.
+            $turnstile = Mage::helper('magentocaptcha/turnstile');
+            /** @var MMD_MagentoCaptcha_Helper_Turnstile $turnstile */
+            $token  = (string)($post[MMD_MagentoCaptcha_Helper_Turnstile::TOKEN_FIELD] ?? '');
+            $result = $turnstile->verify($token, $turnstile->getRemoteIp());
+            if (empty($result['ok'])) {
+                Mage::throwException($this->__('Spam check failed. Please refresh the page and try again.'));
+            }
+
+            // Resolve recipient(s). contacts/email/recipient_email supports a
+            // comma/semicolon-separated list so country stores can deliver to
+            // multiple mailboxes.
+            $rawRecipients = (string) Mage::getStoreConfig(self::XML_PATH_EMAIL_RECIPIENT);
+            $recipients = array_values(array_filter(array_map(
+                'trim',
+                preg_split('/[,;]+/', $rawRecipients) ?: array()
+            )));
+            if (empty($recipients)) {
+                Mage::throwException($this->__('Unable to submit your request. Please, try again later'));
+            }
+
+            // Send.
+            $postObject = new Varien_Object();
+            $postObject->setData($post);
+
+            $mailTemplate = Mage::getModel('core/email_template');
+            /** @var Mage_Core_Model_Email_Template $mailTemplate */
+            $mailTemplate->setDesignConfig(array('area' => 'frontend'))
+                ->setReplyTo($post['email'])
+                ->sendTransactional(
+                    Mage::getStoreConfig(self::XML_PATH_EMAIL_TEMPLATE),
+                    Mage::getStoreConfig(self::XML_PATH_EMAIL_SENDER),
+                    $recipients,
+                    null,
+                    array('data' => $postObject)
+                );
+
+            if (!$mailTemplate->getSentSuccess()) {
+                Mage::throwException($this->__('Unable to submit your request. Please, try again later'));
+            }
+
+            $translate->setTranslateInline(true);
+            $session->addSuccess($this->__('Your inquiry was submitted and will be responded to as soon as possible. Thank you for contacting us.'));
+        } catch (Mage_Core_Exception $e) {
+            $translate->setTranslateInline(true);
+            Mage::logException($e);
+            $session->addError($e->getMessage());
+        } catch (Exception $e) {
+            $translate->setTranslateInline(true);
+            Mage::logException($e);
+            $session->addError($this->__('Unable to submit your request. Please, try again later'));
         }
-        }
-        else {
-            $this->_redirect('*/*/');
-        }
+
+        $this->_redirect('*/*/');
     }
-	
-	 protected function _getCaptchaString($request, $formId)
-    {
-        $captchaParams = $request->getPost(Mage_Captcha_Helper_Data::INPUT_NAME_FIELD_VALUE);
-        return $captchaParams[$formId];
-    } 
 }
