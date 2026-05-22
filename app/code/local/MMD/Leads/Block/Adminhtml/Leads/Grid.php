@@ -1,0 +1,134 @@
+<?php
+/**
+ * Minimalist one-row-per-lead grid. Columns:
+ *   Date | Name | Email | Tel | Course Interested | Store | Message (≤80c) | Status
+ * Plus an Action column (View → opens the reply form).
+ */
+class MMD_Leads_Block_Adminhtml_Leads_Grid extends Mage_Adminhtml_Block_Widget_Grid
+{
+    public function __construct()
+    {
+        parent::__construct();
+        $this->setId('mmdLeadsGrid');
+        $this->setDefaultSort('created_at');
+        $this->setDefaultDir('DESC');
+        $this->setSaveParametersInSession(true);
+        $this->setUseAjax(true);
+    }
+
+    protected function _prepareCollection()
+    {
+        $this->setCollection(Mage::getModel('mmd_leads/lead')->getCollection());
+        return parent::_prepareCollection();
+    }
+
+    protected function _prepareColumns()
+    {
+        $helper = Mage::helper('mmd_leads');
+
+        $this->addColumn('created_at', array(
+            'header' => $helper->__('Date'),
+            'index'  => 'created_at',
+            'type'   => 'datetime',
+            'width'  => '140px',
+        ));
+
+        $this->addColumn('name', array(
+            'header' => $helper->__('Name'),
+            'index'  => 'name',
+            'width'  => '160px',
+        ));
+
+        $this->addColumn('email', array(
+            'header' => $helper->__('Email'),
+            'index'  => 'email',
+            'width'  => '220px',
+        ));
+
+        $this->addColumn('telephone', array(
+            'header' => $helper->__('Tel'),
+            'index'  => 'telephone',
+            'width'  => '130px',
+        ));
+
+        $this->addColumn('courses_interested', array(
+            'header' => $helper->__('Course Interested'),
+            'index'  => 'courses_interested',
+        ));
+
+        $this->addColumn('store_code', array(
+            'header'  => $helper->__('Store'),
+            'index'   => 'store_code',
+            'type'    => 'options',
+            'options' => $this->_getStoreOptions(),
+            'width'   => '110px',
+        ));
+
+        $this->addColumn('comment', array(
+            'header' => $helper->__('Message'),
+            'index'  => 'comment',
+            'renderer' => 'MMD_Leads_Block_Adminhtml_Leads_Grid_Renderer_Truncate',
+        ));
+
+        $this->addColumn('status', array(
+            'header'  => $helper->__('Status'),
+            'index'   => 'status',
+            'type'    => 'options',
+            'width'   => '90px',
+            'options' => array(
+                MMD_Leads_Model_Lead::STATUS_NEW     => 'New',
+                MMD_Leads_Model_Lead::STATUS_REPLIED => 'Replied',
+            ),
+        ));
+
+        $this->addColumn('action', array(
+            'header'  => $helper->__('Action'),
+            'width'   => '90px',
+            'type'    => 'action',
+            'getter'  => 'getId',
+            'actions' => array(
+                array(
+                    'caption' => $helper->__('View / Reply'),
+                    'url'     => array('base' => '*/*/view'),
+                    'field'   => 'id',
+                ),
+            ),
+            'filter'    => false,
+            'sortable'  => false,
+            'is_system' => true,
+        ));
+
+        return parent::_prepareColumns();
+    }
+
+    protected function _prepareMassaction()
+    {
+        $this->setMassactionIdField('lead_id');
+        $this->getMassactionBlock()->setFormFieldName('leads');
+        $this->getMassactionBlock()->addItem('delete', array(
+            'label'   => Mage::helper('mmd_leads')->__('Delete'),
+            'url'     => $this->getUrl('*/*/massDelete'),
+            'confirm' => Mage::helper('mmd_leads')->__('Delete the selected leads?'),
+        ));
+        return $this;
+    }
+
+    public function getGridUrl()
+    {
+        return $this->getUrl('*/*/grid', array('_current' => true));
+    }
+
+    public function getRowUrl($row)
+    {
+        return $this->getUrl('*/*/view', array('id' => $row->getId()));
+    }
+
+    protected function _getStoreOptions()
+    {
+        $opts = array();
+        foreach (Mage::app()->getStores(true) as $store) {
+            $opts[$store->getCode()] = $store->getCode();
+        }
+        return $opts;
+    }
+}

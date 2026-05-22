@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<config>
+    <menu>
+        <mmd_tertiary translate="title" module="mmd_leads">
+            <title>Tertiary</title>
+            <sort_order>71</sort_order>
+            <children>
+                <leads translate="title" module="mmd_leads">
+                    <title>Leads</title>
+                    <sort_order>10</sort_order>
+                    <action>adminhtml/leads</action>
+                </leads>
+            </children>
+        </mmd_tertiary>
+    </menu>
+    <acl>
+        <resources>
+            <admin>
+                <children>
+                    <mmd_tertiary translate="title" module="mmd_leads">
+                        <title>Tertiary</title>
+                        <sort_order>71</sort_order>
+                        <children>
+                            <leads translate="title" module="mmd_leads">
+                                <title>Leads</title>
+                                <sort_order>10</sort_order>
+                            </leads>
+                        </children>
+                    </mmd_tertiary>
+                </children>
+            </admin>
+        </resources>
+    </acl>
+</config>

@@ -1,0 +1,80 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Leads — captures contact-form submissions into mmd_lead and provides
+  an admin grid + reply workflow.
+
+  Every successful contact-form POST writes a row via the controller hook
+  in MMD_MagentoCaptcha_IndexController. The admin grid lists them under
+  System → Tertiary → Leads. Clicking a row opens the message with a
+  prefilled reply box; if the lead mentioned a course we resolve the
+  course's title / SKU / next schedule / registration URL against the
+  catalog (scoped to the lead's source store) so the operator can send
+  a course-info reply with one click.
+
+  Replies are sent through the existing MMD_Email Gmail OAuth transport.
+-->
+<config>
+    <modules>
+        <MMD_Leads>
+            <version>1.0.0</version>
+        </MMD_Leads>
+    </modules>
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <mmd_leads after="Mage_Adminhtml">MMD_Leads_Adminhtml</mmd_leads>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+    <global>
+        <helpers>
+            <mmd_leads>
+                <class>MMD_Leads_Helper</class>
+            </mmd_leads>
+        </helpers>
+        <models>
+            <mmd_leads>
+                <class>MMD_Leads_Model</class>
+                <resourceModel>mmd_leads_mysql4</resourceModel>
+            </mmd_leads>
+            <mmd_leads_mysql4>
+                <class>MMD_Leads_Model_Mysql4</class>
+                <entities>
+                    <lead>
+                        <table>mmd_lead</table>
+                    </lead>
+                </entities>
+            </mmd_leads_mysql4>
+        </models>
+        <resources>
+            <mmd_leads_write>
+                <connection>
+                    <use>core_write</use>
+                </connection>
+            </mmd_leads_write>
+            <mmd_leads_read>
+                <connection>
+                    <use>core_read</use>
+                </connection>
+            </mmd_leads_read>
+        </resources>
+        <blocks>
+            <mmd_leads>
+                <class>MMD_Leads_Block</class>
+            </mmd_leads>
+        </blocks>
+        <template>
+            <email>
+                <mmd_leads_course_reply translate="label" module="mmd_leads">
+                    <label>Lead Reply — Course Information</label>
+                    <file>mmd_leads/course_reply.html</file>
+                    <type>html</type>
+                </mmd_leads_course_reply>
+            </email>
+        </template>
+    </global>
+</config>

@@ -127,6 +127,26 @@ class MMD_MagentoCaptcha_IndexController extends Mage_Core_Controller_Front_Acti
                 Mage::throwException($this->__('Unable to submit your request. Please, try again later'));
             }
 
+            // Persist the lead so operators can manage replies in the
+            // admin grid (Tertiary → Leads). Wrapped in try/catch — a DB
+            // hiccup must not undo the already-sent email.
+            try {
+                Mage::getModel('mmd_leads/lead')
+                    ->setStoreId(Mage::app()->getStore()->getId())
+                    ->setStoreCode(Mage::app()->getStore()->getCode())
+                    ->setName((string)($post['name'] ?? ''))
+                    ->setEmail((string)($post['email'] ?? ''))
+                    ->setTelephone((string)($post['telephone'] ?? ''))
+                    ->setCompany((string)($post['company'] ?? ''))
+                    ->setCoursesInterested((string)($post['courses'] ?? ''))
+                    ->setComment((string)($post['comment'] ?? ''))
+                    ->setIp((string) $turnstile->getRemoteIp())
+                    ->setUserAgent(substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255))
+                    ->save();
+            } catch (Exception $e) {
+                Mage::logException($e);
+            }
+
             $translate->setTranslateInline(true);
             $session->addSuccess($this->__('Your inquiry was submitted and will be responded to as soon as possible. Thank you for contacting us.'));
         } catch (Mage_Core_Exception $e) {
