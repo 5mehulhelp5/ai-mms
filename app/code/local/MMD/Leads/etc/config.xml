@@ -74,7 +74,29 @@
                     <file>mmd_leads/course_reply.html</file>
                     <type>html</type>
                 </mmd_leads_course_reply>
+                <mmd_leads_auto_reply translate="label" module="mmd_leads">
+                    <label>Lead Auto-Reply — Enquiry Acknowledgement</label>
+                    <file>mmd_leads/auto_reply.html</file>
+                    <type>html</type>
+                </mmd_leads_auto_reply>
             </email>
         </template>
     </global>
+    <default>
+        <!--
+            Auto-reply sent to the visitor right after a Contact Us submission.
+            enabled        — per-store kill-switch (1 = on for every country).
+            email_template — the template to send. The string default points at
+                             the file template above; migration 119 overrides
+                             this with the seeded core_email_template row id so
+                             the copy under System -> Transactional Emails is the
+                             one actually sent (and stays editable there).
+        -->
+        <mmd_leads>
+            <auto_reply>
+                <enabled>1</enabled>
+                <email_template>mmd_leads_auto_reply</email_template>
+            </auto_reply>
+        </mmd_leads>
+    </default>
 </config>

@@ -81,6 +81,19 @@ class MMD_Leads_Block_Adminhtml_Leads_Grid extends Mage_Adminhtml_Block_Widget_G
             ),
         ));
 
+        $this->addColumn('auto_reply_status', array(
+            'header'  => $helper->__('Auto-Reply'),
+            'index'   => 'auto_reply_status',
+            'type'    => 'options',
+            'width'   => '100px',
+            'options' => array(
+                MMD_Leads_Model_Lead::AUTO_REPLY_PENDING => $helper->__('Pending'),
+                MMD_Leads_Model_Lead::AUTO_REPLY_SENT    => $helper->__('Sent'),
+                MMD_Leads_Model_Lead::AUTO_REPLY_FAILED  => $helper->__('Failed'),
+                MMD_Leads_Model_Lead::AUTO_REPLY_SKIPPED => $helper->__('Skipped'),
+            ),
+        ));
+
         $this->addColumn('action', array(
             'header'  => $helper->__('Action'),
             'width'   => '90px',

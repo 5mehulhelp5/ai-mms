@@ -163,10 +163,18 @@
             </div>
           </div>
         </li>
-        <li class="wide">
-          <label for="courses"><?php echo Mage::helper('contacts')->__('Which Course Are You Interested In?') ?></label>
-          <div class="input-box">
-            <input name="courses" id="courses" placeholder="<?php echo Mage::helper('contacts')->__('e.g. Python, ChatGPT, WSQ Data Analytics…') ?>" class="input-text" type="text" />
+        <li class="fields">
+          <div class="field">
+            <label for="courses"><?php echo Mage::helper('contacts')->__('Which Course Are You Interested In?') ?></label>
+            <div class="input-box">
+              <input name="courses" id="courses" placeholder="<?php echo Mage::helper('contacts')->__('e.g. Python, ChatGPT, WSQ Data Analytics…') ?>" class="input-text" type="text" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="course_code"><?php echo Mage::helper('contacts')->__('Course Code (optional)') ?></label>
+            <div class="input-box">
+              <input name="course_code" id="course_code" placeholder="<?php echo Mage::helper('contacts')->__('e.g. TGS-2024045801') ?>" class="input-text" type="text" />
+            </div>
           </div>
         </li>
         <li class="wide">

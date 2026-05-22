@@ -128,10 +128,11 @@ class MMD_MagentoCaptcha_IndexController extends Mage_Core_Controller_Front_Acti
             }
 
             // Persist the lead so operators can manage replies in the
-            // admin grid (Tertiary → Leads). Wrapped in try/catch — a DB
-            // hiccup must not undo the already-sent email.
+            // admin grid (Tertiary → Leads), then auto-acknowledge the
+            // visitor. Wrapped in try/catch — a DB or mail hiccup here must
+            // not undo the already-sent staff notification.
             try {
-                Mage::getModel('mmd_leads/lead')
+                $lead = Mage::getModel('mmd_leads/lead')
                     ->setStoreId(Mage::app()->getStore()->getId())
                     ->setStoreCode(Mage::app()->getStore()->getCode())
                     ->setName((string)($post['name'] ?? ''))
@@ -139,10 +140,16 @@ class MMD_MagentoCaptcha_IndexController extends Mage_Core_Controller_Front_Acti
                     ->setTelephone((string)($post['telephone'] ?? ''))
                     ->setCompany((string)($post['company'] ?? ''))
                     ->setCoursesInterested((string)($post['courses'] ?? ''))
+                    ->setCourseCode((string)($post['course_code'] ?? ''))
                     ->setComment((string)($post['comment'] ?? ''))
                     ->setIp((string) $turnstile->getRemoteIp())
                     ->setUserAgent(substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255))
                     ->save();
+
+                // Automatic acknowledgement to the visitor with matched
+                // course info. The helper records the outcome on the lead
+                // (auto_reply_status) and never throws.
+                Mage::helper('mmd_leads')->sendAutoReply($lead);
             } catch (Exception $e) {
                 Mage::logException($e);
             }

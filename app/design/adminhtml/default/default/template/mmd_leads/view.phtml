@@ -49,11 +49,23 @@
                 <dt><?php echo $this->__('Course Interested') ?></dt>
                 <dd><?php echo $this->escapeHtml($lead->getCoursesInterested() ?: '—') ?></dd>
 
+                <dt><?php echo $this->__('Course Code') ?></dt>
+                <dd><?php echo $this->escapeHtml($lead->getCourseCode() ?: '—') ?></dd>
+
                 <dt><?php echo $this->__('Store') ?></dt>
                 <dd><?php echo $this->escapeHtml(Mage::helper('mmd_leads')->getStoreLabel($lead->getStoreId())) ?></dd>
 
                 <dt><?php echo $this->__('Received') ?></dt>
                 <dd><?php echo $this->escapeHtml($lead->getCreatedAt()) ?> (IP <?php echo $this->escapeHtml($lead->getIp() ?: '—') ?>)</dd>
+
+                <dt><?php echo $this->__('Auto-Reply') ?></dt>
+                <dd>
+                    <?php $ars = $lead->getAutoReplyStatus() ?: MMD_Leads_Model_Lead::AUTO_REPLY_PENDING; ?>
+                    <strong><?php echo $this->escapeHtml(ucfirst($ars)) ?></strong>
+                    <?php if ($lead->getAutoRepliedAt()): ?>
+                        — <?php echo $this->__('sent %s', $this->escapeHtml($lead->getAutoRepliedAt())) ?>
+                    <?php endif; ?>
+                </dd>
 
                 <?php if ($lead->getRepliedAt()): ?>
                 <dt><?php echo $this->__('Replied') ?></dt>

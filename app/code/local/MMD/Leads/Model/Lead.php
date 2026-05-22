@@ -16,6 +16,19 @@ class MMD_Leads_Model_Lead extends Mage_Core_Model_Abstract
     const STATUS_NEW     = 'new';
     const STATUS_REPLIED = 'replied';
 
+    /**
+     * Auto-reply lifecycle (the automatic acknowledgement sent to the
+     * visitor on submit — distinct from the manual operator reply above):
+     *   pending — row created, auto-reply not yet attempted
+     *   sent    — acknowledgement emailed successfully
+     *   failed  — send attempted but errored (see var/log/system.log)
+     *   skipped — auto-reply disabled for this store
+     */
+    const AUTO_REPLY_PENDING = 'pending';
+    const AUTO_REPLY_SENT    = 'sent';
+    const AUTO_REPLY_FAILED  = 'failed';
+    const AUTO_REPLY_SKIPPED = 'skipped';
+
     protected function _construct()
     {
         $this->_init('mmd_leads/lead');
