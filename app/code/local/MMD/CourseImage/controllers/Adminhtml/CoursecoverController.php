@@ -238,6 +238,34 @@ class MMD_CourseImage_Adminhtml_CoursecoverController extends Mage_Adminhtml_Con
             $product->setData('course_image_url', $upload['url']);
             $product->getResource()->saveAttribute($product, 'course_image_url');
 
+            // The storefront reads product images from the flat table when
+            // catalog/frontend/flat_catalog_product is enabled (it is, in
+            // this install). saveAttribute writes only to EAV, so without
+            // a flat reindex the listing keeps serving the stale value.
+            // Reindex this single product per store — cheap, and avoids
+            // the user having to manually run "Catalog Flat Data" after
+            // every bulk run.
+            try {
+                if (Mage::helper('catalog/product_flat')->isEnabled()) {
+                    /** @var Mage_Catalog_Model_Resource_Product_Flat_Indexer $flat */
+                    $flat = Mage::getResourceSingleton('catalog/product_flat_indexer');
+                    foreach (Mage::app()->getStores() as $_st) {
+                        $flat->updateProduct($productId, (int) $_st->getId());
+                    }
+                }
+            } catch (Throwable $reindexEx) {
+                Mage::logException($reindexEx);
+            }
+
+            // Bust any cached block / FPC entries tagged with this product so
+            // the listing HTML re-renders against the new URL on the next
+            // request. Cheap — only invalidates entries for THIS product.
+            try {
+                Mage::app()->cleanCache(['catalog_product_' . $productId]);
+            } catch (Throwable $cacheEx) {
+                Mage::logException($cacheEx);
+            }
+
             $this->getResponse()
                 ->setHeader('Content-Type', 'application/json', true)
                 ->setBody(json_encode([
