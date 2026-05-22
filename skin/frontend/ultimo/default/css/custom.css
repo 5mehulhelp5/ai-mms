@@ -269,8 +269,20 @@ input.button,
 
 /* Hide the "Hot!" / "New" category badges in the navigation menu.
    Ultimo renders these from a per-category label attribute as
-   <span class="cat-label cat-label-labelN">…</span>. Hiding the base
-   .cat-label class removes every variant storefront-wide. */
-.cat-label {
+   <span class="cat-label cat-label-labelN">…</span>. Ultimo's own
+   menu.css forces the sub-level badges visible with
+   `display:inline-block !important` at specificity (0,2,3) — e.g.
+   `li.level1 > a > span > .cat-label` — so a bare `.cat-label` rule
+   loses and only the top-level badges hide. Match those exact selectors
+   here (custom.css loads last, so equal specificity wins on source
+   order), plus the level-0 / sidebar / sticky-header variants, to hide
+   every badge at every menu level. */
+.cat-label,
+li.level0 > a > span > .cat-label,
+li.level1 > a > span > .cat-label,
+li.level2 > a > span > .cat-label,
+.nav-mobile li > a > span > .cat-label,
+.vertnav li > a > span > .cat-label,
+.sticky-header .nav-regular .nav-item.level0 > a .cat-label {
     display: none !important;
 }
