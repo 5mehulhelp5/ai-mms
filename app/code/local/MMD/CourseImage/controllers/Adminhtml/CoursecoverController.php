@@ -288,6 +288,64 @@ class MMD_CourseImage_Adminhtml_CoursecoverController extends Mage_Adminhtml_Con
         }
     }
 
+    /**
+     * One-shot storefront refresh: rebuild the catalog_product_flat index
+     * and flush the block_html + FPC caches. Used by the bulk page so the
+     * admin can publish previously-saved course_image_url values onto the
+     * storefront without fighting the standard Index Management page
+     * (which requires row checkboxes hidden by our admin theme).
+     */
+    public function refreshStorefrontAction()
+    {
+        try {
+            if (!$this->getRequest()->isPost()) {
+                throw new Exception('POST required');
+            }
+
+            $messages = [];
+
+            // Trigger the catalog_product_flat indexer the same way Index
+            // Management's "Reindex Data" link does — reindexAll on the
+            // process model is the authoritative full-rebuild path.
+            try {
+                $process = Mage::getModel('index/process')->load('catalog_product_flat', 'indexer_code');
+                if ($process->getId()) {
+                    $process->reindexEverything();
+                    $messages[] = 'catalog_product_flat reindexed';
+                } else {
+                    $messages[] = 'catalog_product_flat process not found (flat catalog may be disabled)';
+                }
+            } catch (Throwable $e) {
+                Mage::logException($e);
+                $messages[] = 'flat reindex failed: ' . $e->getMessage();
+            }
+
+            // Flush the cache layers that cache rendered product HTML.
+            // block_html holds the featured-courses slider markup; FPC
+            // holds full listing pages; collections is the product
+            // collection cache used by category pages.
+            try {
+                Mage::app()->getCacheInstance()->cleanType('block_html');
+                Mage::app()->getCacheInstance()->cleanType('full_page');
+                Mage::app()->getCacheInstance()->cleanType('collections');
+                $messages[] = 'block_html + full_page + collections caches flushed';
+            } catch (Throwable $e) {
+                Mage::logException($e);
+                $messages[] = 'cache flush failed: ' . $e->getMessage();
+            }
+
+            $this->getResponse()
+                ->setHeader('Content-Type', 'application/json', true)
+                ->setBody(json_encode(['ok' => true, 'messages' => $messages]));
+        } catch (Throwable $e) {
+            Mage::logException($e);
+            $this->getResponse()
+                ->setHttpResponseCode(500)
+                ->setHeader('Content-Type', 'application/json', true)
+                ->setBody(json_encode(['ok' => false, 'error' => $e->getMessage()]));
+        }
+    }
+
     public function previewAction()
     {
         try {

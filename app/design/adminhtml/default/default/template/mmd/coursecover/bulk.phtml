@@ -12,8 +12,9 @@
  *   GET  tigerdragon/coursecover/bulkList   — return candidate products as JSON
  *   POST tigerdragon/coursecover/bulkRun    — render+upload+save ONE product
  */
-$_listUrl = Mage::helper('adminhtml')->getUrl('adminhtml/coursecover/bulkList');
-$_runUrl  = Mage::helper('adminhtml')->getUrl('adminhtml/coursecover/bulkRun');
+$_listUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/coursecover/bulkList');
+$_runUrl     = Mage::helper('adminhtml')->getUrl('adminhtml/coursecover/bulkRun');
+$_refreshUrl = Mage::helper('adminhtml')->getUrl('adminhtml/coursecover/refreshStorefront');
 
 $_ciHelper = Mage::helper('mmd_courseimage');
 $_stores   = [];
@@ -140,6 +141,20 @@ $_defaultChecked = $_ciHelper->getDefaultBadgesForWebsite('base');
         <div id="bac-summary" class="bac-summary"></div>
     </div>
 
+    <div class="bac-card">
+        <h2>Refresh storefront</h2>
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:14px;">
+            After bulk-saving covers, the public storefront keeps showing the old
+            images until the <strong>catalog_product_flat</strong> index is rebuilt
+            and the <strong>block_html</strong> / FPC caches are flushed. This
+            button does both in one shot — equivalent to the manual sequence
+            (Index Management → Product Flat Data → Reindex Data) + (Cache
+            Management → Flush Magento Cache).
+        </div>
+        <button type="button" id="bac-refresh-btn" class="bac-btn">Reindex flat + flush block/FPC cache</button>
+        <div id="bac-refresh-msg" class="bac-summary" style="margin-top:8px;"></div>
+    </div>
+
     <div class="bac-card" id="bac-results-card" style="display:none;">
         <h2>Candidates</h2>
         <div style="font-size:12px;color:#94a3b8;margin-bottom:10px;">
@@ -167,8 +182,9 @@ $_defaultChecked = $_ciHelper->getDefaultBadgesForWebsite('base');
 
 <script>
 (function () {
-    var listUrl = <?php echo json_encode($_listUrl) ?>;
-    var runUrl  = <?php echo json_encode($_runUrl) ?>;
+    var listUrl    = <?php echo json_encode($_listUrl) ?>;
+    var runUrl     = <?php echo json_encode($_runUrl) ?>;
+    var refreshUrl = <?php echo json_encode($_refreshUrl) ?>;
     var formKey = (window.FORM_KEY || '');
     var badgeDefaultsByWebsite = <?php echo json_encode($_badgeDefaultsByWebsite, JSON_UNESCAPED_SLASHES) ?>;
 
@@ -207,6 +223,39 @@ $_defaultChecked = $_ciHelper->getDefaultBadgesForWebsite('base');
         });
     }
     els.store.addEventListener('change', applyBadgeDefaultsForCurrentStore);
+
+    // Refresh storefront button — POST to /coursecover/refreshStorefront.
+    // Fire-and-await: button stays disabled while the reindex runs so the
+    // admin can't queue a second concurrent flat rebuild.
+    var refreshBtn = document.getElementById('bac-refresh-btn');
+    var refreshMsg = document.getElementById('bac-refresh-msg');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function () {
+            if (!confirm('Rebuild the catalog flat index and flush block/FPC caches?\nThis publishes any pending course_image_url changes to the storefront.')) return;
+            var origLabel = refreshBtn.textContent;
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = 'Refreshing…';
+            refreshMsg.textContent = 'Reindexing flat catalog (this may take 30–60s)…';
+
+            var fd = new FormData();
+            fd.append('form_key', formKey);
+
+            fetch(refreshUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d.ok) {
+                        refreshMsg.textContent = 'Done. ' + (d.messages || []).join(' · ');
+                    } else {
+                        refreshMsg.textContent = 'Failed: ' + (d.error || 'unknown error');
+                    }
+                })
+                .catch(function (e) { refreshMsg.textContent = 'Network error: ' + e.message; })
+                .then(function () {
+                    refreshBtn.disabled = false;
+                    refreshBtn.textContent = origLabel;
+                });
+        });
+    }
 
     function updateRunBtn() {
         var n = document.querySelectorAll('.bac-row-check:checked').length;
