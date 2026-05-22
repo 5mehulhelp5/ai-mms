@@ -87,7 +87,7 @@
 <div class="tc-contact">
 
   <?php
-    /* Hero copy is tailored per storefront. SG (WSQ/CSAL/IBF/SkillsFuture)
+    /* Hero copy is tailored per storefront. SG (WSQ/CASL/IBF/SkillsFuture)
        and MY (HRDF) have their own funding hooks; other countries get a
        generic course-info / fee-enquiry pitch since there's no public
        subsidy scheme to lean on. */
@@ -100,10 +100,10 @@
     );
     switch (Mage::app()->getStore()->getCode()) {
         case 'singapore':
-            $heroHeadline = 'Talk to us about WSQ, CSAL, IBF & SkillsFuture';
-            $heroSubcopy  = 'Ask about WSQ, CSAL or IBF-accredited courses, claim SkillsFuture Credit, or get help shortlisting the right programme. Our training consultants reply within one business day.';
+            $heroHeadline = 'Talk to us about WSQ, CASL, IBF fundings & SkillsFuture Credit eligibility';
+            $heroSubcopy  = 'Ask about WSQ, CASL or IBF-accredited courses, claim SkillsFuture Credit, or get help shortlisting the right programme. Our training consultants reply within one business day.';
             $heroBullets  = array(
-                'WSQ, CSAL & IBF course advice',
+                'WSQ, CASL & IBF course advice',
                 'SkillsFuture Credit & subsidy guidance',
                 'Group & in-house training',
             );
