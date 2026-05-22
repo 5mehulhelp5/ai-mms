@@ -175,6 +175,40 @@ Current state: all roles temporarily inherit the "Administrators" ACL group (ful
 - **Aschroder_SMTPPro** — SMTP email transport.
 - **Infortis_Ultimo** — premium frontend theme (`skin/frontend/ultimo/`).
 
+## Self-improvement journal (MANDATORY)
+
+This project has a real history of repeating the same non-obvious bugs
+(flat-catalog stale reads, admin-theme overrides that silently break stock
+Magento UX, etc.). To stop relearning the same lessons, every Claude
+session works against a persistent journal at
+`~/.claude/projects/-Users-alfredang-projects-tertiary-ai-mms/memory/`.
+
+**At the start of every task**, scan `MEMORY.md` for entries whose
+description matches the work area (anything touching product attribute
+saves, indexing, admin grids, or storefront caching must consult the
+flat-catalog / admin-checkbox entries before suggesting an approach).
+If a memory contradicts what the code seems to show, verify against
+current code before acting — memories are point-in-time, not live state.
+
+**After every non-obvious fix** — i.e. anything where the surprise came
+from invisible behavior (cache layer, indexer, theme override, hidden
+ACL, env-var injection, gateway quirk) rather than from a syntax/logic
+bug visible in the diff — write or update a `feedback`-type memory
+capturing:
+
+- The rule (what to do or avoid)
+- **Why:** the concrete incident or constraint that justifies the rule
+- **How to apply:** when this rule kicks in, and the working code
+  pattern (link to the file:line that demonstrates it)
+
+Then add a one-line pointer to `MEMORY.md` so the index stays current.
+
+The system-reminder context loads `MEMORY.md` into every new conversation
+automatically — so a lesson written once carries forward to every future
+session, without the human having to re-explain it. This is the
+"self-improvement" loop: **read first, fix, write what was learned,
+never repeat.**
+
 ## Skills (`.claude/skills/`)
 
 | Skill | When to use |
