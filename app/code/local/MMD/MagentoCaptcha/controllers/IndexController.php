@@ -127,6 +127,16 @@
                 }
                 
                 
+                // contacts/email/recipient_email may hold a comma- or
+                // semicolon-separated list (e.g. "sales@…sg,enquiry@…com").
+                // sendTransactional accepts an array and adds each as a
+                // To: header. Single-address values still work unchanged.
+                $rawRecipients = (string) Mage::getStoreConfig(self::XML_PATH_EMAIL_RECIPIENT);
+                $recipients = array_values(array_filter(array_map('trim', preg_split('/[,;]+/', $rawRecipients) ?: array())));
+                if (empty($recipients)) {
+                    throw new Exception();
+                }
+
                 $mailTemplate = Mage::getModel('core/email_template');
                 /* @var $mailTemplate Mage_Core_Model_Email_Template */
                 $mailTemplate->setDesignConfig(array('area' => 'frontend'))
@@ -134,7 +144,7 @@
                     ->sendTransactional(
                         Mage::getStoreConfig(self::XML_PATH_EMAIL_TEMPLATE),
                         Mage::getStoreConfig(self::XML_PATH_EMAIL_SENDER),
-                        Mage::getStoreConfig(self::XML_PATH_EMAIL_RECIPIENT),
+                        $recipients,
                         null,
                         array('data' => $postObject)
                     );
@@ -149,7 +159,7 @@
                 $this->_redirect('*/*/');
 
                 return;
-                
+
             } else
                 {
                 $this->_redirect('*/*/');
