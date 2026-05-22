@@ -1,8 +1,8 @@
 FROM php:8.2-apache
 
-# Build trigger: 2026-04-26 (bumped to force COPY layer rebuild — Coolify
-# was reusing a stale image where app/etc/modules/Cm_RedisSession.xml still
-# had <active>true</active>, repeatedly breaking prod after each deploy.)
+# Build trigger: 2026-05-22 (bumped to force COPY layer rebuild — Coolify
+# was reusing a stale image so migrations/112-backfill-course-image-url-from-r2.sql
+# never landed on live and apply.php kept reporting applied_count=120.)
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
