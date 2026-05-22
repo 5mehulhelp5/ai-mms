@@ -430,6 +430,17 @@ body .header-top {
     display: none !important;
 }
 
+/* Transaction Email template edit (/system_email_template/edit/) —
+   Magento's email-template form renders several hidden fields
+   (template_type, template_variables, orig_template_*, etc.) as
+   their own <tr> rows in the form-list. They carry no visible
+   control so they show as empty bands with just a border between
+   Template Subject and the Insert Variable button. Hide any row
+   inside #email_template_edit_form that holds only hidden inputs. */
+#email_template_edit_form table.form-list > tbody > tr:has(input[type="hidden"]):not(:has(label, input[type="text"], input[type="number"], input[type="email"], input[type="url"], input[type="password"], input[type="checkbox"], input[type="radio"], input[type="file"], select, textarea, button, a)) {
+    display: none !important;
+}
+
 body.adminhtml-catalog-category-edit .side-col,
 body.adminhtml-catalog-category-index .side-col,
 body.catalog-categories .side-col {
