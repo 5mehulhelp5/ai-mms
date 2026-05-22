@@ -267,7 +267,6 @@ input.button,
     text-align: center !important;
 }
 
-<<<<<<< Updated upstream
 /* Hide the "Hot!" / "New" category badges in the navigation menu.
    Ultimo renders these from a per-category label attribute as
    <span class="cat-label cat-label-labelN">…</span>. Ultimo's own
@@ -287,7 +286,7 @@ li.level2 > a > span > .cat-label,
 .sticky-header .nav-regular .nav-item.level0 > a .cat-label {
     display: none !important;
 }
-=======
+
 /* ─────────────────────────────────────────────────────────────────────
    Funding badges (MMD_CourseImage)
    Rendered under the course title on catalog list pages and on the
@@ -330,4 +329,3 @@ li.level2 > a > span > .cat-label,
 .course-badge--ap      { background: #475569; } /* Absentee Payroll slate */
 .course-badge--mces    { background: #7c3aed; } /* MCES purple */
 .course-badge--default { background: #64748b; }
->>>>>>> Stashed changes
