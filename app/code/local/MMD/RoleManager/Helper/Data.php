@@ -415,4 +415,64 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
         Mage::getSingleton('admin/session')->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
         return true;
     }
+
+    // -------------------------------------------------------------------------
+    // Class ID allocation
+    // -------------------------------------------------------------------------
+
+    /**
+     * Country-code prefix map: website_id → 2-letter code.
+     * Must stay in sync with store setup and $_storeToCc2 in index.phtml.
+     */
+    public static $websiteToCountryCode = array(
+        1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'IN', 7 => 'SG',
+    );
+
+    /**
+     * Compute the next available class_id for a given country prefix.
+     *
+     * Reads MAX(numeric suffix) from course_runs where class_id starts with $cc,
+     * then returns $cc + zero-padded($max + 1).  The caller is responsible for
+     * persisting the value; the UNIQUE KEY on course_runs.class_id is the
+     * final guard against duplicates from concurrent inserts.
+     *
+     * @param  object $write      core_write DB connection
+     * @param  string $runTable   fully-qualified table name for course_runs
+     * @param  string $cc         two-letter country code (e.g. 'SG')
+     * @return string             e.g. 'SG000042'
+     */
+    public static function nextClassId($write, $runTable, $cc)
+    {
+        $prefixLen = strlen($cc);
+        $maxNo = (int) $write->fetchOne(
+            "SELECT COALESCE(MAX(CAST(SUBSTRING(class_id, " . ($prefixLen + 1) . ") AS UNSIGNED)), 0)
+               FROM `{$runTable}`
+              WHERE class_id LIKE ?",
+            array($cc . '%')
+        );
+        return $cc . str_pad($maxNo + 1, 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Resolve the country code for a product by looking up its primary website.
+     *
+     * Returns the code for the lowest website_id the product belongs to,
+     * defaulting to 'SG' if the product has no website assignment.
+     *
+     * @param  object $read      core_read DB connection
+     * @param  int    $productId
+     * @param  int    $websiteId optional — skip the lookup if already known
+     * @return string            two-letter country code
+     */
+    public static function countryCodeForProduct($read, $productId, $websiteId = 0)
+    {
+        if (!$websiteId) {
+            $websiteId = (int) $read->fetchOne(
+                "SELECT website_id FROM catalog_product_website WHERE product_id = ? ORDER BY website_id LIMIT 1",
+                array((int) $productId)
+            );
+        }
+        $map = self::$websiteToCountryCode;
+        return isset($map[$websiteId]) ? $map[$websiteId] : 'SG';
+    }
 }

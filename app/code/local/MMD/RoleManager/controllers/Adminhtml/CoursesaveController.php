@@ -628,7 +628,24 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $result['product_id'] = $productId;
 
             // Persist all the form fields to course_runs.
+            $startTime = trim((string) $req->getParam('start_time'));
+            $endTime   = trim((string) $req->getParam('end_time'));
+
+            // Determine country prefix from the admin's active website.
+            $_helper   = Mage::helper('mmd_rolemanager');
+            $_widForCC = (int) (method_exists($_helper, 'getActiveStoreId') ? $_helper->getActiveStoreId() : 0);
+            if (!$_widForCC) {
+                $_widForCC = (int) $read->fetchOne(
+                    "SELECT website_id FROM catalog_product_website WHERE product_id = ? ORDER BY website_id LIMIT 1",
+                    array($productId)
+                );
+            }
+            $_runTable = $resource->getTableName('course_runs');
+            $_cc       = MMD_RoleManager_Helper_Data::countryCodeForProduct($read, $productId, $_widForCC);
+            $_classId  = MMD_RoleManager_Helper_Data::nextClassId($write, $_runTable, $_cc);
+
             $runRow = array(
+                'class_id'          => $_classId,
                 'product_id'        => $productId,
                 'course_sku'        => $sku,
                 'trainer_option_id' => $trainerOp > 0 ? $trainerOp : null,
@@ -636,6 +653,8 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 'reg_close_date'    => preg_match('/^\d{4}-\d{2}-\d{2}$/', $regClose)  ? $regClose  : null,
                 'course_start_date' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate) ? $startDate : null,
                 'course_end_date'   => preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate)   ? $endDate   : null,
+                'course_start_time' => preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $startTime) ? $startTime : null,
+                'course_end_time'   => preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $endTime)   ? $endTime   : null,
                 'venue_block'       => trim((string) $req->getParam('venue_block')),
                 'venue_street'      => trim((string) $req->getParam('venue_street')),
                 'venue_building'    => trim((string) $req->getParam('venue_building')),
@@ -647,9 +666,11 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 'mode_of_training'  => (int) $req->getParam('mode_of_training') ?: 1,
                 'admin_email'       => trim((string) $req->getParam('admin_email')),
                 'vacancy'           => substr(strtoupper(trim((string) $req->getParam('vacancy'))), 0, 1) ?: 'A',
+                'created_by'        => (($_u = Mage::getSingleton('admin/session')->getUser()) ? strtolower(trim((string) $_u->getEmail())) : ''),
             );
-            $write->insert($resource->getTableName('course_runs'), $runRow);
-            $result['run_id'] = (int) $write->lastInsertId();
+            $write->insert($_runTable, $runRow);
+            $result['run_id']   = (int) $write->lastInsertId();
+            $result['class_id'] = $_classId;
 
             // Append the trainer option_id to the `trainers` multiselect.
             // Stored as a comma-separated string in catalog_product_entity_text

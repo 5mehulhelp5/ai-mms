@@ -247,77 +247,68 @@ $cE = $endAid   ? "dend.value AS end_date,"     : "NULL AS end_date,";
 // that has started and has no explicit end is treated as still running.
 $_dashFilter = (string) Mage::app()->getRequest()->getParam('dash_filter', '');
 
-// Build the master upcoming-classes table from **Course Date custom options**
-// (the real per-session schedule that learners book against), not from the
-// product-level news_from_date attribute — which is empty for ~all courses.
-// One row per session; pax counts come from sales_flat_order_item by
-// matching the chosen Course Date option_value in product_options.
+// Build the master class table from **course_runs** — the structured schedule
+// table populated by the order observer (non-TGS) and the admin create-class form.
+// One row per run; learner counts come from course_run_enrolments.
 $courseRows     = array();
-$_learnerMap    = array();   // session_key => list of {name,email,phone,order,date}
+$_learnerMap    = array();   // run_id => list of {name,email,phone,order,date}
 $_classTrainers = array();   // product_id => list of {name,email,phone}
-$_dashFilterWhere = ''; // kept for the legacy ongoing/upcoming/completed sidebar filters below
+$_dashFilterWhere = ''; // used by KPI queries below
 if (in_array($_dashFilter, array('', 'ongoing', 'upcoming', 'completed'), true) && $statusAid) {
-    $_todayTs   = strtotime('today');
-    // Date window per filter — applied to the parsed Course Date label below.
+    $_todayTs  = strtotime('today');
+    // Date window per filter — applied to course_start_date.
     // master (no filter): next 90 days (excluding today)
     // ongoing:            today only
     // upcoming:           any future date (cap 365 days)
-    // completed:          past 365 days
+    // completed:          all past (up to 20 years back)
     if ($_dashFilter === 'ongoing') {
         $_winFromTs = $_todayTs;                        $_winToTs = strtotime('+1 day', $_todayTs) - 1;
     } elseif ($_dashFilter === 'upcoming') {
         $_winFromTs = strtotime('+1 day', $_todayTs);   $_winToTs = strtotime('+365 days', $_todayTs);
     } elseif ($_dashFilter === 'completed') {
-        $_winFromTs = strtotime('-365 days', $_todayTs); $_winToTs = $_todayTs - 1;
+        $_winFromTs = strtotime('-20 years', $_todayTs); $_winToTs = $_todayTs - 1;
     } else {
         $_winFromTs = strtotime('+1 day', $_todayTs);   $_winToTs = strtotime('+90 days', $_todayTs);
     }
+    $_winFrom = date('Y-m-d', $_winFromTs);
+    $_winTo   = date('Y-m-d', $_winToTs);
 
-    // 1. All Course Date option_type_values for products on this website.
-    $_sessionsRaw = $read->fetchAll("
-        SELECT cpo.product_id, ov.option_type_id, ott.title AS date_label
-        FROM catalog_product_option cpo
-        {$_adminWidJoinCo}
-        JOIN catalog_product_option_title ot ON ot.option_id=cpo.option_id AND ot.store_id=0
-        JOIN catalog_product_option_type_value ov ON ov.option_id=cpo.option_id
-        JOIN catalog_product_option_type_title ott ON ott.option_type_id=ov.option_type_id AND ott.store_id=0
-        WHERE ot.title='Course Date'
+    $_crTbl  = $resource->getTableName('course_runs');
+    $_enrTbl = $resource->getTableName('course_run_enrolments');
+    $_adminWidJoinCr = $_adminWid > 0
+        ? "INNER JOIN catalog_product_website pwx ON pwx.product_id=cr.product_id AND pwx.website_id={$_adminWid}"
+        : '';
+
+    $_crOrderDir  = ($_dashFilter === 'completed') ? 'DESC' : 'ASC';
+    $_dashLimitAll = (Mage::app()->getRequest()->getParam('dash_limit', '') === 'all');
+    $_crLimitSql   = $_dashLimitAll ? '' : 'LIMIT 300';
+
+    // 1. Fetch runs from course_runs within the date window.
+    $_crRows = $read->fetchAll("
+        SELECT cr.run_id, cr.product_id, cr.course_sku, cr.class_id,
+               cr.course_start_date, cr.course_end_date,
+               cr.course_start_time, cr.course_end_time,
+               cr.mode_of_training, cr.created_by
+        FROM `{$_crTbl}` cr
+        {$_adminWidJoinCr}
+        WHERE cr.course_sku NOT LIKE 'TGS%'
+          AND cr.course_start_date >= '{$_winFrom}'
+          AND cr.course_start_date <= '{$_winTo}'
+        ORDER BY cr.course_start_date {$_crOrderDir}, cr.course_start_time ASC
+        {$_crLimitSql}
     ");
 
-    // 2. Parse the date label. Build maps so that multiple option_type_id
-    //    rows sharing the same (product_id, course-date-label) collapse into
-    //    a single session — orders booked against any of them roll up to one
-    //    pax total. Keep only sessions whose first date is in (today, today+90d].
-    $_sessions    = array();    // session_key => ['product_id'=>..,'ts'=>..,'label'=>..]
-    $_otidToKey   = array();    // option_type_id => session_key (ALL otids, even out-of-window)
-    $_sessionPids = array();
-    foreach ($_sessionsRaw as $s) {
-        $label = trim((string) $s['date_label']);
-        if (!preg_match('#(\d{1,2})(?:/\d{1,2})?\s+([A-Za-z]{3,})\s+(\d{4})#', $label, $m)) continue;
-        $ts = strtotime($m[1] . ' ' . $m[2] . ' ' . $m[3]);
-        if (!$ts) continue;
-        // Bucket by parsed date (Y-m-d) — not the raw label — so two slightly
-        // different label spellings for the same date (e.g. "20 May 2026" and
-        // "20/21 May 2026 Evening") collapse into a single class row.
-        $key = (int)$s['product_id'] . '|' . date('Y-m-d', $ts);
-        $_otidToKey[(int)$s['option_type_id']] = $key;
-        if ($ts >= $_winFromTs && $ts <= $_winToTs && !isset($_sessions[$key])) {
-            $_sessions[$key] = array(
-                'product_id' => (int)$s['product_id'],
-                'ts'         => $ts,
-                'label'      => $label,
-            );
-            $_sessionPids[(int)$s['product_id']] = true;
-        }
-    }
+    if (!empty($_crRows)) {
+        $_crPids = array();
+        foreach ($_crRows as $_cr) $_crPids[(int)$_cr['product_id']] = true;
+        $_crPidsCsv   = implode(',', array_keys($_crPids));
+        $_crRunIdsCsv = implode(',', array_map('intval', array_column($_crRows, 'run_id')));
 
-    if (!empty($_sessions)) {
-        // 3. Bulk-fetch product attributes (name, sku, class type, status).
-        $_pidsCsv = implode(',', array_keys($_sessionPids));
+        // 2. Product attributes (name, sku, type, status).
         $_typeJoin = $typeAid
             ? "LEFT JOIN catalog_product_entity_int vtype ON p.entity_id=vtype.entity_id AND vtype.attribute_id={$typeAid} AND vtype.store_id=0"
             : '';
-        $_typeCol  = $typeAid ? "vtype.value" : "NULL";
+        $_typeCol  = $typeAid ? 'vtype.value' : 'NULL';
         $_prodRows = $read->fetchAll("
             SELECT p.entity_id, p.sku,
                    vname.value AS name,
@@ -327,75 +318,36 @@ if (in_array($_dashFilter, array('', 'ongoing', 'upcoming', 'completed'), true) 
             LEFT JOIN catalog_product_entity_varchar vname ON p.entity_id=vname.entity_id AND vname.attribute_id={$nameAid} AND vname.store_id=0
             {$_typeJoin}
             LEFT JOIN catalog_product_entity_int vstatus ON p.entity_id=vstatus.entity_id AND vstatus.attribute_id={$statusAid} AND vstatus.store_id=0
-            WHERE p.entity_id IN ({$_pidsCsv})
+            WHERE p.entity_id IN ({$_crPidsCsv})
         ");
         $_prodById = array();
         foreach ($_prodRows as $pr) $_prodById[(int)$pr['entity_id']] = $pr;
 
-        // 4. Aggregate # of Pax by parsing product_options on each order item.
-        //    sales_flat_order_item.product_options is a serialized PHP array
-        //    containing the chosen Course Date option_value (= option_type_id).
-        //    We bucket by session_key = product_id + lowercased date label so
-        //    duplicate option_type_id rows (same date label) roll up together.
-        $_paxMap      = array(); // session_key => qty_sum
-        $_orderItems = $read->fetchAll("
-            SELECT oi.product_id, oi.qty_ordered, oi.product_options,
-                   o.entity_id AS order_id, o.increment_id, o.customer_email,
-                   o.customer_firstname, o.customer_lastname, o.created_at,
-                   o.store_id AS order_store_id,
-                   ba.firstname AS bf, ba.lastname AS bl, ba.telephone AS btel
-            FROM sales_flat_order_item oi
-            INNER JOIN sales_flat_order o ON oi.order_id=o.entity_id AND o.state NOT IN ('canceled','holded')
-            INNER JOIN core_store cs ON cs.store_id=o.store_id {$_adminWidOrder}
-            LEFT  JOIN sales_flat_order_address ba ON ba.entity_id=o.billing_address_id
-            WHERE oi.product_id IN ({$_pidsCsv})
-              AND oi.product_options LIKE '%Course Date%'
-            ORDER BY o.created_at ASC
-        ");
-        $_sessStore = array(); // session_key => store_id (first registration wins)
-        foreach ($_orderItems as $oi) {
-            $opts = @unserialize($oi['product_options']);
-            if (!is_array($opts) || empty($opts['options'])) continue;
-            foreach ($opts['options'] as $opt) {
-                if (!isset($opt['label']) || $opt['label'] !== 'Course Date') continue;
-                $key = null;
-                if (isset($opt['option_value']) && isset($_otidToKey[(int)$opt['option_value']])) {
-                    $key = $_otidToKey[(int)$opt['option_value']];
-                } elseif (isset($opt['print_value'])
-                       && preg_match('#(\d{1,2})(?:/\d{1,2})?\s+([A-Za-z]{3,})\s+(\d{4})#', (string)$opt['print_value'], $_pvm)) {
-                    // Fallback: parse the printed date text when option_value
-                    // doesn't resolve (e.g. option row deleted/recreated).
-                    $_pvTs = strtotime($_pvm[1] . ' ' . $_pvm[2] . ' ' . $_pvm[3]);
-                    if ($_pvTs) $key = (int)$oi['product_id'] . '|' . date('Y-m-d', $_pvTs);
-                }
-                if ($key !== null && isset($_sessions[$key])) {
-                    if (!isset($_paxMap[$key]))     $_paxMap[$key]     = 0.0;
-                    if (!isset($_learnerMap[$key])) $_learnerMap[$key] = array();
-                    if (!isset($_sessStore[$key]))  $_sessStore[$key]  = (int)$oi['order_store_id'];
-                    $_paxMap[$key] += (float)$oi['qty_ordered'];
-                    $_name = trim(trim((string)$oi['bf']) . ' ' . trim((string)$oi['bl']));
-                    if ($_name === '') $_name = trim(trim((string)$oi['customer_firstname']) . ' ' . trim((string)$oi['customer_lastname']));
-                    $_learnerMap[$key][] = array(
-                        'name'     => $_name ?: '(guest)',
-                        'email'    => (string)$oi['customer_email'],
-                        'phone'    => (string)$oi['btel'],
-                        'order'    => (string)$oi['increment_id'],
-                        'order_id' => (int)$oi['order_id'],
-                        'date'     => $oi['created_at'] ? date('d/m/Y', strtotime($oi['created_at'])) : '',
-                    );
-                }
-            }
+        // 3. Learner counts + detail lists from course_run_enrolments.
+        $_enrCounts = array();
+        foreach ($read->fetchAll("SELECT run_id, COUNT(*) AS cnt FROM `{$_enrTbl}` WHERE run_id IN ({$_crRunIdsCsv}) GROUP BY run_id") as $_ec) {
+            $_enrCounts[(int)$_ec['run_id']] = (int)$_ec['cnt'];
+        }
+        foreach ($read->fetchAll("SELECT run_id, learner_name, learner_email FROM `{$_enrTbl}` WHERE run_id IN ({$_crRunIdsCsv}) ORDER BY run_id, enrolment_id") as $_enr) {
+            $_rid = (int)$_enr['run_id'];
+            if (!isset($_learnerMap[$_rid])) $_learnerMap[$_rid] = array();
+            $_learnerMap[$_rid][] = array(
+                'name'     => (string)$_enr['learner_name'],
+                'email'    => (string)$_enr['learner_email'],
+                'phone'    => '',
+                'order'    => '',
+                'order_id' => 0,
+                'date'     => '',
+            );
         }
 
-        // Per-product trainer list for the View/Edit Details modal.
-        // Read the `trainers` attribute (CSV of courses_trainers.trainers_id)
-        // off each course product, then look up name/email/telephone.
-        $_trainersAid   = isset($attrMap['trainers']) ? (int)$attrMap['trainers'] : 170;
-        $_trainerCsv    = $read->fetchPairs("
+        // 4. Trainer lists per product.
+        $_trainersAid = isset($attrMap['trainers']) ? (int)$attrMap['trainers'] : 170;
+        $_trainerCsv  = $read->fetchPairs("
             SELECT entity_id, value
               FROM catalog_product_entity_text
              WHERE attribute_id={$_trainersAid}
-               AND entity_id IN ({$_pidsCsv})
+               AND entity_id IN ({$_crPidsCsv})
                AND value IS NOT NULL AND value <> ''
         ");
         $_allTids = array();
@@ -405,11 +357,11 @@ if (in_array($_dashFilter, array('', 'ongoing', 'upcoming', 'completed'), true) 
                 if ($_tid > 0) $_allTids[$_tid] = true;
             }
         }
-        $_tnTbl = $resource->getTableName('courses_trainers');
+        $_tnTbl  = $resource->getTableName('courses_trainers');
         $_tnById = array();
         if (!empty($_allTids)) {
             $_tnIdsCsv = implode(',', array_keys($_allTids));
-            foreach ($read->fetchAll("SELECT trainers_id, title, email, telephone FROM {$_tnTbl} WHERE trainers_id IN ({$_tnIdsCsv})") as $_tn) {
+            foreach ($read->fetchAll("SELECT trainers_id, title, email, telephone FROM `{$_tnTbl}` WHERE trainers_id IN ({$_tnIdsCsv})") as $_tn) {
                 $_tnById[(int)$_tn['trainers_id']] = $_tn;
             }
         }
@@ -428,98 +380,45 @@ if (in_array($_dashFilter, array('', 'ongoing', 'upcoming', 'completed'), true) 
             if ($_list) $_classTrainers[(int)$_pid] = $_list;
         }
 
-        // 5. Build one $courseRows entry per session — only sessions with at
-        //    least one registration are shown (the table is driven by the
-        //    Sales Registration data, so empty sessions are hidden).
-        //    SG (website_id=1) hides WSQ class types; other websites show all.
-        foreach ($_sessions as $sessKey => $sess) {
-            $pid = $sess['product_id'];
+        // 5. Build courseRows — one entry per run.
+        $_motLabels = array(1 => 'Physical', 2 => 'Virtual', 3 => 'Hybrid');
+        foreach ($_crRows as $_cr) {
+            $pid = (int)$_cr['product_id'];
             if (!isset($_prodById[$pid])) continue;
-            if (empty($_paxMap[$sessKey])) continue;
             $pi  = $_prodById[$pid];
             $tid = (int)$pi['type_id'];
-            // SG (website_id=1) shows only Unfunded courses; other websites show all.
+            // SG (website_id=1) hides Funded class types.
             if ($_adminWid === 1 && $tid && isset($classTypeOptions[$tid])
                 && _mmd_classTypeBucket($classTypeOptions[$tid]) === 'Funded') {
                 continue;
             }
+            $runId    = (int)$_cr['run_id'];
+            $_motInt  = (int)$_cr['mode_of_training'];
+            $_dateLabel = $_cr['course_start_date'];
+            if (!empty($_cr['course_end_date']) && $_cr['course_end_date'] !== $_cr['course_start_date']) {
+                $_dateLabel .= ' – ' . $_cr['course_end_date'];
+            }
+            $_classId = (string)$_cr['class_id'];
             $courseRows[] = array(
-                'run_id'       => $pid,                                   // product entity_id for edit links
-                'ref_code'     => $pi['sku'],
-                'course_title' => $pi['name'],
-                'type_id'      => $tid,
-                'start_date'   => date('Y-m-d H:i:s', $sess['ts']),
-                'end_date'     => null,
-                'status_val'   => (int)$pi['status_val'],
-                'learners'     => isset($_paxMap[$sessKey]) ? (int) round($_paxMap[$sessKey]) : 0,
-                'session_label'=> $sess['label'],
-                'session_key'  => $sessKey,
+                'run_id'        => $runId,
+                'product_id'    => $pid,
+                'class_code'    => $_classId,
+                'branch'        => $_classId ? substr($_classId, 0, 2) : '',
+                'ref_code'      => $pi['sku'],
+                'course_title'  => (string)$pi['name'],
+                'type_id'       => $tid,
+                'start_date'    => $_cr['course_start_date'],
+                'end_date'      => (string)$_cr['course_end_date'],
+                'start_time'    => (string)$_cr['course_start_time'],
+                'end_time'      => (string)$_cr['course_end_time'],
+                'status_val'    => (int)$pi['status_val'],
+                'learners'      => isset($_enrCounts[$runId]) ? $_enrCounts[$runId] : 0,
+                'session_label' => $_dateLabel,
+                'session_key'   => $runId,
+                'created_by'    => (string)$_cr['created_by'],
+                'mot'           => isset($_motLabels[$_motInt]) ? $_motLabels[$_motInt] : 'Physical',
             );
         }
-        usort($courseRows, function ($a, $b) {
-            return strcmp($a['start_date'], $b['start_date']);
-        });
-        if (count($courseRows) > 300) $courseRows = array_slice($courseRows, 0, 300);
-
-        // Assign / look up the formatted Class ID (e.g. SG000001) for each
-        // displayed row. IDs are persisted in mmd_class_id_map so they stay
-        // stable across page loads; the running number is per store_id.
-        $_classIdTbl = $resource->getTableName('mmd_class_id_map');
-        $_write      = $resource->getConnection('core_write');
-        // store_id → 2-letter code used for the Class ID prefix and the
-        // Branch column. India is "ID" (not "IN") to avoid clashing with the
-        // Infotech store, which keeps "IN".
-        $_storeToCc2 = array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'ID', 7 => 'IN');
-        $_needAlloc  = array(); // tuples to look up: store_id|pid|date => [store_id,pid,date]
-        foreach ($courseRows as $_r) {
-            $_sid = isset($_sessStore[$_r['session_key']]) ? (int)$_sessStore[$_r['session_key']] : 0;
-            if ($_sid <= 0) $_sid = $_adminWid > 0 ? $_adminWid : 1; // ALL Stores → fall back to SG
-            $_dt  = date('Y-m-d', strtotime($_r['start_date']));
-            $_needAlloc[$_sid . '|' . (int)$_r['run_id'] . '|' . $_dt] = array($_sid, (int)$_r['run_id'], $_dt);
-        }
-        // Bulk-fetch existing mappings.
-        $_existing = array();
-        if (!empty($_needAlloc)) {
-            $_orParts = array();
-            foreach ($_needAlloc as $tup) {
-                $_orParts[] = '(store_id=' . $tup[0] . ' AND product_id=' . $tup[1] . " AND course_date='" . $tup[2] . "')";
-            }
-            foreach ($_write->fetchAll("SELECT store_id, product_id, course_date, class_no FROM {$_classIdTbl} WHERE " . implode(' OR ', $_orParts)) as $_em) {
-                $_existing[$_em['store_id'] . '|' . $_em['product_id'] . '|' . $_em['course_date']] = (int)$_em['class_no'];
-            }
-        }
-        // Insert any missing mappings — next class_no per store_id.
-        foreach ($_needAlloc as $key => $tup) {
-            if (isset($_existing[$key])) continue;
-            $_maxNo = (int)$_write->fetchOne("SELECT COALESCE(MAX(class_no),0) FROM {$_classIdTbl} WHERE store_id={$tup[0]}");
-            $_next  = $_maxNo + 1;
-            try {
-                $_write->insert($_classIdTbl, array(
-                    'store_id'    => $tup[0],
-                    'product_id'  => $tup[1],
-                    'course_date' => $tup[2],
-                    'class_no'    => $_next,
-                ));
-                $_existing[$key] = $_next;
-            } catch (Exception $e) {
-                // Race condition — another request inserted first; re-read.
-                $_cn = (int)$_write->fetchOne(
-                    "SELECT class_no FROM {$_classIdTbl} WHERE store_id={$tup[0]} AND product_id={$tup[1]} AND course_date='{$tup[2]}'"
-                );
-                if ($_cn) $_existing[$key] = $_cn;
-            }
-        }
-        // Apply to courseRows.
-        foreach ($courseRows as &$_r) {
-            $_sid = isset($_sessStore[$_r['session_key']]) ? (int)$_sessStore[$_r['session_key']] : 0;
-            if ($_sid <= 0) $_sid = $_adminWid > 0 ? $_adminWid : 1;
-            $_dt  = date('Y-m-d', strtotime($_r['start_date']));
-            $_no  = isset($_existing[$_sid . '|' . (int)$_r['run_id'] . '|' . $_dt]) ? $_existing[$_sid . '|' . (int)$_r['run_id'] . '|' . $_dt] : 0;
-            $_cc  = isset($_storeToCc2[$_sid]) ? $_storeToCc2[$_sid] : '??';
-            $_r['class_code'] = $_no ? ($_cc . str_pad($_no, 6, '0', STR_PAD_LEFT)) : '';
-            $_r['branch']     = $_cc;
-        }
-        unset($_r);
     }
 }
 
@@ -1209,7 +1108,7 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
                     $_card = $_lc;
                     if (!empty($_run['course_start_date'])) $_card['start_date'] = date('j M Y', strtotime($_run['course_start_date']));
                     if (!empty($_run['course_end_date']))   $_card['end_date']   = date('j M Y', strtotime($_run['course_end_date']));
-                    $_card['run_id']    = Mage::helper('mmd_rolemanager')->formatRunId($_pid, $_run['run_id']);
+                    $_card['run_id']    = (string) $_run['class_id'];
                     $_card['venue']     = trim(implode(' ', array_filter(array($_run['venue_block'], $_run['venue_street'], $_run['venue_building']))));
                     $_card['room']      = $_run['room'];
                     $_card['postal']    = $_run['postal_code'];
@@ -1272,7 +1171,7 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
                     'detail_url'  => Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $_pid, '_query' => array('run' => (int)$_run['run_id']))),
                     'duration'    => $_dur,
                     'course_type' => $_typ,
-                    'run_id'      => Mage::helper('mmd_rolemanager')->formatRunId($_pid, $_run['run_id']),
+                    'run_id'      => (string) $_run['class_id'],
                     'venue'       => trim(implode(' ', array_filter(array($_run['venue_block'], $_run['venue_street'], $_run['venue_building'])))),
                     'room'        => $_run['room'],
                     'postal'      => $_run['postal_code'],
@@ -1826,6 +1725,21 @@ if ($_selectedCourseId) {
             </div>
             <button class="dash-btn-primary" onclick="dashToggleAdv()">Show Advanced Filters</button>
             <button class="dash-btn-ghost"    onclick="dashClearFilters()">Clear</button>
+            <?php
+                $_toggleLimitUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array(
+                    '_query' => array_filter(array(
+                        'dash_filter' => $_dashFilter ?: null,
+                        'dash_limit'  => $_dashLimitAll ? null : 'all',
+                    )),
+                ));
+            ?>
+            <a href="<?php echo $_toggleLimitUrl ?>" class="dash-btn-ghost" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+                <?php if ($_dashLimitAll): ?>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7-7 7 7"/></svg> Limit to 300
+                <?php else: ?>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7 7 7-7"/></svg> Load All Rows
+                <?php endif; ?>
+            </a>
         </div>
 
         <div id="dashAdvFilters" class="dash-adv-filters">
@@ -1846,18 +1760,30 @@ if ($_selectedCourseId) {
             </div>
             <div><div class="dash-adv-label">Course Date From</div><input type="date" id="fDateFrom" class="dash-adv-input" oninput="dashFilter()" /></div>
             <div><div class="dash-adv-label">Course Date To</div><input type="date" id="fDateTo" class="dash-adv-input" oninput="dashFilter()" /></div>
+            <div><div class="dash-adv-label">Created By</div>
+                <select id="fCreator" class="dash-adv-select" onchange="dashFilter()">
+                    <option value="">All</option>
+                    <option value="system">System</option>
+                    <option value="manual">Manual</option>
+                </select>
+            </div>
         </div>
 
         <div class="dash-table-wrap">
             <table class="dash-table">
-                <thead><tr>
-                    <th>Class ID</th><th>Course Title</th><th>Course Code</th>
-                    <th>Course Date</th>
+                <thead><tr id="dashTableHead">
+                    <th class="dash-th-sort" data-sort-key="class-id">Class ID</th>
+                    <th class="dash-th-sort" data-sort-key="title">Course Title</th>
+                    <th class="dash-th-sort" data-sort-key="ref">Course Code</th>
+                    <th class="dash-th-sort" data-sort-key="start">Course Date</th>
+                    <th>Course Time</th>
                     <th>MOT</th>
-                    <th>Class Status</th><th># of Pax</th>
+                    <th class="dash-th-sort" data-sort-key="status">Class Status</th>
+                    <th class="dash-th-sort" data-sort-key="pax"># of Pax</th>
                     <th>Trainer</th>
-                    <th>Course Type</th>
-                    <th>Branch</th>
+                    <th class="dash-th-sort" data-sort-key="type">Course Type</th>
+                    <th class="dash-th-sort" data-sort-key="branch">Branch</th>
+                    <th class="dash-th-sort" data-sort-key="creator">Created By</th>
                     <th>Action</th>
                 </tr></thead>
                 <tbody id="dashTableBody">
@@ -1870,18 +1796,27 @@ if ($_selectedCourseId) {
                     $_mot    = !empty($row['mot']) ? $row['mot'] : 'Physical';
                     $_motCls = ($_mot === 'Virtual') ? 'badge-type-virtual' : (($_mot === 'Hybrid') ? 'badge-pending' : 'badge-type');
                     $sFmt  = $row['start_date'] ? date('d/m/Y', strtotime($row['start_date'])) : '—';
+                    $_tFmt = '';
+                    if (!empty($row['start_time'])) {
+                        $_tFmt = substr($row['start_time'], 0, 5);
+                        if (!empty($row['end_time'])) $_tFmt .= ' – ' . substr($row['end_time'], 0, 5);
+                    }
                     $sv    = (int)$row['status_val'];
                     // Upcoming master view: disabled product → Cancelled; everything else defaults to Pending.
                     if ($sv !== 1) { $slbl = 'Cancelled'; $scls = 'badge-cancelled'; }
                     else           { $slbl = 'Pending';   $scls = 'badge-pending'; }
-                    $eurl  = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => $row['run_id']));
-                    $durl  = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/delete', array('id' => $row['run_id'], 'form_key' => Mage::getSingleton('core/session')->getFormKey()));
+                    $eurl  = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/edit', array('id' => $row['product_id']));
+                    $durl  = Mage::helper('adminhtml')->getUrl('adminhtml/catalog_product/delete', array('id' => $row['product_id'], 'form_key' => Mage::getSingleton('core/session')->getFormKey()));
                     $viewUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $row['run_id']));
                     $ttl   = htmlspecialchars($row['course_title'] ?: '(No Name)');
                     $rcode = htmlspecialchars($row['ref_code']);
                     $sraw  = $row['start_date'] ? date('Y-m-d', strtotime($row['start_date'])) : '';
                 ?>
-                <tr data-title="<?php echo strtolower($ttl) ?>" data-ref="<?php echo strtolower($rcode) ?>" data-type="<?php echo htmlspecialchars($tlbl) ?>" data-status="<?php echo $slbl ?>" data-start="<?php echo $sraw ?>">
+                <?php
+                    $_eraw    = !empty($row['end_date']) ? date('Y-m-d', strtotime($row['end_date'])) : $sraw;
+                    $_classId = !empty($row['class_code']) ? $row['class_code'] : (string)(int)$row['run_id'];
+                ?>
+                <tr data-title="<?php echo strtolower($ttl) ?>" data-ref="<?php echo strtolower($rcode) ?>" data-type="<?php echo htmlspecialchars($tlbl) ?>" data-status="<?php echo $slbl ?>" data-start="<?php echo $sraw ?>" data-end="<?php echo $_eraw ?>" data-creator="<?php echo strtolower(htmlspecialchars($row['created_by'])) ?>" data-pax="<?php echo (int)$row['learners'] ?>" data-class-id="<?php echo htmlspecialchars($_classId) ?>" data-branch="<?php echo htmlspecialchars(!empty($row['branch']) ? $row['branch'] : '') ?>">
                     <td class="run-id" style="font-family:monospace;"><?php echo htmlspecialchars(!empty($row['class_code']) ? $row['class_code'] : (string)(int)$row['run_id']) ?></td>
                     <?php
                         $_lnList = isset($_learnerMap[$row['session_key']]) ? array_values($_learnerMap[$row['session_key']]) : array();
@@ -1904,18 +1839,20 @@ if ($_selectedCourseId) {
                             'editUrl'       => $eurl,
                             'addLearnerUrl' => Mage::helper('adminhtml')->getUrl('adminhtml/sales_order_create/start'),
                             'learners'      => $_lnList,
-                            'trainers'      => isset($_classTrainers[(int)$row['run_id']]) ? array_values($_classTrainers[(int)$row['run_id']]) : array(),
+                            'trainers'      => isset($_classTrainers[(int)$row['product_id']]) ? array_values($_classTrainers[(int)$row['product_id']]) : array(),
                         );
                     ?>
                     <td><a href="#" class="dash-course-link" onclick="event.preventDefault();var p=window._dashPage||1;window.location.href='<?php echo $viewUrl ?>from_page/'+p+'/';"><?php echo $ttl ?></a> <a href="#" title="View/Edit Details" class="dash-detail-link" onclick="event.preventDefault();dashOpenDetails(<?php echo htmlspecialchars(json_encode($_detail), ENT_QUOTES) ?>);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a></td>
                     <td style="font-family:monospace;color:#cbd5e1;"><?php echo $rcode ?: '—' ?></td>
                     <td><?php echo $sFmt ?></td>
+                    <td style="color:#94a3b8;font-size:11px;white-space:nowrap;"><?php echo $_tFmt ?: '—' ?></td>
                     <td><span class="dash-badge <?php echo $_motCls ?>"><?php echo htmlspecialchars($_mot) ?></span></td>
                     <td><span class="dash-badge <?php echo $scls ?>"><?php echo $slbl ?></span></td>
                     <td><?php echo (int)$row['learners'] ?></td>
                     <td style="color:#94a3b8;">—</td>
                     <td><span class="dash-badge <?php echo $tcls ?>"><?php echo htmlspecialchars($tlbl) ?></span></td>
                     <td style="font-family:monospace;color:#cbd5e1;"><?php echo htmlspecialchars(!empty($row['branch']) ? $row['branch'] : '—') ?></td>
+                    <td style="color:#94a3b8;font-size:11px;"><?php echo !empty($row['created_by']) ? htmlspecialchars($row['created_by']) : '—' ?></td>
                     <td>
                         <div class="mmd-grid-actions">
                             <a href="<?php echo $eurl ?>#trainers" title="Assign Trainer" class="mmd-grid-action mmd-grid-action--assign-trainer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></a>
@@ -8825,21 +8762,59 @@ $_apiSaveUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/save'
     </div>
 </div>
 
-<?php /* ===== legacy dead block (kept as a marker so future edits stay in place) =====
-    Reuses .cs-* styles already declared inside dash-panel-companysetting,
-<div class="cnc-wrap">
-    <h1 class="cnc-title">Create New Class</h1>
-    <h2 class="cnc-subtitle">Course Run</h2>
+<?php /* ===== PANEL: Create New Class (Admin only) ===== */ ?>
+<?php
+// Data prep — only runs when this panel is the active sub-view.
+$_cncActive  = ($activeRole === 'admin') && (Mage::app()->getRequest()->getParam('panel') === 'create_class');
+$_cncCourses  = array();
+$_cncTrainers = array();
+if ($_cncActive) {
+    $_cncWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
+    try {
+        $_cncCourses = $read->fetchAll(
+            "SELECT e.entity_id, e.sku, v.value AS name
+             FROM catalog_product_entity e
+             INNER JOIN catalog_product_website pw ON pw.product_id=e.entity_id AND pw.website_id={$_cncWid}
+             INNER JOIN catalog_product_entity_varchar v
+                ON v.entity_id=e.entity_id AND v.attribute_id=71 AND v.store_id=0
+             INNER JOIN catalog_product_entity_int s
+                ON s.entity_id=e.entity_id AND s.attribute_id={$statusAid} AND s.store_id=0 AND s.value=1
+             WHERE v.value IS NOT NULL AND v.value <> ''
+             ORDER BY v.value ASC LIMIT 3000"
+        );
+    } catch (Exception $e) { Mage::logException($e); }
 
-    <form id="cnc-form" onsubmit="return cncSubmit(event)">
+    $_cncTrainersAttrId = isset($_eavAttrIds['trainers']) ? $_eavAttrIds['trainers'] : 0;
+    if ($_cncTrainersAttrId) {
+        try {
+            $_cncTrainers = $read->fetchPairs(
+                "SELECT eaov.option_id, eaov.value
+                 FROM eav_attribute_option eao
+                 JOIN eav_attribute_option_value eaov ON eao.option_id=eaov.option_id AND eaov.store_id=0
+                 WHERE eao.attribute_id=?
+                 ORDER BY eaov.value",
+                array($_cncTrainersAttrId)
+            );
+        } catch (Exception $e) { Mage::logException($e); }
+    }
+}
+?>
+<div id="dash-panel-createclass" style="display:none;">
+<div class="cnc-wrap">
+    <div class="al-header">
+        <h1 class="al-title">Create New Class</h1>
+        <a class="al-back-link" href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') ?>">Back to Dashboard</a>
+    </div>
+
+    <form id="cnc-form" onsubmit="return cncSubmit(event)" autocomplete="off">
+
         <!-- Basic Information -->
         <div class="cnc-card">
             <h3 class="cnc-card-title">Basic Information</h3>
             <div class="cnc-row">
                 <div class="cnc-field cnc-field-full">
                     <label class="cnc-label" for="cnc-ref"><span class="cnc-req">*</span> Course Reference Number</label>
-                    <input type="text" id="cnc-ref" class="cnc-input" placeholder="Enter course code (e.g., C432)" required />
-                    <div class="cnc-help">Enter the course code manually or select from available courses below</div>
+                    <input type="text" id="cnc-ref" class="cnc-input" placeholder="e.g. TGS-2025053209" required />
                 </div>
             </div>
             <div class="cnc-row">
@@ -8860,19 +8835,19 @@ $_apiSaveUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/save'
             <h3 class="cnc-card-title">Registration Dates</h3>
             <div class="cnc-row">
                 <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-reg-open"><span class="cnc-req">*</span> Opening Registration Date</label>
-                    <input type="date" id="cnc-reg-open" class="cnc-input" value="<?php echo date('Y-m-d') ?>" required />
+                    <label class="cnc-label" for="cnc-reg-open">Opening Registration Date</label>
+                    <input type="date" id="cnc-reg-open" class="cnc-input" value="<?php echo date('Y-m-d') ?>" />
                 </div>
                 <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-reg-close"><span class="cnc-req">*</span> Closing Registration Date</label>
-                    <input type="date" id="cnc-reg-close" class="cnc-input" required />
+                    <label class="cnc-label" for="cnc-reg-close">Closing Registration Date</label>
+                    <input type="date" id="cnc-reg-close" class="cnc-input" />
                 </div>
             </div>
         </div>
 
-        <!-- Course Dates -->
+        <!-- Course Dates & Times -->
         <div class="cnc-card">
-            <h3 class="cnc-card-title">Course Dates</h3>
+            <h3 class="cnc-card-title">Course Dates &amp; Times</h3>
             <div class="cnc-row">
                 <div class="cnc-field">
                     <label class="cnc-label" for="cnc-start"><span class="cnc-req">*</span> Course Start Date</label>
@@ -8883,59 +8858,60 @@ $_apiSaveUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/save'
                     <input type="date" id="cnc-end" class="cnc-input" required />
                 </div>
             </div>
+            <div class="cnc-row" style="margin-top:12px;">
+                <div class="cnc-field">
+                    <label class="cnc-label" for="cnc-start-time"><span class="cnc-req">*</span> Start Time</label>
+                    <input type="time" id="cnc-start-time" class="cnc-input" required />
+                </div>
+                <div class="cnc-field">
+                    <label class="cnc-label" for="cnc-end-time"><span class="cnc-req">*</span> End Time</label>
+                    <input type="time" id="cnc-end-time" class="cnc-input" required />
+                </div>
+            </div>
         </div>
 
-        <!-- Venue Information — labels adapt to the admin's country -->
-        <?php
-        $_cncVenueRender = isset($_cncV) ? $_cncV : array(
-            'block'=>array('label'=>'Block','ph'=>''),'street'=>array('label'=>'Street','ph'=>''),
-            'building'=>array('label'=>'Building','ph'=>''),'floor'=>array('label'=>'Floor','ph'=>'','required'=>true),
-            'unit'=>array('label'=>'Unit','ph'=>'','required'=>true),'postal'=>array('label'=>'Postal Code','ph'=>'','required'=>true),
-            'room'=>array('label'=>'Room','ph'=>'','required'=>true),
-        );
-        $_cncReqStar = function($cfg) { return !empty($cfg['required']) ? '<span class="cnc-req">*</span> ' : ''; };
-        ?>
+        <!-- Venue Information -->
         <div class="cnc-card">
             <h3 class="cnc-card-title">Venue Information</h3>
             <div class="cnc-row-3">
                 <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-venue-block"><?php echo $_cncReqStar($_cncVenueRender['block']) . htmlspecialchars($_cncVenueRender['block']['label']) ?></label>
-                    <input type="text" id="cnc-venue-block" class="cnc-input" value="<?php echo htmlspecialchars($_cncVenueRender['block']['ph']) ?>" placeholder="<?php echo htmlspecialchars($_cncVenueRender['block']['ph']) ?>" <?php echo !empty($_cncVenueRender['block']['required']) ? 'required' : '' ?> />
+                    <label class="cnc-label" for="cnc-venue-block">Block</label>
+                    <input type="text" id="cnc-venue-block" class="cnc-input" />
                 </div>
                 <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-venue-street"><?php echo $_cncReqStar($_cncVenueRender['street']) . htmlspecialchars($_cncVenueRender['street']['label']) ?></label>
-                    <input type="text" id="cnc-venue-street" class="cnc-input" value="<?php echo htmlspecialchars($_cncVenueRender['street']['ph']) ?>" placeholder="<?php echo htmlspecialchars($_cncVenueRender['street']['ph']) ?>" <?php echo !empty($_cncVenueRender['street']['required']) ? 'required' : '' ?> />
+                    <label class="cnc-label" for="cnc-venue-street">Street</label>
+                    <input type="text" id="cnc-venue-street" class="cnc-input" />
                 </div>
                 <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-venue-building"><?php echo $_cncReqStar($_cncVenueRender['building']) . htmlspecialchars($_cncVenueRender['building']['label']) ?></label>
-                    <input type="text" id="cnc-venue-building" class="cnc-input" value="<?php echo htmlspecialchars($_cncVenueRender['building']['ph']) ?>" placeholder="<?php echo htmlspecialchars($_cncVenueRender['building']['ph']) ?>" <?php echo !empty($_cncVenueRender['building']['required']) ? 'required' : '' ?> />
+                    <label class="cnc-label" for="cnc-venue-building">Building</label>
+                    <input type="text" id="cnc-venue-building" class="cnc-input" />
+                </div>
+            </div>
+            <div class="cnc-row-4">
+                <div class="cnc-field">
+                    <label class="cnc-label" for="cnc-floor">Floor</label>
+                    <input type="text" id="cnc-floor" class="cnc-input" />
+                </div>
+                <div class="cnc-field">
+                    <label class="cnc-label" for="cnc-unit">Unit</label>
+                    <input type="text" id="cnc-unit" class="cnc-input" />
+                </div>
+                <div class="cnc-field">
+                    <label class="cnc-label" for="cnc-postal">Postal Code</label>
+                    <input type="text" id="cnc-postal" class="cnc-input" />
+                </div>
+                <div class="cnc-field">
+                    <label class="cnc-label" for="cnc-room">Room</label>
+                    <input type="text" id="cnc-room" class="cnc-input" />
                 </div>
             </div>
             <div class="cnc-row">
                 <div class="cnc-field cnc-field-full">
                     <label class="cnc-label" for="cnc-wheelchair">Wheelchair Accessible</label>
                     <select id="cnc-wheelchair" class="cnc-select">
-                        <option value="Yes">Yes</option>
                         <option value="No">No</option>
+                        <option value="Yes">Yes</option>
                     </select>
-                </div>
-            </div>
-            <div class="cnc-row-4">
-                <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-floor"><?php echo $_cncReqStar($_cncVenueRender['floor']) . htmlspecialchars($_cncVenueRender['floor']['label']) ?></label>
-                    <input type="text" id="cnc-floor" class="cnc-input" value="<?php echo htmlspecialchars($_cncVenueRender['floor']['ph']) ?>" placeholder="<?php echo htmlspecialchars($_cncVenueRender['floor']['ph']) ?>" <?php echo !empty($_cncVenueRender['floor']['required']) ? 'required' : '' ?> />
-                </div>
-                <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-unit"><?php echo $_cncReqStar($_cncVenueRender['unit']) . htmlspecialchars($_cncVenueRender['unit']['label']) ?></label>
-                    <input type="text" id="cnc-unit" class="cnc-input" value="<?php echo htmlspecialchars($_cncVenueRender['unit']['ph']) ?>" placeholder="<?php echo htmlspecialchars($_cncVenueRender['unit']['ph']) ?>" <?php echo !empty($_cncVenueRender['unit']['required']) ? 'required' : '' ?> />
-                </div>
-                <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-postal"><?php echo $_cncReqStar($_cncVenueRender['postal']) . htmlspecialchars($_cncVenueRender['postal']['label']) ?></label>
-                    <input type="text" id="cnc-postal" class="cnc-input" value="<?php echo htmlspecialchars($_cncVenueRender['postal']['ph']) ?>" placeholder="<?php echo htmlspecialchars($_cncVenueRender['postal']['ph']) ?>" <?php echo !empty($_cncVenueRender['postal']['required']) ? 'required' : '' ?> />
-                </div>
-                <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-room"><?php echo $_cncReqStar($_cncVenueRender['room']) . htmlspecialchars($_cncVenueRender['room']['label']) ?></label>
-                    <input type="text" id="cnc-room" class="cnc-input" value="<?php echo htmlspecialchars($_cncVenueRender['room']['ph']) ?>" placeholder="<?php echo htmlspecialchars($_cncVenueRender['room']['ph']) ?>" <?php echo !empty($_cncVenueRender['room']['required']) ? 'required' : '' ?> />
                 </div>
             </div>
         </div>
@@ -8947,29 +8923,29 @@ $_apiSaveUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/save'
                 <div class="cnc-field">
                     <label class="cnc-label" for="cnc-mode"><span class="cnc-req">*</span> Mode of Training</label>
                     <select id="cnc-mode" class="cnc-select" required>
-                        <option value="1">1 - Classroom Facilitated Training</option>
-                        <option value="2">2 - Synchronous e-Learning</option>
-                        <option value="3">3 - Asynchronous e-Learning</option>
-                        <option value="4">4 - Blended Learning</option>
+                        <option value="1">1 – Classroom Facilitated Training</option>
+                        <option value="2">2 – Synchronous e-Learning</option>
+                        <option value="3">3 – Asynchronous e-Learning</option>
+                        <option value="4">4 – Blended Learning</option>
                     </select>
                 </div>
                 <div class="cnc-field">
-                    <label class="cnc-label" for="cnc-admin-email"><span class="cnc-req">*</span> Course Admin Email</label>
-                    <input type="email" id="cnc-admin-email" class="cnc-input" placeholder="admin@example.com" required />
+                    <label class="cnc-label" for="cnc-admin-email">Course Admin Email</label>
+                    <input type="email" id="cnc-admin-email" class="cnc-input" placeholder="admin@example.com" />
                 </div>
             </div>
         </div>
 
-        <!-- Course Vacancy Details -->
+        <!-- Vacancy -->
         <div class="cnc-card">
-            <h3 class="cnc-card-title">Course Vacancy Details</h3>
+            <h3 class="cnc-card-title">Vacancy</h3>
             <div class="cnc-row">
                 <div class="cnc-field cnc-field-full">
                     <label class="cnc-label" for="cnc-vacancy"><span class="cnc-req">*</span> Course Vacancy</label>
                     <select id="cnc-vacancy" class="cnc-select" required>
-                        <option value="A">A - Available</option>
-                        <option value="L">L - Limited</option>
-                        <option value="F">F - Fully Booked</option>
+                        <option value="A">A – Available</option>
+                        <option value="L">L – Limited</option>
+                        <option value="F">F – Fully Booked</option>
                     </select>
                 </div>
             </div>
@@ -8977,101 +8953,64 @@ $_apiSaveUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/save'
 
         <hr class="cnc-divider" />
 
-        <!-- Optional Sections -->
+        <!-- Optional: Assign Trainer -->
         <div class="cnc-optional-card">
-            <h3 class="cnc-card-title">Optional Sections</h3>
+            <h3 class="cnc-card-title">Optional</h3>
             <div class="cnc-optional-row">
                 <input type="checkbox" id="cnc-opt-trainer" onchange="cncToggleTrainer(this)" />
-                <label for="cnc-opt-trainer"><strong>Assign Trainer</strong><span>(Assign an existing trainer to this course)</span></label>
+                <label for="cnc-opt-trainer"><strong>Assign Trainer</strong><span> (Assign an existing trainer to this class)</span></label>
             </div>
         </div>
 
-        <!-- Trainer (revealed when "Assign Trainer" is checked) -->
         <div id="cnc-trainer-section" style="display:none;">
-            <hr class="cnc-divider" />
-            <h2 class="cnc-subtitle" style="margin-top:0;">Trainer</h2>
-            <div class="cnc-card">
-                <h3 class="cnc-card-title">Assign Existing Trainer</h3>
+            <div class="cnc-card" style="margin-top:0;">
+                <h3 class="cnc-card-title">Trainer</h3>
                 <div class="cnc-row">
                     <div class="cnc-field cnc-field-full">
-                        <label class="cnc-label" for="cnc-trainer-search"><span class="cnc-req">*</span> Trainer</label>
-                        <?php
-                        // Pre-select the option whose name matches the
-                        // logged-in admin's full name. Lets country-admin
-                        // testers self-assign and immediately see the
-                        // class on their own View As: Trainer view.
-                        $_cncSelfUser  = Mage::getSingleton('admin/session')->getUser();
-                        $_cncSelfName  = $_cncSelfUser ? trim($_cncSelfUser->getFirstname() . ' ' . $_cncSelfUser->getLastname()) : '';
-                        $_cncSelfOid   = 0;
-                        if ($_cncSelfName !== '') {
-                            foreach ($_cncTrainers as $_oid => $_tname) {
-                                if (strcasecmp(trim($_tname), $_cncSelfName) === 0) { $_cncSelfOid = (int)$_oid; break; }
-                            }
-                        }
-                        ?>
+                        <label class="cnc-label" for="cnc-trainer-search">Trainer</label>
                         <div class="cnc-trainer-wrap">
-                            <input type="text" id="cnc-trainer-search" class="cnc-input" placeholder="Select trainer..." autocomplete="off"
-                                   oninput="cncFilterTrainers(this)" onfocus="cncFilterTrainers(this)" />
-                            <div id="cnc-trainer-list" class="cnc-trainer-list" style="display:none"></div>
+                            <input type="text" id="cnc-trainer-search" class="cnc-input" placeholder="Type to search trainers..."
+                                   autocomplete="off" oninput="cncFilterTrainers(this)" onfocus="cncFilterTrainers(this)" />
+                            <div id="cnc-trainer-list" class="cnc-trainer-list" style="display:none;"></div>
                             <input type="hidden" id="cnc-trainer-id" value="" />
                         </div>
-                        <div class="cnc-help">
-                            Type to search through <?php echo count($_cncTrainers) ?> registered trainer<?php echo count($_cncTrainers) === 1 ? '' : 's' ?>.
-                        </div>
+                        <div class="cnc-help"><?php echo count($_cncTrainers) ?> trainer<?php echo count($_cncTrainers) === 1 ? '' : 's' ?> available.</div>
                         <script type="text/javascript">
-                        // Trainer options served as a flat array. The
-                        // autocomplete filters this list as the admin
-                        // types and writes the picked option_id into
-                        // the hidden #cnc-trainer-id input that the
-                        // form submission already reads.
-                        window._cncTrainerOpts = <?php echo json_encode(array_map(function ($oid, $name) {
-                            return array('id' => (int) $oid, 'name' => $name);
-                        }, array_keys($_cncTrainers), array_values($_cncTrainers))) ?>;
+                        window._cncTrainerOpts = <?php echo json_encode(array_map(function($oid, $name){
+                            return array('id' => (int)$oid, 'name' => $name);
+                        }, array_keys($_cncTrainers), array_values($_cncTrainers))); ?>;
                         window.cncFilterTrainers = function(inp) {
-                            var q = (inp.value || '').toLowerCase().trim();
-                            // Drop "(you)" suffix when matching so the
-                            // pre-selected label stays valid as a query.
-                            var qClean = q.replace(/\s*\(you\)\s*$/, '');
+                            var q = inp.value.toLowerCase().trim();
                             var box = document.getElementById('cnc-trainer-list');
                             box.innerHTML = '';
-                            var matches = [];
+                            var hits = [];
                             for (var i = 0; i < window._cncTrainerOpts.length; i++) {
                                 var o = window._cncTrainerOpts[i];
-                                if (qClean === '' || o.name.toLowerCase().indexOf(qClean) !== -1) matches.push(o);
-                                // Cap at 500 — covers the full current
-                                // ~270 trainer roster with room to grow,
-                                // while still preventing runaway DOM
-                                // builds if the list ever explodes.
-                                if (matches.length >= 500) break;
+                                if (!q || o.name.toLowerCase().indexOf(q) !== -1) hits.push(o);
+                                if (hits.length >= 200) break;
                             }
-                            if (matches.length === 0) {
+                            if (!hits.length) {
                                 var n = document.createElement('div');
-                                n.className = 'cnc-trainer-empty';
-                                n.textContent = 'No matching trainers';
+                                n.className = 'cnc-trainer-empty'; n.textContent = 'No matches';
                                 box.appendChild(n);
                             } else {
-                                for (var k = 0; k < matches.length; k++) {
-                                    var m = matches[k];
+                                hits.forEach(function(m) {
                                     var d = document.createElement('div');
-                                    d.className = 'cnc-trainer-row';
-                                    d.textContent = m.name;
-                                    (function(id, name){
-                                        d.onclick = function() {
-                                            inp.value = name;
-                                            document.getElementById('cnc-trainer-id').value = String(id);
-                                            box.style.display = 'none';
-                                        };
-                                    })(m.id, m.name);
+                                    d.className = 'cnc-trainer-row'; d.textContent = m.name;
+                                    d.onclick = function() {
+                                        inp.value = m.name;
+                                        document.getElementById('cnc-trainer-id').value = String(m.id);
+                                        box.style.display = 'none';
+                                    };
                                     box.appendChild(d);
-                                }
+                                });
                             }
                             box.style.display = '';
                         };
-                        // Hide list when clicking outside.
-                        document.addEventListener('click', function(e){
+                        document.addEventListener('click', function(e) {
                             var w = document.querySelector('.cnc-trainer-wrap');
-                            var box = document.getElementById('cnc-trainer-list');
-                            if (w && box && !w.contains(e.target)) box.style.display = 'none';
+                            var b = document.getElementById('cnc-trainer-list');
+                            if (w && b && !w.contains(e.target)) b.style.display = 'none';
                         });
                         </script>
                     </div>
@@ -9080,7 +9019,8 @@ $_apiSaveUrl = Mage::helper('adminhtml')->getUrl('adminhtml/companysetting/save'
         </div>
 
         <div class="cnc-actions">
-            <button type="button" class="cnc-btn cnc-btn-cancel" onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') ?>'">Cancel</button>
+            <button type="button" class="cnc-btn cnc-btn-cancel"
+                onclick="window.location.href='<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') ?>'">Cancel</button>
             <button type="submit" class="cnc-btn cnc-btn-primary">Create Class</button>
         </div>
     </form>
@@ -9092,33 +9032,41 @@ window.cncPickCourse = function(sel) {
 };
 window.cncToggleTrainer = function(cb) {
     var section = document.getElementById('cnc-trainer-section');
-    var input = document.getElementById('cnc-trainer-id');
+    var inp     = document.getElementById('cnc-trainer-id');
     if (!section) return;
     section.style.display = cb.checked ? '' : 'none';
-    if (input) {
-        if (cb.checked) input.setAttribute('required', 'required');
-        else { input.removeAttribute('required'); input.value = ''; }
+    if (inp) {
+        if (cb.checked) inp.setAttribute('required', 'required');
+        else { inp.removeAttribute('required'); inp.value = ''; }
     }
 };
 window.cncSubmit = function(ev) {
     ev.preventDefault();
-    var sku       = (document.getElementById('cnc-ref')||{value:''}).value.trim();
-    var startDate = (document.getElementById('cnc-start')||{value:''}).value;
-    var endDate   = (document.getElementById('cnc-end')||{value:''}).value;
+    var sku       = (document.getElementById('cnc-ref')       ||{value:''}).value.trim();
+    var startDate = (document.getElementById('cnc-start')     ||{value:''}).value;
+    var endDate   = (document.getElementById('cnc-end')       ||{value:''}).value;
+    var startTime = (document.getElementById('cnc-start-time')||{value:''}).value;
+    var endTime   = (document.getElementById('cnc-end-time')  ||{value:''}).value;
+    if (!sku)       { alert('Please fill in the Course Reference Number.'); return false; }
+    if (!startDate) { alert('Please select a Course Start Date.');          return false; }
+    if (!endDate)   { alert('Please select a Course End Date.');            return false; }
+    if (!startTime) { alert('Please enter a Start Time.');                  return false; }
+    if (!endTime)   { alert('Please enter an End Time.');                   return false; }
+    if (endDate < startDate) { alert('End Date cannot be before Start Date.'); return false; }
+    if (startDate === endDate && endTime <= startTime) { alert('End Time must be after Start Time.'); return false; }
     var trainerOp = '';
-    var optChecked = (document.getElementById('cnc-opt-trainer')||{checked:false}).checked;
-    if (optChecked) {
+    if ((document.getElementById('cnc-opt-trainer')||{checked:false}).checked) {
         trainerOp = (document.getElementById('cnc-trainer-id')||{value:''}).value;
         if (!trainerOp) { alert('Please pick a trainer or untick "Assign Trainer".'); return false; }
     }
-    if (!sku) { alert('Please fill in the Course Reference Number first.'); return false; }
-
     function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
     var fd = new FormData();
     fd.append('course_sku',        sku);
     fd.append('trainer_option_id', trainerOp);
     fd.append('start_date',        startDate);
     fd.append('end_date',          endDate);
+    fd.append('start_time',        startTime);
+    fd.append('end_time',          endTime);
     fd.append('reg_open_date',     val('cnc-reg-open'));
     fd.append('reg_close_date',    val('cnc-reg-close'));
     fd.append('venue_block',       val('cnc-venue-block'));
@@ -9132,15 +9080,13 @@ window.cncSubmit = function(ev) {
     fd.append('mode_of_training',  val('cnc-mode'));
     fd.append('admin_email',       val('cnc-admin-email'));
     fd.append('vacancy',           val('cnc-vacancy'));
-
     var btn = ev.target.querySelector('.cnc-btn-primary');
     if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
-
     fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/createNewClass') ?>', {
-        method:'POST', body: fd, credentials:'same-origin'
+        method: 'POST', body: fd, credentials: 'same-origin'
     })
-    .then(function(r){ return r.json(); })
-    .then(function(data){
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
         if (data && data.success) {
             alert(data.message || 'Class created.');
             window.location.href = '<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') ?>';
@@ -9149,7 +9095,7 @@ window.cncSubmit = function(ev) {
             if (btn) { btn.disabled = false; btn.textContent = 'Create Class'; }
         }
     })
-    .catch(function(err){
+    .catch(function(err) {
         alert('Network error: ' + err);
         if (btn) { btn.disabled = false; btn.textContent = 'Create Class'; }
     });
@@ -9232,172 +9178,81 @@ if ($_atActive) {
                 }
             } catch (Exception $e) {}
         }
-        // Source the list from the catalog. Each catalog product is one
-        // row — that's the universe of courses admins can assign
-        // trainers to. course_runs entries (admin-scheduled instances)
-        // are layered on top below: their dates / trainer override the
-        // catalog defaults so the "scheduled" version of a class wins.
-        // Singapore-only, currently active courses. Joins:
-        //   - catalog_product_website (website_id=1) — Singapore scope,
-        //     mirrors the dev dashboard's addWebsiteFilter(1).
-        //   - catalog_product_entity_varchar (name) — drops untitled
-        //     catalog rows that would render as "(No Name)".
-        //   - catalog_product_entity_int (status=1) — active products
-        //     only, so disabled / archived courses don't pad the list.
-        // LIMIT 2000 covers the SG catalog with comfortable headroom.
-        // Replaced 5 correlated subqueries with set-based JOINs.
-        //
-        // Date columns: simple LEFT JOIN at store_id=0. Verified via
-        // diff query against local DB — every news_from_date / news_to_date
-        // value matches the old "ORDER BY store_id LIMIT 1" subquery.
-        //
-        // Text columns (trainers_csv, trainer_profile_html): the old
-        // subquery used "ORDER BY store_id LIMIT 1" which means it preferred
-        // store_id=0 but FELL BACK to the lowest non-zero store_id when no
-        // store_id=0 row existed. 4 SG rows actually rely on this fallback,
-        // so a naive store_id=0 join would silently drop their trainer.
-        // Solved with a MIN(store_id) sub-join per (entity_id, attribute_id),
-        // then the value JOIN matches that exact store_id. Two extra
-        // LEFT JOINs per text attribute, but each is set-based and cheap
-        // compared to the original per-row correlated subquery.
-        $_atTrainersJoinAid = $_atTrainersAttrId ? (int)$_atTrainersAttrId : 0;
-        $_atProducts = $read->fetchAll(
-            "SELECT e.entity_id, e.sku, v.value AS name,
-                    s.value AS status_val,
-                    sd.value AS news_from_date,
-                    ed.value AS news_to_date,
-                    " . ($_atTrainersAttrId ? "trc.value" : "NULL") . " AS trainers_csv,
-                    tp.value AS trainer_profile_html
-             FROM catalog_product_entity e
-             INNER JOIN catalog_product_website pw
-                ON pw.product_id=e.entity_id AND pw.website_id={$_atWid}
-             INNER JOIN catalog_product_entity_varchar v
-                ON v.entity_id=e.entity_id AND v.attribute_id=71 AND v.store_id=0
-             INNER JOIN catalog_product_entity_int s
-                ON s.entity_id=e.entity_id AND s.attribute_id={$statusAid} AND s.store_id=0 AND s.value=1
-             LEFT JOIN catalog_product_entity_datetime sd
-                ON sd.entity_id=e.entity_id AND sd.attribute_id={$startAid} AND sd.store_id=0
-             LEFT JOIN catalog_product_entity_datetime ed
-                ON ed.entity_id=e.entity_id AND ed.attribute_id={$endAid}   AND ed.store_id=0
-             LEFT JOIN (
-                 SELECT entity_id, MIN(store_id) AS min_sid
-                 FROM catalog_product_entity_text
-                 WHERE attribute_id={$_atTrainersJoinAid} AND value IS NOT NULL AND value <> ''
-                 GROUP BY entity_id
-             ) trc_min ON trc_min.entity_id=e.entity_id
-             LEFT JOIN catalog_product_entity_text trc
-                ON trc.entity_id=e.entity_id AND trc.attribute_id={$_atTrainersJoinAid} AND trc.store_id=trc_min.min_sid
-             LEFT JOIN (
-                 SELECT entity_id, MIN(store_id) AS min_sid
-                 FROM catalog_product_entity_text
-                 WHERE attribute_id=153 AND value IS NOT NULL AND value <> ''
-                 GROUP BY entity_id
-             ) tp_min ON tp_min.entity_id=e.entity_id
-             LEFT JOIN catalog_product_entity_text tp
-                ON tp.entity_id=e.entity_id AND tp.attribute_id=153 AND tp.store_id=tp_min.min_sid
-             WHERE v.value IS NOT NULL AND v.value <> ''
-             ORDER BY IFNULL(sd.value, '9999-12-31') ASC, e.entity_id ASC
-             LIMIT 2000"
+        // Source from course_runs — one row per scheduled class run.
+        // Products without a course_runs entry are excluded (no concrete
+        // class date means nothing to assign a trainer to).
+        // Window: last 2 years to unlimited future covers all tabs.
+        $_atWinFrom = date('Y-m-d', strtotime('-2 years'));
+        $_atRunsList = $read->fetchAll(
+            "SELECT cr.run_id, cr.product_id, cr.class_id, cr.course_sku,
+                    cr.course_start_date, cr.course_end_date,
+                    cr.trainer_option_id
+             FROM course_runs cr
+             JOIN catalog_product_website pw ON pw.product_id=cr.product_id AND pw.website_id={$_atWid}
+             WHERE cr.course_sku NOT LIKE 'TGS%'
+               AND cr.course_start_date >= '{$_atWinFrom}'
+             ORDER BY cr.course_start_date ASC, cr.run_id ASC
+             LIMIT 3000"
         );
-        // Pull the latest course_runs row per product so a scheduled
-        // class's dates / trainer override the product's attributes.
-        $_atRunByPid = array();
-        try {
-            $_atRunRows = $read->fetchAll(
-                "SELECT cr.product_id, cr.run_id, cr.trainer_option_id, cr.course_start_date, cr.course_end_date
-                 FROM course_runs cr
-                 JOIN (
-                     SELECT product_id, MAX(run_id) AS max_run FROM course_runs GROUP BY product_id
-                 ) latest ON latest.product_id=cr.product_id AND latest.max_run=cr.run_id"
-            );
-            foreach ($_atRunRows as $_rn) $_atRunByPid[(int)$_rn['product_id']] = $_rn;
-        } catch (Exception $e) {}
 
-        // Bulk-load Course Date custom-option titles per product so the
-        // bucket logic below can fall back to them when news_from_date
-        // is empty. Same approach Assign Learner uses — keeps the two
-        // panels' KPIs consistent.
-        $_atCdByPid = array();
-        try {
-            foreach ($read->fetchAll(
-                "SELECT o.product_id, ott.title
-                 FROM catalog_product_option o
-                 JOIN catalog_product_option_title ot ON ot.option_id=o.option_id AND ot.store_id=0
-                 JOIN catalog_product_option_type_value ov ON ov.option_id=o.option_id
-                 JOIN catalog_product_option_type_title ott ON ott.option_type_id=ov.option_type_id AND ott.store_id=0
-                 WHERE ot.title='Course Date' OR ot.title LIKE '%Date%'"
-            ) as $_cd) {
-                $_atCdByPid[(int)$_cd['product_id']][] = $_cd['title'];
-            }
-        } catch (Exception $e) {}
+        // Batch-load product attributes for all pids referenced by those runs.
+        $_atProdById = array();
+        if (!empty($_atRunsList)) {
+            $_atRunPidsCsv = implode(',', array_unique(array_map(function($r){ return (int)$r['product_id']; }, $_atRunsList)));
+            $_atTrainersJoinAid = $_atTrainersAttrId ? (int)$_atTrainersAttrId : 0;
+            try {
+                foreach ($read->fetchAll(
+                    "SELECT e.entity_id, e.sku,
+                            vname.value AS name,
+                            vstatus.value AS status_val,
+                            " . ($_atTrainersAttrId ? "vtrain.value AS trainers_csv," : "NULL AS trainers_csv,") . "
+                            vprofile.value AS trainer_profile_html
+                     FROM catalog_product_entity e
+                     LEFT JOIN catalog_product_entity_varchar vname
+                        ON vname.entity_id=e.entity_id AND vname.attribute_id=71 AND vname.store_id=0
+                     LEFT JOIN catalog_product_entity_int vstatus
+                        ON vstatus.entity_id=e.entity_id AND vstatus.attribute_id={$statusAid} AND vstatus.store_id=0
+                     " . ($_atTrainersAttrId
+                        ? "LEFT JOIN catalog_product_entity_text vtrain ON vtrain.entity_id=e.entity_id AND vtrain.attribute_id={$_atTrainersJoinAid} AND vtrain.store_id=0"
+                        : "") . "
+                     LEFT JOIN catalog_product_entity_text vprofile
+                        ON vprofile.entity_id=e.entity_id AND vprofile.attribute_id=153 AND vprofile.store_id=0
+                     WHERE e.entity_id IN ({$_atRunPidsCsv})"
+                ) as $_pr) {
+                    $_atProdById[(int)$_pr['entity_id']] = $_pr;
+                }
+            } catch (Exception $e) {}
+        }
 
         $_atToday = strtotime(date('Y-m-d'));
-        foreach ($_atProducts as $_p) {
-            $_pid = (int) $_p['entity_id'];
-            $_run = isset($_atRunByPid[$_pid]) ? $_atRunByPid[$_pid] : null;
+        foreach ($_atRunsList as $_run) {
+            $_pid  = (int) $_run['product_id'];
+            $_prod = isset($_atProdById[$_pid]) ? $_atProdById[$_pid] : array();
 
-            // Dates: course_runs wins, else news_from/to_date, else
-            // parse from Course Date custom-options (the canonical
-            // source many catalog products actually use).
-            $_sd = 0; $_ed = 0;
-            if ($_run && !empty($_run['course_start_date'])) $_sd = strtotime($_run['course_start_date']);
-            elseif ($_p['news_from_date'])                   $_sd = strtotime($_p['news_from_date']);
-            if ($_run && !empty($_run['course_end_date']))   $_ed = strtotime($_run['course_end_date']);
-            elseif ($_p['news_to_date'])                     $_ed = strtotime($_p['news_to_date']);
+            $_sd = $_run['course_start_date'] ? strtotime($_run['course_start_date']) : 0;
+            $_ed = $_run['course_end_date']   ? strtotime($_run['course_end_date'])   : 0;
 
-            if (!$_sd && isset($_atCdByPid[$_pid])) {
-                $_bestFuture = null; $_bestFutureEnd = 0;
-                $_bestPast   = null; $_bestPastEnd   = 0;
-                foreach ($_atCdByPid[$_pid] as $_title) {
-                    if (preg_match('#(\d{1,2})(?:/(\d{1,2}))?\s+([A-Za-z]{3,})\s+(\d{4})#', $_title, $_dm)) {
-                        $_stTs = strtotime($_dm[1] . ' ' . $_dm[3] . ' ' . $_dm[4]);
-                        $_enTs = !empty($_dm[2]) ? strtotime($_dm[2] . ' ' . $_dm[3] . ' ' . $_dm[4]) : $_stTs;
-                        if (!$_stTs) continue;
-                        if ($_stTs >= $_atToday) {
-                            if ($_bestFuture === null || $_stTs < $_bestFuture) { $_bestFuture = $_stTs; $_bestFutureEnd = $_enTs; }
-                        } else {
-                            if ($_bestPast === null || $_stTs > $_bestPast)     { $_bestPast   = $_stTs; $_bestPastEnd   = $_enTs; }
-                        }
-                    }
-                }
-                if ($_bestFuture !== null)   { $_sd = $_bestFuture; $_ed = $_bestFutureEnd; }
-                elseif ($_bestPast !== null) { $_sd = $_bestPast;   $_ed = $_bestPastEnd; }
-            }
-
-            $_sv = (int) $_p['status_val'];
-            // Bucket by date.
-            //   Ongoing  : start <= today <= end.
-            //   Completed: end is past, OR start is past with no end set
-            //              (legacy products whose schedule already lapsed
-            //              and was never updated — they shouldn't crowd
-            //              the Upcoming list).
-            //   Upcoming : future start, OR no dates at all (Pending —
-            //              awaiting scheduling, the admin's to-do).
             if ($_sd && $_ed && $_sd <= $_atToday && $_ed >= $_atToday) $_tab = 'ongoing';
             elseif ($_ed && $_ed < $_atToday)                           $_tab = 'completed';
             elseif ($_sd && $_sd < $_atToday && !$_ed)                  $_tab = 'completed';
             else                                                        $_tab = 'upcoming';
-            // Status label
-            if ($_sv !== 1) { $_lbl = 'Cancelled'; $_cls = 'at-badge-cancelled'; }
-            elseif (!$_sd) { $_lbl = 'Pending';   $_cls = 'at-badge-pending'; }
-            else           { $_lbl = 'Confirmed'; $_cls = 'at-badge-confirmed'; }
 
-            // Trainer names: course_runs.trainer_option_id wins; else
-            // pull from the product's `trainers` multiselect CSV; else
-            // fall back to parsing names out of `trainerprofile` HTML
-            // (attr 153) — that's the bio field where names live as
-            // <strong>Name:</strong>… and it covers ~250 more SG courses
-            // than the multiselect alone.
-            $_tnames = array();
-            $_toids  = array();
-            if ($_run && (int)$_run['trainer_option_id'] > 0) {
+            $_sv = isset($_prod['status_val']) ? (int)$_prod['status_val'] : 1;
+            if ($_sv !== 1)  { $_lbl = 'Cancelled'; $_cls = 'at-badge-cancelled'; }
+            elseif (!$_sd)   { $_lbl = 'Pending';   $_cls = 'at-badge-pending'; }
+            else             { $_lbl = 'Confirmed'; $_cls = 'at-badge-confirmed'; }
+
+            // Trainer: course_runs.trainer_option_id wins, then product
+            // trainers multiselect CSV, then profile HTML fallback.
+            $_tnames = array(); $_toids = array();
+            if ((int)$_run['trainer_option_id'] > 0) {
                 $_tOpt = (int)$_run['trainer_option_id'];
                 if (isset($_atTrainerOpts[$_tOpt])) {
                     $_tnames[] = $_atTrainerOpts[$_tOpt];
                     $_toids[]  = $_tOpt;
                 }
             } else {
-                $_tcsv = trim((string) $_p['trainers_csv']);
+                $_tcsv = trim((string)(isset($_prod['trainers_csv']) ? $_prod['trainers_csv'] : ''));
                 if ($_tcsv !== '') {
                     foreach (explode(',', $_tcsv) as $_oid) {
                         $_oid = (int) trim($_oid);
@@ -9409,7 +9264,7 @@ if ($_atActive) {
                 }
             }
             if (empty($_tnames)) {
-                $_profile = (string) $_p['trainer_profile_html'];
+                $_profile = (string)(isset($_prod['trainer_profile_html']) ? $_prod['trainer_profile_html'] : '');
                 if ($_profile !== '' && preg_match_all('/<strong[^>]*>\s*([^<:]{2,80}?)\s*:\s*(?:&nbsp;)?\s*<\/strong>/i', $_profile, $_pm)) {
                     $_seen = array();
                     foreach ($_pm[1] as $_pn) {
@@ -9422,45 +9277,30 @@ if ($_atActive) {
                 }
             }
 
-            // Run ID — country prefix follows the product's website
-            // (SG-/MY-/GH-/NG-/BUT-/IND-). Scheduled runs use course_runs
-            // numbering, unscheduled fall back to catalog-rank.
-            if ($_run) {
-                $_runId = Mage::helper('mmd_rolemanager')->formatRunId($_pid, $_run['run_id']);
-            } elseif (isset($_lmcRunMap[$_pid])) {
-                $_runId = $_lmcRunMap[$_pid];
-            } elseif (isset($_devRankMap[$_pid])) {
-                $_runId = $_devPrefix . '-' . (100000 + (int)$_devRankMap[$_pid]);
-            } else {
-                $_runId = (string) (1000000 + $_pid);
-            }
-
+            $_atName = isset($_prod['name']) ? (string)$_prod['name'] : '';
             $_atRows[] = array(
-                'pid'        => $_pid,
-                'sku'        => $_p['sku'],
-                'title'      => $_p['name'] ?: '(No Name)',
-                'run_id'     => $_runId,
-                'start_date' => $_sd ? date('d/m/Y', $_sd) : '—',
-                'start_iso'  => $_sd ? date('Y-m-d', $_sd) : '',
-                'tab'        => $_tab,
-                'status'     => $_lbl,
-                'status_cls' => $_cls,
-                'trainers'   => $_tnames,
+                'pid'          => $_pid,
+                'sku'          => isset($_prod['sku']) ? (string)$_prod['sku'] : (string)$_run['course_sku'],
+                'title'        => $_atName !== '' ? $_atName : '(No Name)',
+                'run_id'       => (string) $_run['class_id'],
+                'start_date'   => $_sd ? date('d/m/Y', $_sd) : '—',
+                'start_iso'    => $_sd ? date('Y-m-d', $_sd) : '',
+                'tab'          => $_tab,
+                'status'       => $_lbl,
+                'status_cls'   => $_cls,
+                'trainers'     => $_tnames,
                 'trainer_oids' => $_toids,
             );
-            $_atCourseTitles[$_p['name']] = true;
+            if ($_atName !== '') $_atCourseTitles[$_atName] = true;
             if ($_tab === 'upcoming') $_atKpi['upcoming']++;
             if ($_tab === 'ongoing')  $_atKpi['ongoing']++;
             if ($_tab === 'completed')$_atKpi['completed']++;
-            // Per-tab assigned / missing so the KPI tiles can swap on
-            // tab click without a page reload.
-            $_kpiKey = 'assigned_' . $_tab;
-            $_kpiKey2 = 'missing_' . $_tab;
+            $_kpiKey  = 'assigned_' . $_tab;
+            $_kpiKey2 = 'missing_'  . $_tab;
             if (!isset($_atKpi[$_kpiKey]))  $_atKpi[$_kpiKey] = 0;
             if (!isset($_atKpi[$_kpiKey2])) $_atKpi[$_kpiKey2] = 0;
             if (!empty($_tnames)) $_atKpi[$_kpiKey]++;
             else                  $_atKpi[$_kpiKey2]++;
-            // Backwards-compat aliases used by the initial render.
             if ($_tab === 'upcoming') {
                 if (!empty($_tnames)) $_atKpi['assigned']++;
                 else                  $_atKpi['missing']++;
@@ -9495,7 +9335,7 @@ if ($_atActive) {
     </div>
 
     <div class="at-search-row">
-        <input type="text" id="at-search" class="at-search-input" placeholder="Search by course title, code or run ID..." oninput="atRender()" />
+        <input type="text" id="at-search" class="at-search-input" placeholder="Search by course title, code or class ID..." oninput="atRender()" />
         <button type="button" class="at-search-btn" onclick="atRender()">Search</button>
     </div>
 
@@ -9529,7 +9369,7 @@ if ($_atActive) {
         <table class="at-table">
             <thead><tr>
                 <th>Start Date</th>
-                <th>Course Run ID</th>
+                <th>Class ID</th>
                 <th>Course Code</th>
                 <th>Course Title</th>
                 <th>Class Status</th>
@@ -10054,172 +9894,96 @@ if ($_alActive) {
     // Country scope from the logged-in admin (admin.<cc>@…).
     $_alWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
     try {
-        // Country-scoped catalog: active + named on the admin's website.
-        // Date columns converted from correlated subqueries to LEFT JOINs at
-        // store_id=0 (verified equivalent on local DB; ~50% faster).
-        $_alProducts = $read->fetchAll(
-            "SELECT e.entity_id, e.sku, v.value AS name,
-                    sd.value AS news_from_date,
-                    ed.value AS news_to_date
-             FROM catalog_product_entity e
-             INNER JOIN catalog_product_website pw
-                ON pw.product_id=e.entity_id AND pw.website_id={$_alWid}
-             INNER JOIN catalog_product_entity_varchar v
-                ON v.entity_id=e.entity_id AND v.attribute_id=71 AND v.store_id=0
-             INNER JOIN catalog_product_entity_int s
-                ON s.entity_id=e.entity_id AND s.attribute_id={$statusAid} AND s.store_id=0 AND s.value=1
-             LEFT JOIN catalog_product_entity_datetime sd
-                ON sd.entity_id=e.entity_id AND sd.attribute_id={$startAid} AND sd.store_id=0
-             LEFT JOIN catalog_product_entity_datetime ed
-                ON ed.entity_id=e.entity_id AND ed.attribute_id={$endAid}   AND ed.store_id=0
-             WHERE v.value IS NOT NULL AND v.value <> ''
-             ORDER BY IFNULL(sd.value, '9999-12-31') ASC, e.entity_id ASC
-             LIMIT 2000"
+        // Source from course_runs — one row per scheduled class run.
+        // Window: last 2 years to unlimited future (all tabs).
+        $_alWinFrom = date('Y-m-d', strtotime('-2 years'));
+        $_alRunsList = $read->fetchAll(
+            "SELECT cr.run_id, cr.product_id, cr.class_id, cr.course_sku,
+                    cr.course_start_date, cr.course_end_date,
+                    cr.course_start_time, cr.course_end_time
+             FROM course_runs cr
+             JOIN catalog_product_website pw ON pw.product_id=cr.product_id AND pw.website_id={$_alWid}
+             WHERE cr.course_sku NOT LIKE 'TGS%'
+               AND cr.course_start_date >= '{$_alWinFrom}'
+             ORDER BY cr.course_start_date ASC, cr.run_id ASC
+             LIMIT 3000"
         );
 
-        // Latest course_runs row per product (override dates if present).
-        $_alRunByPid = array();
-        try {
-            $_alRunRows = $read->fetchAll(
-                "SELECT cr.product_id, cr.run_id, cr.course_start_date, cr.course_end_date
-                 FROM course_runs cr
-                 JOIN (
-                     SELECT product_id, MAX(run_id) AS max_run FROM course_runs GROUP BY product_id
-                 ) latest ON latest.product_id=cr.product_id AND latest.max_run=cr.run_id"
-            );
-            foreach ($_alRunRows as $_rn) $_alRunByPid[(int)$_rn['product_id']] = $_rn;
-        } catch (Exception $e) {}
+        // Batch-load product names/SKUs for the pids in those runs.
+        $_alProdById = array();
+        if (!empty($_alRunsList)) {
+            $_alRunPidsCsv = implode(',', array_unique(array_map(function($r){ return (int)$r['product_id']; }, $_alRunsList)));
+            try {
+                foreach ($read->fetchAll(
+                    "SELECT e.entity_id, e.sku, vname.value AS name
+                     FROM catalog_product_entity e
+                     LEFT JOIN catalog_product_entity_varchar vname
+                        ON vname.entity_id=e.entity_id AND vname.attribute_id=71 AND vname.store_id=0
+                     WHERE e.entity_id IN ({$_alRunPidsCsv})"
+                ) as $_pr) {
+                    $_alProdById[(int)$_pr['entity_id']] = $_pr;
+                }
+            } catch (Exception $e) {}
+        }
 
-        // Aggregate enrolment counts per product. UNION two sources so
-        // admin-driven enrolments via the Assign Learners panel persist
-        // across page reloads:
-        //   1. sales_flat_order — paying customers (SG website only).
-        //   2. course_run_enrolments — admins clicking "Add Learner".
-        // Distinct count over the union de-dupes a learner who both
-        // ordered AND was admin-assigned to the same course.
-        // IMPORTANT: this filter MUST stay in sync with the modal's
-        // loadLearnersAction in CoursesaveController.php — otherwise the
-        // badge updates with a different number the moment the admin
-        // clicks "Add / Edit Learners" (because the JS replaces the
-        // initial badge value with the modal's count). Both queries:
-        //   - orders: state IN ('complete','processing') only
-        //     (paid attendees only; pending / payment_review / holded
-        //      shouldn't show as enrolled)
-        //   - course_run_enrolments: every row, the admin explicitly
-        //     added them
-        // UNION-distinct on (product_id, email) so a learner who both
-        // ordered AND was admin-assigned to the same product counts once.
+        // Enrolment counts by run_id from course_run_enrolments.
+        // course_run_enrolments is now the single source of truth
+        // (backfilled for all historical orders).
         $_alEnrol = array();
-        try {
-            $_alEnrolRows = $read->fetchAll(
-                "SELECT u.product_id, COUNT(DISTINCT u.email) AS c
-                 FROM (
-                     SELECT oi.product_id, LOWER(o.customer_email) AS email
-                     FROM sales_flat_order o
-                     JOIN sales_flat_order_item oi ON oi.order_id=o.entity_id
-                     JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id={$_alWid}
-                     WHERE o.state IN ('complete','processing')
-                       AND o.customer_email IS NOT NULL
-                     UNION
-                     SELECT product_id, LOWER(learner_email) AS email
+        if (!empty($_alRunsList)) {
+            $_alRunIdsCsv = implode(',', array_map(function($r){ return (int)$r['run_id']; }, $_alRunsList));
+            try {
+                foreach ($read->fetchAll(
+                    "SELECT run_id, COUNT(DISTINCT learner_email) AS c
                      FROM course_run_enrolments
-                     WHERE learner_email IS NOT NULL AND learner_email <> ''
-                 ) u
-                 GROUP BY u.product_id"
-            );
-            foreach ($_alEnrolRows as $_er) $_alEnrol[(int)$_er['product_id']] = (int)$_er['c'];
-        } catch (Exception $e) {}
-
-        // Bulk-load "Course Date" custom-option titles per product. Many
-        // catalog products leave news_from_date empty and store the real
-        // schedule as drop-down options like "14 Mar 2026 (Sat)" — the
-        // Learner My Classes view already parses these, mirror it here
-        // so the Assign Learners table doesn't show "—" for products
-        // that genuinely do have a published date.
-        $_alCdByPid = array();
-        try {
-            $_alCdRows = $read->fetchAll(
-                "SELECT o.product_id, ott.title
-                 FROM catalog_product_option o
-                 JOIN catalog_product_option_title ot ON ot.option_id=o.option_id AND ot.store_id=0
-                 JOIN catalog_product_option_type_value ov ON ov.option_id=o.option_id
-                 JOIN catalog_product_option_type_title ott ON ott.option_type_id=ov.option_type_id AND ott.store_id=0
-                 WHERE ot.title='Course Date' OR ot.title LIKE '%Date%'"
-            );
-            foreach ($_alCdRows as $_cd) $_alCdByPid[(int)$_cd['product_id']][] = $_cd['title'];
-        } catch (Exception $e) {}
+                     WHERE run_id IN ({$_alRunIdsCsv})
+                       AND learner_email IS NOT NULL AND learner_email <> ''
+                     GROUP BY run_id"
+                ) as $_er) {
+                    $_alEnrol[(int)$_er['run_id']] = (int)$_er['c'];
+                }
+            } catch (Exception $e) {}
+        }
 
         $_alToday = strtotime(date('Y-m-d'));
-        foreach ($_alProducts as $_p) {
-            $_pid = (int) $_p['entity_id'];
-            $_run = isset($_alRunByPid[$_pid]) ? $_alRunByPid[$_pid] : null;
+        foreach ($_alRunsList as $_run) {
+            $_pid  = (int) $_run['product_id'];
+            $_prod = isset($_alProdById[$_pid]) ? $_alProdById[$_pid] : array();
 
-            $_sd = 0; $_ed = 0;
-            if ($_run && !empty($_run['course_start_date'])) $_sd = strtotime($_run['course_start_date']);
-            elseif ($_p['news_from_date'])                   $_sd = strtotime($_p['news_from_date']);
-            if ($_run && !empty($_run['course_end_date']))   $_ed = strtotime($_run['course_end_date']);
-            elseif ($_p['news_to_date'])                     $_ed = strtotime($_p['news_to_date']);
+            $_sd = $_run['course_start_date'] ? strtotime($_run['course_start_date']) : 0;
+            $_ed = $_run['course_end_date']   ? strtotime($_run['course_end_date'])   : 0;
 
-            // Course Date fallback — only when neither course_runs nor
-            // news_from_date provided a date. Pick the soonest future
-            // date if any exist; otherwise the latest past date so the
-            // tab classifier still buckets it correctly.
-            if (!$_sd && isset($_alCdByPid[$_pid])) {
-                $_bestFuture = null; $_bestFutureEnd = 0;
-                $_bestPast   = null; $_bestPastEnd   = 0;
-                foreach ($_alCdByPid[$_pid] as $_title) {
-                    if (preg_match('#(\d{1,2})(?:/(\d{1,2}))?\s+([A-Za-z]{3,})\s+(\d{4})#', $_title, $_dm)) {
-                        $_stTs = strtotime($_dm[1] . ' ' . $_dm[3] . ' ' . $_dm[4]);
-                        $_enTs = !empty($_dm[2]) ? strtotime($_dm[2] . ' ' . $_dm[3] . ' ' . $_dm[4]) : $_stTs;
-                        if (!$_stTs) continue;
-                        if ($_stTs >= $_alToday) {
-                            if ($_bestFuture === null || $_stTs < $_bestFuture) { $_bestFuture = $_stTs; $_bestFutureEnd = $_enTs; }
-                        } else {
-                            if ($_bestPast === null || $_stTs > $_bestPast)     { $_bestPast   = $_stTs; $_bestPastEnd   = $_enTs; }
-                        }
-                    }
-                }
-                if ($_bestFuture !== null)   { $_sd = $_bestFuture; $_ed = $_bestFutureEnd; }
-                elseif ($_bestPast !== null) { $_sd = $_bestPast;   $_ed = $_bestPastEnd; }
-            }
-
-            $_tab = '';
             if ($_sd && $_ed && $_sd <= $_alToday && $_ed >= $_alToday) $_tab = 'ongoing';
             elseif ($_ed && $_ed < $_alToday)                           $_tab = 'completed';
             elseif ($_sd && $_sd < $_alToday && !$_ed)                  $_tab = 'completed';
             else                                                        $_tab = 'upcoming';
 
-            // Run ID — same pattern as Assign Trainer.
-            if ($_run) {
-                $_runId = Mage::helper('mmd_rolemanager')->formatRunId($_pid, $_run['run_id']);
-            } elseif (isset($_lmcRunMap[$_pid])) {
-                $_runId = $_lmcRunMap[$_pid];
-            } elseif (isset($_devRankMap[$_pid])) {
-                $_runId = $_devPrefix . '-' . (100000 + (int)$_devRankMap[$_pid]);
-            } else {
-                $_runId = (string) (1000000 + $_pid);
+            $_traineeCount = isset($_alEnrol[(int)$_run['run_id']]) ? (int)$_alEnrol[(int)$_run['run_id']] : 0;
+
+            $_alClassTime = '';
+            if (!empty($_run['course_start_time']) && !empty($_run['course_end_time'])) {
+                $_alClassTime = date('g:ia', strtotime($_run['course_start_time'])) . ' – ' . date('g:ia', strtotime($_run['course_end_time']));
             }
 
-            $_traineeCount = isset($_alEnrol[$_pid]) ? (int)$_alEnrol[$_pid] : 0;
-
+            $_alName = isset($_prod['name']) ? (string)$_prod['name'] : '';
             $_alRows[] = array(
-                'pid'        => $_pid,
-                'sku'        => $_p['sku'],
-                'title'      => $_p['name'] ?: '(No Name)',
-                'run_id'     => $_runId,
-                'start_date' => $_sd ? date('d/m/Y', $_sd) : '—',
-                'start_iso'  => $_sd ? date('Y-m-d', $_sd) : '',
-                'tab'        => $_tab,
-                'trainees'   => $_traineeCount,
+                'pid'             => $_pid,
+                'internal_run_id' => (int)$_run['run_id'],
+                'sku'             => isset($_prod['sku']) ? (string)$_prod['sku'] : (string)$_run['course_sku'],
+                'title'           => $_alName !== '' ? $_alName : '(No Name)',
+                'run_id'          => (string) $_run['class_id'],
+                'start_date'      => $_sd ? date('d/m/Y', $_sd) : '—',
+                'start_iso'       => $_sd ? date('Y-m-d', $_sd) : '',
+                'class_time'      => $_alClassTime,
+                'tab'             => $_tab,
+                'trainees'        => $_traineeCount,
             );
-            $_alCourseTitles[$_p['name']] = true;
+            if ($_alName !== '') $_alCourseTitles[$_alName] = true;
 
             if ($_tab === 'upcoming')  $_alKpi['upcoming']++;
             if ($_tab === 'ongoing')   $_alKpi['ongoing']++;
             if ($_tab === 'completed') $_alKpi['completed']++;
-            if ($_tab === 'upcoming') {
-                if ($_traineeCount === 0) $_alKpi['no_trainee']++;
-            }
+            if ($_tab === 'upcoming' && $_traineeCount === 0) $_alKpi['no_trainee']++;
         }
         ksort($_alCourseTitles);
         $_alCourseTitles = array_keys($_alCourseTitles);
@@ -10243,40 +10007,22 @@ if ($_alActive) {
         // emails over the union of products in each bucket so the
         // tile reads "people enrolled in upcoming classes", not
         // "enrolment seats filled".
-        $_alPidsByTab = array('upcoming' => array(), 'ongoing' => array(), 'completed' => array());
+        $_alRunIdsByTab = array('upcoming' => array(), 'ongoing' => array(), 'completed' => array());
         $_alNoTraineeByTab = array('upcoming' => 0, 'ongoing' => 0, 'completed' => 0);
         foreach ($_alRows as $_r) {
-            $_alPidsByTab[$_r['tab']][] = (int)$_r['pid'];
+            $_alRunIdsByTab[$_r['tab']][] = (int)$_r['internal_run_id'];
             if ((int)$_r['trainees'] === 0) $_alNoTraineeByTab[$_r['tab']]++;
         }
         $_alDistinctByTab = array('upcoming' => 0, 'ongoing' => 0, 'completed' => 0);
-        foreach ($_alPidsByTab as $_tabName => $_pidsT) {
-            if (empty($_pidsT)) continue;
+        foreach ($_alRunIdsByTab as $_tabName => $_runIdsT) {
+            if (empty($_runIdsT)) continue;
             try {
-                $_pidsList = implode(',', $_pidsT);
-                // Distinct over UNION of order-based + admin-driven
-                // enrolments — same shape as the per-product query.
-                // Same filter as the per-product count + the modal's
-                // loadLearners action — orders restricted to paid /
-                // processing only (state IN complete/processing), plus
-                // every admin-added course_run_enrolments row. Keep
-                // these three sources in lockstep so the KPI tile
-                // matches the row badges and the modal.
+                $_runIdsList = implode(',', $_runIdsT);
                 $_alDistinctByTab[$_tabName] = (int) $read->fetchOne(
-                    "SELECT COUNT(DISTINCT u.email) FROM (
-                         SELECT LOWER(o.customer_email) AS email
-                         FROM sales_flat_order o
-                         JOIN sales_flat_order_item oi ON oi.order_id=o.entity_id
-                         JOIN core_store cs ON cs.store_id=o.store_id AND cs.website_id={$_alWid}
-                         WHERE o.state IN ('complete','processing')
-                           AND o.customer_email IS NOT NULL
-                           AND oi.product_id IN ({$_pidsList})
-                         UNION
-                         SELECT LOWER(learner_email) AS email
-                         FROM course_run_enrolments
-                         WHERE learner_email IS NOT NULL AND learner_email <> ''
-                           AND product_id IN ({$_pidsList})
-                     ) u"
+                    "SELECT COUNT(DISTINCT LOWER(learner_email))
+                     FROM course_run_enrolments
+                     WHERE learner_email IS NOT NULL AND learner_email <> ''
+                       AND run_id IN ({$_runIdsList})"
                 );
             } catch (Exception $e) {}
         }
@@ -10306,7 +10052,7 @@ if (!isset($_alNoTraineeByTab))  $_alNoTraineeByTab  = array('upcoming' => 0, 'o
     </div>
 
     <div class="al-search-row">
-        <input type="text" id="al-search" class="al-search-input" placeholder="Search by course title, code or run ID..." oninput="alRender()" />
+        <input type="text" id="al-search" class="al-search-input" placeholder="Search by course title, code or class ID..." oninput="alRender()" />
         <button type="button" class="al-search-btn" onclick="alRender()">Search</button>
     </div>
 
@@ -10314,7 +10060,7 @@ if (!isset($_alNoTraineeByTab))  $_alNoTraineeByTab  = array('upcoming' => 0, 'o
         <table class="al-table">
             <thead><tr>
                 <th>Start Date</th>
-                <th>Course Run ID</th>
+                <th>Class ID</th>
                 <th>Course Title</th>
                 <th>Course Code</th>
                 <th>Trainees</th>
@@ -10323,7 +10069,7 @@ if (!isset($_alNoTraineeByTab))  $_alNoTraineeByTab  = array('upcoming' => 0, 'o
             <tbody id="al-tbody">
                 <?php foreach ($_alRows as $_r): ?>
                 <tr data-tab="<?php echo $_r['tab'] ?>" data-title="<?php echo strtolower(htmlspecialchars($_r['title'])) ?>" data-sku="<?php echo strtolower(htmlspecialchars($_r['sku'])) ?>" data-run="<?php echo strtolower(htmlspecialchars($_r['run_id'])) ?>" data-pid="<?php echo (int)$_r['pid'] ?>" data-trainees="<?php echo (int)$_r['trainees'] ?>">
-                    <td><?php echo $_r['start_date'] ?></td>
+                    <td><?php echo $_r['start_date'] ?><?php if (!empty($_r['class_time'])): ?><br><span style="font-size:11px;color:#94a3b8;"><?php echo htmlspecialchars($_r['class_time']) ?></span><?php endif; ?></td>
                     <td><span class="al-run-id"><?php echo htmlspecialchars($_r['run_id']) ?></span></td>
                     <td><?php echo htmlspecialchars($_r['title']) ?></td>
                     <td><?php echo htmlspecialchars($_r['sku']) ?></td>
@@ -12589,7 +12335,7 @@ window.dashToggleAdv = function() {
     if (el) { if (_dashAdvOpen) el.classList.add('is-open'); else el.classList.remove('is-open'); }
 };
 window.dashClearFilters = function() {
-    ['dashSearch','fType','fStatus','fDateFrom','fDateTo'].forEach(function(id){
+    ['dashSearch','fType','fStatus','fDateFrom','fDateTo','fCreator'].forEach(function(id){
         var el=document.getElementById(id); if(el) el.value='';
     });
     dashFilter();
@@ -12606,6 +12352,7 @@ window.dashFilter = function(resetPage) {
     var df   = (document.getElementById('fDateFrom')||{value:''}).value;
     var dt   = (document.getElementById('fDateTo')  ||{value:''}).value;
     var timeFilter = window._dashTimeFilter || '';
+    var creator = (document.getElementById('fCreator')||{value:''}).value;
     var today = new Date(); today.setHours(0,0,0,0);
     var rows = document.querySelectorAll('#dashTableBody tr');
     window._dashMatchedRows = [];
@@ -12619,6 +12366,11 @@ window.dashFilter = function(resetPage) {
         var re=r.getAttribute('data-end')||'';
         if (df && rs && rs<df) match=false;
         if (dt && rs && rs>dt) match=false;
+        if (match && creator) {
+            var rc = r.getAttribute('data-creator') || '';
+            if (creator === 'system' && rc !== 'system') match = false;
+            if (creator === 'manual' && rc === 'system') match = false;
+        }
         if (match && timeFilter) {
             var sd = rs ? new Date(rs) : null; if (sd) sd.setHours(0,0,0,0);
             var ed = re ? new Date(re) : null; if (ed) ed.setHours(0,0,0,0);
@@ -12632,7 +12384,60 @@ window.dashFilter = function(resetPage) {
     window.dashRenderPage();
 };
 
+// ── Column sort ──────────────────────────────────────────────────────────────
+window._dashSortKey = '';
+window._dashSortDir = 'asc';
+
+window.dashApplySort = function() {
+    var key = window._dashSortKey;
+    if (!key) return;
+    var dir = window._dashSortDir === 'desc' ? -1 : 1;
+    var rows = window._dashMatchedRows || [];
+    rows.sort(function(a, b) {
+        var av = a.getAttribute('data-' + key) || '';
+        var bv = b.getAttribute('data-' + key) || '';
+        // Numeric sort for pax
+        if (key === 'pax') return dir * (parseInt(av, 10) - parseInt(bv, 10));
+        // Date sort for start
+        if (key === 'start') return dir * (av < bv ? -1 : av > bv ? 1 : 0);
+        // Default: case-insensitive string
+        av = av.toLowerCase(); bv = bv.toLowerCase();
+        return dir * (av < bv ? -1 : av > bv ? 1 : 0);
+    });
+};
+
+(function() {
+    var head = document.getElementById('dashTableHead');
+    if (!head) return;
+    var ths = head.querySelectorAll('.dash-th-sort');
+    for (var i = 0; i < ths.length; i++) {
+        (function(th) {
+            th.style.cursor = 'pointer';
+            th.style.userSelect = 'none';
+            th.addEventListener('click', function() {
+                var key = th.getAttribute('data-sort-key');
+                if (window._dashSortKey === key) {
+                    window._dashSortDir = window._dashSortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    window._dashSortKey = key;
+                    window._dashSortDir = 'asc';
+                }
+                // Update arrow indicators
+                var allThs = head.querySelectorAll('.dash-th-sort');
+                for (var j = 0; j < allThs.length; j++) {
+                    allThs[j].setAttribute('data-sort-active', allThs[j] === th ? '1' : '0');
+                }
+                th.setAttribute('data-sort-dir', window._dashSortDir);
+                window.dashApplySort();
+                window._dashPage = 1;
+                window.dashRenderPage();
+            });
+        })(ths[i]);
+    }
+})();
+
 window.dashRenderPage = function() {
+    window.dashApplySort();
     var rowsArr = window._dashMatchedRows || [];
     var perPage = window._dashPerPage || 15;
     var total = rowsArr.length;

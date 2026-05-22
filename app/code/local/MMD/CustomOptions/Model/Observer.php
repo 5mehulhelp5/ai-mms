@@ -473,7 +473,18 @@ class MMD_CustomOptions_Model_Observer {
             if ($invoiceChangesFlag) $connection->update($tablePrefix . 'sales_flat_invoice', array('total_qty'=>$orderTotalQtyOrdered), 'order_id = ' . $order->getId());
         }
 
-        
+        // TGS class enrolment bridge — runs for every visible order item;
+        // the service itself skips non-TGS SKUs silently.
+        try {
+            $tgsOrder = $observer->getEvent()->getOrder();
+            $tgsSvc   = Mage::getModel('mmd_rolemanager/courseRunEnrolmentService');
+            foreach ($tgsOrder->getAllVisibleItems() as $tgsItem) {
+                $tgsSvc->assignOrderItem($tgsOrder, $tgsItem);
+            }
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
+
         return $this;
     }
     

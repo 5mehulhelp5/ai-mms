@@ -23,6 +23,12 @@ INSERT INTO core_config_data (scope, scope_id, path, value) VALUES
 ('default', 0, 'web/cookie/cookie_domain',    '')
 ON DUPLICATE KEY UPDATE value = VALUES(value);
 
+-- Clear search-term redirects that point to production domains.
+-- These are stored in catalogsearch_query.redirect and would send local
+-- searches to the live site. Safe to NULL — they are rebuilt from admin
+-- or re-synced on next prod dump.
+UPDATE catalogsearch_query SET redirect = NULL WHERE redirect LIKE 'http%';
+
 -- Drop ALL store/website-scoped URL rows so default scope wins
 DELETE FROM core_config_data
  WHERE scope IN ('stores', 'websites')
