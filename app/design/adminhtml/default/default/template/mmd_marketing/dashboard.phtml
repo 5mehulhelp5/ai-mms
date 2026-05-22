@@ -100,9 +100,11 @@ try {
 <style>
 /* Page-level wrapper so the cards have breathing room inside the admin
    content column. The .dash-summary-* classes themselves come from
-   admin-dashboard.css (loaded via the layout handle). */
+   admin-dashboard.css (loaded via the layout handle). The page title
+   uses class="md-title" so the global selector at
+   admin-dashboard.css L2275 (`.admin-main h1[class*="-title"]`) gives
+   it the canonical 28px/700 treatment — same as Role Management etc. */
 .mmd-marketing-dashboard{padding:14px 18px;}
-.mmd-marketing-dashboard h1{font-size:20px;font-weight:700;color:#e2e8f0;margin:0 0 18px;}
 
 /* KPI strip — 6 tiles in a responsive grid. Reuses dash-kpi-* tokens. */
 .mmd-mkt-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:18px;}
@@ -126,7 +128,7 @@ try {
 </style>
 
 <div class="mmd-marketing-dashboard">
-    <h1>Marketing Dashboard</h1>
+    <h1 class="md-title">Marketing Dashboard</h1>
 
     <!-- KPI strip — MailerLite tiles are placeholders until the API key is wired.
          Leads tiles are live (sourced from mmd_lead). -->
