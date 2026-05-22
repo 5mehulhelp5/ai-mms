@@ -23,16 +23,6 @@
  * @copyright   Copyright (c) 2012 Magento Inc. (http://www.magentocommerce.com)
  * @license     http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
- 
- $formId= "review_form"; 
-$captchaModel = Mage::helper('captcha')->getCaptcha($formId);
-$block_Captcha = new Mage_Captcha_Block_Captcha_Zend;
-
-//$Controller = new Mage_Core_Controller_Front_Action;
-//$Controller->getLayout()->createBlock('review_form')->setIsAjax(true)->toHtml();
-
-//$sessionReviewData = Mage::getSingleton('core/session')->getReviewFormData();
-
 ?>
 <?php /* Cloudflare Turnstile (invisible) — replaces the legacy Magento image
         captcha for product reviews. The widget renders on page load, fetches
@@ -107,44 +97,6 @@ $block_Captcha = new Mage_Captcha_Block_Captcha_Zend;
                         </div>
                     </li>
 					  <?php echo $this->getChildHtml('form.additional.info'); ?>
-					<!-- Capcha-->
-			<?php
-
-		
-			$captcha = Mage::helper('captcha')->getCaptcha($formId);
-			if ($captcha->isRequired()) {
-			?>
-<li id="captcha-input-box-<?php echo $formId; ?>">
-    <label for="captcha_<?php echo $formId; ?>" class="required"><em>*</em><?php echo $this->__('Please type the letters below')?></label>
-    <div class="input-box captcha">
-        <input name="<?php echo Mage_Captcha_Helper_Data::INPUT_NAME_FIELD_VALUE ?>[<?php echo $formId; ?>]" type="text" class="input-text required-entry" id="captcha_<?php echo $formId; ?>" />
-    </div>
-</li>
-<li>
-    <div class="captcha-image" id="captcha-image-box-<?php echo $formId;?>">
-        <img id="captcha-reload" class="captcha-reload" src="<?php echo $this->getSkinUrl('images/reload.png') ?>" alt="<?php echo $this->__('Reload captcha') ?>" onclick="$('<?php echo $formId; ?>').captcha.refresh(this)">
-        <img id="<?php echo $formId; ?>" class="captcha-img" height="50" src="<?php //echo $captcha->getImgSrc() ?>"/>
-        <?php if ($captcha->isCaseSensitive()) :?>
-        <div class="captcha-note">
-            <?php echo $this->__('<strong>Attention</strong>: Captcha is case sensitive.') ?>
-        </div>
-        <?php endif; ?>
-    </div>
-    <script type="text/javascript">
-	
-	setTimeout(function(){ $('<?php echo $formId; ?>').captcha.refresh(document.getElementById("captcha-reload")); }, 2000);
-	
-	
-	//<![CDATA[
-        $('<?php echo $formId; ?>').captcha = new Captcha('<?php echo $block_Captcha->getRefreshUrl() ?>', '<?php echo $formId; ?>');
-    //]]>
-	</script>
-</li>
-
-<?php } ?>
-			
-			<!-- Capcha -->
-					
                 </ul>
             </fieldset>
             <div class="buttons-set">

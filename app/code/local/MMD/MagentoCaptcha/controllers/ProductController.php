@@ -193,20 +193,6 @@ class MMD_MagentoCaptcha_ProductController extends Mage_Core_Controller_Front_Ac
                     return;
                 }
 
-			$formId = 'review_form';
-           $captchaModel = Mage::helper('captcha')->getCaptcha($formId);
-           if ($captchaModel->isRequired()) {
-            if (!$captchaModel->isCorrect($this->_getCaptchaString($this->getRequest(), $formId))) {
-                //Mage::getSingleton('customer/session')->addError(Mage::helper('captcha')->__('Incorrect CAPTCHA.'));
-				$session->addError($this->__('Incorrect CAPTCHA.'));
-                $this->setFlag('', Mage_Core_Controller_Varien_Action::FLAG_NO_DISPATCH, true);
-                Mage::getSingleton('customer/session')->setCustomerFormData($this->getRequest()->getPost());
-                $this->getResponse()->setRedirect(Mage::getUrl('review/product/list/id/'. $productId));
-                return;
-            }
-           }
-				
-				
                     $review->setEntityId($review->getEntityIdByCode(Mage_Review_Model_Review::ENTITY_PRODUCT_CODE))
                         ->setEntityPkValue($product->getId())
                         ->setStatusId(Mage_Review_Model_Review::STATUS_PENDING)
@@ -334,9 +320,4 @@ class MMD_MagentoCaptcha_ProductController extends Mage_Core_Controller_Front_Ac
         $update->addUpdate($product->getCustomLayoutUpdate());
         $this->generateLayoutXml()->generateLayoutBlocks();
     }
-	 protected function _getCaptchaString($request, $formId)
-    {
-        $captchaParams = $request->getPost(Mage_Captcha_Helper_Data::INPUT_NAME_FIELD_VALUE);		
-        return $captchaParams[$formId];
-    } 
 }
