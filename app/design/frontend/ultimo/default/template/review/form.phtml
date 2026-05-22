@@ -24,10 +24,20 @@
  * @license     http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 ?>
+<?php /* Cloudflare Turnstile (invisible) — see MMD_MagentoCaptcha_Helper_Turnstile.
+        Site key comes from TURNSTILE_SITE_KEY env (set in docker-compose locally,
+        Coolify in prod). When unset, widget is omitted and the backend in
+        MMD_MagentoCaptcha_ProductController fails open so dev keeps working. */ ?>
+<?php $tsHelper = Mage::helper('magentocaptcha/turnstile'); ?>
+<?php $tsSiteKey = $tsHelper->getSiteKey(); ?>
+<?php if ($tsSiteKey): ?>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<?php endif; ?>
 <div class="form-add">
     <h2><?php echo $this->__('Write Your Own Review') ?></h2>
     <?php if ($this->getAllowWriteReviewFlag()): ?>
-    <form action="<?php echo $this->getAction() ?>" method="post" id="review-form">
+    <form action="<?php echo $this->getAction() ?>" method="post" id="review-form"
+          onsubmit="return validateTurnstileReview()">
         <?php echo $this->getBlockHtml('formkey'); ?>
         <fieldset>
             <?php echo $this->getChildHtml('form_fields_before')?>
@@ -89,11 +99,64 @@
                 </ul>
             </fieldset>
             <div class="buttons-set">
+                <input type="hidden" name="cf-turnstile-response" id="cf-turnstile-response" value="" />
+                <?php if ($tsSiteKey): ?>
+                <div class="cf-turnstile"
+                     data-sitekey="<?php echo $this->htmlEscape($tsSiteKey) ?>"
+                     data-size="invisible"
+                     data-callback="onTurnstileSuccessReview"
+                     data-error-callback="onTurnstileErrorReview"
+                     data-expired-callback="onTurnstileExpiredReview"></div>
+                <span id="turnstile-error-msg"
+                      style='display:none;color:#dc2626;font-size:13px;margin-top:6px;'><?php echo $this->__('Spam check failed. Please refresh the page and try again.') ?></span>
+                <?php endif; ?>
                 <button type="submit" title="<?php echo $this->__('Submit Review') ?>" class="button"><span><span><?php echo $this->__('Submit Review') ?></span></span></button>
             </div>
     </form>
     <script type="text/javascript">
     //<![CDATA[
+        /* Turnstile gating for review submissions. Invisible widget renders
+           on page load; the onsubmit handler calls execute() and submits
+           from the success callback. If Turnstile isn't configured the
+           form submits immediately and the server fails open. */
+        (function () {
+            var TURNSTILE_ENABLED = <?php echo $tsSiteKey ? 'true' : 'false'; ?>;
+            var pendingSubmit = false;
+
+            window.onTurnstileSuccessReview = function (token) {
+                var input = document.getElementById("cf-turnstile-response");
+                if (input) { input.value = token; }
+                if (pendingSubmit) {
+                    pendingSubmit = false;
+                    document.getElementById("review-form").submit();
+                }
+            };
+            window.onTurnstileErrorReview = function () {
+                pendingSubmit = false;
+                var box = document.getElementById("turnstile-error-msg");
+                if (box) { box.style.display = "block"; }
+            };
+            window.onTurnstileExpiredReview = function () {
+                var input = document.getElementById("cf-turnstile-response");
+                if (input) { input.value = ""; }
+            };
+
+            window.validateTurnstileReview = function () {
+                if (!TURNSTILE_ENABLED || typeof window.turnstile === "undefined") {
+                    return true;
+                }
+                var input = document.getElementById("cf-turnstile-response");
+                if (input && input.value) {
+                    var box = document.getElementById("turnstile-error-msg");
+                    if (box) { box.style.display = "none"; }
+                    return true;
+                }
+                pendingSubmit = true;
+                try { window.turnstile.execute(); } catch (e) { return true; }
+                return false;
+            };
+        })();
+
         var dataForm = new VarienForm('review-form');
         Validation.addAllThese(
         [

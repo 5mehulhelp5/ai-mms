@@ -208,8 +208,17 @@ function writeStatus(PDO $pdo, bool $tolerantMode): void
             $lastApplied = array_reverse($rows ?: []);
         } catch (Throwable $e) { /* non-fatal */ }
 
+        // Stamp the running apply.php's mtime + content hash so a curl GET
+        // can confirm the deployed image actually contains the updated code
+        // (rules out volume mounts that shadow the image's /var/www/html/
+        // migrations/ tree with a stale persistent copy).
+        $applyMtime = @filemtime(__FILE__);
+        $applyHash  = @md5_file(__FILE__);
+
         $status = [
             'timestamp'         => gmdate('c'),
+            'apply_php_mtime'   => $applyMtime ? gmdate('c', $applyMtime) : null,
+            'apply_php_md5'     => $applyHash ? substr($applyHash, 0, 10) : null,
             'tolerant_mode'     => $tolerantMode,
             'applied_count'     => $appliedCount,
             'admin_user_count'  => $userCount,
