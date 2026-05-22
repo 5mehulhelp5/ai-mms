@@ -194,6 +194,20 @@ function writeStatus(PDO $pdo, bool $tolerantMode): void
             $fileHashes[$label] = is_file($path) ? substr(md5_file($path), 0, 10) : null;
         }
 
+        // Diagnostic: enumerate the migrations directory + the last few
+        // ledger entries so a curl GET can spot when files are missing
+        // from the deployed image OR already-applied entries that the
+        // host expected to apply.
+        $migDir = __DIR__;
+        $allFiles = array_map('basename', glob($migDir . '/*.sql') ?: []);
+        sort($allFiles, SORT_STRING);
+        $lastFiles = array_slice($allFiles, -8);
+        $lastApplied = [];
+        try {
+            $rows = $pdo->query("SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 8")->fetchAll(PDO::FETCH_COLUMN);
+            $lastApplied = array_reverse($rows ?: []);
+        } catch (Throwable $e) { /* non-fatal */ }
+
         $status = [
             'timestamp'         => gmdate('c'),
             'tolerant_mode'     => $tolerantMode,
@@ -203,6 +217,9 @@ function writeStatus(PDO $pdo, bool $tolerantMode): void
             'distinct_roles'    => $distinctRoles,
             'users_without_role'=> $usersWithoutRole,
             'file_hashes'       => $fileHashes,
+            'migrations_dir_total' => count($allFiles),
+            'last_files_in_dir'    => $lastFiles,
+            'last_applied_ledger'  => $lastApplied,
         ];
 
         $statusDir = dirname(__DIR__) . '/media';
