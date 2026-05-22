@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Marketing — admin-only Marketing Dashboard.
+
+  Hosts the marketing-flavoured widgets that previously lived on the master
+  admin dashboard (Most Popular Courses, Top Revenue Courses, Latest Search
+  Terms, Top Popular Search Terms). Future home for MailerLite KPIs once an
+  API key is configured.
+
+  Route: /<adminFrontName>/mmd_marketing/dashboard
+-->
+<config>
+    <modules>
+        <MMD_Marketing>
+            <version>1.0.0</version>
+        </MMD_Marketing>
+    </modules>
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <mmd_marketing after="Mage_Adminhtml">MMD_Marketing_Adminhtml</mmd_marketing>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+    <adminhtml>
+        <layout>
+            <updates>
+                <mmd_marketing>
+                    <file>mmd_marketing.xml</file>
+                </mmd_marketing>
+            </updates>
+        </layout>
+    </adminhtml>
+    <global>
+        <helpers>
+            <mmd_marketing>
+                <class>MMD_Marketing_Helper</class>
+            </mmd_marketing>
+        </helpers>
+        <blocks>
+            <mmd_marketing>
+                <class>MMD_Marketing_Block</class>
+            </mmd_marketing>
+        </blocks>
+    </global>
+</config>

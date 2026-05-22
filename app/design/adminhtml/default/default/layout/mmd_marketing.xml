@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<!--
+  Load the shared admin dashboard stylesheet (which defines the
+  .dash-summary-* classes used by the Marketing Dashboard cards) on
+  our new handle. This is the same CSS file that adminhtml_dashboard_index
+  pulls in for the master admin dashboard.
+-->
+<layout>
+    <adminhtml_marketingdashboard_index>
+        <reference name="head">
+            <action method="addCss"><name>admin-dashboard.css</name></action>
+        </reference>
+    </adminhtml_marketingdashboard_index>
+</layout>
