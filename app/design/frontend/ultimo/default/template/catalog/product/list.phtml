@@ -327,11 +327,10 @@
 
                 
 
-            <div class="right-column grid12-3 mobile-grid-half">
+            <div class="right-column grid12-3 mobile-grid-half course-price-column">
 
                 <?php echo $this->getPriceHtml($_product, true) ?>
-
-
+                <p class="price-note"><em><?php echo $this->__('before funding and GST'); ?></em></p>
 
 <p><button type="button" title="<?php echo $this->__('Register Now') ?>" class="button btn-cart" onclick="setLocation('<?php echo $_product->getProductUrl() ?>')"><span><span><?php echo $this->__('Register Now') ?></span></span></button></p>
 
