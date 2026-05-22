@@ -84,3 +84,39 @@
 .catalog-product-view .more-views {
     display: none !important;
 }
+
+/* Rounded-box buttons.
+   Ultimo's base .button (styles.css) ships square-cornered. Round every
+   storefront button — add-to-cart / "Register Your Interest", checkout,
+   login, register, form submits, search — to a consistent 8px rounded
+   box. Shape only; text and font are left untouched. */
+.button,
+button.button,
+a.button,
+input.button,
+.product-view .btn-cart,
+.btn-cart,
+.btn-checkout,
+.btn-proceed-checkout {
+    border-radius: 8px !important;
+    -webkit-border-radius: 8px !important;
+}
+
+/* Funding Eligibility discount pill.
+   The block (MMD_CustomOptions ... Type/Select.php) now emits a
+   <span class="funding-off-pill">70% off</span> for every funding
+   discount instead of a mixed dollar/percent tag. Style it as a
+   compact blue pill so every course's funding section reads alike. */
+.options-list .funding-off-pill {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 9px;
+    background: #e7effe;
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.55;
+    border-radius: 999px;
+    vertical-align: middle;
+    white-space: nowrap;
+}

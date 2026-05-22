@@ -328,8 +328,31 @@ class MMD_CustomOptions_Block_Catalog_Product_View_Options_Type_Select extends M
                         ) . ' ' . $_value->getSpecialComment() . '</span>';
 
                     }
+
+                    /* Funding Eligibility — render every discount as a uniform
+                       "X% off" pill. Course funding values are stored as a
+                       percent discount (price_type=percent, e.g. -70); the
+                       stock _formatPrice() renders them as a dollar amount,
+                       so different courses showed inconsistent %/$ tags.
+                       Convert any discounted radio/checkbox value to a single
+                       percentage-pill style. Legacy fixed-amount discounts are
+                       converted against the course list price as a fallback. */
+                    if ((float) $_value->getPrice(false) < 0) {
+                        if ($_value->getPriceType() == 'percent') {
+                            $_offPct = abs((float) $_value->getPrice(false));
+                        } else {
+                            $_basePrice = (float) $this->getProduct()->getPrice();
+                            $_offPct = $_basePrice > 0
+                                ? abs((float) $_value->getPrice(false)) / $_basePrice * 100
+                                : 0;
+                        }
+                        $_offPct = (int) round($_offPct);
+                        if ($_offPct > 0 && $_offPct <= 100) {
+                            $priceStr = '<span class="funding-off-pill">' . $_offPct . '% off</span>';
+                        }
+                    }
                 }
-                
+
                 $qty = '';
                 $customoptionsQty = $helper->getCustomoptionsQty($_value->getCustomoptionsQty(), $_value->getSku(), $_option->getId(), $_value->getId(), $quoteItemId);
                 

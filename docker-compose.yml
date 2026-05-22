@@ -35,7 +35,10 @@ services:
     environment:
       - MAGE_IS_DEVELOPER_MODE=1
       - SKIP_MIGRATIONS=1
-      - LOCAL_DB_MODE=0
+      # LOCAL_DB_MODE=1: entrypoint re-applies scripts/local-dev/apply-local-dev-urls.php
+      # on every start, forcing all base_url config to http://localhost:8080/ so the
+      # local storefront never 302-redirects to the production domains.
+      - LOCAL_DB_MODE=1
       # Cloudflare R2 — consumed by MMD_CourseImage to upload course-cover
       # PNGs via S3-compatible PutObject. Values come from .env at project
       # root via Compose substitution. Production sets these in Coolify's
