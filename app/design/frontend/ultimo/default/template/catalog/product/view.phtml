@@ -227,7 +227,16 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 			<div class="product-name">
 				<h1 itemprop="name"><?php echo $_helper->productAttribute($_product, $_product->getName(), 'name') ?></h1>
 			</div>
-			
+
+			<?php $_mmdBadges = Mage::helper('mmd_courseimage')->getProductBadges($_product); ?>
+			<?php if (!empty($_mmdBadges)): ?>
+				<ul class="course-badges course-badges--view" aria-label="<?php echo $this->__('Funding eligibility'); ?>">
+					<?php foreach ($_mmdBadges as $_b): ?>
+						<li class="course-badge course-badge--<?php echo Mage::helper('mmd_courseimage')->getBadgeCssClass($_b); ?>"><?php echo $this->escapeHtml($_b); ?></li>
+					<?php endforeach; ?>
+				</ul>
+			<?php endif; ?>
+
 			<?php echo $this->getReviewsSummaryHtml($_product, false, true); //reviews ?>
 
 			<?php if ($shortDescription): ?>

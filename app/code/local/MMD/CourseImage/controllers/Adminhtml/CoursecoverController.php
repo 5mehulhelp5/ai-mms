@@ -69,6 +69,11 @@ class MMD_CourseImage_Adminhtml_CoursecoverController extends Mage_Adminhtml_Con
             $r2 = Mage::helper('mmd_courseimage/r2');
             $upload = $r2->putObject($key, $png, 'image/png');
 
+            // Persist the ticked badges as Magento tags so the storefront
+            // chip renderer (catalog list / product view) reads the same
+            // source of truth as the cover image. Idempotent + diff-based.
+            Mage::helper('mmd_courseimage')->syncProductTags($product, $badges);
+
             $this->getResponse()
                 ->setHeader('Content-Type', 'application/json', true)
                 ->setBody(json_encode([
@@ -264,6 +269,15 @@ class MMD_CourseImage_Adminhtml_CoursecoverController extends Mage_Adminhtml_Con
                 Mage::app()->cleanCache(['catalog_product_' . $productId]);
             } catch (Throwable $cacheEx) {
                 Mage::logException($cacheEx);
+            }
+
+            // Persist the ticked badges as Magento tags so the storefront
+            // chip renderer (catalog list / product view) reads the same
+            // source of truth as the cover image. Idempotent + diff-based.
+            try {
+                Mage::helper('mmd_courseimage')->syncProductTags($product, $badges);
+            } catch (Throwable $tagEx) {
+                Mage::logException($tagEx);
             }
 
             $this->getResponse()

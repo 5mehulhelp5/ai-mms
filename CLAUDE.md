@@ -114,6 +114,7 @@ composer phpunit:test
 | **BankPayment** | Bank transfer payment method with configurable accounts. |
 | **CustomOptions** | Enhanced product options with SKU policies (multi-version upgrades). |
 | **Enhancedsalesgrid** | Admin sales grid filters and rendering enhancements. |
+| **CourseImage** | AI cover-image renderer + funding-badge tags. The cover dialog's badge checkboxes drive both the rendered PNG **and** Magento tag writes (`syncProductTags`), so the storefront chips and the cover are guaranteed to match. Storefront catalog list / product view read `getProductBadges()` (filtered to the 9 canonical names) and render colored pills under the course title. Canonical vocabulary: `WSQ, SkillsFuture Credit, PSEA, UTAP, IBF, HRDF, SFEC, Absentee Payroll, MCES` — defined in `Helper/Data.php::getAllBadges()`. CSS palette in `skin/frontend/ultimo/default/css/custom.css` keyed off `getBadgeCssClass()`. Adding a new badge means: append to `getAllBadges()`, add CSS class, seed a `tag` row. |
 
 ### RoleManager Flow
 

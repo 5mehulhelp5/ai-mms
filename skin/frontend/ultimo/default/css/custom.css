@@ -267,6 +267,7 @@ input.button,
     text-align: center !important;
 }
 
+<<<<<<< Updated upstream
 /* Hide the "Hot!" / "New" category badges in the navigation menu.
    Ultimo renders these from a per-category label attribute as
    <span class="cat-label cat-label-labelN">…</span>. Ultimo's own
@@ -286,3 +287,47 @@ li.level2 > a > span > .cat-label,
 .sticky-header .nav-regular .nav-item.level0 > a .cat-label {
     display: none !important;
 }
+=======
+/* ─────────────────────────────────────────────────────────────────────
+   Funding badges (MMD_CourseImage)
+   Rendered under the course title on catalog list pages and on the
+   product view page. Source of truth is Magento's tag system filtered
+   to the 9 canonical names in MMD_CourseImage_Helper_Data::getAllBadges().
+   Class mapping comes from getBadgeCssClass().
+   ───────────────────────────────────────────────────────────────────── */
+.course-badges {
+    list-style: none !important;
+    margin: 6px 0 10px !important;
+    padding: 0 !important;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.course-badges--view {
+    margin: 10px 0 14px !important;
+}
+.course-badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    color: #fff;
+    line-height: 1.4;
+    white-space: nowrap;
+    background: #475569; /* default slate, overridden below */
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+.course-badge--wsq     { background: #1d4ed8; } /* SSG / WSQ blue */
+.course-badge--sfc     { background: #f97316; } /* SkillsFuture orange */
+.course-badge--psea    { background: #0d9488; } /* PSEA teal */
+.course-badge--utap    { background: #dc2626; } /* UTAP red */
+.course-badge--ibf     { background: #0f172a; } /* IBF navy */
+.course-badge--hrdf    { background: #16a34a; } /* HRDF green */
+.course-badge--sfec    { background: #ca8a04; } /* SFEC gold */
+.course-badge--ap      { background: #475569; } /* Absentee Payroll slate */
+.course-badge--mces    { background: #7c3aed; } /* MCES purple */
+.course-badge--default { background: #64748b; }
+>>>>>>> Stashed changes
