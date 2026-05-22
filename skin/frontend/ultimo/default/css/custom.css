@@ -50,26 +50,47 @@
 
 .sp-methods .form-list { padding:0px 10px 0px 22px !important; }
 
-/* Course detail page → "Course Details" tab content. The course
-   description is rendered as alternating <p> rows:
-       <p><strong>Topic N: ...</strong></p>     (topic heading)
-       <p><em>Item ...</em></p>                  (item rows)
-   Topic headings keep their default top margin so each topic group
-   is visually separated. Item rows: collapse all margins so they
-   sit flush against each other, and prepend a bullet glyph. */
-.tabs-panels .panel .std p:not(:has(strong)) {
+/* Course Details tab — unified syllabus styling.
+   The "Course Details" tab is the panel immediately after
+   #acctab-description. Two authoring formats exist for the syllabus:
+     - newer courses: <p><strong>Topic</strong></p> + <p><em>item</em></p>
+     - older courses: <p><strong>Topic</strong></p> + <ul><li>item</li></ul>
+   The <ul><li> form picked up Ultimo's arrow image marker (bullet.png,
+   styles.css §2076) and stayed upright. Normalise BOTH to the same look —
+   bold topic heading, then a round bullet + italic item row. Everything is
+   scoped to the Course Details panel so the Course Info / Job Roles /
+   Review tabs are left alone. */
+
+/* <p><em> item rows: flush margins + bullet glyph */
+#acctab-description + .panel .std p:not(:has(strong)) {
     margin: 0 !important;
 }
-.tabs-panels .panel .std p:not(:has(strong))::before {
+#acctab-description + .panel .std p:not(:has(strong))::before {
     content: "\2022\00a0\00a0"; /* bullet + two nbsp */
     color: inherit;
 }
-/* Separate topic groups visually: when a topic-heading paragraph
-   follows an item paragraph, push it down. The first topic stays
-   flush with the top because it has no preceding item to trigger
-   the adjacent-sibling match. */
-.tabs-panels .panel .std p:not(:has(strong)) + p:has(strong) {
+/* push each topic heading down from the preceding item group */
+#acctab-description + .panel .std p:not(:has(strong)) + p:has(strong) {
     margin-top: 18px !important;
+}
+
+/* <ul><li> item rows: drop Ultimo's arrow image and render as the same
+   bullet + italic as the <p><em> rows above. Plain lists only — leave
+   ul.disc / ul.no-bullets (intentionally-styled lists) untouched. */
+#acctab-description + .panel .std ul:not(.no-bullets):not(.disc) {
+    list-style: none;
+    padding-left: 0;
+    margin-left: 0;
+}
+#acctab-description + .panel .std ul:not(.no-bullets):not(.disc) li {
+    background-image: none !important;
+    padding-left: 0 !important;
+    font-style: italic;
+}
+#acctab-description + .panel .std ul:not(.no-bullets):not(.disc) li::before {
+    content: "\2022\00a0\00a0"; /* bullet + two nbsp */
+    font-style: normal;
+    color: inherit;
 }
 
 /* One course = one image.
@@ -119,4 +140,17 @@ input.button,
     border-radius: 999px;
     vertical-align: middle;
     white-space: nowrap;
+}
+
+/* WSQ Funding box — consistent rounded gray card.
+   The WSQ Funding block (heading + fee table + SFEC/SFC/UTAP) is pasted
+   into every WSQ course description inside
+   <div style="width:100%;padding:10px;border-radius:25px;"> — rounded and
+   padded but with NO background, so the box is invisible on most courses.
+   Give it a gray fill and roomier padding so every WSQ Funding section
+   renders as the same rounded card. */
+.catalog-product-view div[style*="border-radius: 25px"][style*="padding: 10px"] {
+    background: #e8e8e8 !important;
+    padding: 22px 26px !important;
+    margin: 20px 0 !important;
 }
