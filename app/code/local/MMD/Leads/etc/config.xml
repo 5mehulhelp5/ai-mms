@@ -91,11 +91,14 @@
                              this with the seeded core_email_template row id so
                              the copy under System -> Transactional Emails is the
                              one actually sent (and stays editable there).
+            cc             — comma-separated CC list copied on every auto-reply
+                             so the training team sees what each visitor was sent.
         -->
         <mmd_leads>
             <auto_reply>
                 <enabled>1</enabled>
                 <email_template>mmd_leads_auto_reply</email_template>
+                <cc>angch@tertiaryinfotech.com,sales@tertiarycourses.com.sg</cc>
             </auto_reply>
         </mmd_leads>
     </default>

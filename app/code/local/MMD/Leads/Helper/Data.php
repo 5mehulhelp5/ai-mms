@@ -22,6 +22,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
     /** Auto-reply config paths + file-template fallback code. */
     const XML_PATH_AUTO_REPLY_ENABLED  = 'mmd_leads/auto_reply/enabled';
     const XML_PATH_AUTO_REPLY_TEMPLATE = 'mmd_leads/auto_reply/email_template';
+    const XML_PATH_AUTO_REPLY_CC       = 'mmd_leads/auto_reply/cc';
     const AUTO_REPLY_TEMPLATE_FALLBACK = 'mmd_leads_auto_reply';
 
     /**
@@ -165,19 +166,28 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
 
             $mail = Mage::getModel('core/email_template');
             /** @var Mage_Core_Model_Email_Template $mail */
-            $mail->setDesignConfig(array('area' => 'frontend', 'store' => $storeId))
-                ->sendTransactional(
-                    $template,
-                    $this->getReplySender($storeId),
-                    $lead->getEmail(),
-                    $lead->getName(),
-                    array(
-                        'lead_name'        => $this->getFirstName($lead->getName()),
-                        'course_info_html' => $this->buildCourseInfoHtml($lead),
-                        'contact_html'     => $this->buildContactHtml($lead),
-                    ),
-                    $storeId
-                );
+            $mail->setDesignConfig(array('area' => 'frontend', 'store' => $storeId));
+
+            // CC the training team on every auto-reply so they see exactly
+            // what the visitor was sent. addCc() on the underlying Zend_Mail
+            // is set before send() — which only re-adds To/Bcc and never
+            // clears Cc — so the header survives into the dispatched message.
+            foreach ($this->_getAutoReplyCc($storeId) as $cc) {
+                $mail->getMail()->addCc($cc);
+            }
+
+            $mail->sendTransactional(
+                $template,
+                $this->getReplySender($storeId),
+                $lead->getEmail(),
+                $lead->getName(),
+                array(
+                    'lead_name'        => $this->getFirstName($lead->getName()),
+                    'course_info_html' => $this->buildCourseInfoHtml($lead),
+                    'contact_html'     => $this->buildContactHtml($lead),
+                ),
+                $storeId
+            );
 
             if (!$mail->getSentSuccess()) {
                 Mage::throwException('Auto-reply send returned no success flag.');
@@ -565,6 +575,25 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
         } catch (Exception $e) {
             Mage::logException($e);
         }
+    }
+
+    /**
+     * CC addresses for the auto-reply, from mmd_leads/auto_reply/cc
+     * (comma/semicolon-separated). The training team is copied so they see
+     * what each visitor was sent.
+     *
+     * @return string[]
+     */
+    protected function _getAutoReplyCc($storeId)
+    {
+        $raw = (string) Mage::getStoreConfig(self::XML_PATH_AUTO_REPLY_CC, $storeId);
+        if (trim($raw) === '') {
+            return array();
+        }
+        return array_values(array_unique(array_filter(array_map(
+            'trim',
+            preg_split('/[,;]+/', $raw) ?: array()
+        ))));
     }
 
     /**
