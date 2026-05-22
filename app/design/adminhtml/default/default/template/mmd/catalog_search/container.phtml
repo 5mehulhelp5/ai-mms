@@ -1,0 +1,25 @@
+<?php
+/** @var MMD_Adminhtml_Block_Catalog_Search $this */
+$active = $this->getActiveStoreFilter();
+?>
+<div class="content-header">
+    <table cellspacing="0">
+        <tr>
+            <td style="<?php echo $this->getHeaderWidth() ?>"><?php echo $this->getHeaderHtml() ?></td>
+            <td class="form-buttons"><?php echo $this->getButtonsHtml() ?></td>
+        </tr>
+    </table>
+</div>
+<div class="mmd-store-tabs" role="tablist" aria-label="Filter by branch">
+    <?php foreach ($this->getStoreTabs() as $tab): ?>
+        <a href="<?php echo $this->escapeHtml($this->getStoreTabUrl($tab['id'])) ?>"
+           class="mmd-store-tab<?php echo $active === (int) $tab['id'] ? ' is-active' : '' ?>"
+           role="tab"
+           aria-selected="<?php echo $active === (int) $tab['id'] ? 'true' : 'false' ?>">
+            <?php echo $this->escapeHtml($tab['label']) ?>
+        </a>
+    <?php endforeach; ?>
+</div>
+<div>
+    <?php echo $this->getGridHtml() ?>
+</div>
