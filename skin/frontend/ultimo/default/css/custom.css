@@ -266,3 +266,11 @@ input.button,
 .featured-products-slider .item p {
     text-align: center !important;
 }
+
+/* Hide the "Hot!" / "New" category badges in the navigation menu.
+   Ultimo renders these from a per-category label attribute as
+   <span class="cat-label cat-label-labelN">…</span>. Hiding the base
+   .cat-label class removes every variant storefront-wide. */
+.cat-label {
+    display: none !important;
+}
