@@ -38,4 +38,31 @@
     <div class="std">
         <?php echo $this->helper('catalog/output')->productAttribute($this->getProduct(), $_description, 'description') ?>
     </div>
+    <script type="text/javascript">
+    /* Promote syllabus topic headings to <h3> for proper heading semantics.
+       A topic heading is a <p> whose entire content is a single <strong>
+       (e.g. <p><strong>LU1: ...</strong></p>). Italic item rows (<p><em>)
+       and list items are deliberately left untouched. Runs synchronously
+       right after the .std above, so the swap lands before first paint. */
+    (function () {
+        var s = document.currentScript;
+        var std = s ? s.previousElementSibling : null;
+        if (!std || !std.classList || !std.classList.contains('std')) {
+            std = document.querySelector('#acctab-description + .panel .std');
+        }
+        if (!std) { return; }
+        var ps = std.querySelectorAll('p');
+        for (var i = 0; i < ps.length; i++) {
+            var p = ps[i], strong = p.querySelector('strong');
+            if (strong
+                && strong.textContent.trim() !== ''
+                && p.textContent.trim() === strong.textContent.trim()) {
+                var h3 = document.createElement('h3');
+                h3.className = 'course-topic-h3';
+                h3.innerHTML = strong.innerHTML;
+                p.parentNode.replaceChild(h3, p);
+            }
+        }
+    })();
+    </script>
 <?php endif; ?>
