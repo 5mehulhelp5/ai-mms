@@ -644,6 +644,11 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--wsq .course-policy-card__icon   { background: #059669; }
 .course-policy-card--wsq .course-policy-card__body   { padding: 16px 18px 18px; }
 
+/* When the WSQ card is placed in the primary column (under the short
+   description) rather than in the left .course-info-stack, give it its
+   own spacing — the parent doesn't apply flex-gap here. */
+.course-policy-card--wsq-in-primary { margin: 18px 0 24px; }
+
 .wsq-funding-lede {
     margin: 0 0 12px;
     font-size: 13px;

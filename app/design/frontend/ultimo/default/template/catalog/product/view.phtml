@@ -271,55 +271,8 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 						->setProduct($_product)
 						->toHtml(); ?>
 
-					<?php
-					// WSQ Funding card — only render when the description contained
-					// the wrapping <div style="border-radius:25px"> (i.e. SG WSQ
-					// course). Values auto-computed from the live product price.
-					if ($_hasWsqFunding):
-						$_wsqPrice    = (float) $_product->getPrice();
-						$_wsqGst      = $_wsqPrice * 0.09;
-						$_wsqBaseline = $_wsqPrice * 0.50 + $_wsqGst;
-						$_wsqMces     = $_wsqPrice * 0.30 + $_wsqGst;
-						$_fmt = function ($v) { return '$' . number_format($v, 2); };
-					?>
-						<section class="course-policy-card course-policy-card--wsq">
-							<header class="course-policy-card__header">
-								<span class="course-policy-card__icon" aria-hidden="true">
-									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-								</span>
-								<h3 class="course-policy-card__title">WSQ Funding</h3>
-							</header>
-							<div class="course-policy-card__body">
-								<p class="wsq-funding-lede">WSQ funding is only applicable to Singaporeans and PRs. Subject to eligibility, the funding support is capped per funding tier.</p>
-								<div class="wsq-fee-grid" role="table" aria-label="WSQ funding fee breakdown">
-									<div class="wsq-fee-tile wsq-fee-tile--full" role="row">
-										<span class="wsq-fee-tile__label">Full Fee</span>
-										<span class="wsq-fee-tile__value"><?php echo $_fmt($_wsqPrice); ?></span>
-										<span class="wsq-fee-tile__hint">Before GST</span>
-									</div>
-									<div class="wsq-fee-tile wsq-fee-tile--gst" role="row">
-										<span class="wsq-fee-tile__label">GST</span>
-										<span class="wsq-fee-tile__value"><?php echo $_fmt($_wsqGst); ?></span>
-										<span class="wsq-fee-tile__hint">9% of fee</span>
-									</div>
-									<div class="wsq-fee-tile wsq-fee-tile--baseline" role="row">
-										<span class="wsq-fee-tile__label">Baseline Nett</span>
-										<span class="wsq-fee-tile__value"><?php echo $_fmt($_wsqBaseline); ?></span>
-										<span class="wsq-fee-tile__hint">SG/PR age 21+ · 50% funded</span>
-									</div>
-									<div class="wsq-fee-tile wsq-fee-tile--mces" role="row">
-										<span class="wsq-fee-tile__label">MCES / SME Nett</span>
-										<span class="wsq-fee-tile__value"><?php echo $_fmt($_wsqMces); ?></span>
-										<span class="wsq-fee-tile__hint">SG age 40+ · 70% funded</span>
-									</div>
-								</div>
-								<p class="wsq-funding-note">Effective for courses starting from 1&nbsp;Jan&nbsp;2024. Upon registration, we will advise on how to tap the WSQ Training Subsidy.</p>
-								<?php if ($_wsqNarrativeHtml !== ''): ?>
-									<div class="wsq-funding-narrative std"><?php echo $_wsqNarrativeHtml; ?></div>
-								<?php endif; ?>
-							</div>
-						</section>
-					<?php endif; ?>
+					<?php /* WSQ Funding card renders in the primary (middle) column,
+					          right under the course description. See below. */ ?>
 
 					<?php if ($_certificationHtml !== ''): ?>
 						<section class="course-policy-card course-policy-card--certification">
@@ -410,6 +363,57 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 			<?php if ($shortDescription): ?>
 				<div class="short-description"><div class="std" itemprop="description"><?php echo $shortDescription; ?></div></div>
 			<?php endif;?>
+
+			<?php
+			// WSQ Funding card — primary-column placement, directly under the
+			// course description so the funding maths sits beside the price
+			// (which is in the secondary column). Only rendered when the
+			// description contained the rounded WSQ wrapper.
+			if ($_hasWsqFunding):
+				$_wsqPrice    = (float) $_product->getPrice();
+				$_wsqGst      = $_wsqPrice * 0.09;
+				$_wsqBaseline = $_wsqPrice * 0.50 + $_wsqGst;
+				$_wsqMces     = $_wsqPrice * 0.30 + $_wsqGst;
+				$_fmt = function ($v) { return '$' . number_format($v, 2); };
+			?>
+				<section class="course-policy-card course-policy-card--wsq course-policy-card--wsq-in-primary">
+					<header class="course-policy-card__header">
+						<span class="course-policy-card__icon" aria-hidden="true">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+						</span>
+						<h3 class="course-policy-card__title">WSQ Funding</h3>
+					</header>
+					<div class="course-policy-card__body">
+						<p class="wsq-funding-lede">WSQ funding is only applicable to Singaporeans and PRs. Subject to eligibility, the funding support is capped per funding tier.</p>
+						<div class="wsq-fee-grid" role="table" aria-label="WSQ funding fee breakdown">
+							<div class="wsq-fee-tile wsq-fee-tile--full" role="row">
+								<span class="wsq-fee-tile__label">Full Fee</span>
+								<span class="wsq-fee-tile__value"><?php echo $_fmt($_wsqPrice); ?></span>
+								<span class="wsq-fee-tile__hint">Before GST</span>
+							</div>
+							<div class="wsq-fee-tile wsq-fee-tile--gst" role="row">
+								<span class="wsq-fee-tile__label">GST</span>
+								<span class="wsq-fee-tile__value"><?php echo $_fmt($_wsqGst); ?></span>
+								<span class="wsq-fee-tile__hint">9% of fee</span>
+							</div>
+							<div class="wsq-fee-tile wsq-fee-tile--baseline" role="row">
+								<span class="wsq-fee-tile__label">Baseline Nett</span>
+								<span class="wsq-fee-tile__value"><?php echo $_fmt($_wsqBaseline); ?></span>
+								<span class="wsq-fee-tile__hint">SG/PR age 21+ · 50% funded</span>
+							</div>
+							<div class="wsq-fee-tile wsq-fee-tile--mces" role="row">
+								<span class="wsq-fee-tile__label">MCES / SME Nett</span>
+								<span class="wsq-fee-tile__value"><?php echo $_fmt($_wsqMces); ?></span>
+								<span class="wsq-fee-tile__hint">SG age 40+ · 70% funded</span>
+							</div>
+						</div>
+						<p class="wsq-funding-note">Effective for courses starting from 1&nbsp;Jan&nbsp;2024. Upon registration, we will advise on how to tap the WSQ Training Subsidy.</p>
+						<?php if ($_wsqNarrativeHtml !== ''): ?>
+							<div class="wsq-funding-narrative std"><?php echo $_wsqNarrativeHtml; ?></div>
+						<?php endif; ?>
+					</div>
+				</section>
+			<?php endif; ?>
 
 			<?php echo $this->getChildHtml('container_product_primary_1'); ?>
 
