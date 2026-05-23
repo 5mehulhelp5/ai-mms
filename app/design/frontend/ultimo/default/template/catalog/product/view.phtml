@@ -75,6 +75,21 @@
 	//
 	$shortDescription = $_helper->productAttribute($_product, $_product->getShortDescription(), 'short_description');
 
+	// Pull the per-course "Certification" section out of the short description
+	// so it can be rendered as its own card in the left column (above
+	// Post-Course Support). The section content varies per course (External
+	// cert text differs by AWS/CompTIA/Microsoft/etc.) so a generic CMS block
+	// can't replace it — we extract the existing markup verbatim.
+	$_certificationHtml = '';
+	if ($shortDescription) {
+		$_WS = '(?:\s|&nbsp;|\x{00A0}|\x{2007}|\x{202F})';
+		$_certPattern = '#<h[1-6][^>]*>' . $_WS . '*(?:<br\s*/?>' . $_WS . '*)*Certification' . $_WS . '*:?' . $_WS . '*</h[1-6]>(.*?)(?=<h[1-6]|\z)#siu';
+		if (preg_match($_certPattern, $shortDescription, $_certMatch)) {
+			$_certificationHtml = trim($_certMatch[1]);
+			$shortDescription   = preg_replace($_certPattern, '', $shortDescription);
+		}
+	}
+
 	//Rich snippets
 	$useRichSnippets = ($helperSnippets->isEnabledOnProductPage() && $productTypeId !== 'grouped');
 	$priceProperties = '';
@@ -228,11 +243,23 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 						->setProduct($_product)
 						->toHtml(); ?>
 
+					<?php if ($_certificationHtml !== ''): ?>
+						<section class="course-policy-card course-policy-card--certification">
+							<header class="course-policy-card__header">
+								<span class="course-policy-card__icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><polyline points="8.21 13.89 7 22 12 19 17 22 15.79 13.88"/></svg>
+								</span>
+								<h3 class="course-policy-card__title">Certification</h3>
+							</header>
+							<div class="course-policy-card__body std"><?php echo $_certificationHtml; ?></div>
+						</section>
+					<?php endif; ?>
+
 					<?php
 					$_supportHtml = trim($this->getLayout()->createBlock('cms/block')->setBlockId('post_course_support')->toHtml());
 					if ($_supportHtml !== ''):
 					?>
-						<section class="course-policy-card">
+						<section class="course-policy-card course-policy-card--support">
 							<header class="course-policy-card__header">
 								<span class="course-policy-card__icon" aria-hidden="true">
 									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
