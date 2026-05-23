@@ -37,6 +37,54 @@ if ($helper->isTierPriceEnabled()) $width += 30;
 if ($helper->isSpecialPriceEnabled()) $width += 230;
 if ($helper->isInventoryEnabled()) $width += 50;
 ?>
+<style type="text/css">
+    /* MMD Manage Schedule — make the row-select checkboxes visible against
+       the dark admin theme. Transparent fill, bright border, blue check. */
+    th.type-row-select,
+    td.type-row-select {
+        padding-left: 14px !important;
+        padding-right: 8px !important;
+        width: 36px;
+    }
+    input.row-select-cb,
+    input.row-select-all {
+        -webkit-appearance: none !important;
+        -moz-appearance: none !important;
+        appearance: none !important;
+        width: 22px !important;
+        height: 22px !important;
+        background: #0f172a !important;
+        border: 1px solid #334155 !important;
+        border-radius: 8px !important;
+        cursor: pointer;
+        vertical-align: middle;
+        margin: 0;
+        padding: 0;
+        position: relative;
+        box-sizing: border-box;
+        display: inline-block;
+    }
+    input.row-select-cb:hover,
+    input.row-select-all:hover {
+        border-color: #64748b !important;
+    }
+    input.row-select-cb:checked,
+    input.row-select-all:checked {
+        border-color: #60a5fa !important;
+    }
+    input.row-select-cb:checked::after,
+    input.row-select-all:checked::after {
+        content: '';
+        position: absolute;
+        left: 6px;
+        top: 2px;
+        width: 6px;
+        height: 11px;
+        border: solid #60a5fa;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+    }
+</style>
 <script type="text/javascript">
     //<![CDATA[
     OptionTemplateSelect = '<table class="border" cellpadding="0" cellspacing="0" style="width:<?php echo $width ?>px;">'+        
@@ -80,7 +128,7 @@ if ($helper->isInventoryEnabled()) $width += 50;
         '<tfoot>'+
         '<tr>'+
         '<td colspan="100" class="a-right">'+
-            <?php if ($_isMmdScheduleEdit): ?>'<button type="button" class="scalable delete-selected-rows" onclick="mmdDeleteSelectedSelectRows({{option_id}})" style="margin-right:8px;background:transparent !important;background-image:none !important;border:1px solid #ef4444 !important;color:#ef4444 !important;border-radius:8px !important;padding:6px 14px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;"><span>Delete Selected Rows</span></button>'+<?php endif; ?>
+            <?php if ($_isMmdScheduleEdit): ?>'<button type="button" class="scalable delete-past-dates" onclick="mmdDeletePastDateRows({{option_id}})" style="margin-right:24px !important;background:transparent !important;background-image:none !important;border:1px solid #60a5fa !important;color:#60a5fa !important;border-radius:8px !important;padding:6px 14px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;"><span>Delete Past Dates</span></button>'+'<button type="button" class="scalable delete-selected-rows" onclick="mmdDeleteSelectedSelectRows({{option_id}})" style="margin-right:24px !important;background:transparent !important;background-image:none !important;border:1px solid #60a5fa !important;color:#60a5fa !important;border-radius:8px !important;padding:6px 14px !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important;"><span>Delete Selected Rows</span></button>'+<?php endif; ?>
             '<?php echo $this->jsQuoteEscape($this->getAddButtonHtml()) ?>'+
          '</td>'+
         '</tr>'+
@@ -598,10 +646,77 @@ if ($helper->isInventoryEnabled()) $width += 50;
     }
 
     <?php if ($_isMmdScheduleEdit): ?>
-    /* MMD Manage Schedule edit only — bulk-delete rows that have the
-       row-select checkbox ticked. Mirrors selectOptionType.remove():
-       set the row's _is_delete hidden field to '1', hide the <tr>,
-       and clean up the linked image row + tier-price rows. */
+    /* Show "Delete Past Dates" only inside the option whose Description =
+       "Course Date" (case-insensitive). The button is rendered into every
+       drop-down option's footer by the shared template, so we hide it
+       everywhere else at runtime. Re-evaluated whenever a description
+       input changes and whenever new buttons appear in the DOM. */
+    function mmdFilterDeletePastDatesButtons() {
+        var btns = document.querySelectorAll('button.delete-past-dates');
+        for (var i = 0; i < btns.length; i++) {
+            var btn = btns[i];
+            var oc = btn.getAttribute('onclick') || '';
+            var m = oc.match(/mmdDeletePastDateRows\((\d+)\)/);
+            if (!m) { btn.style.display = 'none'; continue; }
+            var title = document.getElementById('product_option_' + m[1] + '_title');
+            var desc  = document.getElementById('product_option_' + m[1] + '_description');
+            var titleVal = title ? (title.value || '').trim().toLowerCase() : '';
+            var descVal  = desc  ? (desc.value  || '').trim().toLowerCase() : '';
+            var isCourseDate = (titleVal === 'course date') || (descVal === 'course date');
+            btn.style.display = isCourseDate ? '' : 'none';
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', mmdFilterDeletePastDatesButtons);
+    } else {
+        mmdFilterDeletePastDatesButtons();
+    }
+    document.addEventListener('input', function(e) {
+        if (e.target && e.target.id && e.target.id.match(/^product_option_\d+_(title|description)$/)) {
+            mmdFilterDeletePastDatesButtons();
+        }
+    });
+    if (typeof MutationObserver !== 'undefined') {
+        new MutationObserver(function() { mmdFilterDeletePastDatesButtons(); })
+            .observe(document.body, { childList: true, subtree: true });
+    }
+
+    /* MMD Manage Schedule edit only — mark a single <tr> as deleted using
+       the same is_delete=1 + hide + drop-linked-rows pattern that
+       selectOptionType.remove() uses. Shared by the "Delete Selected Rows"
+       and "Delete Past Dates" buttons; nothing persists until Save. */
+    function mmdTombstoneSelectRow(tr) {
+        if (!tr || !tr.id) return;
+        var hidden = document.getElementById(tr.id + '_is_delete');
+        if (hidden) hidden.value = '1';
+        tr.classList.add('no-display');
+        tr.classList.add('ignore-validate');
+        tr.style.display = 'none';
+        var parts = tr.id.split('_');
+        var selectId = parts[parts.length - 1];
+        var imgRow = document.getElementById('image_option_row_' + selectId);
+        if (imgRow && imgRow.parentNode) imgRow.parentNode.removeChild(imgRow);
+        var fileRows = document.querySelectorAll('tr.file_option_rows_' + selectId);
+        for (var j = 0; j < fileRows.length; j++) fileRows[j].parentNode.removeChild(fileRows[j]);
+        var tierRows = document.querySelectorAll('tr[id^="' + tr.id + '_"]');
+        for (var k = 0; k < tierRows.length; k++) tierRows[k].parentNode.removeChild(tierRows[k]);
+    }
+
+    /* Parse a reg_course input value (Calendar.setup ifFormat='%m/%d/%y',
+       e.g. "03/14/26") into a local Date at 00:00. Returns null for blank
+       or unparseable values so callers can skip the row. */
+    function mmdParseRegCourse(value) {
+        var v = (value || '').trim();
+        if (!v) return null;
+        var m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+        if (!m) return null;
+        var yy = parseInt(m[3], 10);
+        var year = yy < 100 ? (yy + 2000) : yy;
+        var d = new Date(year, parseInt(m[1], 10) - 1, parseInt(m[2], 10));
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    /* Bulk-delete rows ticked via the row-select checkbox. */
     window.mmdDeleteSelectedSelectRows = function(optionId) {
         var tbody = document.getElementById('select_option_type_row_' + optionId);
         if (!tbody) return;
@@ -609,23 +724,58 @@ if ($helper->isInventoryEnabled()) $width += 50;
         if (!checked.length) { alert('No rows selected.'); return; }
         if (!confirm('Delete ' + checked.length + ' selected row' + (checked.length === 1 ? '' : 's') + '? This cannot be undone after Save.')) return;
         for (var i = 0; i < checked.length; i++) {
-            var tr = checked[i].closest('tr');
-            if (!tr || !tr.id) continue;
-            var hidden = document.getElementById(tr.id + '_is_delete');
-            if (hidden) hidden.value = '1';
-            tr.classList.add('no-display');
-            tr.classList.add('ignore-validate');
-            tr.style.display = 'none';
-            /* Drop the linked image-row + any file rows + tier-price rows */
-            var parts = tr.id.split('_');
-            var selectId = parts[parts.length - 1];
-            var imgRow = document.getElementById('image_option_row_' + selectId);
-            if (imgRow && imgRow.parentNode) imgRow.parentNode.removeChild(imgRow);
-            var fileRows = document.querySelectorAll('tr.file_option_rows_' + selectId);
-            for (var j = 0; j < fileRows.length; j++) fileRows[j].parentNode.removeChild(fileRows[j]);
-            var tierRows = document.querySelectorAll('tr[id^="' + tr.id + '_"]');
-            for (var k = 0; k < tierRows.length; k++) tierRows[k].parentNode.removeChild(tierRows[k]);
+            mmdTombstoneSelectRow(checked[i].closest('tr'));
         }
+    };
+
+    /* Bulk-delete every row whose Course Date is strictly before today.
+       Always targets the option whose Description = "Course Date" (case
+       insensitive), regardless of which option's button was clicked, so
+       the user can't accidentally fire it against a Training Mode /
+       Region / etc. dropdown that has no real dates. */
+    window.mmdDeletePastDateRows = function(/* ignored */) {
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        /* Find the Course Date option by its description input value. */
+        var descInputs = document.querySelectorAll('input[id$="_description"][name*="[description]"]');
+        var targetOptionId = null;
+        for (var i = 0; i < descInputs.length; i++) {
+            if ((descInputs[i].value || '').trim().toLowerCase() === 'course date') {
+                var m = descInputs[i].name.match(/\[options\]\[([^\]]+)\]\[description\]$/);
+                if (m) { targetOptionId = m[1]; break; }
+            }
+        }
+        if (!targetOptionId) {
+            alert('No option with Description "Course Date" found on this product.');
+            return;
+        }
+
+        var nameRe = new RegExp('^product\\[options\\]\\[' + String(targetOptionId).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\]\\[values\\]\\[[^\\]]+\\]\\[reg_course\\]$');
+        var allInputs = document.querySelectorAll('input[name$="[reg_course]"]');
+        var pastRows = [];
+        var sample = [];
+        for (var j = 0; j < allInputs.length; j++) {
+            var input = allInputs[j];
+            if (!nameRe.test(input.name)) continue;
+            var tr = input.closest('tr');
+            if (!tr) continue;
+            var delHidden = tr.querySelector('input[name$="[is_delete]"]');
+            if (delHidden && delHidden.value === '1') continue;
+            var raw = (input.value || '').trim();
+            sample.push({name: input.name, value: raw});
+            var d = mmdParseRegCourse(raw);
+            if (d && d.getTime() < today.getTime()) pastRows.push(tr);
+        }
+        if (window.console && console.log) {
+            console.log('[mmdDeletePastDateRows] courseDateOptionId=', targetOptionId, 'today=', today.toDateString(), 'scanned=', sample.length, 'matches=', pastRows.length, 'sample=', sample);
+        }
+        if (!pastRows.length) {
+            alert('No past Course Date rows found in the "Course Date" option.\n\nScanned ' + sample.length + ' row(s).');
+            return;
+        }
+        if (!confirm('Found ' + pastRows.length + ' past Course Date row' + (pastRows.length === 1 ? '' : 's') + ' in the "Course Date" option. Mark for deletion? Applied on Save.')) return;
+        for (var k = 0; k < pastRows.length; k++) mmdTombstoneSelectRow(pastRows[k]);
     };
     <?php endif; ?>
     //]]>

@@ -38,6 +38,33 @@ class MMD_Adminhtml_Block_Customoptions_Options extends MMD_Adminhtml_Block_Cust
                             'class' => 'add'
                         ))
         );
+
+        $helper = Mage::helper('customoptions');
+
+        $cleanUrl = $this->getUrl('*/*/cleanTemplatesPastDates');
+        $cleanConfirm = $helper->__(
+            'Step 1 of 2: remove past Course Date entries from every template (not products yet). Continue?'
+        );
+        $this->setChild('clean_templates_button', $this->getLayout()->createBlock('adminhtml/widget_button')
+                        ->setData(array(
+                            'label'   => $helper->__('1. Clean Templates'),
+                            'onclick' => "if (confirm('" . addslashes($cleanConfirm) . "')) { setLocation('" . $cleanUrl . "'); }",
+                            'class'   => 'delete',
+                        ))
+        );
+
+        $applyUrl = $this->getUrl('*/*/applyTemplatesToProducts');
+        $applyConfirm = $helper->__(
+            'Step 2 of 2: delete past Course Date rows from every product, reindex prices, and flush caches. This cannot be undone. Continue?'
+        );
+        $this->setChild('apply_to_products_button', $this->getLayout()->createBlock('adminhtml/widget_button')
+                        ->setData(array(
+                            'label'   => $helper->__('2. Apply to Products'),
+                            'onclick' => "if (confirm('" . addslashes($applyConfirm) . "')) { setLocation('" . $applyUrl . "'); }",
+                            'class'   => 'delete',
+                        ))
+        );
+
         $this->setChild('grid', $this->getLayout()->createBlock('mmd/customoptions_options_grid', 'customoptions.grid'));
 
         return parent::_prepareLayout();
@@ -45,6 +72,14 @@ class MMD_Adminhtml_Block_Customoptions_Options extends MMD_Adminhtml_Block_Cust
 
     public function getAddNewButtonHtml() {
         return $this->getChildHtml('add_new_button');
+    }
+
+    public function getCleanTemplatesButtonHtml() {
+        return $this->getChildHtml('clean_templates_button');
+    }
+
+    public function getApplyToProductsButtonHtml() {
+        return $this->getChildHtml('apply_to_products_button');
     }
 
     public function getGridHtml() {

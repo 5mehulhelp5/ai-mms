@@ -34,6 +34,8 @@
         <tr>
             <td style="width:50%;"><h3 class="icon-head"><?php echo Mage::helper('customoptions')->__('Manage Options Templates') ?></h3></td>
             <td class="form-buttons">
+                <?php echo $this->getCleanTemplatesButtonHtml() ?>
+                <?php echo $this->getApplyToProductsButtonHtml() ?>
             	<?php echo $this->getAddNewButtonHtml() ?>
             </td>
         </tr>

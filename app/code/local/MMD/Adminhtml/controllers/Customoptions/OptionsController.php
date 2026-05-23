@@ -678,6 +678,201 @@ class MMD_Adminhtml_Customoptions_OptionsController extends Mage_Adminhtml_Contr
         $this->_redirect('*/*/');
     }
 
+    /**
+     * Parse the reg_course varchar (stored as "%m/%d/%y", e.g. "03/14/26")
+     * into a unix timestamp at local 00:00. Returns false if unparseable.
+     */
+    protected function _parseRegCourseTs($value)
+    {
+        $v = trim((string) $value);
+        if ($v === '') return false;
+        if (!preg_match('#^(\d{1,2})/(\d{1,2})/(\d{2,4})$#', $v, $m)) return false;
+        $yy = (int) $m[3];
+        if ($yy < 100) $yy += 2000;
+        $ts = mktime(0, 0, 0, (int) $m[1], (int) $m[2], $yy);
+        return $ts === false ? false : $ts;
+    }
+
+    /**
+     * STEP 1 — Clean templates only.
+     *
+     * Walks every option-template's serialized hash_options (and per-store
+     * overrides) and removes Course Date values whose reg_course is in the
+     * past. Does NOT touch any product-side rows. After this the templates
+     * are clean but products still hold the historical dates; run Step 2
+     * ("Apply to Products") to propagate.
+     */
+    public function cleanTemplatesPastDatesAction()
+    {
+        $today = strtotime('today');
+        $rowsRemoved = 0;
+        $templatesAffected = 0;
+
+        try {
+            $collection = Mage::getResourceModel('customoptions/group_collection');
+            foreach ($collection as $group) {
+                $changed = false;
+                $hash = $group->getHashOptions();
+                if ($hash) {
+                    $opts = @unserialize($hash);
+                    if (is_array($opts)) {
+                        list($opts, $removed) = $this->_stripPastCourseDates($opts, $today);
+                        if ($removed > 0) {
+                            $group->setHashOptions(serialize($opts))->save();
+                            $rowsRemoved += $removed;
+                            $changed = true;
+                        }
+                    }
+                }
+
+                $storeColl = Mage::getResourceModel('customoptions/group_store_collection')
+                    ->addFieldToFilter('group_id', $group->getId());
+                foreach ($storeColl as $gs) {
+                    $sh = $gs->getHashOptions();
+                    if (!$sh) continue;
+                    $sOpts = @unserialize($sh);
+                    if (!is_array($sOpts)) continue;
+                    list($sOpts, $sRemoved) = $this->_stripPastCourseDates($sOpts, $today);
+                    if ($sRemoved > 0) {
+                        $gs->setHashOptions(serialize($sOpts))->save();
+                        $changed = true;
+                    }
+                }
+
+                if ($changed) $templatesAffected++;
+            }
+
+            if ($rowsRemoved === 0) {
+                Mage::getSingleton('adminhtml/session')->addNotice(
+                    $this->__('No past Course Date entries found in any template.')
+                );
+            } else {
+                Mage::getSingleton('adminhtml/session')->addSuccess(
+                    $this->__(
+                        'Step 1 done: removed %d past Course Date entry/entries across %d template(s). Verify, then click "Apply to Products" to propagate.',
+                        $rowsRemoved, $templatesAffected
+                    )
+                );
+            }
+        } catch (Exception $e) {
+            Mage::logException($e);
+            Mage::getSingleton('adminhtml/session')->addError($e->getMessage());
+        }
+
+        $this->_redirect('*/*/index');
+    }
+
+    /**
+     * Helper for Step 1 — strip past-dated entries from the "Course Date"
+     * option inside an unserialized hash_options array. Returns
+     * [cleanedOpts, removedCount].
+     */
+    protected function _stripPastCourseDates(array $opts, $todayTs)
+    {
+        $removed = 0;
+        foreach ($opts as $optId => $opt) {
+            if (empty($opt['title']) || strcasecmp(trim($opt['title']), 'course date') !== 0) continue;
+            if (empty($opt['values']) || !is_array($opt['values'])) continue;
+            foreach ($opt['values'] as $valId => $val) {
+                $ts = $this->_parseRegCourseTs(isset($val['reg_course']) ? $val['reg_course'] : '');
+                if ($ts !== false && $ts < $todayTs) {
+                    unset($opts[$optId]['values'][$valId]);
+                    $removed++;
+                }
+            }
+        }
+        return array($opts, $removed);
+    }
+
+    /**
+     * STEP 2 — Apply cleaned templates to products.
+     *
+     * Deletes every Course Date row in the past from products'
+     * catalog_product_option_type_value (+ linked title/price/image rows),
+     * then reindexes prices for affected products and flushes storefront
+     * caches. Title scoped to "Course Date" so other dropdowns are safe.
+     */
+    public function applyTemplatesToProductsAction()
+    {
+        $resource = Mage::getSingleton('core/resource');
+        $write = $resource->getConnection('core_write');
+        $tValue  = $resource->getTableName('catalog_product_option_type_value');
+        $tTitle  = $resource->getTableName('catalog_product_option_type_title');
+        $tPrice  = $resource->getTableName('catalog_product_option_type_price');
+        $tImage  = $resource->getTableName('custom_options_option_type_image');
+        $tOpt    = $resource->getTableName('catalog_product_option');
+        $tOptTit = $resource->getTableName('catalog_product_option_title');
+
+        try {
+            $rows = $write->fetchAll(
+                "SELECT DISTINCT v.option_type_id, o.product_id
+                 FROM {$tValue} v
+                 JOIN {$tOpt} o       ON o.option_id = v.option_id
+                 JOIN {$tOptTit} ot   ON ot.option_id = v.option_id
+                 WHERE LOWER(TRIM(ot.title)) = 'course date'
+                   AND v.reg_course IS NOT NULL
+                   AND v.reg_course <> ''
+                   AND STR_TO_DATE(v.reg_course, '%m/%d/%y') IS NOT NULL
+                   AND STR_TO_DATE(v.reg_course, '%m/%d/%y') < CURDATE()"
+            );
+
+            if (empty($rows)) {
+                Mage::getSingleton('adminhtml/session')->addNotice(
+                    $this->__('No past Course Date rows found on any product.')
+                );
+                $this->_redirect('*/*/index');
+                return;
+            }
+
+            $ids = $productIds = array();
+            foreach ($rows as $r) {
+                $ids[] = $r['option_type_id'];
+                if (!empty($r['product_id'])) $productIds[$r['product_id']] = true;
+            }
+            $productIds = array_keys($productIds);
+
+            $write->beginTransaction();
+            $deleted = $write->delete($tValue, array('option_type_id IN (?)' => $ids));
+            $write->delete($tTitle, array('option_type_id IN (?)' => $ids));
+            $write->delete($tPrice, array('option_type_id IN (?)' => $ids));
+            if ($write->isTableExists($tImage)) {
+                $write->delete($tImage, array('option_type_id IN (?)' => $ids));
+            }
+            $write->commit();
+
+            try {
+                if (!empty($productIds)) {
+                    Mage::getResourceModel('catalog/product_indexer_price')
+                        ->reindexProductIds($productIds);
+                }
+                Mage::app()->getCacheInstance()->cleanType('block_html');
+                Mage::app()->getCacheInstance()->cleanType('full_page');
+                Mage::app()->getCacheInstance()->cleanType('collections');
+                $flat = Mage::getModel('index/process')->load('catalog_product_flat', 'indexer_code');
+                if ($flat && $flat->getId()) {
+                    $flat->changeStatus(Mage_Index_Model_Process::STATUS_REQUIRE_REINDEX);
+                }
+            } catch (Exception $cacheEx) {
+                Mage::logException($cacheEx);
+            }
+
+            Mage::getSingleton('adminhtml/session')->addSuccess(
+                $this->__(
+                    'Step 2 done: deleted %d past Course Date row(s) across %d product(s). Price index refreshed; storefront caches flushed.',
+                    $deleted, count($productIds)
+                )
+            );
+        } catch (Exception $e) {
+            if (isset($write) && $write) {
+                try { $write->rollBack(); } catch (Exception $rb) {}
+            }
+            Mage::logException($e);
+            Mage::getSingleton('adminhtml/session')->addError($e->getMessage());
+        }
+
+        $this->_redirect('*/*/index');
+    }
+
     public function massDeleteAction() {
         $ids = $this->getRequest()->getParam('groups');
         if (!is_array($ids)) {
