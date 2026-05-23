@@ -220,8 +220,63 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 </div>
 <!-- AddThis Button END -->
 */ ?>
+
+			<?php if ($productType != 'simple'): ?>
+				<div class="course-info-stack">
+					<?php echo $this->getLayout()->createBlock('core/template')
+						->setTemplate('catalog/product/view/rightData.phtml')
+						->setProduct($_product)
+						->toHtml(); ?>
+
+					<?php
+					$_supportHtml = trim($this->getLayout()->createBlock('cms/block')->setBlockId('post_course_support')->toHtml());
+					if ($_supportHtml !== ''):
+					?>
+						<section class="course-policy-card">
+							<header class="course-policy-card__header">
+								<span class="course-policy-card__icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+								</span>
+								<h3 class="course-policy-card__title">Post-Course Support</h3>
+							</header>
+							<div class="course-policy-card__body std"><?php echo $_supportHtml; ?></div>
+						</section>
+					<?php endif; ?>
+
+					<?php
+					$_cancelHtml = trim($this->getLayout()->createBlock('cms/block')->setBlockId('course_cancellation_policy')->toHtml());
+					if ($_cancelHtml !== ''):
+					?>
+						<section class="course-policy-card course-policy-card--policy">
+							<header class="course-policy-card__header">
+								<span class="course-policy-card__icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+								</span>
+								<h3 class="course-policy-card__title">Cancellation &amp; Reschedule Policy</h3>
+							</header>
+							<div class="course-policy-card__body std"><?php echo $_cancelHtml; ?></div>
+						</section>
+					<?php endif; ?>
+
+					<?php
+					$_extraBlockId = ($attributeSetId == 21) ? 'tour_info' : 'grant';
+					$_extraHtml    = trim($this->getLayout()->createBlock('cms/block')->setBlockId($_extraBlockId)->toHtml());
+					if ($_extraHtml !== ''):
+					?>
+						<section class="course-policy-card course-policy-card--extra">
+							<header class="course-policy-card__header">
+								<span class="course-policy-card__icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+								</span>
+								<h3 class="course-policy-card__title">Additional Information</h3>
+							</header>
+							<div class="course-policy-card__body std"><?php echo $_extraHtml; ?></div>
+						</section>
+					<?php endif; ?>
+				</div>
+			<?php endif; ?>
 		</div>
-		
+
 		<div class="product-primary-column product-shop <?php echo $grid['primCol']; ?>">
 
 			<div class="product-name">
@@ -403,27 +458,9 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 					
 
 				</div>
-     <?php if($productType!="simple") { ?>           
-        <div class="inner">
-        <?php echo $this->getLayout()->createBlock('core/template')->setTemplate('catalog/product/view/rightData.phtml')->setProduct($_product)->toHtml();?>
-        <?php /*?> <h3 class="section-title padding-right">Payment Methods</h3>
-        <?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('paymentmethods')->toHtml(); ?>
-        <h3 class="section-title padding-right">Cancellation Policy</h3>
-        <?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('cancellation_policy')->toHtml(); ?>
-        <h3 class="section-title padding-right">Replacement Policy</h3>
-        <?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('replacementpolicy')->toHtml(); ?>
-        <h3 class="section-title padding-right">Terms and Conditions</h3>
-        <?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('termsandconditions')->toHtml(); ?>
-        <?php */?>
-        
-        <?php
-		$cmsBlockRightInfo = 'grant';
-		if( $attributeSetId==21)
-		{
-			$cmsBlockRightInfo = 'tour_info';
-		}
-		echo $this->getLayout()->createBlock('cms/block')->setBlockId($cmsBlockRightInfo)->toHtml(); ?>
-        </div> <?php } ?>
+     <?php /* Course Information + Post-Course Support + Cancellation Policy
+              moved to the LEFT (image) column under .course-info-stack.
+              See above in this template. */ ?>
                 
                 <div class="inner">
 

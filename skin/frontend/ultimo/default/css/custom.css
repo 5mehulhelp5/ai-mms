@@ -436,3 +436,217 @@ li.level2 > a > span > .cat-label,
 .footer-bottom .item-left,
 .footer-bottom .item-right { float: none; }
 .footer-bottom .footer-copyright { text-align: center; margin: 0; }
+
+/* ==========================================================================
+   Course Information + policy cards (product page left column).
+   Rendered by view.phtml > .course-info-stack and
+   catalog/product/view/rightData.phtml.
+   ========================================================================== */
+.course-info-stack { margin-top: 24px; display: flex; flex-direction: column; gap: 18px; }
+
+.course-info-card,
+.course-policy-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+}
+
+.course-info-card__header,
+.course-policy-card__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.course-info-card__title,
+.course-policy-card__title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    text-transform: none;
+}
+
+.course-info-card__header::before {
+    content: "";
+    display: inline-block;
+    width: 18px; height: 18px;
+    background: #2563eb;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20'/><path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z'/></svg>") center / contain no-repeat;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20'/><path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z'/></svg>") center / contain no-repeat;
+    flex: 0 0 auto;
+}
+
+/* Course Information tiles grid */
+.course-info-grid {
+    list-style: none;
+    margin: 0;
+    padding: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.course-info-tile {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    background: #f8fafc;
+    border: 1px solid #eef2f7;
+    border-radius: 8px;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.course-info-tile:hover { background: #f1f5f9; border-color: #e2e8f0; }
+.course-info-tile--wide { grid-column: 1 / -1; }
+.course-info-tile__icon {
+    flex: 0 0 32px;
+    width: 32px; height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: #2563eb;
+    color: #fff;
+}
+.course-info-tile__icon svg { width: 18px; height: 18px; display: block; }
+.course-info-tile__body { display: flex; flex-direction: column; min-width: 0; }
+.course-info-tile__label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #64748b;
+    line-height: 1.2;
+}
+.course-info-tile__value {
+    margin-top: 2px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.course-info-venue {
+    border-top: 1px solid #eef2f7;
+    padding: 14px 18px 16px;
+    background: #fff;
+}
+.course-info-venue__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.course-info-venue__icon {
+    flex: 0 0 28px;
+    width: 28px; height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: #ecfeff;
+    color: #0e7490;
+}
+.course-info-venue__icon svg { width: 16px; height: 16px; display: block; }
+.course-info-venue__title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #0f172a;
+}
+.course-info-venue__body { font-size: 13.5px; line-height: 1.55; color: #334155; }
+.course-info-venue__body p { margin: 0 0 8px; }
+.course-info-venue__body p:last-child { margin-bottom: 0; }
+.course-info-venue__body strong { color: #0f172a; }
+
+/* Policy cards */
+.course-policy-card__header { background: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%); }
+.course-policy-card--policy .course-policy-card__header { background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%); }
+.course-policy-card--extra  .course-policy-card__header { background: linear-gradient(180deg, #fefce8 0%, #fef9c3 100%); }
+
+.course-policy-card__icon {
+    flex: 0 0 28px;
+    width: 28px; height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    background: #0284c7; color: #fff;
+}
+.course-policy-card--policy .course-policy-card__icon { background: #dc2626; }
+.course-policy-card--extra  .course-policy-card__icon { background: #ca8a04; }
+.course-policy-card__icon svg { width: 16px; height: 16px; display: block; }
+
+.course-policy-card__body { padding: 14px 18px 16px; color: #334155; font-size: 13.5px; line-height: 1.6; }
+.course-policy-card__body h3 {
+    margin: 14px 0 6px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.course-policy-card__body h3:first-child { margin-top: 0; }
+.course-policy-card__body p { margin: 0 0 10px; }
+.course-policy-card__body p:last-child { margin-bottom: 0; }
+.course-policy-card__body ul { margin: 0; padding: 0; list-style: none; }
+.course-policy-card__body ul li,
+.course-policy-card__body .course-policy-list li {
+    position: relative;
+    padding: 6px 0 6px 24px;
+    border-bottom: 1px dashed #e2e8f0;
+}
+.course-policy-card__body ul li:last-child,
+.course-policy-card__body .course-policy-list li:last-child { border-bottom: 0; }
+.course-policy-card__body ul li::before {
+    content: "";
+    position: absolute;
+    left: 4px; top: 13px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+.course-policy-card--policy .course-policy-card__body ul li::before { background: #f87171; box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.2); }
+.course-policy-card--extra  .course-policy-card__body ul li::before { background: #facc15; box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.22); }
+
+.course-policy-card__body .policy-refund {
+    display: inline-block;
+    padding: 1px 8px;
+    background: #fee2e2;
+    color: #b91c1c;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 12.5px;
+}
+.course-policy-card__body .policy-note {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #fff7ed;
+    border-left: 3px solid #f97316;
+    border-radius: 4px;
+    color: #7c2d12;
+    font-size: 13px;
+}
+.course-policy-card__body a { color: #2563eb; }
+.course-policy-card__body a:hover { color: #1d4ed8; text-decoration: underline; }
+
+@media (max-width: 600px) {
+    .course-info-grid { grid-template-columns: 1fr; padding: 12px; }
+    .course-info-card__header,
+    .course-policy-card__header { padding: 12px 14px; }
+    .course-info-card__title,
+    .course-policy-card__title { font-size: 15px; }
+    .course-info-venue,
+    .course-policy-card__body { padding: 12px 14px 14px; }
+}

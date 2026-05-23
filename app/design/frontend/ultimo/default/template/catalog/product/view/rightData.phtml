@@ -1,111 +1,71 @@
-<?php 
+<?php
+/**
+ * Course Information card — rendered in the product page LEFT column
+ * directly under the product image. Companion templates / blocks:
+ *   - cms_block: post_course_support
+ *   - cms_block: course_cancellation_policy
+ *   - cms_block: grant            (residual "Additional Information")
+ * Styled via .course-info-card in skin/.../css/custom.css.
+ */
+$_product       = $this->getProduct();
 $currentStoreId = Mage::app()->getStore()->getId();
+$attSetId       = (int) $_product->getAttributeSetId();
+$isTour         = ($attSetId === 21);
+$sectionTitle   = $isTour ? 'Tour Information' : 'Course Information';
 
-$_product = $this->getProduct(); 
+$_rows = array();
+if ($_product->getSessions()) {
+    $_rows[] = array('label' => 'Sessions',       'value' => $_product->getSessions() . ' day' . ((int) $_product->getSessions() === 1 ? '' : 's'), 'icon' => 'calendar');
+}
+if ($_product->getDuration()) {
+    $_rows[] = array('label' => 'Duration',       'value' => $_product->getDuration() . ' hrs', 'icon' => 'clock');
+}
+if ($_product->getAttributeText('level')) {
+    $_rows[] = array('label' => 'Level',          'value' => $_product->getAttributeText('level'), 'icon' => 'bar');
+}
+if ($_product->getAdditional_note()) {
+    $_rows[] = array('label' => 'Additional Note','value' => $_product->getAdditional_note(), 'icon' => 'note', 'wide' => true);
+}
 
-$titleRightSide = "Course Information";
-$attSetId = $_product->getAttributeSetId();
-if($attSetId==21) { $titleRightSide = "Tour Information"; }
+$_icons = array(
+    'calendar' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    'clock'    => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    'bar'      => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+    'note'     => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>',
+    'pin'      => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+);
 ?>
-<div class="block block-related">
-<h3 class="section-title padding-right"><?php echo $titleRightSide ; ?></h3>
-<ul id="bs-pav">
-<?php /*  $trainers2= $_product->getAttributeText('trainers'); if($trainers2) { ?>
-     <li><strong>Trainers:</strong> 
-	 <?php 
-if(is_array($trainers2))
-					{
-						$trainers_d2 = implode(", ",$trainers2);
-					}
-					else
-					{
-						$trainers_d2 = $trainers2;
-					} echo $trainers_d2; 
-	 ?></li>
+<section class="course-info-card" aria-labelledby="course-info-heading">
+    <header class="course-info-card__header">
+        <h3 id="course-info-heading" class="course-info-card__title"><?php echo $this->escapeHtml($sectionTitle); ?></h3>
+    </header>
 
-     
+    <?php if (!empty($_rows)): ?>
+    <ul class="course-info-grid">
+        <?php foreach ($_rows as $_row): ?>
+            <li class="course-info-tile<?php echo !empty($_row['wide']) ? ' course-info-tile--wide' : ''; ?>">
+                <span class="course-info-tile__icon" aria-hidden="true"><?php echo $_icons[$_row['icon']]; ?></span>
+                <span class="course-info-tile__body">
+                    <span class="course-info-tile__label"><?php echo $this->escapeHtml($_row['label']); ?></span>
+                    <span class="course-info-tile__value"><?php echo $this->escapeHtml($_row['value']); ?></span>
+                </span>
+            </li>
+        <?php endforeach; ?>
+    </ul>
+    <?php endif; ?>
 
-    <?php } */ /* if($_product->getAttributeText('provider')) {
-		
-		 $providerId =  $_product->getProvider();
-		if($providerId) {
-		$productsD = Mage::getModel('catalog/product')->getCollection()->
-		addFieldToFilter(array(
-			array('attribute'=>'provider','eq'=>$providerId),
-			//array('attribute'=>'attribute_set_name','eq'=>'Providers'),
-			
-		));
-		$productsD->addAttributeToFilter('attribute_set_id','18');
-		
-		foreach($productsD as $courseProviderProduct) { $pid=$courseProviderProduct->getId();  $providerModel = Mage::getModel('catalog/product')->load($pid); 
-		
-		?>
-
-     <li><strong>Provider:</strong> <a href="<?php echo $providerModel->getUrlPath();?>"><?php  echo $_product->getAttributeText('provider') ?></a></li>
-
-     <?php } }
-		} */?>
-
-     
-
-     <?php if($_product->getSessions()) { ?>
-
-     <li><strong>Session (days):</strong> <?php  echo $_product->getSessions(); ?></li>
-
-     <?php } ?>
-
-     
-
-
-     <?php if($_product->getDuration()) { ?>
-
-     <li><strong>Duration (hrs):</strong> <?php  echo $_product->getDuration(); ?></li>
-
-     <?php } ?>
-
-      <?php if(isset($release_date_val)) { ?>
-
-     <li><strong>Release Date:</strong> <?php  echo date("d/m/Y",strtotime ($release_date_val)); ?></li>
-
-     <?php } ?>
-
-     
-     <?php if($_product->getAttributeText('level')) { ?>
-
-     <li><strong>Level:</strong> <?php  echo $_product->getAttributeText('level'); ?></li>
-
-     <?php } ?>
-
-     <?php if($_product->getAdditional_note()) { ?>
-
-     <li><strong>Additional Note:</strong> <?php  echo $_product->getAdditional_note(); ?></li>
-
-     <?php } ?>
-      <?php if($attSetId!=21) { if($currentStoreId==2) { /*$_product->getVenue() && */ ?>
-    
-     <li><strong>Venue:</strong> <br/>
-        <?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('my_venue_address')->toHtml(); ?>
-    </li>
-     
-
-     
-
-     <?php } else { ?> 
-    <li><strong>Venue:</strong> <br/>
-        <?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('sg_venue_address')->toHtml(); ?>
-    </li>
-    <?php } } ?>
-    </ul> 
-      <?php /* if($_product->getGooglemap()) { ?>
-
-      <a class="map" href="#"><?php echo $_product->getGooglemap(); ?></a>
-
-      <?php } */ ?> 
-      
-      <?php /*?><div class="googlemapdiv" style="background:#fff;">
-	 <a onclick="popWin('<?php echo $this->getUrl(); ?>formpro/index/index/id/1','windowName','width=650,height=700,resizable=yes,scrollbars=yes')" href="javascript:void(0)"><img src="<?php echo $this->getSkinUrl('images/book-now.jpg');?>" alt='Enquiry for Quote for Company/Group'/></a> 
-
-
-	</div><?php */?>
-     
-</div>
+    <?php if (!$isTour): ?>
+    <div class="course-info-venue">
+        <div class="course-info-venue__head">
+            <span class="course-info-venue__icon" aria-hidden="true"><?php echo $_icons['pin']; ?></span>
+            <h4 class="course-info-venue__title">Venue</h4>
+        </div>
+        <div class="course-info-venue__body">
+            <?php
+            $venueBlockId = ($currentStoreId == 2) ? 'my_venue_address' : 'sg_venue_address';
+            echo $this->getLayout()->createBlock('cms/block')->setBlockId($venueBlockId)->toHtml();
+            ?>
+        </div>
+    </div>
+    <?php endif; ?>
+</section>
