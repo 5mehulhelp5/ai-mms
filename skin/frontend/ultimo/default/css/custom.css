@@ -432,3 +432,7 @@ li.level2 > a > span > .cat-label,
 @media (max-width: 770px) {
     .mmd-whatsapp-float { display: none !important; }
 }
+
+.footer-bottom .item-left,
+.footer-bottom .item-right { float: none; }
+.footer-bottom .footer-copyright { text-align: center; margin: 0; }
