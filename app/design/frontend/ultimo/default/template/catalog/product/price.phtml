@@ -224,14 +224,14 @@ $_specialPriceStoreLabel = $this->getProductAttribute('special_price')->getStore
 <span class='gst_price'>
 <input id='mainGPrice' name="mainGPrice" type='hidden' value="<?php echo ($_coreHelper->currency($_price, false, false)) ?>"/>
 <input id='gtPH' name="gtPH" type='hidden' value="<?php echo ($_coreHelper->currency($_price + ($_price* 0.09), false, false)) ?>"/>
-<div class="gst_tax" id="gst_wrapper">
+<div class="gst_tax" id="gst_wrapper" style="display:block;">
 <span class="price" id='gtP'>
 
 <?php echo ($_coreHelper->formatPrice($_finalPrice + ($_finalPrice* 0.09), false, false)) ?>
 </span>
 <?php /*echo  $_coreHelper->formatPrice($_finalPrice + ($_finalPrice* 0.09), true); */?>
 
-(GST-inclusive)</div><style>.gst_tax .price { color:grey !important;font-size: 1em !important;}</style>
+(GST-inclusive)</div><style>.gst_tax { display:block !important; } .gst_tax .price { color:grey !important;font-size: 1em !important;}</style>
 				<?php } endif; ?>
         <?php endif; ?>
     <?php else: /* if ($_finalPrice == $_price): */ ?>
@@ -411,8 +411,8 @@ $_specialPriceStoreLabel = $this->getProductAttribute('special_price')->getStore
                 <span class="price" id="product-price-<?php echo $_id ?><?php echo $this->getIdSuffix() ?>" style="font-size: 1em !important;">
                     <?php echo $_coreHelper->formatPrice($_finalPrice, false) ?>
                 </span><?php if($_storeId==1 || $_storeId==7)  { ?><span style='font-weight:bold' class='gst_price'>(GST-exclusive)</span> 
-<span class='gst_price' > <div class="gst_tax">
-<?php echo  $_coreHelper->formatPrice($_finalPrice + ($_finalPrice* 0.09), true); ?></span>(GST-inclusive)</div><style>.gst_tax .price { color:grey !important;font-size: 1em !important;}</style>
+<span class='gst_price' > <div class="gst_tax" style="display:block;">
+<?php echo  $_coreHelper->formatPrice($_finalPrice + ($_finalPrice* 0.09), true); ?></span>(GST-inclusive)</div><style>.gst_tax { display:block !important; } .gst_tax .price { color:grey !important;font-size: 1em !important;}</style>
 				<?php } ?>
                 </p>
             <?php endif; ?>
