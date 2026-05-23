@@ -638,6 +638,138 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--certification .course-policy-card__body ul li p + p { margin-top: 6px; }
 .course-policy-card--certification .course-policy-card__body strong { color: #0f172a; }
 
+/* ===== WSQ Funding card (SG only — rendered when description had the
+   border-radius wrapper). Header is emerald to signal "money/funding". ==== */
+.course-policy-card--wsq .course-policy-card__header { background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%); }
+.course-policy-card--wsq .course-policy-card__icon   { background: #059669; }
+.course-policy-card--wsq .course-policy-card__body   { padding: 16px 18px 18px; }
+
+.wsq-funding-lede {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.55;
+}
+.wsq-funding-note {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    background: #f0fdf4;
+    border-left: 3px solid #10b981;
+    border-radius: 4px;
+    font-size: 12.5px;
+    color: #14532d;
+    line-height: 1.5;
+}
+
+.wsq-fee-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.wsq-fee-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px;
+    background: #f8fafc;
+    border: 1px solid #eef2f7;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.wsq-fee-tile::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: #cbd5e1;
+}
+.wsq-fee-tile--full     { background: #f8fafc; }
+.wsq-fee-tile--full::before     { background: #64748b; }
+.wsq-fee-tile--gst      { background: #fef3c7; border-color: #fde68a; }
+.wsq-fee-tile--gst::before      { background: #d97706; }
+.wsq-fee-tile--baseline { background: #ecfdf5; border-color: #a7f3d0; }
+.wsq-fee-tile--baseline::before { background: #059669; }
+.wsq-fee-tile--mces     { background: #eef2ff; border-color: #c7d2fe; }
+.wsq-fee-tile--mces::before     { background: #4f46e5; }
+
+.wsq-fee-tile__label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #475569;
+    padding-left: 6px;
+}
+.wsq-fee-tile__value {
+    font-size: 22px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    padding-left: 6px;
+}
+.wsq-fee-tile--baseline .wsq-fee-tile__value { color: #047857; }
+.wsq-fee-tile--mces     .wsq-fee-tile__value { color: #3730a3; }
+.wsq-fee-tile--gst      .wsq-fee-tile__value { color: #92400e; }
+.wsq-fee-tile__hint {
+    font-size: 11.5px;
+    color: #64748b;
+    padding-left: 6px;
+    line-height: 1.3;
+}
+
+.wsq-funding-narrative {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 13px;
+    color: #334155;
+    line-height: 1.55;
+}
+.wsq-funding-narrative h2,
+.wsq-funding-narrative h3 {
+    margin: 12px 0 6px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    text-transform: none;
+    letter-spacing: 0;
+    line-height: 1.3;
+}
+.wsq-funding-narrative h2:first-child,
+.wsq-funding-narrative h3:first-child { margin-top: 0; }
+.wsq-funding-narrative p { margin: 0 0 8px; }
+.wsq-funding-narrative p:last-child { margin-bottom: 0; }
+.wsq-funding-narrative a { color: #2563eb; }
+.wsq-funding-narrative a:hover { color: #1d4ed8; text-decoration: underline; }
+.wsq-funding-narrative ul { margin: 4px 0 8px 18px; padding: 0; list-style: disc; }
+.wsq-funding-narrative ul li { margin: 2px 0; }
+
+/* ===== Course Code (relocated under the product title) ===== */
+.course-code-inline {
+    margin: 6px 0 12px;
+    font-size: 14px;
+    line-height: 1.4;
+    color: #475569;
+    font-family: inherit;
+    font-weight: 400;
+}
+.course-code-inline__label {
+    font-weight: 600;
+    color: #0f172a;
+}
+.course-code-inline__value {
+    font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+    font-weight: 600;
+    color: #0f172a;
+    padding: 2px 8px;
+    margin-left: 4px;
+    background: #f1f5f9;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
 .course-policy-card__body .policy-refund {
     display: inline-block;
     padding: 1px 8px;
@@ -668,9 +800,11 @@ li.level2 > a > span > .cat-label,
     .course-info-venue,
     .course-policy-card__body { padding: 12px 14px 14px; }
     /* On phones, suppress the long policy boilerplate — keep only the
-       Course Information, Certification, and Additional Information cards
-       visible. Users can still reach Support / Cancellation copy on the
-       footer or from the customer-service pages. */
+       Course Information, WSQ Funding, Certification, and Additional
+       Information cards visible. Users can still reach Support /
+       Cancellation copy on the footer or from the customer-service pages. */
     .course-policy-card--support,
     .course-policy-card--policy { display: none; }
+    .wsq-fee-grid { grid-template-columns: 1fr; }
+    .wsq-fee-tile__value { font-size: 20px; }
 }

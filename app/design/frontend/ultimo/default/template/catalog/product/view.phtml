@@ -75,15 +75,43 @@
 	//
 	$shortDescription = $_helper->productAttribute($_product, $_product->getShortDescription(), 'short_description');
 
-	// Pull the per-course "Certification" section out of the short description
-	// so it can be rendered as its own card in the left column (above
-	// Post-Course Support). The section content varies per course (External
-	// cert text differs by AWS/CompTIA/Microsoft/etc.) so a generic CMS block
-	// can't replace it — we extract the existing markup verbatim.
+	// ---------------------------------------------------------------------
+	// Carve dynamic sections out of $shortDescription so they can render as
+	// their own styled cards in the left column. Order matters: extract WSQ
+	// first (it wraps SFC/UTAP/PSEA in a rounded <div>), then Certification.
+	// ---------------------------------------------------------------------
+	$_WS = '(?:\s|&nbsp;|\x{00A0}|\x{2007}|\x{202F})';
+
+	// (1) WSQ Funding wrapper — <div style="...border-radius:25px">...</div>
+	// containing the funding heading, hardcoded amount table, and the
+	// SFC/UTAP/PSEA narrative. We keep the narrative (it varies per course)
+	// but drop the funding heading and the hardcoded amount table — they're
+	// re-rendered from the live product price via the WSQ card below.
+	$_wsqNarrativeHtml = '';
+	$_hasWsqFunding    = false;
+	if ($shortDescription) {
+		$_wsqPattern = '#<div\b[^>]*border-radius\s*:[^>]*>(.*?)</div>#siu';
+		if (preg_match($_wsqPattern, $shortDescription, $_wsqMatch)) {
+			$_hasWsqFunding = true;
+			$_inner = $_wsqMatch[1];
+			$_inner = preg_replace('#<h[1-6][^>]*>' . $_WS . '*WSQ' . $_WS . '+Funding' . $_WS . '*</h[1-6]>#siu', '', $_inner);
+			$_inner = preg_replace('#<table\b.*?</table>#siu', '', $_inner);
+			$_inner = preg_replace('#<p[^>]*>' . $_WS . '*WSQ' . $_WS . '+funding' . $_WS . '+is' . $_WS . '+only.*?</p>#siu', '', $_inner);
+			$_inner = preg_replace('#<p[^>]*>' . $_WS . '*</p>#siu', '', $_inner);
+			$_wsqNarrativeHtml = trim($_inner);
+			$shortDescription  = preg_replace($_wsqPattern, '', $shortDescription, 1);
+		}
+	}
+
+	// (2) Certification section — varies per course (External cert blurb
+	// differs by AWS/CompTIA/Microsoft etc.). Stop *before* any wrapper
+	// open tag that immediately precedes the next heading, so trailing
+	// <div>/<section> openers don't leak into the card body or leave
+	// orphan </div>s in the description (would otherwise close
+	// .product-primary-column early and push the price block down).
 	$_certificationHtml = '';
 	if ($shortDescription) {
-		$_WS = '(?:\s|&nbsp;|\x{00A0}|\x{2007}|\x{202F})';
-		$_certPattern = '#<h[1-6][^>]*>' . $_WS . '*(?:<br\s*/?>' . $_WS . '*)*Certification' . $_WS . '*:?' . $_WS . '*</h[1-6]>(.*?)(?=<h[1-6]|\z)#siu';
+		$_certPattern = '#<h[1-6][^>]*>' . $_WS . '*(?:<br\s*/?>' . $_WS . '*)*Certification' . $_WS . '*:?' . $_WS . '*</h[1-6]>(.*?)(?=(?:<[a-z][a-z0-9]*\b[^>]*>' . $_WS . '*)*<h[1-6]|\z)#siu';
 		if (preg_match($_certPattern, $shortDescription, $_certMatch)) {
 			$_certificationHtml = trim($_certMatch[1]);
 			$shortDescription   = preg_replace($_certPattern, '', $shortDescription);
@@ -243,6 +271,56 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 						->setProduct($_product)
 						->toHtml(); ?>
 
+					<?php
+					// WSQ Funding card — only render when the description contained
+					// the wrapping <div style="border-radius:25px"> (i.e. SG WSQ
+					// course). Values auto-computed from the live product price.
+					if ($_hasWsqFunding):
+						$_wsqPrice    = (float) $_product->getPrice();
+						$_wsqGst      = $_wsqPrice * 0.09;
+						$_wsqBaseline = $_wsqPrice * 0.50 + $_wsqGst;
+						$_wsqMces     = $_wsqPrice * 0.30 + $_wsqGst;
+						$_fmt = function ($v) { return '$' . number_format($v, 2); };
+					?>
+						<section class="course-policy-card course-policy-card--wsq">
+							<header class="course-policy-card__header">
+								<span class="course-policy-card__icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+								</span>
+								<h3 class="course-policy-card__title">WSQ Funding</h3>
+							</header>
+							<div class="course-policy-card__body">
+								<p class="wsq-funding-lede">WSQ funding is only applicable to Singaporeans and PRs. Subject to eligibility, the funding support is capped per funding tier.</p>
+								<div class="wsq-fee-grid" role="table" aria-label="WSQ funding fee breakdown">
+									<div class="wsq-fee-tile wsq-fee-tile--full" role="row">
+										<span class="wsq-fee-tile__label">Full Fee</span>
+										<span class="wsq-fee-tile__value"><?php echo $_fmt($_wsqPrice); ?></span>
+										<span class="wsq-fee-tile__hint">Before GST</span>
+									</div>
+									<div class="wsq-fee-tile wsq-fee-tile--gst" role="row">
+										<span class="wsq-fee-tile__label">GST</span>
+										<span class="wsq-fee-tile__value"><?php echo $_fmt($_wsqGst); ?></span>
+										<span class="wsq-fee-tile__hint">9% of fee</span>
+									</div>
+									<div class="wsq-fee-tile wsq-fee-tile--baseline" role="row">
+										<span class="wsq-fee-tile__label">Baseline Nett</span>
+										<span class="wsq-fee-tile__value"><?php echo $_fmt($_wsqBaseline); ?></span>
+										<span class="wsq-fee-tile__hint">SG/PR age 21+ · 50% funded</span>
+									</div>
+									<div class="wsq-fee-tile wsq-fee-tile--mces" role="row">
+										<span class="wsq-fee-tile__label">MCES / SME Nett</span>
+										<span class="wsq-fee-tile__value"><?php echo $_fmt($_wsqMces); ?></span>
+										<span class="wsq-fee-tile__hint">SG age 40+ · 70% funded</span>
+									</div>
+								</div>
+								<p class="wsq-funding-note">Effective for courses starting from 1&nbsp;Jan&nbsp;2024. Upon registration, we will advise on how to tap the WSQ Training Subsidy.</p>
+								<?php if ($_wsqNarrativeHtml !== ''): ?>
+									<div class="wsq-funding-narrative std"><?php echo $_wsqNarrativeHtml; ?></div>
+								<?php endif; ?>
+							</div>
+						</section>
+					<?php endif; ?>
+
 					<?php if ($_certificationHtml !== ''): ?>
 						<section class="course-policy-card course-policy-card--certification">
 							<header class="course-policy-card__header">
@@ -310,6 +388,14 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 				<h1 itemprop="name"><?php echo $_helper->productAttribute($_product, $_product->getName(), 'name') ?></h1>
 			</div>
 
+			<?php if ($sku = $_product->getSku()): ?>
+				<div class="course-code-inline">
+					<span class="course-code-inline__label"><?php echo $this->__('Course Code'); ?>:</span>
+					<span class="course-code-inline__value"><?php echo $this->escapeHtml($sku); ?></span>
+				</div>
+				<?php if ($useRichSnippets): ?><meta itemprop="productID" content="sku:<?php echo $sku; ?>" /><?php endif; ?>
+			<?php endif; ?>
+
 			<?php $_mmdBadges = Mage::helper('mmd_courseimage')->getProductBadges($_product); ?>
 			<?php if (!empty($_mmdBadges)): ?>
 				<ul class="course-badges course-badges--view" aria-label="<?php echo $this->__('Funding eligibility'); ?>">
@@ -329,15 +415,7 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 
 			<?php if (isset($p['primCol_1'])) echo $p['primCol_1']; ?>
 
-			<?php if ($sku = $_product->getSku()): ?>
-				<?php //if ($theme->getCfg('product_page/sku')): ?>
-					<div class="sku">
-						<span class="label"><?php echo $this->__('Course Code'); ?>: </span>
-						<span class="value"><?php echo $sku; ?></span>
-					</div>
-				<?php //endif; ?>
-				<?php if ($useRichSnippets): ?><meta itemprop="productID" content="sku:<?php echo $sku; ?>" /><?php endif; ?>
-			<?php endif; ?>
+			<?php /* Course Code moved to just below the product title above (.course-code-inline). */ ?>
 
 			<?php echo $this->getChildHtml('alert_urls'); //alerts ?>
 			
