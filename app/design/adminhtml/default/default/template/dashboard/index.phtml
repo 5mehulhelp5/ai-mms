@@ -2253,8 +2253,36 @@ endif; // end if ($_courseManagerActive) — closes the $_devCollection block
 <div id="dash-panel-developer" style="display:none;">
 <div class="dev-wrap">
     <h1 class="dev-title">Manage Courses</h1>
-    <?php /* Inline pills retired — branch selection lives in the global
-              MMD_Branchscope strip at the top of <content>. */ ?>
+    <?php
+    // Inline store-scope pills. Developer role is suppressed from the
+    // global MMD_Branchscope strip (course catalog is shared across all
+    // websites), but on this page the operator needs to be able to
+    // narrow the list to a specific country's catalog. Mirrors the
+    // pill vocabulary from MMD_Branchscope_Helper_Data::getStorePillOptions
+    // and writes the canonical ?store= param the page already reads at
+    // line ~2016.
+    $_devBranchUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array(
+        '_query' => array('panel' => 'courses'),
+    ));
+    $_devBranchCarry = array();
+    if ($_devFilterType !== '')       $_devBranchCarry['dev_type']       = $_devFilterType;
+    if ($_devFilterQuery !== '')      $_devBranchCarry['dev_q']          = $_devFilterQuery;
+    if ($_devFilterCourseware !== '') $_devBranchCarry['dev_courseware'] = $_devFilterCourseware;
+    try {
+        $_devBranchOptions = Mage::helper('branchscope')->getStorePillOptions();
+    } catch (Exception $_e) { $_devBranchOptions = array(); }
+    if (!empty($_devBranchOptions)): ?>
+    <div class="dev-country-tabs" style="margin:14px 0 18px;">
+        <?php foreach ($_devBranchOptions as $_devBopt):
+            $_devBqs = $_devBranchCarry;
+            if ((int) $_devBopt['id'] > 0) $_devBqs['store'] = (int) $_devBopt['id'];
+            $_devBhref = $_devBranchUrl . (empty($_devBqs) ? '' : (strpos($_devBranchUrl, '?') === false ? '?' : '&') . http_build_query($_devBqs));
+            $_devBactive = ((int) $_devBopt['id'] === (int) $_devActiveStoreId) ? ' active' : '';
+        ?>
+            <a href="<?php echo htmlspecialchars($_devBhref) ?>" class="dev-country-btn<?php echo $_devBactive ?>" data-store-id="<?php echo (int) $_devBopt['id'] ?>"><?php echo htmlspecialchars($_devBopt['name']) ?></a>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
     <h2 style="font-size:22px;font-weight:700;color:#f1f5f9;margin:18px 0 14px;display:flex;align-items:baseline;gap:10px;">
         Total Courses
         <span style="color:#22d3ee;font-weight:800;"><?php echo number_format($_devTotalAll) ?></span>
