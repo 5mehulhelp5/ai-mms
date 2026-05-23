@@ -103,20 +103,60 @@
 		}
 	}
 
-	// (2) Certification section — varies per course (External cert blurb
-	// differs by AWS/CompTIA/Microsoft etc.). Stop *before* any wrapper
-	// open tag that immediately precedes the next heading, so trailing
-	// <div>/<section> openers don't leak into the card body or leave
-	// orphan </div>s in the description (would otherwise close
-	// .product-primary-column early and push the price block down).
-	$_certificationHtml = '';
-	if ($shortDescription) {
-		$_certPattern = '#<h[1-6][^>]*>' . $_WS . '*(?:<br\s*/?>' . $_WS . '*)*Certification' . $_WS . '*:?' . $_WS . '*</h[1-6]>(.*?)(?=(?:<[a-z][a-z0-9]*\b[^>]*>' . $_WS . '*)*<h[1-6]|\z)#siu';
-		if (preg_match($_certPattern, $shortDescription, $_certMatch)) {
-			$_certificationHtml = trim($_certMatch[1]);
-			$shortDescription   = preg_replace($_certPattern, '', $shortDescription);
+	// Helper: build a "<h[1-6]> Section </h[1-6]>(.*?)" extractor whose
+	// lookahead stops before any wrapper opening tag that immediately
+	// precedes the next heading. Returns [bodyHtml, descriptionWithSectionRemoved].
+	$_extractSection = function ($title, $desc) use ($_WS) {
+		$pattern = '#<h[1-6][^>]*>' . $_WS . '*(?:<br\s*/?>' . $_WS . '*)*' . $title . $_WS . '*:?' . $_WS . '*</h[1-6]>(.*?)(?=(?:<[a-z][a-z0-9]*\b[^>]*>' . $_WS . '*)*<h[1-6]|\z)#siu';
+		if (preg_match($pattern, $desc, $m)) {
+			return [trim($m[1]), preg_replace($pattern, '', $desc)];
+		}
+		return ['', $desc];
+	};
+
+	// (2) Learning Outcomes — per-course list of LO1..LON
+	list($_learningOutcomesHtml, $shortDescription) = $_extractSection('Learning' . $_WS . '+Outcomes', $shortDescription);
+
+	// (3) Course Brochure — usually a single <p><a href="...">Download …</a></p>
+	list($_courseBrochureHtml, $shortDescription) = $_extractSection('Course' . $_WS . '+Brochure', $shortDescription);
+	// Pull the first <a href> out of the brochure block so the CTA button
+	// can link to it directly with a clean label.
+	$_courseBrochureUrl   = '';
+	$_courseBrochureLabel = 'Download Course Brochure';
+	if ($_courseBrochureHtml !== '' && preg_match('#<a\s[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>#siu', $_courseBrochureHtml, $_bm)) {
+		$_courseBrochureUrl   = $_bm[1];
+		$_clean               = trim(strip_tags($_bm[2]));
+		if ($_clean !== '') { $_courseBrochureLabel = $_clean; }
+	}
+
+	// (4) Skills Framework — typically:
+	//   <h2>Skills Framework</h2>
+	//   <p>This course follows the guideline of <strong>{Title} {Code} TSC</strong> under {Framework} Skills Framework</p>
+	// Distill to two fields: TSC Title + TSC Code.
+	list($_skillsFrameworkRawHtml, $shortDescription) = $_extractSection('Skills' . $_WS . '+Framework', $shortDescription);
+	$_skillsTitle = '';
+	$_skillsCode  = '';
+	if ($_skillsFrameworkRawHtml !== '') {
+		// Look inside <strong>…</strong> first; that's where ops put the
+		// "{Title} {Code} TSC" string. Fallback to the whole body text.
+		$_haystack = $_skillsFrameworkRawHtml;
+		if (preg_match('#<strong[^>]*>(.*?)</strong>#siu', $_skillsFrameworkRawHtml, $_sm)) {
+			$_haystack = $_sm[1];
+		}
+		$_haystack = html_entity_decode(strip_tags($_haystack), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+		// Code pattern: 2+ uppercase letters, hyphen, repeating groups, ending
+		// in version like 1.1 — optionally followed by " T" or " TSC".
+		if (preg_match('#([A-Z]{2,}(?:-[A-Z0-9]+){2,}-\d+(?:\.\d+)+)\s*(T(?:SC)?)?#u', $_haystack, $_cm)) {
+			$_skillsCode  = trim($_cm[1] . (isset($_cm[2]) && $_cm[2] !== '' ? ' ' . $_cm[2] : ''));
+			$_skillsTitle = trim(preg_replace('#\s*' . preg_quote($_cm[0], '#') . '\s*$#u', '', $_haystack));
+		} else {
+			$_skillsTitle = trim($_haystack);
 		}
 	}
+
+	// (5) Certification section — varies per course (External cert blurb
+	// differs by AWS/CompTIA/Microsoft etc.). Same lookahead rules.
+	list($_certificationHtml, $shortDescription) = $_extractSection('Certification', $shortDescription);
 
 	//Rich snippets
 	$useRichSnippets = ($helperSnippets->isEnabledOnProductPage() && $productTypeId !== 'grouped');
@@ -273,6 +313,69 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 
 					<?php /* WSQ Funding card renders in the primary (middle) column,
 					          right under the course description. See below. */ ?>
+
+					<?php if ($_skillsTitle !== '' || $_skillsCode !== ''): ?>
+						<section class="course-policy-card course-policy-card--skills">
+							<header class="course-policy-card__header">
+								<span class="course-policy-card__icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+								</span>
+								<h3 class="course-policy-card__title">Skills Framework</h3>
+							</header>
+							<div class="course-policy-card__body">
+								<dl class="skills-framework-list">
+									<?php if ($_skillsTitle !== ''): ?>
+										<div class="skills-framework-row">
+											<dt class="skills-framework-row__label">TSC Title</dt>
+											<dd class="skills-framework-row__value"><?php echo $this->escapeHtml($_skillsTitle); ?></dd>
+										</div>
+									<?php endif; ?>
+									<?php if ($_skillsCode !== ''): ?>
+										<div class="skills-framework-row">
+											<dt class="skills-framework-row__label">TSC Code</dt>
+											<dd class="skills-framework-row__value skills-framework-row__value--code"><?php echo $this->escapeHtml($_skillsCode); ?></dd>
+										</div>
+									<?php endif; ?>
+								</dl>
+							</div>
+						</section>
+					<?php endif; ?>
+
+					<?php if ($_learningOutcomesHtml !== ''): ?>
+						<section class="course-policy-card course-policy-card--learning">
+							<header class="course-policy-card__header">
+								<span class="course-policy-card__icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+								</span>
+								<h3 class="course-policy-card__title">Learning Outcomes</h3>
+							</header>
+							<div class="course-policy-card__body std"><?php echo $_learningOutcomesHtml; ?></div>
+						</section>
+					<?php endif; ?>
+
+					<?php if ($_courseBrochureUrl !== '' || $_courseBrochureHtml !== ''): ?>
+						<section class="course-policy-card course-policy-card--brochure">
+							<header class="course-policy-card__header">
+								<span class="course-policy-card__icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
+								</span>
+								<h3 class="course-policy-card__title">Course Brochure</h3>
+							</header>
+							<div class="course-policy-card__body">
+								<?php if ($_courseBrochureUrl !== ''): ?>
+									<a class="brochure-cta" href="<?php echo $this->escapeHtml($_courseBrochureUrl); ?>" target="_blank" rel="noopener">
+										<span class="brochure-cta__icon" aria-hidden="true">
+											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+										</span>
+										<span class="brochure-cta__label"><?php echo $this->escapeHtml($_courseBrochureLabel); ?></span>
+										<span class="brochure-cta__hint">PDF · opens in new tab</span>
+									</a>
+								<?php else: ?>
+									<div class="std"><?php echo $_courseBrochureHtml; ?></div>
+								<?php endif; ?>
+							</div>
+						</section>
+					<?php endif; ?>
 
 					<?php if ($_certificationHtml !== ''): ?>
 						<section class="course-policy-card course-policy-card--certification">

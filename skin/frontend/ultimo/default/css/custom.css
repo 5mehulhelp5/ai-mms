@@ -583,6 +583,9 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--certification .course-policy-card__header { background: linear-gradient(180deg, #eef2ff 0%, #e0e7ff 100%); }
 .course-policy-card--policy        .course-policy-card__header { background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%); }
 .course-policy-card--extra         .course-policy-card__header { background: linear-gradient(180deg, #fefce8 0%, #fef9c3 100%); }
+.course-policy-card--skills        .course-policy-card__header { background: linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%); }
+.course-policy-card--learning      .course-policy-card__header { background: linear-gradient(180deg, #f0fdfa 0%, #ccfbf1 100%); }
+.course-policy-card--brochure      .course-policy-card__header { background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%); }
 
 .course-policy-card__icon {
     flex: 0 0 28px;
@@ -596,6 +599,9 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--certification .course-policy-card__icon { background: #4f46e5; }
 .course-policy-card--policy        .course-policy-card__icon { background: #dc2626; }
 .course-policy-card--extra         .course-policy-card__icon { background: #ca8a04; }
+.course-policy-card--skills        .course-policy-card__icon { background: #7c3aed; }
+.course-policy-card--learning      .course-policy-card__icon { background: #0d9488; }
+.course-policy-card--brochure      .course-policy-card__icon { background: #ea580c; }
 .course-policy-card__icon svg { width: 16px; height: 16px; display: block; }
 
 .course-policy-card__body { padding: 14px 18px 16px; color: #334155; font-size: 13.5px; line-height: 1.6; }
@@ -631,6 +637,10 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--certification .course-policy-card__body ul li::before { background: #818cf8; box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.22); }
 .course-policy-card--policy        .course-policy-card__body ul li::before { background: #f87171; box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.2); }
 .course-policy-card--extra         .course-policy-card__body ul li::before { background: #facc15; box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.22); }
+.course-policy-card--learning      .course-policy-card__body ul li::before { background: #2dd4bf; box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.22); }
+.course-policy-card--learning      .course-policy-card__body ul li { padding-left: 26px; }
+.course-policy-card--learning      .course-policy-card__body p { margin: 0 0 8px; }
+.course-policy-card--learning      .course-policy-card__body p:last-child { margin-bottom: 0; }
 
 /* Certification body — flatten the nested <ul><li><p><strong>…</strong></p></li></ul>
    pattern that comes out of short_description so it renders compactly. */
@@ -751,6 +761,90 @@ li.level2 > a > span > .cat-label,
 .wsq-funding-narrative ul { margin: 4px 0 8px 18px; padding: 0; list-style: disc; }
 .wsq-funding-narrative ul li { margin: 2px 0; }
 
+/* ===== Skills Framework card (compact key-value list) ===== */
+.skills-framework-list { margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.skills-framework-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 12px;
+    align-items: baseline;
+    padding: 10px 12px;
+    background: #faf5ff;
+    border: 1px solid #ede9fe;
+    border-radius: 8px;
+}
+.skills-framework-row__label {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6d28d9;
+}
+.skills-framework-row__value {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+    line-height: 1.35;
+    word-break: break-word;
+}
+.skills-framework-row__value--code {
+    font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: #ffffff;
+    border: 1px solid #ddd6fe;
+    border-radius: 6px;
+    padding: 4px 8px;
+    display: inline-block;
+    color: #5b21b6;
+}
+
+/* ===== Course Brochure CTA ===== */
+.brochure-cta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: linear-gradient(180deg, #ea580c 0%, #c2410c 100%);
+    color: #ffffff;
+    border-radius: 10px;
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(194, 65, 12, 0.25);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.brochure-cta:hover {
+    color: #ffffff;
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(194, 65, 12, 0.3);
+}
+.brochure-cta__icon {
+    flex: 0 0 36px;
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.18);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.brochure-cta__icon svg { width: 20px; height: 20px; display: block; }
+.brochure-cta__label {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.brochure-cta__hint {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 500;
+    opacity: 0.85;
+    margin-top: 2px;
+}
+.brochure-cta > span:nth-child(n+2) { display: block; }
+.brochure-cta { flex-wrap: wrap; }
+
 /* ===== Course Code (relocated under the product title) ===== */
 .course-code-inline {
     margin: 6px 0 12px;
@@ -804,12 +898,17 @@ li.level2 > a > span > .cat-label,
     .course-policy-card__title { font-size: 15px; }
     .course-info-venue,
     .course-policy-card__body { padding: 12px 14px 14px; }
-    /* On phones, suppress the long policy boilerplate — keep only the
+    /* On phones, suppress the long secondary cards — keep only the
        Course Information, WSQ Funding, Certification, and Additional
-       Information cards visible. Users can still reach Support /
-       Cancellation copy on the footer or from the customer-service pages. */
+       Information cards visible. Learning Outcomes, Course Brochure,
+       Skills Framework, Post-Course Support, and Cancellation are all
+       still reachable via the lower product tabs / footer pages. */
     .course-policy-card--support,
-    .course-policy-card--policy { display: none; }
+    .course-policy-card--policy,
+    .course-policy-card--learning,
+    .course-policy-card--brochure,
+    .course-policy-card--skills { display: none; }
     .wsq-fee-grid { grid-template-columns: 1fr; }
     .wsq-fee-tile__value { font-size: 20px; }
+    .skills-framework-row { grid-template-columns: 1fr; gap: 4px; }
 }
