@@ -67,8 +67,10 @@
                 if (e.keyCode === 13) {
                     e.preventDefault();
                     titleFilter.value = input.value;
-                    if (typeof customoptionsOptionsGrid !== 'undefined' && customoptionsOptionsGrid.doFilter) {
-                        customoptionsOptionsGrid.doFilter();
+                    var grid = (typeof customoptionsOptionsGridJsObject !== 'undefined') ? customoptionsOptionsGridJsObject
+                             : (typeof customoptionsOptionsGrid !== 'undefined' ? customoptionsOptionsGrid : null);
+                    if (grid && grid.doFilter) {
+                        grid.doFilter();
                     }
                 }
             });
