@@ -444,6 +444,15 @@ li.level2 > a > span > .cat-label,
    ========================================================================== */
 .course-info-stack { margin-top: 24px; display: flex; flex-direction: column; gap: 18px; }
 
+/* Force the lower "Course Details / Course Info / Job Roles / Trainers / Review"
+   tabs container to start on a new row below all product-info columns.
+   Ultimo's float-based grid (img / primary / secondary as grid12-4 floats) does
+   not clear after </form>, so once the left image column became the tallest
+   float (after we stacked the new cards there), the tabs container would slide
+   up beside the short secondary column on MY/SG/etc. — making tabs appear in
+   "column 2" instead of below. */
+.product-view > .box-additional { clear: both; }
+
 .course-info-card,
 .course-policy-card {
     background: #fff;
