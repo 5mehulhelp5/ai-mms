@@ -341,7 +341,10 @@ li.level2 > a > span > .cat-label,
     gap: 6px;
 }
 .course-badges--view {
-    margin: 10px 0 14px !important;
+    margin: 0 0 14px !important;
+}
+.product-view .product-shop .product-name {
+    margin: 0 0 8px !important;
 }
 .course-badge {
     display: inline-block;
@@ -367,6 +370,19 @@ li.level2 > a > span > .cat-label,
 .course-badge--ap      { background: #475569; } /* Absentee Payroll slate */
 .course-badge--mces    { background: #7c3aed; } /* MCES purple */
 .course-badge--default { background: #64748b; }
+
+/* Product (course) title — tone down the default Ultimo size so long
+   WSQ titles don't dominate the page. Paired with a slightly larger
+   Course Fee heading below for better visual balance. */
+.product-view .product-shop .product-name h1,
+.product-view .product-shop .course-fee-heading {
+    font-size: 26px;
+    line-height: 1.3;
+}
+@media (min-width: 770px) {
+    .product-view .product-shop .product-name h1 { font-size: 32px; }
+    .product-view .product-shop .course-fee-heading { font-size: 30px; }
+}
 
 /* Course Fee heading — dynamic Before/After Funding pill. JS in
    catalog/product/view.phtml toggles the text + the --after class when a
