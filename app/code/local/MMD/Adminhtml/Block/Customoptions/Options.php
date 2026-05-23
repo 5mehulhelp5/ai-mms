@@ -33,7 +33,7 @@ class MMD_Adminhtml_Block_Customoptions_Options extends MMD_Adminhtml_Block_Cust
     protected function _prepareLayout() {
         $this->setChild('add_new_button', $this->getLayout()->createBlock('adminhtml/widget_button')
                         ->setData(array(
-                            'label' => Mage::helper('customoptions')->__('Add Options Template'),
+                            'label' => Mage::helper('customoptions')->__('Add Class Schedule'),
                             'onclick' => "setLocation('" . $this->getUrl('*/*/new', array('store' => $this->getStoreId())) . "')",
                             'class' => 'add'
                         ))

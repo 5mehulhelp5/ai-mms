@@ -3970,6 +3970,43 @@ body[class*="customoptions-options-index"] table.data tbody tr th {
 body[class*="customoptions-options-index"] table.data tbody tr {
     height: auto !important;
 }
+
+/* Manage Class Schedule — hide JS-injected Filters toggle */
+body[class*="customoptions-options-index"] .advanced-filter-toggle,
+body[class*="customoptions-options-index"] .advanced-filter-panel,
+body[class*="customoptions-options-index"] .advanced-filters-panel {
+    display: none !important;
+}
+/* Manage Class Schedule — keep items-selected + search on one line. */
+body[class*="customoptions-options-index"] #customoptionsOptionsGrid table.massaction > tbody > tr > td:first-child {
+    white-space: nowrap !important;
+}
+body[class*="customoptions-options-index"] #mmd-schedule-search-input:focus {
+    border-color: #60a5fa !important;
+    outline: none !important;
+}
+/* Tighten gap between page header buttons and the massaction toolbar. */
+body[class*="customoptions-options-index"] .content-header {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
+body[class*="customoptions-options-index"] .content-header + div,
+body[class*="customoptions-options-index"] #customoptionsOptionsGrid {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+body[class*="customoptions-options-index"] #customoptionsOptionsGrid_massaction {
+    margin-top: 0 !important;
+    padding: 0 4px !important;
+}
+body[class*="customoptions-options-index"] #customoptionsOptionsGrid table.massaction {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+body[class*="customoptions-options-index"] #customoptionsOptionsGrid table.massaction > tbody > tr > td {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+}
 .mmd-grid-actions {
     display: inline-flex !important;
     gap: 8px !important;

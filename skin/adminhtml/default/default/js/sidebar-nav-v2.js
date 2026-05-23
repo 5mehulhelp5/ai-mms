@@ -386,6 +386,8 @@ document.observe('dom:loaded', function() {
     }
     function initAdvancedFilters() {
         if (isDetailViewPage()) return;
+        // Manage Class Schedule has its own inline search box — skip injection.
+        if (document.body && /customoptions-options-index/.test(document.body.className)) return;
         var grids = $$('.grid');
         var anyFilterFound = false;
         grids.each(function(grid) {
@@ -1225,6 +1227,8 @@ document.observe('dom:loaded', function() {
             // mass-action checkboxes (see scoped CSS in sidebar-nav.css).
             if (table.id === 'cache_grid_table') return;
             if (table.id === 'indexer_processes_grid_table') return;
+            // Manage Class Schedule needs visible row checkboxes for bulk delete.
+            if (table.id === 'customoptionsOptionsGrid_table') return;
             // Only hide the first column if it's actually a checkbox column.
             // Detect by inspecting the first body row: if its first cell has
             // an <input type="checkbox">, then the entire first column (head

@@ -32,7 +32,7 @@
 <div class="content-header">
     <table cellspacing="0">
         <tr>
-            <td style="width:50%;"><h3 class="icon-head"><?php echo Mage::helper('customoptions')->__('Manage Options Templates') ?></h3></td>
+            <td style="width:50%;"><h3 class="icon-head"><?php echo Mage::helper('customoptions')->__('Manage Class Schedule') ?></h3></td>
             <td class="form-buttons">
                 <?php echo $this->getCleanTemplatesButtonHtml() ?>
                 <?php echo $this->getApplyToProductsButtonHtml() ?>
@@ -42,3 +42,44 @@
     </table>
 </div>
 <div><?php echo $this->getGridHtml() ?></div>
+<script type="text/javascript">
+//<![CDATA[
+    (function injectScheduleSearch() {
+        function go() {
+            var firstCell = document.querySelector('#customoptionsOptionsGrid table.massaction > tbody > tr > td:first-child')
+                         || document.querySelector('#customoptionsOptionsGrid table.massaction tr > td:first-child');
+            var titleFilter = document.getElementById('customoptionsOptionsGrid_filter_title');
+            if (!firstCell || !titleFilter) {
+                return setTimeout(go, 100);
+            }
+            if (document.getElementById('mmd-schedule-search-input')) return;
+            var wrap = document.createElement('span');
+            wrap.id = 'mmd-schedule-search-wrap';
+            wrap.style.cssText = 'display:inline-block;margin-left:24px;vertical-align:middle;';
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.id = 'mmd-schedule-search-input';
+            input.className = 'input-text';
+            input.placeholder = 'Search title…';
+            input.value = titleFilter.value || '';
+            input.style.cssText = 'width:320px;height:30px;padding:4px 10px;border-radius:6px;border:1px solid #2a3447;background:#0f172a;color:#e5e7eb;font-size:13px;box-sizing:border-box;vertical-align:middle;';
+            input.addEventListener('keydown', function (e) {
+                if (e.keyCode === 13) {
+                    e.preventDefault();
+                    titleFilter.value = input.value;
+                    if (typeof customoptionsOptionsGrid !== 'undefined' && customoptionsOptionsGrid.doFilter) {
+                        customoptionsOptionsGrid.doFilter();
+                    }
+                }
+            });
+            wrap.appendChild(input);
+            firstCell.appendChild(wrap);
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', go);
+        } else {
+            go();
+        }
+    })();
+//]]>
+</script>
