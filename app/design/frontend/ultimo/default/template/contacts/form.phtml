@@ -1,102 +1,309 @@
-<?php
-/**
- * Magento
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Academic Free License (AFL 3.0)
- * that is bundled with this package in the file LICENSE_AFL.txt.
- * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/afl-3.0.php
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@magento.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade Magento to newer
- * versions in the future. If you wish to customize Magento for your
- * needs please refer to http://www.magento.com for more information.
- *
- * @category    design
- * @package     base_default
- * @copyright   Copyright (c) 2006-2014 X.commerce, Inc. (http://www.magento.com)
- * @license     http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
- */
-?>
+<?php /* Cloudflare Turnstile (invisible) replaces Google reCAPTCHA v2 for the
+        contact form. The widget renders on page load, automatically obtains
+        a token, and writes it into the hidden cf-turnstile-response input
+        which the backend (MMD_MagentoCaptcha_Helper_Turnstile) verifies.
+        Site key comes from the TURNSTILE_SITE_KEY env var; when unset, the
+        widget is skipped and the backend fails open (dev mode). */ ?>
+<?php $tsHelper = Mage::helper('magentocaptcha/turnstile'); ?>
+<?php $tsSiteKey = $tsHelper->getSiteKey(); ?>
+<?php if ($tsSiteKey): ?>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<?php endif; ?>
+<?php /* All styles below are scoped to `.tc-contact` so they don't bleed into
+        the rest of the Ultimo theme. The form keeps its original field
+        names (name/email/company/telephone/courses/comment) so that the
+        existing "Tertiary Courses Contact Form" email template still
+        resolves `{{var data.*}}` correctly. */ ?>
 <style>
-.form-list textarea {
-    height: 13em !important;
-    width: 90% !important;
+.tc-contact{max-width:680px;margin:0 auto;}
+.tc-contact .tc-hero{background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 100%);color:#fff;border-radius:14px;padding:28px 28px;margin-bottom:22px;box-shadow:0 10px 30px rgba(30,58,138,.18);}
+.tc-contact .tc-hero h1{color:#fff;margin:0 0 8px;font-size:28px;line-height:1.2;font-weight:700;}
+.tc-contact .tc-hero p{color:#dbeafe;margin:0;font-size:15px;line-height:1.55;}
+.tc-contact .tc-hero ul{list-style:none;padding:0;margin:14px 0 0;display:flex;flex-wrap:wrap;gap:8px 18px;}
+.tc-contact .tc-hero ul li{color:#e0e7ff;font-size:13px;display:inline-flex;align-items:center;gap:6px;}
+.tc-contact .tc-hero ul li::before{content:"";width:16px;height:16px;background:#22c55e;border-radius:50%;display:inline-block;position:relative;}
+.tc-contact .tc-hero ul li{position:relative;padding-left:22px;}
+.tc-contact .tc-hero ul li::after{content:"";position:absolute;left:4px;top:50%;width:8px;height:4px;border:2px solid #fff;border-top:0;border-right:0;transform:translateY(-70%) rotate(-45deg);}
+
+.tc-contact .tc-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:26px 28px;box-shadow:0 4px 14px rgba(15,23,42,.04);}
+.tc-contact .tc-card h2{font-size:20px;font-weight:700;color:#0f172a;margin:0 0 18px;padding:0;border:0;}
+
+.tc-contact form ul.form-list{list-style:none;padding:0;margin:0;}
+.tc-contact form ul.form-list li{margin:0 0 14px;background:transparent;border:0;padding:0;}
+.tc-contact form ul.form-list li.fields{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.tc-contact form ul.form-list li.fields .field{margin:0;}
+.tc-contact form label{display:block;font-weight:600;color:#0f172a;font-size:13.5px;margin:0 0 6px;}
+.tc-contact form label.required em{color:#e11d48;font-style:normal;margin-right:3px;}
+.tc-contact form .input-box{width:100%;}
+.tc-contact form input.input-text,
+.tc-contact form textarea.input-text{
+  width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid #d1d5db;border-radius:10px;
+  font-size:14.5px;color:#0f172a;background:#fff;transition:border-color .15s ease,box-shadow .15s ease;
+  font-family:inherit;line-height:1.4;height:auto !important;
+}
+.tc-contact form input.input-text:focus,
+.tc-contact form textarea.input-text:focus{
+  outline:0;border-color:#2563eb;box-shadow:0 0 0 4px rgba(37,99,235,.14);
+}
+.tc-contact form input.input-text::placeholder,
+.tc-contact form textarea.input-text::placeholder{color:#9ca3af;}
+.tc-contact form textarea.input-text{min-height:140px;resize:vertical;width:100% !important;}
+
+.tc-contact .buttons-set{margin-top:18px;padding:0;border:0;text-align:left;display:flex;flex-direction:column;gap:10px;}
+.tc-contact .buttons-set p.required{color:#6b7280;font-size:12.5px;margin:0;}
+.tc-contact .buttons-set .error{color:#dc2626;font-size:13px;line-height:1.5;min-height:0;}
+.tc-contact .buttons-set .error:empty{display:none;}
+.tc-contact button.tc-submit{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 100%);
+  color:#fff;border:0;border-radius:12px;padding:14px 28px;
+  font-size:15.5px;font-weight:700;letter-spacing:.2px;cursor:pointer;
+  box-shadow:0 8px 18px rgba(30,58,138,.28);
+  transition:transform .15s ease,box-shadow .15s ease,filter .15s ease;
+  width:auto;align-self:flex-start;min-width:200px;
+}
+.tc-contact button.tc-submit:hover{transform:translateY(-1px);box-shadow:0 12px 24px rgba(30,58,138,.34);filter:brightness(1.05);}
+.tc-contact button.tc-submit:active{transform:translateY(0);box-shadow:0 6px 14px rgba(30,58,138,.28);}
+.tc-contact button.tc-submit svg{width:18px;height:18px;}
+
+.tc-contact .tc-trust{color:#6b7280;font-size:12.5px;margin:10px 0 0;display:inline-flex;align-items:center;gap:6px;}
+.tc-contact .tc-trust svg{width:14px;height:14px;color:#22c55e;}
+
+@media (max-width:600px){
+  .tc-contact form ul.form-list li.fields{grid-template-columns:1fr;}
+  .tc-contact .tc-hero{padding:22px 20px;}
+  .tc-contact .tc-hero h1{font-size:23px;}
+  .tc-contact .tc-card{padding:20px 18px;}
+  .tc-contact button.tc-submit{width:100%;}
 }
 </style>
-<div id="messages_product_view"><?php echo $this->getMessagesBlock()->toHtml() ?></div>
+<div id="messages_product_view"><?php echo $this->getMessagesBlock()->getGroupedHtml() ?></div>
 <div class="page-title">
     <h1><?php echo Mage::helper('contacts')->__('Contact Us') ?></h1>
 </div>
 <div class=" grid12-12">
 <div class=" grid12-6">
-    <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSdaUK2Xqs6_qDxGm1l_FRNWhpPrdNrMIHjUpDmgQbRhgiOWEQ/viewform?embedded=true" width="640" height="947" frameborder="0" marginheight="0" marginwidth="0">Loading…</iframe>
-    <?php /*
 
-<form action="<?php echo $this->getFormAction(); ?>" id="contactForm" method="post">
-    <div class="fieldset">
-        <h2 class="legend"><?php echo Mage::helper('contacts')->__('Send us a Message') ?></h2>
-        <ul class="form-list">
-            <li class="fields">
-                <div class="field">
-                    <label for="name" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Name') ?></label>
-                    <div class="input-box">
-                        <input name="name" id="name" title="<?php echo Mage::helper('contacts')->__('Name') ?>" value="<?php echo $this->escapeHtml($this->helper('contacts')->getUserName()) ?>" class="input-text required-entry" type="text" />
-                    </div>
-                </div>
-                <div class="field">
-                    <label for="email" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Email') ?></label>
-                    <div class="input-box">
-                        <input name="email" id="email" title="<?php echo Mage::helper('contacts')->__('Email') ?>" value="<?php echo $this->escapeHtml($this->helper('contacts')->getUserEmail()) ?>" class="input-text required-entry validate-email" type="text" />
-                    </div>
-                </div>
-            </li>
-             <li class="fields">
-             
-             <div class="field">
-                    <label for="name"><?php echo Mage::helper('contacts')->__('Company') ?></label>
-                    <div class="input-box">
-                        <input name="company" id="company" title="<?php echo Mage::helper('contacts')->__('Company') ?>"  class="input-text " type="text" />
-                    </div>
-                </div>
-                <div class="field">
-                <label for="telephone"><?php echo Mage::helper('contacts')->__('Telephone') ?></label>
-                <div class="input-box">
-                    <input name="telephone" id="telephone" title="<?php echo Mage::helper('contacts')->__('Telephone') ?>" value="" class="input-text" type="text" />
-                </div>
-                </div>
-            </li>
-			 <li class="wide">
-                <label for="courses" class="required"><?php echo Mage::helper('contacts')->__('Courses Interested?') ?></label>
-                <div class="input-box">
-                    <textarea name="courses" id="courses" title="<?php echo Mage::helper('contacts')->__('Courses Interested') ?>" class="input-text" cols="5" rows="2" ></textarea>
-                </div>
-            </li>
-            <li class="wide">
-                <label for="comment" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Message (Please indicate the course you are interested)') ?></label>
-                <div class="input-box">
-                    <textarea name="comment" id="comment" title="<?php echo Mage::helper('contacts')->__('Comment') ?>" class="required-entry input-text" cols="5" rows="3" ></textarea>
-                </div>
-            </li>
-        </ul>
-    </div>
-    <div class="buttons-set">
-        <p class="required"><?php echo Mage::helper('contacts')->__('* Required Fields') ?></p>
+<div class="tc-contact">
+
+  <?php
+    /* Hero copy is tailored per storefront. SG (WSQ/CASL/IBF/SkillsFuture)
+       and MY (HRDF) have their own funding hooks; other countries get a
+       generic course-info / fee-enquiry pitch since there's no public
+       subsidy scheme to lean on. */
+    $heroHeadline = 'Tell us about your learning goals';
+    $heroSubcopy  = 'Have a course in mind, a team to upskill, or just a fee question? Send us a note — our training consultants reply within one business day.';
+    $heroBullets  = array(
+        'Personalised course advice',
+        'Course fees & schedule',
+        'Group & in-house training',
+    );
+    switch (Mage::app()->getStore()->getCode()) {
+        case 'singapore':
+            $heroHeadline = 'Talk to us about WSQ, CASL, IBF fundings & SkillsFuture Credit eligibility';
+            $heroSubcopy  = 'Ask about WSQ, CASL or IBF-accredited courses, claim SkillsFuture Credit, or get help shortlisting the right programme. Our training consultants reply within one business day.';
+            $heroBullets  = array(
+                'WSQ, CASL & IBF course advice',
+                'SkillsFuture Credit & subsidy guidance',
+                'Group & in-house training',
+            );
+            break;
+        case 'malaysia':
+            $heroHeadline = 'HRD Corp claimable courses — talk to us';
+            $heroSubcopy  = 'Ask about HRD Corp (HRDF) claimable training, course fees, schedules, or in-house programmes for your team. Our training consultants reply within one business day.';
+            $heroBullets  = array(
+                'HRD Corp (HRDF) claimable courses',
+                'Course fees & schedule',
+                'Group & in-house training',
+            );
+            break;
+    }
+  ?>
+  <div class="tc-hero">
+    <h1><?php echo Mage::helper('contacts')->__($heroHeadline) ?></h1>
+    <p><?php echo Mage::helper('contacts')->__($heroSubcopy) ?></p>
+    <ul>
+      <?php foreach ($heroBullets as $bullet): ?>
+      <li><?php echo Mage::helper('contacts')->__($bullet) ?></li>
+      <?php endforeach; ?>
+    </ul>
+  </div>
+
+  <div class="tc-card">
+    <h2><?php echo Mage::helper('contacts')->__('Send us a Message') ?></h2>
+
+    <form action="<?php echo $this->getFormAction() ?>" name="contactForm" id="contactForm" method="post">
+      <?php echo $this->getBlockHtml('formkey')?>
+      <ul class="form-list">
+        <li class="fields">
+          <div class="field">
+            <label for="name" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Name') ?></label>
+            <div class="input-box">
+              <input name="name" id="name" placeholder="<?php echo Mage::helper('contacts')->__('Your full name') ?>" value="<?php echo $this->htmlEscape($this->helper('contacts')->getUserName()) ?>" class="input-text required-entry" type="text" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="email" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Email') ?></label>
+            <div class="input-box">
+              <input name="email" id="email" placeholder="you@example.com" value="<?php echo $this->htmlEscape($this->helper('contacts')->getUserEmail()) ?>" class="input-text required-entry validate-email" type="email" />
+            </div>
+          </div>
+        </li>
+        <li class="fields">
+          <div class="field">
+            <label for="company"><?php echo Mage::helper('contacts')->__('Company') ?></label>
+            <div class="input-box">
+              <input name="company" id="company" placeholder="<?php echo Mage::helper('contacts')->__('Optional') ?>" class="input-text" type="text" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="telephone" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Telephone') ?></label>
+            <div class="input-box">
+              <input name="telephone" id="telephone" placeholder="+65 9XXX XXXX" value="" class="input-text required-entry" type="tel" />
+            </div>
+          </div>
+        </li>
+        <li class="fields">
+          <div class="field">
+            <label for="courses"><?php echo Mage::helper('contacts')->__('Which Course Are You Interested In?') ?></label>
+            <div class="input-box">
+              <input name="courses" id="courses" placeholder="<?php echo Mage::helper('contacts')->__('e.g. Python, ChatGPT, WSQ Data Analytics…') ?>" class="input-text" type="text" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="course_code"><?php echo Mage::helper('contacts')->__('Course Code (optional)') ?></label>
+            <div class="input-box">
+              <input name="course_code" id="course_code" placeholder="<?php echo Mage::helper('contacts')->__('e.g. TGS-2024045801') ?>" class="input-text" type="text" />
+            </div>
+          </div>
+        </li>
+        <li class="wide">
+          <label for="comment" class="required"><em>*</em><?php echo Mage::helper('contacts')->__('Message') ?></label>
+          <div class="input-box">
+            <textarea name="comment" id="comment" placeholder="<?php echo Mage::helper('contacts')->__('Tell us about your goals, preferred dates, or any questions…') ?>" class="required-entry input-text" rows="5"></textarea>
+          </div>
+        </li>
+      </ul>
+
+      <div class="buttons-set">
+        <p class="required"><?php echo Mage::helper('contacts')->__('* Required fields') ?></p>
+        <div id="error" class="error"></div>
         <input type="text" name="hideit" id="hideit" value="" style="display:none !important;" />
-        <button type="submit" title="<?php echo Mage::helper('contacts')->__('Submit') ?>" class="button"><span><span><?php echo Mage::helper('contacts')->__('Submit') ?></span></span></button>
-    </div>
-</form>
+        <?php /* Hidden field auto-populated by the Turnstile callback.
+                Backend reads it as `cf-turnstile-response`. */ ?>
+        <input type="hidden" name="cf-turnstile-response" id="cf-turnstile-response" value="" />
+        <?php if ($tsSiteKey): ?>
+        <div class="cf-turnstile"
+             data-sitekey="<?php echo $this->htmlEscape($tsSiteKey) ?>"
+             data-size="invisible"
+             data-callback="onTurnstileSuccess"
+             data-error-callback="onTurnstileError"
+             data-expired-callback="onTurnstileExpired"></div>
+        <?php endif; ?>
+        <button type="submit" id="tc-submit-btn" title="<?php echo Mage::helper('contacts')->__('Send Message') ?>"
+                class="tc-submit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          <?php echo Mage::helper('contacts')->__('Send Message') ?>
+        </button>
+        <p class="tc-trust">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+          <?php echo Mage::helper('contacts')->__('We reply within 1 business day. Your details stay private.') ?>
+        </p>
+      </div>
+    </form>
+  </div>
+
+</div>
+
 <script type="text/javascript">
-//<![CDATA[
-    var contactForm = new VarienForm('contactForm', true);
-//]]>
-</script> */?>
+    /* Client-side validation + Turnstile gating.
+       Flow:
+         1. User clicks Send.
+         2. validateForm() runs; on failure shows errors, blocks submit.
+         3. On success, if Turnstile is configured, call turnstile.execute()
+            and wait for onTurnstileSuccess to actually submit. If Turnstile
+            isn't loaded (no key or script blocked), submit immediately —
+            backend fails open in that case.
+    */
+    (function () {
+        var TURNSTILE_ENABLED = <?php echo $tsSiteKey ? 'true' : 'false'; ?>;
+        var pendingSubmit = false;
+
+        function validateForm() {
+            var error = "";
+            var f = document.forms["contactForm"];
+            if (!f["name"].value) { error += "Please enter your name<br/>"; }
+            if (!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,})+$/.test(f["email"].value)) {
+                error += "Please enter a valid email<br/>";
+            }
+            if (!f["telephone"].value) { error += "Please enter your telephone<br/>"; }
+            if (!f["comment"].value) { error += "Please enter a message<br/>"; }
+            document.getElementById("error").innerHTML = error;
+            return error === "";
+        }
+
+        function doSubmit() {
+            // Mark submitting to avoid double-fire; release the button afterward
+            // in case the navigation is cancelled by the browser.
+            var btn = document.getElementById("tc-submit-btn");
+            if (btn) { btn.disabled = true; }
+            document.forms["contactForm"].submit();
+        }
+
+        // Exposed for Turnstile callbacks (declared globally as required by data-callback).
+        window.onTurnstileSuccess = function (token) {
+            var input = document.getElementById("cf-turnstile-response");
+            if (input) { input.value = token; }
+            if (pendingSubmit) {
+                pendingSubmit = false;
+                doSubmit();
+            }
+        };
+        window.onTurnstileError = function () {
+            pendingSubmit = false;
+            document.getElementById("error").innerHTML =
+                "Spam check could not run. Please refresh the page and try again.";
+        };
+        window.onTurnstileExpired = function () {
+            var input = document.getElementById("cf-turnstile-response");
+            if (input) { input.value = ""; }
+        };
+
+        document.addEventListener("DOMContentLoaded", function () {
+            var form = document.getElementById("contactForm");
+            if (!form) { return; }
+            form.addEventListener("submit", function (e) {
+                e.preventDefault();
+                if (!validateForm()) { return; }
+
+                if (!TURNSTILE_ENABLED || typeof window.turnstile === "undefined") {
+                    doSubmit();
+                    return;
+                }
+
+                // If invisible widget already has a fresh token in the hidden input, just submit.
+                var input = document.getElementById("cf-turnstile-response");
+                if (input && input.value) { doSubmit(); return; }
+
+                // Otherwise trigger execution; submission happens in onTurnstileSuccess.
+                pendingSubmit = true;
+                try {
+                    window.turnstile.execute(); // executes the first invisible widget on page
+                } catch (err) {
+                    // Fallback: let the browser submit anyway; backend will reject if needed.
+                    pendingSubmit = false;
+                    doSubmit();
+                }
+            });
+        });
+
+        if ('NodeList' in window) {
+            if (!NodeList.prototype.each && NodeList.prototype.forEach) {
+                NodeList.prototype.each = NodeList.prototype.forEach;
+            }
+        }
+    })();
+</script>
 </div>
 <div class=" grid12-6">
 <?php echo $this->getLayout()->createBlock('cms/block')->setBlockId('contacts')->toHtml() ?>
