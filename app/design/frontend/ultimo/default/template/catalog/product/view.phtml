@@ -302,12 +302,65 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 
 			<div class="product-secondary-column <?php echo $grid['secCol']; ?> custom-sidebar-right">
 				<div class="inner">
-				<?php if($productType=="simple") { echo '<h2>Price</h2>'; } elseif($productType=="virtual") { 
-    
-    echo '<h2>Fee</h2>'; 
-
-
-} else { echo '<h2>Information</h2>' ;  } ?>
+				<?php
+				// Detect this course's "Funding Eligibility" radio option (the
+				// option id differs per course) so the heading can carry a
+				// dynamic Before/After Funding pill. Null when the course has
+				// no funding option — then no pill renders.
+				$_fundingOptId = null;
+				if ($productType == 'virtual') {
+					foreach ($_product->getOptions() as $_opt) {
+						if (stripos($_opt->getTitle(), 'Funding Eligibility') !== false) {
+							$_fundingOptId = $_opt->getId();
+							break;
+						}
+					}
+				}
+				if ($productType == 'simple') {
+					echo '<h2>Price</h2>';
+				} elseif ($productType == 'virtual') {
+					echo '<h2 class="course-fee-heading">Course Fee';
+					if ($_fundingOptId) {
+						echo '<span class="funding-tag" id="funding-tag" data-funding-opt="' . (int) $_fundingOptId . '">Before Funding</span>';
+					}
+					echo '</h2>';
+				} else {
+					echo '<h2>Information</h2>';
+				}
+				?>
+				<?php if ($_fundingOptId): ?>
+				<script type="text/javascript">
+				/* Dynamic "Before Funding / After Funding" pill beside the Course
+				   Fee heading. It registers its OWN change-listener on the
+				   Funding Eligibility radios (event delegation on the add-to-cart
+				   form) and never touches reloadPrice() — so the existing dynamic
+				   price/GST recalculation is completely unaffected. */
+				(function () {
+					var tag = document.getElementById('funding-tag');
+					if (!tag) { return; }
+					var optName = 'options[' + tag.getAttribute('data-funding-opt') + ']';
+					function sync() {
+						var rs = document.querySelectorAll('input[type="radio"][name="' + optName + '"]');
+						var picked = false;
+						for (var i = 0; i < rs.length; i++) { if (rs[i].checked) { picked = true; break; } }
+						tag.textContent = picked ? 'After Funding' : 'Before Funding';
+						tag.className = 'funding-tag' + (picked ? ' funding-tag--after' : '');
+					}
+					function bind() {
+						var form = document.getElementById('product_addtocart_form');
+						if (form) {
+							form.addEventListener('change', function (e) {
+								if (e.target && e.target.name === optName) { sync(); }
+							});
+						}
+						sync();
+					}
+					if (document.readyState === 'loading') {
+						document.addEventListener('DOMContentLoaded', bind);
+					} else { bind(); }
+				})();
+				</script>
+				<?php endif; ?>
 
 <?php if ($extrahint_html = $this->getChildHtml('extrahint')): //qty increments ?>
 				<div class="extrahint-wrapper"><?php echo $extrahint_html; ?></div>
@@ -318,13 +371,6 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 				<?php echo $this->getTierPriceHtml(); ?>
 				<?php echo $priceProperties; ?>
 			</div> <?php //end: offers ?>
-
-			<?php 
-			  if(($_storeId==1 || $_storeId==7) && $attributeSetId==4) 
-			  { 
-				echo '<p style="color:#ee001c;line-height: 1.3;clear:both;">The course fee listed above is before subsidy/grant, if applicable. We will apply for the grant and send you the invoice with nett fee.</p>' ;  
-			  }
-			  ?>
 
 			<?php if (!$this->hasOptions()): //add to cart when no options (e.g. simple products) ?>
 				<?php if($_product->isSaleable()): ?>

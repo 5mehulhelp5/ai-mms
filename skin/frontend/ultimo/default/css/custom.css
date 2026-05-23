@@ -84,12 +84,12 @@
 }
 /* Topic headings — the inline script in catalog/product/view/description.phtml
    promotes each <p><strong>…</strong></p> to <h3 class="course-topic-h3">.
-   Style the <h3> to match the previous <p><strong> appearance (body-size
-   bold text) and give each topic group clear separation above. */
+   Render the <h3> a touch larger than body text (bold) so each topic title
+   stands out, and give each topic group clear separation above. */
 #acctab-description + .panel .std h3.course-topic-h3 {
-    font-size: inherit;
+    font-size: 1.15em;
     font-weight: bold;
-    line-height: inherit;
+    line-height: 1.4;
     color: inherit;
     margin: 22px 0 10px;
     padding: 0;
@@ -367,3 +367,26 @@ li.level2 > a > span > .cat-label,
 .course-badge--ap      { background: #475569; } /* Absentee Payroll slate */
 .course-badge--mces    { background: #7c3aed; } /* MCES purple */
 .course-badge--default { background: #64748b; }
+
+/* Course Fee heading — dynamic Before/After Funding pill. JS in
+   catalog/product/view.phtml toggles the text + the --after class when a
+   Funding Eligibility radio option is selected. Amber = before funding
+   (list price shown), green = after funding (discounted price shown). */
+.course-fee-heading .funding-tag {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 10px;
+    padding: 3px 11px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
+    letter-spacing: .2px;
+    border-radius: 999px;
+    background: #fef3c7;
+    color: #92400e;
+    white-space: nowrap;
+}
+.course-fee-heading .funding-tag--after {
+    background: #dcfce7;
+    color: #166534;
+}
