@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<config>
+    <tabs>
+        <mmd translate="label" module="mmd_whatsapp">
+            <label>MMD</label>
+            <sort_order>400</sort_order>
+        </mmd>
+    </tabs>
+    <sections>
+        <mmd_whatsapp translate="label" module="mmd_whatsapp">
+            <label>WhatsApp Float Button</label>
+            <tab>mmd</tab>
+            <sort_order>100</sort_order>
+            <show_in_default>1</show_in_default>
+            <show_in_website>1</show_in_website>
+            <show_in_store>1</show_in_store>
+            <groups>
+                <general translate="label">
+                    <label>General</label>
+                    <sort_order>10</sort_order>
+                    <show_in_default>1</show_in_default>
+                    <show_in_website>1</show_in_website>
+                    <show_in_store>1</show_in_store>
+                    <fields>
+                        <enabled translate="label comment">
+                            <label>Enable WhatsApp Float Button</label>
+                            <comment>Show the floating WhatsApp icon on desktop (hidden on mobile).</comment>
+                            <frontend_type>select</frontend_type>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>10</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                        </enabled>
+                        <number translate="label comment">
+                            <label>WhatsApp Number</label>
+                            <comment>International format, digits only, no + or spaces. SG example: 6588666375. MY example: 601123244187.</comment>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>20</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                        </number>
+                    </fields>
+                </general>
+            </groups>
+        </mmd_whatsapp>
+    </sections>
+</config>

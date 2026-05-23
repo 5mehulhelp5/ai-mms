@@ -178,6 +178,8 @@
 
 			<block type="core/template" name="footer.theme.scripts" template="page/html/footer_theme_scripts.phtml" before="-" />
 
+			<block type="core/template" name="mmd.whatsapp.float" template="mmd_whatsapp/float.phtml" />
+
 		</reference>
 
 

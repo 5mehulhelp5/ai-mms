@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_Whatsapp>
+            <version>1.0.0</version>
+        </MMD_Whatsapp>
+    </modules>
+    <global>
+        <helpers>
+            <mmd_whatsapp>
+                <class>MMD_Whatsapp_Helper</class>
+            </mmd_whatsapp>
+        </helpers>
+    </global>
+    <adminhtml>
+        <acl>
+            <resources>
+                <admin>
+                    <children>
+                        <system>
+                            <children>
+                                <config>
+                                    <children>
+                                        <mmd_whatsapp translate="title" module="mmd_whatsapp">
+                                            <title>WhatsApp Float Button</title>
+                                        </mmd_whatsapp>
+                                    </children>
+                                </config>
+                            </children>
+                        </system>
+                    </children>
+                </admin>
+            </resources>
+        </acl>
+    </adminhtml>
+    <default>
+        <mmd_whatsapp>
+            <general>
+                <enabled>1</enabled>
+            </general>
+        </mmd_whatsapp>
+    </default>
+</config>

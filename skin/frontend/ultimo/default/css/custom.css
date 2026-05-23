@@ -390,3 +390,29 @@ li.level2 > a > span > .cat-label,
     background: #dcfce7;
     color: #166534;
 }
+
+/* MMD_Whatsapp — floating WhatsApp button (desktop only) */
+.mmd-whatsapp-float {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #1da1f2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    z-index: 9999;
+    transition: transform .15s ease, background .15s ease;
+}
+.mmd-whatsapp-float:hover {
+    background: #0d8ddb;
+    transform: scale(1.06);
+    text-decoration: none;
+}
+.mmd-whatsapp-float svg { display: block; }
+@media (max-width: 770px) {
+    .mmd-whatsapp-float { display: none !important; }
+}
