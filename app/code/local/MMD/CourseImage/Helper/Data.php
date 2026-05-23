@@ -89,6 +89,19 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Only Singapore ('base') and Malaysia have country-specific funding
+     * schemes (SkillsFuture/WSQ/MCES/UTAP for SG, HRDF for MY). Ghana,
+     * Nigeria, Bhutan, and India share the same generated PNG via
+     * course_image_url but must render WITHOUT the FUNDING AVAILABLE header
+     * and chip row — those schemes don't exist in those markets and would
+     * be misleading on the cover.
+     */
+    public function isFundingEligibleWebsite(string $websiteCode): bool
+    {
+        return $websiteCode === 'base' || $websiteCode === 'malaysia';
+    }
+
+    /**
      * Resolve default badges for a product based on the website it lives in.
      * Falls back to the SG defaults for the legacy WSQ shortcut so existing
      * callers that key off the SKU still behave sensibly.

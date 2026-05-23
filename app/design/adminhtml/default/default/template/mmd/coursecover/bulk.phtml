@@ -353,6 +353,7 @@ $_defaultChecked = $_ciHelper->getDefaultBadgesForWebsite('base');
 
             var fd = new FormData();
             fd.append('product_id', String(id));
+            fd.append('store_id', String(els.store.value));
             fd.append('form_key', formKey);
             b.forEach(function (v) { fd.append('badges[]', v); });
 

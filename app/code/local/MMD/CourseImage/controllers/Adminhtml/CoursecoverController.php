@@ -204,7 +204,8 @@ class MMD_CourseImage_Adminhtml_CoursecoverController extends Mage_Adminhtml_Con
                 throw new Exception('Missing product_id');
             }
 
-            $allowedBadges = Mage::helper('mmd_courseimage')->getAllBadges();
+            $ciHelper = Mage::helper('mmd_courseimage');
+            $allowedBadges = $ciHelper->getAllBadges();
             $rawBadges = (array) $this->getRequest()->getParam('badges', []);
             $badges = [];
             foreach ($rawBadges as $b) {
@@ -212,6 +213,27 @@ class MMD_CourseImage_Adminhtml_CoursecoverController extends Mage_Adminhtml_Con
                 if ($b !== '' && in_array($b, $allowedBadges, true) && !in_array($b, $badges, true)) {
                     $badges[] = $b;
                 }
+            }
+
+            // Funding schemes (WSQ/SkillsFuture/HRDF/etc.) only exist in SG and
+            // MY. For Ghana / Nigeria / Bhutan / India the same generated PNG
+            // must render WITHOUT the "FUNDING AVAILABLE" header and chip row,
+            // so we strip badges before handing them to the renderer when the
+            // selected store isn't on a funding-eligible website. Also skip
+            // the tag sync below for the same reason — those tags would seed
+            // false funding chips on non-SG/MY storefronts.
+            $storeId = (int) $this->getRequest()->getParam('store_id', 0);
+            $allowFunding = true;
+            if ($storeId > 0) {
+                try {
+                    $websiteCode = (string) Mage::app()->getStore($storeId)->getWebsite()->getCode();
+                    $allowFunding = $ciHelper->isFundingEligibleWebsite($websiteCode);
+                } catch (Throwable $e) {
+                    $allowFunding = true;
+                }
+            }
+            if (!$allowFunding) {
+                $badges = [];
             }
 
             /** @var Mage_Catalog_Model_Product $product */
@@ -235,11 +257,15 @@ class MMD_CourseImage_Adminhtml_CoursecoverController extends Mage_Adminhtml_Con
             $r2 = Mage::helper('mmd_courseimage/r2');
             $upload = $r2->putObject($key, $png, 'image/png');
 
-            // Persist the URL onto course_image_url at the global (admin)
-            // scope so every store view reads it. saveAttribute is a single
-            // attribute write — far lighter than a full product save and
-            // skips re-indexing the rest of the product.
-            $product->setStoreId(0);
+            // Persist the URL onto course_image_url at the SELECTED store's
+            // scope so each country can hold its own cover (SG/MY render with
+            // funding chips, GH/NG/BT/IN render without). The attribute is
+            // Store View scoped (migration 126); the scope-0 value remains as
+            // the fallback default for stores that haven't been bulk-regenerated
+            // yet. If the request didn't include a store_id we fall back to
+            // the global scope so legacy/single-store callers still work.
+            $saveStoreId = $storeId > 0 ? $storeId : 0;
+            $product->setStoreId($saveStoreId);
             $product->setData('course_image_url', $upload['url']);
             $product->getResource()->saveAttribute($product, 'course_image_url');
 
@@ -274,10 +300,16 @@ class MMD_CourseImage_Adminhtml_CoursecoverController extends Mage_Adminhtml_Con
             // Persist the ticked badges as Magento tags so the storefront
             // chip renderer (catalog list / product view) reads the same
             // source of truth as the cover image. Idempotent + diff-based.
-            try {
-                Mage::helper('mmd_courseimage')->syncProductTags($product, $badges);
-            } catch (Throwable $tagEx) {
-                Mage::logException($tagEx);
+            // Skip the sync entirely for non-funding-eligible websites — the
+            // tag table is shared across stores, so we'd otherwise seed
+            // funding chips on GH/NG/BT/IN listings whose covers no longer
+            // show them. (The renderer already produced a chip-less PNG.)
+            if ($allowFunding) {
+                try {
+                    $ciHelper->syncProductTags($product, $badges);
+                } catch (Throwable $tagEx) {
+                    Mage::logException($tagEx);
+                }
             }
 
             $this->getResponse()

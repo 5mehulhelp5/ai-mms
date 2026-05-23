@@ -53,10 +53,10 @@ class MMD_CourseImage_Model_Cover
 
         $isWsq = $h->isWsqCourse($sku);
         $cleanTitle = $this->cleanTitle($title);
-        // Kicker is suppressed for WSQ courses — the WSQ chip in the funding
-        // row already conveys it, so a "WSQ FUNDED COURSE" pill would be a
-        // duplicate badge. Non-WSQ courses keep a generic kicker.
-        $kicker = $isWsq ? null : 'PROFESSIONAL TRAINING';
+        // Kicker removed — no "PROFESSIONAL TRAINING" pill. The title sits
+        // closer to the brand header to give it more vertical breathing room
+        // above the funding chip row.
+        $kicker = null;
 
         $im = imagecreatetruecolor(self::WIDTH, self::HEIGHT);
         imagealphablending($im, true);
@@ -419,18 +419,20 @@ class MMD_CourseImage_Model_Cover
         }
 
         $maxWidth = self::WIDTH - 2 * self::PADDING_X;
-        [$fontSize, $lines] = $this->fitTitle($title, $fontPath, $maxWidth);
-
-        $lineHeight = (int) round($fontSize * 1.25);
-        $blockH = $lineHeight * count($lines);
-        // Top reserve: ~290px when no kicker (just clears the brand card),
-        // ~370px when a kicker pill is present.
+        // Top reserve: ~220px clears the brand header (logo + wordmark sit at
+        // y=80..168) with a small gap. Kicker pill removed, so no extra
+        // vertical budget is reserved for it.
         // Bottom reserve: ~260px to guarantee at least ~45px clearance
         // between the title descenders and the FUNDING AVAILABLE chip header.
-        $topReserved    = $hasKicker ? 370 : 290;
+        $topReserved    = $hasKicker ? 370 : 220;
         $bottomReserved = 260;
         $bandTop = $topReserved;
         $bandH   = self::HEIGHT - $topReserved - $bottomReserved;
+
+        [$fontSize, $lines] = $this->fitTitle($title, $fontPath, $maxWidth, $bandH);
+
+        $lineHeight = (int) round($fontSize * 1.25);
+        $blockH = $lineHeight * count($lines);
         $startY  = $bandTop + (int) round(($bandH - $blockH) / 2);
 
         $white = imagecolorallocate($im, 255, 255, 255);
@@ -448,16 +450,20 @@ class MMD_CourseImage_Model_Cover
     }
 
     /**
-     * Find largest font size where the wrapped title fits in {<=MAX_LINES} lines
-     * with every line within $maxWidth.
+     * Find largest font size where the wrapped title fits in {<=MAX_LINES} lines,
+     * every line within $maxWidth, AND total block height <= $maxBlockH.
+     * The vertical guard prevents the title from overflowing into the kicker
+     * pill above or the FUNDING AVAILABLE chip row below — a 4-line title at
+     * a large font size would otherwise overlap both.
      *
      * @return array{0:int,1:string[]}
      */
-    private function fitTitle(string $title, string $fontPath, int $maxWidth): array
+    private function fitTitle(string $title, string $fontPath, int $maxWidth, int $maxBlockH): array
     {
         for ($size = self::TITLE_MAX_PX; $size >= self::TITLE_MIN_PX; $size -= 2) {
             $lines = $this->wrap($title, $fontPath, $size, $maxWidth);
-            if (count($lines) <= self::MAX_TITLE_LINES) {
+            $blockH = (int) round($size * 1.25) * count($lines);
+            if (count($lines) <= self::MAX_TITLE_LINES && $blockH <= $maxBlockH) {
                 return [$size, $lines];
             }
         }
