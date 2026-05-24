@@ -3,6 +3,32 @@
  * Uses Prototype.js (loaded globally in Magento admin)
  */
 
+/* Suppress Magento's noisy "Calendar.setup: Nothing to setup (no fields
+   found). Please check your code" alert. It fires after grid AJAX
+   reloads (e.g. changing the page-size dropdown on Sales > Orders)
+   when the date-filter inputs aren't on the page. It's a
+   framework-level developer notice, never useful to an operator —
+   silently no-op instead of alerting. Original behaviour is preserved
+   for valid setups. */
+(function () {
+    if (typeof Calendar === 'undefined' || typeof Calendar.setup !== 'function') return;
+    var _origCalendarSetup = Calendar.setup;
+    Calendar.setup = function (params) {
+        try {
+            var p = params || {};
+            ['inputField', 'displayArea', 'button'].forEach(function (k) {
+                if (typeof p[k] === 'string') p[k] = document.getElementById(p[k]);
+            });
+            if (!p.flat && !p.multiple && !p.inputField && !p.displayArea && !p.button) {
+                return false; // would have alerted — silently skip
+            }
+            return _origCalendarSetup.call(this, p);
+        } catch (e) {
+            return false;
+        }
+    };
+})();
+
 // Stamp <html> with a page-context class as early as possible so CSS
 // scoped to specific pages applies on the very first paint without
 // waiting for dom:loaded. Used by the Order View horizontal-tabs layout.
