@@ -26,13 +26,15 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
     const AUTO_REPLY_TEMPLATE_FALLBACK = 'mmd_leads_auto_reply';
 
     /**
-     * WSQ course recommender. WSQ/SkillsFuture courses carry a TGS code as
-     * their SKU (e.g. TGS-2024045801); the recommendation pool is exactly
-     * those. MIN_RECOMMEND_SCORE is the minimum keyword score a course must
-     * reach to be recommended — below it the auto-reply shows the generic
-     * catalogue fallback instead of a weak guess.
+     * Course recommender pool per store. The SKU prefix is the course-code
+     * convention each storefront uses: SG WSQ/SkillsFuture courses are
+     * TGS-…, Malaysia HRD Corp courses are M…. MIN_RECOMMEND_SCORE is the
+     * minimum keyword score a course must reach to be recommended — below
+     * it the auto-reply shows the generic catalogue fallback instead of a
+     * weak guess.
      */
     const WSQ_SKU_PREFIX          = 'TGS-';
+    const MY_SKU_PREFIX           = 'M';
     const MIN_RECOMMEND_SCORE     = 3;
     const MYSKILLSFUTURE_COURSE_URL = 'https://www.myskillsfuture.gov.sg/content/portal/en/training-exchange/course-directory/course-detail.html?courseReference=';
 
@@ -231,24 +233,43 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
         $title = $this->escapeHtml($rec['title']);
         $code  = $this->escapeHtml($rec['code']);
         $url   = $this->escapeHtml($rec['url']);
-        $msf   = $this->escapeHtml($rec['myskillsfuture_url']);
 
-        return '<p style="margin:0 0 12px;">We recommend the following WSQ course based on your query:</p>'
+        switch ($rec['kind']) {
+            case 'wsq':
+                $intro = 'We recommend the following WSQ course based on your query:';
+                $msf = $this->escapeHtml($rec['myskillsfuture_url']);
+                $portalRow = '<div><strong>Apply now at MySkillsFuture Portal:</strong> '
+                    . '<a href="' . $msf . '" style="color:#2563eb;">' . $msf . '</a></div>';
+                $fundingNote = '<p style="margin:0 0 14px;">No upfront payment is required when registering. '
+                    . 'We will apply the Workforce Skills Qualifications (WSQ) subsidy on your behalf, and '
+                    . 'you may use your SkillsFuture Singapore Credit to offset the remaining course fee.</p>';
+                break;
+            case 'hrdf':
+                $intro = 'We recommend the following HRD Corp claimable course based on your query:';
+                $portalRow = '';
+                $fundingNote = '<p style="margin:0 0 14px;">This course is claimable under HRD Corp (HRDF). '
+                    . 'Our training consultants can help your company process the HRD Corp grant application '
+                    . '— just reply to this email with your employer details.</p>';
+                break;
+            default: // generic — GH/NG/BT/IN
+                $intro = 'We recommend the following course based on your query:';
+                $portalRow = '';
+                $fundingNote = '';
+        }
+
+        return '<p style="margin:0 0 12px;">' . $intro . '</p>'
             . '<table cellpadding="0" cellspacing="0" border="0" width="100%" '
             . 'style="margin:0 0 14px; border:1px solid #e2e8f0; border-radius:8px; background:#f8fafc;">'
             . '<tr><td style="padding:16px 18px; font-size:14px; line-height:1.6; color:#0f172a;">'
             . '<div style="margin-bottom:4px;"><strong>Course Title:</strong> ' . $title . '</div>'
             . '<div style="margin-bottom:4px;"><strong>Course Code:</strong> ' . $code . '</div>'
-            . '<div style="margin-bottom:4px;"><strong>Course Link:</strong> '
+            . '<div' . ($portalRow ? ' style="margin-bottom:4px;"' : '') . '><strong>Course Link:</strong> '
             . '<a href="' . $url . '" style="color:#2563eb;">' . $url . '</a></div>'
-            . '<div><strong>Apply now at MySkillsFuture Portal:</strong> '
-            . '<a href="' . $msf . '" style="color:#2563eb;">' . $msf . '</a></div>'
+            . $portalRow
             . '</td></tr></table>'
             . '<p style="margin:0 0 12px;">You can find more information about the course, such as the '
             . 'course info and available course run dates, on the link above.</p>'
-            . '<p style="margin:0 0 14px;">No upfront payment is required when registering. We will apply '
-            . 'the Workforce Skills Qualifications (WSQ) subsidy on your behalf, and you may use your '
-            . 'SkillsFuture Singapore Credit to offset the remaining course fee.</p>';
+            . $fundingNote;
     }
 
     /**
@@ -286,45 +307,84 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
     public function recommendCourse(MMD_Leads_Model_Lead $lead)
     {
         $storeId = (int) $lead->getStoreId();
-        if (!$this->_isSingaporeStore($storeId)) {
+        $spec    = $this->_getRecommenderSpec($storeId);
+        if (!$spec) {
             return null;
         }
 
         $code = trim((string) $lead->getCourseCode());
         if ($code !== '') {
-            $product = $this->_findWsqByCode($code, $storeId);
+            $product = $this->_findCourseByCode($code, $storeId, $spec['sku_prefix']);
             if ($product) {
-                return $this->_buildRecommendation($product);
+                return $this->_buildRecommendation($product, $spec);
             }
         }
 
         $text    = trim($lead->getCoursesInterested() . ' ' . $lead->getComment() . ' ' . $code);
-        $product = $this->_scoreWsqCourses($text, $storeId);
-        return $product ? $this->_buildRecommendation($product) : null;
+        $product = $this->_scoreCourses($text, $storeId, $spec['sku_prefix']);
+        return $product ? $this->_buildRecommendation($product, $spec) : null;
+    }
+
+    /**
+     * Per-store recommender configuration.
+     *   kind        — drives copy in buildCourseInfoHtml ('wsq' shows the
+     *                 SkillsFuture/WSQ funding note + MySkillsFuture link;
+     *                 'hrdf' shows the HRD Corp note; 'generic' shows just
+     *                 the course card with no funding hook).
+     *   sku_prefix  — SKU LIKE filter used to scope the recommendation pool
+     *                 to courses with the storefront's course-code convention.
+     *
+     * @return array|null
+     */
+    protected function _getRecommenderSpec($storeId)
+    {
+        try {
+            $code = Mage::app()->getStore($storeId)->getCode();
+        } catch (Exception $e) {
+            return null;
+        }
+        switch ($code) {
+            case 'singapore':
+                return array('kind' => 'wsq',     'sku_prefix' => self::WSQ_SKU_PREFIX);
+            case 'malaysia':
+                return array('kind' => 'hrdf',    'sku_prefix' => self::MY_SKU_PREFIX);
+            case 'ghana':
+            case 'nigeria':
+            case 'bhutan':
+            case 'india':
+                return array('kind' => 'generic', 'sku_prefix' => self::MY_SKU_PREFIX);
+        }
+        return null;
     }
 
     /**
      * Shape a catalog product into the recommendation payload. For WSQ
-     * courses the SKU *is* the SkillsFuture TGS course reference.
+     * (Singapore) the SKU is the SkillsFuture TGS course reference and we
+     * include a MySkillsFuture deep link; other storefronts omit it.
      */
-    protected function _buildRecommendation($product)
+    protected function _buildRecommendation($product, array $spec)
     {
         $sku = (string) $product->getSku();
-        return array(
-            'title'              => (string) $product->getName(),
-            'code'               => $sku,
-            'url'                => $product->getProductUrl(),
-            'myskillsfuture_url' => self::MYSKILLSFUTURE_COURSE_URL . rawurlencode($sku),
+        $rec = array(
+            'kind'  => $spec['kind'],
+            'title' => (string) $product->getName(),
+            'code'  => $sku,
+            'url'   => $product->getProductUrl(),
         );
+        if ($spec['kind'] === 'wsq') {
+            $rec['myskillsfuture_url'] = self::MYSKILLSFUTURE_COURSE_URL . rawurlencode($sku);
+        }
+        return $rec;
     }
 
     /**
-     * Exact-ish WSQ lookup by course code. Matches the code anywhere in a
-     * TGS- SKU, so "TGS-2024045801" and the bare "2024045801" both resolve.
+     * Exact-ish course lookup by code, scoped to the store's SKU prefix.
+     * Matches the code anywhere in a prefixed SKU, so e.g. "TGS-2024045801"
+     * and the bare "2024045801" both resolve under the WSQ prefix.
      *
      * @return Mage_Catalog_Model_Product|null
      */
-    protected function _findWsqByCode($code, $storeId)
+    protected function _findCourseByCode($code, $storeId, $skuPrefix)
     {
         $code = strtoupper(trim($code));
         if ($code === '') {
@@ -334,7 +394,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
         $collection = Mage::getModel('catalog/product')->getCollection()
             ->setStoreId($storeId)
             ->addAttributeToSelect(array('name', 'sku', 'url_key'))
-            ->addAttributeToFilter('sku', array('like' => self::WSQ_SKU_PREFIX . '%'))
+            ->addAttributeToFilter('sku', array('like' => $skuPrefix . '%'))
             ->addAttributeToFilter('sku', array('like' => '%' . $code . '%'))
             ->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_ENABLED)
             ->addAttributeToFilter('visibility', array('neq' => Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE))
@@ -357,7 +417,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
      *
      * @return Mage_Catalog_Model_Product|null
      */
-    protected function _scoreWsqCourses($text, $storeId)
+    protected function _scoreCourses($text, $storeId, $skuPrefix)
     {
         $keywords = $this->_extractKeywords($text);
         if (empty($keywords['raw']) && empty($keywords['expanded'])) {
@@ -367,7 +427,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
         $collection = Mage::getModel('catalog/product')->getCollection()
             ->setStoreId($storeId)
             ->addAttributeToSelect(array('name', 'sku', 'url_key'))
-            ->addAttributeToFilter('sku', array('like' => self::WSQ_SKU_PREFIX . '%'))
+            ->addAttributeToFilter('sku', array('like' => $skuPrefix . '%'))
             ->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_ENABLED)
             ->addAttributeToFilter('visibility', array('neq' => Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE));
 
