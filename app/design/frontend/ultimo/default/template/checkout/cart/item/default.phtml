@@ -45,23 +45,7 @@ $imgHeight = 168;
     }
 ?>
 <tr>
-    <?php
-        // Prefer the AI-generated course cover (course_image_url attribute,
-        // written by CourseImage module) over the legacy "thumbnail" image.
-        // The quote-item's product proxy is a "lite" load that omits custom
-        // EAV attributes, so we re-fetch course_image_url directly from the
-        // catalog table by entity id when it's missing.
-        $_cartProduct  = $_item->getProduct();
-        $_courseImgUrl = '';
-        if ($_cartProduct && $_cartProduct->getId()) {
-            $_courseImgUrl = trim((string) $_cartProduct->getData('course_image_url'));
-            if ($_courseImgUrl === '') {
-                $_courseImgUrl = trim((string) Mage::getResourceModel('catalog/product')
-                    ->getAttributeRawValue($_cartProduct->getId(), 'course_image_url', Mage::app()->getStore()));
-            }
-        }
-    ?>
-    <td><?php if ($this->hasProductUrl()):?><a href="<?php echo $this->getProductUrl() ?>" title="<?php echo $this->htmlEscape($this->getProductName()) ?>" class="product-image"><?php endif;?><img src="<?php echo $_courseImgUrl !== '' ? $this->escapeHtml($_courseImgUrl) : $this->getProductThumbnail()->resize(168); ?>" alt="<?php echo $this->htmlEscape($this->getProductName()) ?>" /><?php if ($this->hasProductUrl()):?></a><?php endif;?></td>
+    <td><?php if ($this->hasProductUrl()):?><a href="<?php echo $this->getProductUrl() ?>" title="<?php echo $this->htmlEscape($this->getProductName()) ?>" class="product-image"><?php endif;?><img src="<?php echo $this->getProductThumbnail()->resize(168); ?>" alt="<?php echo $this->htmlEscape($this->getProductName()) ?>" /><?php if ($this->hasProductUrl()):?></a><?php endif;?></td>
     <td>
     <?php /* TODO
     <td class="col-img"><?php if ($this->hasProductUrl()):?><a href="<?php echo $this->getProductUrl() ?>" title="<?php echo $this->escapeHtml($this->getProductName()) ?>" class="product-image"><?php endif;?><img src="<?php echo $this->helper('infortis/image')->getImg($_item->getProduct(), $imgWidth, $imgHeight, 'thumbnail'); ?>" alt="<?php echo $this->escapeHtml($this->getProductName()) ?>" /><?php if ($this->hasProductUrl()):?></a><?php endif;?></td>

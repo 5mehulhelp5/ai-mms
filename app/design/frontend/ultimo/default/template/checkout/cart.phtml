@@ -105,6 +105,14 @@
         .cart .checkout-types button.btn-checkout > span > span,
         .cart .cart-totals button.btn-checkout > span,
         .cart .cart-totals button.btn-checkout > span > span{font-size:17px !important;}
+
+        /* Hide the cart line-item image column — the AI cover lives in the
+           custom course_image_url attribute (not the legacy thumbnail) and
+           the cart line shows the product name + course details, which is
+           enough to identify the booking. */
+        .cart-table col.col-img,
+        .cart-table thead th.col-img,
+        .cart-table tbody tr > td:first-child{display:none;}
     </style>
     <?php echo $this->getMessagesBlock()->getGroupedHtml() ?>
     <?php echo $this->getChildHtml('form_before') ?>
