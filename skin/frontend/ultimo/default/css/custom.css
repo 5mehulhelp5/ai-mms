@@ -1968,6 +1968,22 @@ li.level2 > a > span > .cat-label,
     .catalog-product-view .product-img-column .img-box,
     .catalog-product-view .product-img-column > .product-image { order: 1; }
 
+    /* The Infortis cloudzoom template stamps an inline max-width on .img-box
+       and .product-image equal to the configured desktop image width, which
+       leaves the cover floating in the centre of a narrow phone column with
+       white gutters on both sides. Force full-bleed on mobile. */
+    .catalog-product-view .product-img-column .img-box,
+    .catalog-product-view .product-img-column .img-box .product-image,
+    .catalog-product-view .product-img-column p.product-image {
+        max-width: 100% !important;
+        width: 100%;
+    }
+    .catalog-product-view .product-img-column .img-box img,
+    .catalog-product-view .product-img-column .product-image img {
+        width: 100%;
+        height: auto;
+    }
+
     /* 2. Course title */
     .catalog-product-view .product-primary-column .product-name { order: 2; }
 
