@@ -104,6 +104,36 @@
 			$_inner = preg_replace('#<p[^>]*>(?:' . $_WS . '|<[^>]+>)*Upon\s+registration[^<]*advise[^<]*WSQ.*?</p>#siu', '', $_inner);
 			$_inner = preg_replace('#<p[^>]*>(?:' . $_WS . '|<[^>]+>)*You\s+can\s+pay\s+the\s+nett\s+fee.*?</p>#siu', '', $_inner);
 			$_inner = preg_replace('#<p[^>]*>' . $_WS . '*</p>#siu', '', $_inner);
+
+			// Wrap each remaining <h[1-6]>…(body until next h)…</h> into its
+			// own .wsq-sub block so the SFC / UTAP / PSEA / SFEC sub-sections
+			// render as visually separated mini-cards instead of flat text.
+			// Tag each block with a slug derived from the heading text so the
+			// CSS can colour-code by scheme.
+			$_inner = preg_replace_callback(
+				'#<h[1-6][^>]*>(?P<title>.*?)</h[1-6]>(?P<body>.*?)(?=<h[1-6]|\z)#siu',
+				function ($m) {
+					$titleText = trim(strip_tags($m['title']));
+					if ($titleText === '') { return trim($m['body']); }
+					// Prefer the acronym in parentheses ("SkillsFuture Credit (SFC)"
+					// → "sfc"); otherwise fall back to a slug of the full title.
+					if (preg_match('#\(([A-Z]{2,6})\)#u', $titleText, $am)) {
+						$slug = strtolower($am[1]);
+					} elseif (preg_match('#^([A-Z]{2,6})\b#u', $titleText, $am)) {
+						$slug = strtolower($am[1]);
+					} else {
+						$slug = strtolower(preg_replace('#[^a-z0-9]+#i', '-', $titleText));
+						$slug = trim($slug, '-');
+					}
+					if ($slug === '') { return trim($m['body']); }
+					return '<div class="wsq-sub wsq-sub--' . $slug . '">'
+						 . '<div class="wsq-sub__title">' . htmlspecialchars($titleText, ENT_QUOTES, 'UTF-8') . '</div>'
+						 . '<div class="wsq-sub__body">' . trim($m['body']) . '</div>'
+						 . '</div>';
+				},
+				$_inner
+			);
+
 			$_wsqNarrativeHtml = trim($_inner);
 			$shortDescription  = preg_replace($_wsqPattern, '', $shortDescription, 1);
 		}
