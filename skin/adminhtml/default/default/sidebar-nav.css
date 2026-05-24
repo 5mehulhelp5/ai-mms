@@ -1083,6 +1083,15 @@ body table.data tr.selected td a {
     box-shadow: 0 8px 24px rgba(0,0,0,.4); z-index: 100; min-width: 180px; padding: 4px;
 }
 .row-action-wrap.open .row-action-menu { display: block; }
+/* When a row-action dropdown is open, lift the parent .hor-scroll's
+   overflow:auto (boxes.css:552) — otherwise the menu opens below the
+   button but gets clipped at the .hor-scroll bottom edge (the symptom
+   on /permissions_orphanedResource/). Only loosened while the dropdown
+   is open, so default horizontal-scroll behaviour on wide grids stays
+   intact. */
+.hor-scroll:has(.row-action-wrap.open) {
+    overflow: visible !important;
+}
 .row-action-item {
     display: block; padding: 7px 12px; color: #cbd5e1; font-size: 12px;
     text-decoration: none; border-radius: 5px; cursor: pointer; white-space: nowrap;
