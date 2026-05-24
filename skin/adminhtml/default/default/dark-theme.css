@@ -2309,9 +2309,132 @@ html.is-order-view .grid table.data.order-tables tbody td:not(:first-child),
 body.is-order-view .grid table.data.order-tables tbody td:not(:first-child) *,
 html.is-order-view .grid table.data.order-tables tbody td:not(:first-child) * {
     font-weight: 400 !important;
-    font-size: 15px !important;
+    /* Match the Course Title size in the first cell. The title is an
+       <h5> which the browser computes at 0.83em of its parent — so
+       even under the 15px td rule it renders at ~13px. Forcing the
+       value cells to 15px made Ordered / $340.00 / Pax / Subtotal
+       read visibly larger than the title; drop them to 13px so every
+       cell in the row reads the same. */
+    font-size: 13px !important;
     line-height: 1.4 !important;
     vertical-align: top !important;
+}
+/* Remove the "double hairline" between the column-headers row and the
+   first data row: the browser default border-collapse:separate combined
+   with the header's bottom border + a cell border-top rendered as two
+   parallel 1px lines with a gap. Collapse the borders and zero the
+   first tbody row's top border. */
+body.is-order-view .grid table.data.order-tables,
+html.is-order-view .grid table.data.order-tables {
+    border-collapse: collapse !important;
+}
+body.is-order-view .grid table.data.order-tables tbody tr:first-child td,
+html.is-order-view .grid table.data.order-tables tbody tr:first-child td {
+    border-top: 0 !important;
+}
+/* Drop the hairline under the "Items Ordered" section heading. The
+   global .entry-edit-head rule (§above) adds a 1px bottom border on
+   every section head — :has(.head-products) targets just this one
+   (the h4 inside the items-ordered head carries .head-products), so
+   other section heads on the order page keep their separator. */
+html.is-order-view .entry-edit-head:has(.head-products),
+body.is-order-view .entry-edit-head:has(.head-products) {
+    border-bottom: 0 !important;
+}
+
+/* Order view — wrap each section's content in a thin "outline card":
+   visible 1px border, transparent fill, around the content right after
+   .entry-edit-head (Reg #, Account Information, Billing Address,
+   Funding/Payment Information). Sections use either <div class="fieldset">
+   (Reg #, Account Info) or the bare <fieldset> element (Billing, Funding/
+   Payment) — cover both. Also drops the heading's underline so it doesn't
+   stack with the box's top edge, and clears any per-row borders inside
+   (on tr AND td/th) so the outer outline is the only visible line. */
+html.is-order-view .entry-edit > div.fieldset,
+html.is-order-view .entry-edit > fieldset,
+body.is-order-view .entry-edit > div.fieldset,
+body.is-order-view .entry-edit > fieldset {
+    border: 1px solid var(--b2) !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    padding: 14px 18px !important;
+    margin-top: 8px !important;
+}
+html.is-order-view .entry-edit > .entry-edit-head,
+body.is-order-view .entry-edit > .entry-edit-head {
+    border-bottom: 0 !important;
+}
+html.is-order-view .entry-edit > div.fieldset table tr,
+html.is-order-view .entry-edit > div.fieldset table tr td,
+html.is-order-view .entry-edit > div.fieldset table tr th,
+html.is-order-view .entry-edit > fieldset table tr,
+html.is-order-view .entry-edit > fieldset table tr td,
+html.is-order-view .entry-edit > fieldset table tr th,
+body.is-order-view .entry-edit > div.fieldset table tr,
+body.is-order-view .entry-edit > div.fieldset table tr td,
+body.is-order-view .entry-edit > div.fieldset table tr th,
+body.is-order-view .entry-edit > fieldset table tr,
+body.is-order-view .entry-edit > fieldset table tr td,
+body.is-order-view .entry-edit > fieldset table tr th {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+    background: transparent !important;
+}
+
+/* Comments History form — fix the top-row alignment. The previous
+   inline-block layout floated the "Add Order Comments" title at the
+   height of the Status field's <label> instead of the dropdown, so the
+   title and the Pending select sat at different y-positions and the
+   Status column hung in the middle of the row. Stack the title above
+   the Status field on its own row so every element inside the box
+   (title → Status → Comment → checkboxes) shares the same left edge.
+   Keeps the container outline from the .entry-edit > fieldset rule. */
+/* Comments History form layout: flex row with title at top-LEFT and the
+   Status field at top-RIGHT. Comment / Notify / Visible field-rows take
+   100% width and stack below the title row, so the Comment textarea
+   never overlaps the Status dropdown above. */
+html.is-order-view #order_history_block .order-history-form,
+body.is-order-view #order_history_block .order-history-form {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: flex-start !important;
+    position: static !important;
+}
+html.is-order-view #order_history_block .order-history-form > div:first-child,
+body.is-order-view #order_history_block .order-history-form > div:first-child {
+    flex: 1 1 auto !important;
+    margin: 0 0 14px 0 !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+}
+html.is-order-view #order_history_block .order-history-form > span.field-row:first-of-type,
+body.is-order-view #order_history_block .order-history-form > span.field-row:first-of-type {
+    flex: 0 0 auto !important;
+    position: static !important;
+    margin: 0 0 14px 0 !important;
+    display: inline-block !important;
+}
+html.is-order-view #order_history_block .order-history-form > span.field-row:not(:first-of-type),
+body.is-order-view #order_history_block .order-history-form > span.field-row:not(:first-of-type) {
+    flex: 0 0 100% !important;
+    display: block !important;
+    margin: 0 0 12px 0 !important;
+}
+
+/* Order view — uniform typography per user request: every text element
+   in the main content area takes the Course Title's font / size / weight
+   / spacing (13px, bold, line-height 1.4, no italic). Scoped to
+   .main-col so the sidebar, topbar, and footer are left untouched.
+   Chain html + body classes so the selector is specificity (0,3,2),
+   high enough to beat the pre-existing 15px overrides on
+   .entry-edit fieldset *, .form-list td/th, .box-head h3/h4 etc. */
+html.is-order-view body.is-order-view .main-col,
+html.is-order-view body.is-order-view .main-col * {
+    font-family: inherit !important;
+    font-size: 13px !important;
+    font-weight: bold !important;
+    font-style: normal !important;
+    line-height: 1.4 !important;
 }
 body.is-order-view .grid table.data.order-tables tbody td:not(:first-child) table,
 html.is-order-view .grid table.data.order-tables tbody td:not(:first-child) table,
