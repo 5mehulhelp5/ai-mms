@@ -1963,13 +1963,13 @@ button.at-pg-btn.disabled,button.at-pg-btn.disabled:hover{opacity:.45;cursor:not
 button.al-tab,button.al-tab:hover,button.al-tab:focus{padding:9px 22px !important;background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:14px !important;font-weight:600 !important;cursor:pointer !important;border-radius:7px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;line-height:normal !important;height:auto !important}
 button.al-tab:hover{color:#cbd5e1 !important}
 button.al-tab.active,button.al-tab.active:hover,button.al-tab.active:focus{background:#2563eb !important;color:#fff !important}
-.al-search-row{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:18px;margin-bottom:18px;display:flex;gap:12px}
-.al-search-input{flex:1;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:11px 14px;color:#e2e8f0;font-size:14px;outline:none}
+.al-search-row{background:transparent;border:1px solid #334155;border-radius:12px;padding:18px;margin-bottom:18px;display:flex;gap:12px}
+.al-search-input{flex:1;background:transparent;border:1px solid #334155;border-radius:8px;padding:11px 14px;color:#e2e8f0;font-size:14px;outline:none}
 .al-search-input:focus{border-color:#3b82f6}
 button.al-search-btn,button.al-search-btn:hover,button.al-search-btn:focus{padding:11px 28px !important;background:#22d3ee !important;background-image:none !important;color:#0f172a !important;font-weight:700 !important;font-size:14px !important;border:none !important;border-radius:8px !important;cursor:pointer !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;line-height:normal !important}
-.al-table-wrap{background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;margin-bottom:18px}
-table.al-table{width:100%;border-collapse:collapse;color:#e2e8f0}
-.al-table thead th{background:#0f172a;color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:14px 16px;text-align:left;border-bottom:1px solid #334155}
+.al-table-wrap{background:transparent;border:1px solid #334155;border-radius:12px;overflow:hidden;margin-bottom:18px}
+table.al-table{width:100%;border-collapse:collapse;color:#e2e8f0;background:transparent}
+.al-table thead th{background:transparent;color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:14px 16px;text-align:left;border-bottom:1px solid #334155}
 .al-table tbody td{padding:16px;border-bottom:1px solid #283548;font-size:13px;color:#cbd5e1;vertical-align:middle}
 .al-table tbody tr:last-child td{border-bottom:none}
 .al-table tbody tr:hover{background:rgba(30,58,99,.25)}
@@ -2922,13 +2922,13 @@ button.hsp-btn-submit{
 /* .active tab keeps solid blue, fine */
 
 /* Search row + input */
-:root[data-theme="light"] .al-search-row { background:#ffffff !important; border-color:#e2e8f0 !important }
-:root[data-theme="light"] .al-search-input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .al-search-row { background:transparent !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .al-search-input { background:transparent !important; border-color:#cbd5e1 !important; color:#0f172a !important }
 :root[data-theme="light"] .al-search-input:focus { border-color:#2563eb !important }
 
 /* Table */
-:root[data-theme="light"] .al-table-wrap { background:#ffffff !important; border-color:#e2e8f0 !important }
-:root[data-theme="light"] .al-table thead th { background:#f8fafc !important; color:#64748b !important; border-bottom-color:#e2e8f0 !important }
+:root[data-theme="light"] .al-table-wrap { background:transparent !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .al-table thead th { background:transparent !important; color:#64748b !important; border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .al-table tbody td { color:#1e293b !important; border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .al-table tbody tr:hover { background:rgba(37,99,235,0.05) !important }
 

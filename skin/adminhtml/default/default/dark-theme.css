@@ -4700,10 +4700,12 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table select {
     padding: 1px 6px !important;
 }
 
-/* Buttons in the editor — shorter */
-html body[class*="customoptions-options-edit"] button,
-html body[class*="customoptions-options-edit"] .scalable,
-html body[class*="customoptions-options-edit"] input[type="button"] {
+/* Buttons in the editor — shorter. Scoped to .main-col so the topbar
+   role selector (.view-as-pill etc.) isn't squashed to 22px / 11px,
+   which made it render in a half-broken state until hovered. */
+html body[class*="customoptions-options-edit"] .main-col button,
+html body[class*="customoptions-options-edit"] .main-col .scalable,
+html body[class*="customoptions-options-edit"] .main-col input[type="button"] {
     min-height: 22px !important;
     height: 22px !important;
     line-height: 20px !important;
