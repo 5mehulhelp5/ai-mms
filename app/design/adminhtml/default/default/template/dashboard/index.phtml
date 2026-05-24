@@ -8420,7 +8420,7 @@ $_credMask = function ($v) {
 };
 ?>
 <style>
-.crd-wrap { max-width: 900px; margin: 0 auto; padding: 24px; }
+.crd-wrap { max-width: 900px; margin: 0; padding: 24px; }
 .crd-title { font-size: 22px; font-weight: 700; color: #f1f5f9; margin: 0 0 6px; }
 .crd-sub { color: #94a3b8; font-size: 13px; margin: 0 0 24px; }
 .crd-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px 22px; margin-bottom: 18px; }
@@ -8444,6 +8444,10 @@ $_credMask = function ($v) {
 .crd-toast { position: fixed; bottom: 20px; right: 20px; background: #1e293b; border: 1px solid #334155; border-left: 3px solid #65b7d5; color: #f1f5f9; padding: 12px 18px; border-radius: 8px; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display: none; z-index: 9999; }
 .crd-toast.ok { border-left-color: #34d399; }
 .crd-toast.err { border-left-color: #f87171; color: #fecaca; }
+.crd-preset { padding: 4px 10px; font-size: 11px; background: #0f172a; color: #cbd5e1; border: 1px solid #334155; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.1s; }
+.crd-preset:hover { background: #1e293b; border-color: #65b7d5; color: #f1f5f9; }
+.crd-smtp-card select.crd-input { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, #94a3b8 50%), linear-gradient(135deg, #94a3b8 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 32px; }
+.crd-smtp-card option { background: #1e293b; color: #f1f5f9; }
 </style>
 <div id="dash-panel-credentials" style="display:none;">
 <div class="crd-wrap">
@@ -8571,29 +8575,42 @@ $_credMask = function ($v) {
         </div>
 
         <div class="crd-section-title" style="margin:32px 0 8px;color:#cbd5e1;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">SMTP — non-Singapore stores</div>
-        <p class="crd-sub" style="margin:0 0 18px;">Singapore sends via Gmail OAuth (above). These five cards configure SMTPPro per country website — each saves at <code style="background:#0f172a;padding:1px 6px;border-radius:4px;font-size:11px;">scope=websites</code> so the country's own order, OTP, contact-us, and lead auto-reply mail follow their dedicated SMTP relay.</p>
+        <p class="crd-sub" style="margin:0 0 18px;">Singapore sends via Gmail OAuth (above). These five cards configure SMTPPro per country website. Fill Host + Username + Password and click <strong>Save Credentials</strong> — SMTP turns on automatically. Use <strong>Send Test</strong> to verify before relying on it for real orders.</p>
 
+        <?php
+        $_userPlaceholders = array(
+            'malaysia' => 'sales@tertiarycourses.com.my',
+            'ghana'    => 'sales@tertiarycourses.com.gh',
+            'nigeria'  => 'sales@tertiarycourses.com.ng',
+            'bhutan'   => 'sales@tertiarycourses.bt',
+            'india'    => 'sales@tertiarycourses.co.in',
+        );
+        ?>
         <?php foreach ($_smtpWebsites as $_code => $_w):
             $_c = $_smtpCfg[$_code];
             $_isOn = ($_c['enabled'] !== '' && $_c['enabled'] !== 'disabled');
             $_hasValue = $_isOn || $_c['host'] !== '' || $_c['username'] !== '';
+            $_statusLabel = $_isOn ? '✅ Active' : ($_hasValue ? '⚠ Configured but disabled' : '○ Not configured');
+            $_statusColor = $_isOn ? '#34d399' : ($_hasValue ? '#fbbf24' : '#64748b');
         ?>
-        <div class="crd-card<?php echo $_hasValue ? ' has-value' : '' ?>">
+        <div class="crd-card crd-smtp-card<?php echo $_hasValue ? ' has-value' : '' ?>" data-website="<?php echo $_code ?>">
             <h3>
                 <span class="crd-dot"></span>
                 <span style="font-size:18px;line-height:1"><?php echo $_w['flag'] ?></span>
                 <?php echo htmlspecialchars($_w['label']) ?> SMTP
-                <span style="margin-left:auto;font-size:11px;font-weight:500;color:<?php echo $_isOn ? '#34d399' : '#64748b' ?>;text-transform:uppercase;letter-spacing:0.05em;">
-                    <?php echo $_isOn ? 'Enabled' : 'Disabled' ?>
+                <span class="crd-smtp-status" style="margin-left:auto;font-size:11px;font-weight:600;color:<?php echo $_statusColor ?>;letter-spacing:0.02em;">
+                    <?php echo $_statusLabel ?>
                 </span>
             </h3>
-            <div class="crd-row" style="flex-direction:row;align-items:center;gap:10px;margin-bottom:14px;">
-                <label class="crd-switch" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;">
-                    <input type="checkbox" name="smtp_<?php echo $_code ?>_enabled" value="1"<?php echo $_isOn ? ' checked' : '' ?>
-                        style="accent-color:#65b7d5;width:16px;height:16px;cursor:pointer;" />
-                    <span style="color:#cbd5e1;font-size:13px;">Enable SMTP for this store</span>
-                </label>
+
+            <div class="crd-preset-row" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">
+                <span style="font-size:11px;color:#64748b;align-self:center;margin-right:4px;">Quick-fill:</span>
+                <button type="button" class="crd-preset" onclick="crdSmtpPreset('<?php echo $_code ?>','gmail')">Gmail / Workspace</button>
+                <button type="button" class="crd-preset" onclick="crdSmtpPreset('<?php echo $_code ?>','outlook')">Outlook 365</button>
+                <button type="button" class="crd-preset" onclick="crdSmtpPreset('<?php echo $_code ?>','cpanel_tls')">cPanel (TLS 587)</button>
+                <button type="button" class="crd-preset" onclick="crdSmtpPreset('<?php echo $_code ?>','cpanel_ssl')">cPanel (SSL 465)</button>
             </div>
+
             <div class="crd-row" style="flex-direction:row;gap:12px;">
                 <div style="flex:2">
                     <label class="crd-label">Host</label>
@@ -8612,7 +8629,7 @@ $_credMask = function ($v) {
                 <div style="flex:1">
                     <label class="crd-label">SSL/TLS</label>
                     <select class="crd-input" name="smtp_<?php echo $_code ?>_ssl">
-                        <?php foreach (array('none' => 'None', 'tls' => 'TLS (STARTTLS, port 587)', 'ssl' => 'SSL (port 465)') as $_v => $_l): ?>
+                        <?php foreach (array('none' => 'None (plain)', 'tls' => 'TLS — STARTTLS, port 587 (recommended)', 'ssl' => 'SSL — port 465') as $_v => $_l): ?>
                         <option value="<?php echo $_v ?>"<?php echo ($_c['ssl'] === $_v) ? ' selected' : '' ?>><?php echo $_l ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -8620,7 +8637,7 @@ $_credMask = function ($v) {
                 <div style="flex:1">
                     <label class="crd-label">Auth</label>
                     <select class="crd-input" name="smtp_<?php echo $_code ?>_auth">
-                        <?php foreach (array('none' => 'None', 'login' => 'LOGIN', 'plain' => 'PLAIN', 'crammd5' => 'CRAM-MD5') as $_v => $_l): ?>
+                        <?php foreach (array('none' => 'None', 'login' => 'LOGIN (recommended)', 'plain' => 'PLAIN', 'crammd5' => 'CRAM-MD5') as $_v => $_l): ?>
                         <option value="<?php echo $_v ?>"<?php echo ($_c['auth'] === $_v) ? ' selected' : '' ?>><?php echo $_l ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -8630,7 +8647,7 @@ $_credMask = function ($v) {
                 <label class="crd-label">Username</label>
                 <input type="text" class="crd-input" name="smtp_<?php echo $_code ?>_username"
                     value="<?php echo htmlspecialchars($_c['username']) ?>"
-                    placeholder="sales@tertiarycourses.com.<?php echo $_code === 'malaysia' ? 'my' : ($_code === 'ghana' ? 'gh' : ($_code === 'nigeria' ? 'ng' : ($_code === 'bhutan' ? 'bt' : 'co.in'))) ?>" />
+                    placeholder="<?php echo htmlspecialchars($_userPlaceholders[$_code]) ?>" />
             </div>
             <div class="crd-row">
                 <label class="crd-label">Password</label>
@@ -8638,9 +8655,14 @@ $_credMask = function ($v) {
                     data-original="<?php echo $_c['password'] ? '__MASKED__' : '' ?>"
                     value="<?php echo $_c['password'] ? '••••••••••••' : '' ?>"
                     placeholder="app password or SMTP secret" autocomplete="new-password" />
-                <div class="crd-hint">For Gmail / Workspace use a 16-char App Password (Google Account → Security → 2-Step Verification → App passwords).</div>
+                <div class="crd-hint">For Gmail / Workspace use a 16-char App Password (Google Account → Security → 2-Step Verification → App passwords). Leave masked dots untouched to keep the current password.</div>
             </div>
-            <div class="crd-row" style="flex-direction:row;align-items:center;gap:10px;margin-top:6px;">
+
+            <div class="crd-hint" style="margin-top:14px;padding:8px 12px;background:#0f172a;border-left:3px solid #475569;border-radius:4px;">
+                💡 SMTP turns on automatically when Host + Username are filled. To <strong>disable</strong> this store, clear both fields and Save.
+            </div>
+
+            <div class="crd-row" style="flex-direction:row;align-items:center;gap:10px;margin-top:12px;">
                 <input type="email" class="crd-input crd-smtp-test-to" data-website="<?php echo $_code ?>"
                     placeholder="test recipient (e.g. you@tertiaryinfotech.com)"
                     style="flex:1" />
@@ -8651,6 +8673,10 @@ $_credMask = function ($v) {
                 </button>
             </div>
             <div class="crd-smtp-result" id="crd-smtp-result-<?php echo $_code ?>" style="margin-top:10px;font-size:12px;display:none;"></div>
+            <!-- Hidden field so the save handler always receives a value
+                 for the enabled state (used as an explicit-off marker when
+                 host + username are also cleared). -->
+            <input type="hidden" name="smtp_<?php echo $_code ?>_enabled" value="<?php echo $_isOn ? '1' : '0' ?>" />
         </div>
         <?php endforeach; ?>
 
@@ -8670,6 +8696,35 @@ function crdToast(msg, kind) {
     clearTimeout(window._crdToastT);
     window._crdToastT = setTimeout(function(){ t.style.display = 'none'; }, kind === 'err' ? 6000 : 3500);
 }
+// Quick-fill an SMTP card with the common-case settings for a provider.
+// Doesn't touch username / password (those are per-mailbox secrets) — only
+// the transport knobs that 99% of relays expect for that provider.
+var CRD_SMTP_PRESETS = {
+    gmail:      { host: 'smtp.gmail.com',          port: '587', ssl: 'tls', auth: 'login' },
+    outlook:    { host: 'smtp.office365.com',      port: '587', ssl: 'tls', auth: 'login' },
+    cpanel_tls: { host: '',                         port: '587', ssl: 'tls', auth: 'login' },
+    cpanel_ssl: { host: '',                         port: '465', ssl: 'ssl', auth: 'login' }
+};
+function crdSmtpPreset(code, presetKey) {
+    var p = CRD_SMTP_PRESETS[presetKey];
+    if (!p) return;
+    var card = document.querySelector('.crd-smtp-card[data-website="' + code + '"]');
+    if (!card) return;
+    var set = function(field, value) {
+        var el = card.querySelector('[name="smtp_' + code + '_' + field + '"]');
+        if (!el) return;
+        // Only override host if the preset has one (cPanel ones don't —
+        // your host stays as whatever you typed).
+        if (field === 'host' && !value && el.value) return;
+        el.value = value;
+    };
+    if (p.host) set('host', p.host);
+    set('port', p.port);
+    set('ssl',  p.ssl);
+    set('auth', p.auth);
+    crdToast('Filled ' + presetKey.replace('_', ' ') + ' defaults — enter username + password and Save.', 'ok');
+}
+
 // Fire the per-website SMTP test endpoint and render the result inline
 // under the matching card. Backend builds Zend_Mail_Transport_Smtp from
 // the website-scope `smtppro/general/*` rows — same path real order /

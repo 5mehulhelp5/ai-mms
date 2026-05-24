@@ -132,10 +132,21 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
             // Passwords go through core/encrypt before they hit the row so
             // SMTPPro's runtime decrypt round-trip works as it does for the
             // default-scope creds. An empty masked password is skipped.
+            //
+            // Trap-guard: SMTPPro's `option` toggle is easy to miss. If the
+            // user fills host + username but forgets the Enable checkbox,
+            // the website inherits `option=disabled` from default scope and
+            // mail silently never sends. So we ignore the checkbox when
+            // deciding the option: if host AND username come through with
+            // non-empty values, force option='smtp'. Only if BOTH are
+            // explicitly cleared do we write option='disabled'.
             $smtpTouched = [];
             foreach ($this->_smtpWebsites as $code => $w) {
                 $wid = (int) $w['id'];
+                $resolvedHost = null;
+                $resolvedUser = null;
                 foreach ($this->_smtpFields as $suffix => $path) {
+                    if ($suffix === 'enabled') continue; // handled below from host/user state
                     $field = 'smtp_' . $code . '_' . $suffix;
                     if (!$this->getRequest()->has($field)) continue;
                     $val = (string) $this->getRequest()->getPost($field);
@@ -144,12 +155,34 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
                     if ($suffix === 'password' && $val !== '') {
                         $val = Mage::helper('core')->encrypt($val);
                     }
-                    // 'enabled' is a checkbox → coerce to smtppro option keyword.
-                    if ($suffix === 'enabled') {
-                        $val = ($val === '1' || $val === 'on' || $val === 'true') ? 'smtp' : 'disabled';
-                    }
+                    if ($suffix === 'host')     $resolvedHost = $val;
+                    if ($suffix === 'username') $resolvedUser = $val;
                     $cfg->saveConfig($path, $val, 'websites', $wid);
                     $smtpTouched[] = $code . ':' . $path;
+                }
+
+                // Resolve the post-save host+username (use the newly written
+                // values when present, otherwise fall back to the already-
+                // saved website-scope rows) and flip option accordingly.
+                if ($this->getRequest()->has('smtp_' . $code . '_host')
+                    || $this->getRequest()->has('smtp_' . $code . '_username')
+                    || $this->getRequest()->has('smtp_' . $code . '_enabled')) {
+                    $store = Mage::app()->getWebsite($wid)->getDefaultStore();
+                    $sid   = $store ? (int) $store->getId() : 0;
+                    if ($resolvedHost === null) {
+                        $resolvedHost = (string) Mage::getStoreConfig('smtppro/general/smtp_host', $sid);
+                    }
+                    if ($resolvedUser === null) {
+                        $resolvedUser = (string) Mage::getStoreConfig('smtppro/general/smtp_username', $sid);
+                    }
+                    // Explicit Disable wins; otherwise host+username present → enable.
+                    $explicitOff = $this->getRequest()->has('smtp_' . $code . '_enabled')
+                        && (string) $this->getRequest()->getPost('smtp_' . $code . '_enabled') === '0'
+                        && ($resolvedHost === '' && $resolvedUser === '');
+                    $shouldEnable = ($resolvedHost !== '' && $resolvedUser !== '') && !$explicitOff;
+                    $optionVal = $shouldEnable ? 'smtp' : 'disabled';
+                    $cfg->saveConfig('smtppro/general/option', $optionVal, 'websites', $wid);
+                    $smtpTouched[] = $code . ':smtppro/general/option=' . $optionVal;
                 }
             }
 
