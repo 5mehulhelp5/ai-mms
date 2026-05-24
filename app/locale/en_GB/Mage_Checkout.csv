@@ -92,7 +92,7 @@ Default Shipping,Default Shipping
 Delete Condition,Delete Condition
 Details,Details
 Disabled,Disabled
-Discount Codes,Discount Codes
+Discount Codes,Discount Code
 Display Cart Summary,Display Cart Summary
 Display Shopping Cart Sidebar,Display Shopping Cart Sidebar
 Display item quantities,Display item quantities
@@ -114,7 +114,7 @@ Enable Onepage Checkout,Enable Onepage Checkout
 Enable Terms and Conditions,Enable Terms and Conditions
 Enabled,Enabled
 Enter a New Address,Enter a New Address
-Enter your coupon code if you have one.,Enter your coupon code if you have one.
+Enter your coupon code if you have one.,Enter your discount code if you have one.
 Enter your destination to get a shipping estimate.,Enter your destination to get a shipping estimate.
 Estimate Shipping and Tax,Estimate Shipping and SST
 Excl. Tax,Excl. SST
