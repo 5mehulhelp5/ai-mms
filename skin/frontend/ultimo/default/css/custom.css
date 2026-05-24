@@ -461,14 +461,12 @@ li.level2 > a > span > .cat-label,
    ========================================================================== */
 .course-info-stack { margin-top: 24px; display: flex; flex-direction: column; gap: 18px; }
 
-/* Force the lower "Course Details / Course Info / Job Roles / Trainers / Review"
-   tabs container to start on a new row below all product-info columns.
-   Ultimo's float-based grid (img / primary / secondary as grid12-4 floats) does
-   not clear after </form>, so once the left image column became the tallest
-   float (after we stacked the new cards there), the tabs container would slide
-   up beside the short secondary column on MY/SG/etc. — making tabs appear in
-   "column 2" instead of below. */
-.product-view > .box-additional { clear: both; }
+/* Let the lower "Course Details / Course Info / Job Roles / Trainers / Review"
+   tabs container (.box-additional.grid12-8, 66% wide) float up beside the tall
+   right secondary column when the left+center columns end higher. Without this,
+   `clear: both` (the previous default) waits for the tallest float — currently
+   the booking sidebar — and leaves a big empty band below left+center. */
+.product-view > .box-additional { clear: none; }
 
 .course-info-card,
 .course-policy-card {
@@ -1694,7 +1692,7 @@ li.level2 > a > span > .cat-label,
 .product-view .box-reviews .rating-box {
     display: inline-block;
     position: relative;
-    width: 84px;
+    width: 90px;
     height: 16px;
     background: none !important;
     font-size: 16px;
@@ -1702,6 +1700,8 @@ li.level2 > a > span > .cat-label,
     color: #d1d5db;
     letter-spacing: 2px;
     vertical-align: middle;
+    text-indent: 0;
+    padding: 0;
     overflow: hidden;
 }
 .product-view .box-reviews .rating-box::before {
@@ -1716,6 +1716,9 @@ li.level2 > a > span > .cat-label,
     color: #f5b301;
     overflow: hidden;
     white-space: nowrap;
+    text-indent: 0;
+    font-size: inherit;
+    line-height: 1;
 }
 .product-view .box-reviews .rating-box .rating::before {
     content: "\2605\2605\2605\2605\2605";
@@ -1821,7 +1824,7 @@ li.level2 > a > span > .cat-label,
     .product-view .box-reviews dl dt { padding: 12px 14px 8px !important; }
     .product-view .box-reviews dl dd { padding: 8px 14px 14px !important; }
     .product-view .box-reviews .ratings-table th { font-size: 13px; }
-    .product-view .box-reviews .rating-box { width: 72px; font-size: 14px; }
+    .product-view .box-reviews .rating-box { width: 80px; font-size: 14px; }
     #acctab-trainers + .panel #trainers img { float: none; display: block; margin: 0 0 10px; }
 }
 
