@@ -8381,6 +8381,36 @@ $_creds = array();
 foreach ($_credPaths as $_cp) {
     $_creds[$_cp] = (string) Mage::getStoreConfig($_cp);
 }
+
+/* Per-website SMTP creds for the non-SG country stores. SG is omitted
+   because Singapore sends via Gmail OAuth2 (configured above). Each row
+   reads at the website's default store, which is exactly how SMTPPro
+   resolves the values when an order/contact-us fires at run time. */
+$_smtpWebsites = array(
+    'malaysia' => array('id' => 2, 'label' => 'Malaysia',  'flag' => '🇲🇾'),
+    'ghana'    => array('id' => 3, 'label' => 'Ghana',     'flag' => '🇬🇭'),
+    'nigeria'  => array('id' => 4, 'label' => 'Nigeria',   'flag' => '🇳🇬'),
+    'bhutan'   => array('id' => 5, 'label' => 'Bhutan',    'flag' => '🇧🇹'),
+    'india'    => array('id' => 6, 'label' => 'India',     'flag' => '🇮🇳'),
+);
+$_smtpFields = array('enabled', 'host', 'port', 'ssl', 'auth', 'username', 'password');
+$_smtpCfg = array();
+foreach ($_smtpWebsites as $_code => $_w) {
+    try {
+        $_sid = (int) Mage::app()->getWebsite($_w['id'])->getDefaultStore()->getId();
+    } catch (Exception $_e) {
+        $_sid = 0;
+    }
+    $_smtpCfg[$_code] = array(
+        'enabled'  => (string) Mage::getStoreConfig('smtppro/general/option',              $_sid),
+        'host'     => (string) Mage::getStoreConfig('smtppro/general/smtp_host',           $_sid),
+        'port'     => (string) Mage::getStoreConfig('smtppro/general/smtp_port',           $_sid),
+        'ssl'      => (string) Mage::getStoreConfig('smtppro/general/smtp_ssl',            $_sid),
+        'auth'     => (string) Mage::getStoreConfig('smtppro/general/smtp_authentication', $_sid),
+        'username' => (string) Mage::getStoreConfig('smtppro/general/smtp_username',       $_sid),
+        'password' => (string) Mage::getStoreConfig('smtppro/general/smtp_password',       $_sid),
+    );
+}
 $_credMask = function ($v) {
     $v = (string) $v;
     if ($v === '') return '';
@@ -8540,6 +8570,90 @@ $_credMask = function ($v) {
             </div>
         </div>
 
+        <div class="crd-section-title" style="margin:32px 0 8px;color:#cbd5e1;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">SMTP — non-Singapore stores</div>
+        <p class="crd-sub" style="margin:0 0 18px;">Singapore sends via Gmail OAuth (above). These five cards configure SMTPPro per country website — each saves at <code style="background:#0f172a;padding:1px 6px;border-radius:4px;font-size:11px;">scope=websites</code> so the country's own order, OTP, contact-us, and lead auto-reply mail follow their dedicated SMTP relay.</p>
+
+        <?php foreach ($_smtpWebsites as $_code => $_w):
+            $_c = $_smtpCfg[$_code];
+            $_isOn = ($_c['enabled'] !== '' && $_c['enabled'] !== 'disabled');
+            $_hasValue = $_isOn || $_c['host'] !== '' || $_c['username'] !== '';
+        ?>
+        <div class="crd-card<?php echo $_hasValue ? ' has-value' : '' ?>">
+            <h3>
+                <span class="crd-dot"></span>
+                <span style="font-size:18px;line-height:1"><?php echo $_w['flag'] ?></span>
+                <?php echo htmlspecialchars($_w['label']) ?> SMTP
+                <span style="margin-left:auto;font-size:11px;font-weight:500;color:<?php echo $_isOn ? '#34d399' : '#64748b' ?>;text-transform:uppercase;letter-spacing:0.05em;">
+                    <?php echo $_isOn ? 'Enabled' : 'Disabled' ?>
+                </span>
+            </h3>
+            <div class="crd-row" style="flex-direction:row;align-items:center;gap:10px;margin-bottom:14px;">
+                <label class="crd-switch" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input type="checkbox" name="smtp_<?php echo $_code ?>_enabled" value="1"<?php echo $_isOn ? ' checked' : '' ?>
+                        style="accent-color:#65b7d5;width:16px;height:16px;cursor:pointer;" />
+                    <span style="color:#cbd5e1;font-size:13px;">Enable SMTP for this store</span>
+                </label>
+            </div>
+            <div class="crd-row" style="flex-direction:row;gap:12px;">
+                <div style="flex:2">
+                    <label class="crd-label">Host</label>
+                    <input type="text" class="crd-input" name="smtp_<?php echo $_code ?>_host"
+                        value="<?php echo htmlspecialchars($_c['host']) ?>"
+                        placeholder="smtp.gmail.com" />
+                </div>
+                <div style="flex:1">
+                    <label class="crd-label">Port</label>
+                    <input type="text" class="crd-input" name="smtp_<?php echo $_code ?>_port"
+                        value="<?php echo htmlspecialchars($_c['port']) ?>"
+                        placeholder="587" />
+                </div>
+            </div>
+            <div class="crd-row" style="flex-direction:row;gap:12px;">
+                <div style="flex:1">
+                    <label class="crd-label">SSL/TLS</label>
+                    <select class="crd-input" name="smtp_<?php echo $_code ?>_ssl">
+                        <?php foreach (array('none' => 'None', 'tls' => 'TLS (STARTTLS, port 587)', 'ssl' => 'SSL (port 465)') as $_v => $_l): ?>
+                        <option value="<?php echo $_v ?>"<?php echo ($_c['ssl'] === $_v) ? ' selected' : '' ?>><?php echo $_l ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div style="flex:1">
+                    <label class="crd-label">Auth</label>
+                    <select class="crd-input" name="smtp_<?php echo $_code ?>_auth">
+                        <?php foreach (array('none' => 'None', 'login' => 'LOGIN', 'plain' => 'PLAIN', 'crammd5' => 'CRAM-MD5') as $_v => $_l): ?>
+                        <option value="<?php echo $_v ?>"<?php echo ($_c['auth'] === $_v) ? ' selected' : '' ?>><?php echo $_l ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+            <div class="crd-row">
+                <label class="crd-label">Username</label>
+                <input type="text" class="crd-input" name="smtp_<?php echo $_code ?>_username"
+                    value="<?php echo htmlspecialchars($_c['username']) ?>"
+                    placeholder="sales@tertiarycourses.com.<?php echo $_code === 'malaysia' ? 'my' : ($_code === 'ghana' ? 'gh' : ($_code === 'nigeria' ? 'ng' : ($_code === 'bhutan' ? 'bt' : 'co.in'))) ?>" />
+            </div>
+            <div class="crd-row">
+                <label class="crd-label">Password</label>
+                <input type="password" class="crd-input" name="smtp_<?php echo $_code ?>_password"
+                    data-original="<?php echo $_c['password'] ? '__MASKED__' : '' ?>"
+                    value="<?php echo $_c['password'] ? '••••••••••••' : '' ?>"
+                    placeholder="app password or SMTP secret" autocomplete="new-password" />
+                <div class="crd-hint">For Gmail / Workspace use a 16-char App Password (Google Account → Security → 2-Step Verification → App passwords).</div>
+            </div>
+            <div class="crd-row" style="flex-direction:row;align-items:center;gap:10px;margin-top:6px;">
+                <input type="email" class="crd-input crd-smtp-test-to" data-website="<?php echo $_code ?>"
+                    placeholder="test recipient (e.g. you@tertiaryinfotech.com)"
+                    style="flex:1" />
+                <button type="button" class="crd-btn crd-btn-ghost crd-smtp-test-btn"
+                    data-website="<?php echo $_code ?>" onclick="crdSmtpTest('<?php echo $_code ?>')"
+                    style="padding:8px 16px;white-space:nowrap;font-size:12px">
+                    Send Test
+                </button>
+            </div>
+            <div class="crd-smtp-result" id="crd-smtp-result-<?php echo $_code ?>" style="margin-top:10px;font-size:12px;display:none;"></div>
+        </div>
+        <?php endforeach; ?>
+
         <div class="crd-actions">
             <button type="button" class="crd-btn crd-btn-ghost" onclick="window.location.reload()">Cancel</button>
             <button type="submit" class="crd-btn crd-btn-primary">Save Credentials</button>
@@ -8556,14 +8670,72 @@ function crdToast(msg, kind) {
     clearTimeout(window._crdToastT);
     window._crdToastT = setTimeout(function(){ t.style.display = 'none'; }, kind === 'err' ? 6000 : 3500);
 }
+// Fire the per-website SMTP test endpoint and render the result inline
+// under the matching card. Backend builds Zend_Mail_Transport_Smtp from
+// the website-scope `smtppro/general/*` rows — same path real order /
+// contact-us / OTP / lead-auto-reply mail uses for that country store —
+// and returns either "Accepted by host:port" or the SMTP error message.
+function crdSmtpTest(code) {
+    var input = document.querySelector('.crd-smtp-test-to[data-website="' + code + '"]');
+    var btn   = document.querySelector('.crd-smtp-test-btn[data-website="' + code + '"]');
+    var out   = document.getElementById('crd-smtp-result-' + code);
+    var to    = (input.value || '').trim();
+    if (!to || to.indexOf('@') === -1) {
+        out.style.display = 'block';
+        out.style.color = '#fecaca';
+        out.textContent = 'Enter a test recipient email first.';
+        return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    out.style.display = 'block';
+    out.style.color = '#94a3b8';
+    out.textContent = 'Connecting to SMTP relay…';
+    var data = new FormData();
+    data.append('website', code);
+    data.append('to', to);
+    data.append('form_key', '<?php echo Mage::getSingleton('core/session')->getFormKey() ?>');
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '<?php echo Mage::helper("adminhtml")->getUrl("adminhtml/maildiagnose/testsmtp") ?>', true);
+    xhr.onload = function() {
+        btn.disabled = false;
+        btn.textContent = 'Send Test';
+        try {
+            var r = JSON.parse(xhr.responseText);
+            if (r.ok) {
+                out.style.color = '#34d399';
+                out.innerHTML = '✅ ' + r.message + ' <span style="color:#64748b">(' + r.elapsed_ms + 'ms)</span>';
+            } else {
+                out.style.color = '#fecaca';
+                out.textContent = '❌ ' + (r.error || 'unknown error');
+            }
+        } catch (ex) {
+            out.style.color = '#fecaca';
+            out.textContent = '❌ HTTP ' + xhr.status + ' — bad response';
+        }
+    };
+    xhr.onerror = function() {
+        btn.disabled = false;
+        btn.textContent = 'Send Test';
+        out.style.color = '#fecaca';
+        out.textContent = '❌ Network error';
+    };
+    xhr.send(data);
+}
 function crdSubmit(e) {
     e.preventDefault();
     var form = document.getElementById('crd-form');
     var data = new FormData();
-    form.querySelectorAll('input').forEach(function(inp) {
+    // Include both <input> and <select> values; checkboxes only when checked.
+    form.querySelectorAll('input, select').forEach(function(inp) {
+        if (!inp.name) return;
         // If the field's value is unchanged from the masked placeholder,
         // skip it — server keeps the existing DB row untouched.
         if (inp.dataset.original === '__MASKED__' && inp.value.indexOf('•') !== -1) {
+            return;
+        }
+        if (inp.type === 'checkbox') {
+            data.append(inp.name, inp.checked ? '1' : '0');
             return;
         }
         data.append(inp.name, inp.value);

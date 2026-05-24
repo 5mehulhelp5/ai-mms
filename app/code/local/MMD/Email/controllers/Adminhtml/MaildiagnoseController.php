@@ -18,6 +18,52 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
     }
 
     /**
+     * Per-website SMTP cards exposed in the Credentials panel.
+     * Keys are the website codes; ids must match core_website.website_id.
+     * SG is intentionally omitted because Singapore sends via Gmail OAuth2.
+     */
+    protected $_smtpWebsites = array(
+        'malaysia' => array('id' => 2, 'label' => 'Malaysia'),
+        'ghana'    => array('id' => 3, 'label' => 'Ghana'),
+        'nigeria'  => array('id' => 4, 'label' => 'Nigeria'),
+        'bhutan'   => array('id' => 5, 'label' => 'Bhutan'),
+        'india'    => array('id' => 6, 'label' => 'India'),
+    );
+
+    /**
+     * Field-suffix → SMTPPro config path. Used by both the save action
+     * and the credentials-panel render. SMTPPro stores everything under
+     * `smtppro/general/*`; `option` is the connection mode
+     * (`disabled` | `smtp` | `google` | `ses` | `sendgrid`).
+     */
+    protected $_smtpFields = array(
+        'enabled'  => 'smtppro/general/option',
+        'host'     => 'smtppro/general/smtp_host',
+        'port'     => 'smtppro/general/smtp_port',
+        'ssl'      => 'smtppro/general/smtp_ssl',
+        'auth'     => 'smtppro/general/smtp_authentication',
+        'username' => 'smtppro/general/smtp_username',
+        'password' => 'smtppro/general/smtp_password',
+    );
+
+    /**
+     * Public accessors so the dashboard template can render cards without
+     * duplicating the website / field maps.
+     * @return array<string, array{id:int,label:string}>
+     */
+    public function getSmtpWebsites()
+    {
+        return $this->_smtpWebsites;
+    }
+    /**
+     * @return array<string, string>
+     */
+    public function getSmtpFields()
+    {
+        return $this->_smtpFields;
+    }
+
+    /**
      * Persist credentials submitted from the dashboard Credentials panel.
      * Accepts POST with form_key, ignores empty fields and unchanged masked
      * values (so users can leave secrets alone). Writes to default scope and
@@ -80,12 +126,145 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
                 ]);
             }
 
+            // Per-website SMTP cards (Malaysia / Ghana / Nigeria / Bhutan /
+            // India). Fields are `smtp_<code>_<field>` and each writes to
+            // smtppro/general/* at scope=websites, scope_id=<website_id>.
+            // Passwords go through core/encrypt before they hit the row so
+            // SMTPPro's runtime decrypt round-trip works as it does for the
+            // default-scope creds. An empty masked password is skipped.
+            $smtpTouched = [];
+            foreach ($this->_smtpWebsites as $code => $w) {
+                $wid = (int) $w['id'];
+                foreach ($this->_smtpFields as $suffix => $path) {
+                    $field = 'smtp_' . $code . '_' . $suffix;
+                    if (!$this->getRequest()->has($field)) continue;
+                    $val = (string) $this->getRequest()->getPost($field);
+                    if (strpos($val, '•') !== false) continue; // masked, untouched
+                    $val = trim($val);
+                    if ($suffix === 'password' && $val !== '') {
+                        $val = Mage::helper('core')->encrypt($val);
+                    }
+                    // 'enabled' is a checkbox → coerce to smtppro option keyword.
+                    if ($suffix === 'enabled') {
+                        $val = ($val === '1' || $val === 'on' || $val === 'true') ? 'smtp' : 'disabled';
+                    }
+                    $cfg->saveConfig($path, $val, 'websites', $wid);
+                    $smtpTouched[] = $code . ':' . $path;
+                }
+            }
+
             Mage::app()->getCacheInstance()->cleanType('config');
             Mage::app()->cleanCache();
 
-            $this->getResponse()->setBody(json_encode(['ok' => true, 'saved' => $touched]));
+            $this->getResponse()->setBody(json_encode([
+                'ok'          => true,
+                'saved'       => $touched,
+                'smtp_saved'  => $smtpTouched,
+            ]));
         } catch (Exception $e) {
             $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => $e->getMessage()]));
+        }
+    }
+
+    /**
+     * Send a real test email through a single website's SMTP configuration.
+     * Wired to a "Test" button on each per-website SMTP card in the
+     * Credentials panel. Builds Zend_Mail_Transport_Smtp directly from the
+     * website-scope `smtppro/general/*` rows we just saved, so the round
+     * trip mirrors what a real Magento order/contact-us send would do —
+     * without depending on Aschroder's own test controller (which is
+     * scope-aware via the System Configuration page only).
+     *
+     * POST /maildiagnose/testsmtp  body: website=<code>&to=<email>&form_key=…
+     *
+     * Returns JSON {ok, message|error, elapsed_ms, host, port}.
+     */
+    public function testsmtpAction()
+    {
+        $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+
+        $postedKey = (string) $this->getRequest()->getPost('form_key');
+        $sessionKey = (string) Mage::getSingleton('core/session')->getFormKey();
+        if (!$this->getRequest()->isPost() || $postedKey === '' || $postedKey !== $sessionKey) {
+            $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => 'invalid request']));
+            return;
+        }
+
+        $code = (string) $this->getRequest()->getPost('website');
+        $to   = trim((string) $this->getRequest()->getPost('to'));
+
+        if (!isset($this->_smtpWebsites[$code])) {
+            $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => 'unknown website']));
+            return;
+        }
+        if ($to === '' || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => 'invalid recipient email']));
+            return;
+        }
+
+        try {
+            // Read at the website's default store so per-website overrides
+            // resolve the way SMTPPro sees them at send time.
+            $wid     = (int) $this->_smtpWebsites[$code]['id'];
+            $storeId = (int) Mage::app()->getWebsite($wid)->getDefaultStore()->getId();
+
+            $host = trim((string) Mage::getStoreConfig('smtppro/general/smtp_host', $storeId));
+            $port = (int) Mage::getStoreConfig('smtppro/general/smtp_port', $storeId);
+            $ssl  = (string) Mage::getStoreConfig('smtppro/general/smtp_ssl', $storeId);
+            $auth = (string) Mage::getStoreConfig('smtppro/general/smtp_authentication', $storeId);
+            $user = (string) Mage::getStoreConfig('smtppro/general/smtp_username', $storeId);
+            $pass = (string) Mage::getStoreConfig('smtppro/general/smtp_password', $storeId);
+            $option = (string) Mage::getStoreConfig('smtppro/general/option', $storeId);
+
+            if ($host === '' || !$port) {
+                throw new Exception('SMTP host / port not configured for ' . $code . ' — fill the form and Save first.');
+            }
+            if ($option === 'disabled') {
+                throw new Exception('SMTPPro is disabled for ' . $code . ' — toggle "Enabled" on, Save, then Test.');
+            }
+
+            $transportConfig = array('port' => $port);
+            if ($auth !== '' && $auth !== 'none') {
+                $transportConfig['auth']     = $auth;
+                $transportConfig['username'] = $user;
+                $transportConfig['password'] = $pass;
+            }
+            if ($ssl !== '' && $ssl !== 'none') {
+                $transportConfig['ssl'] = $ssl;
+            }
+
+            $fromEmail = (string) Mage::getStoreConfig('trans_email/ident_general/email', $storeId);
+            $fromName  = (string) Mage::getStoreConfig('trans_email/ident_general/name', $storeId);
+            if ($fromEmail === '') $fromEmail = $user;
+            if ($fromName === '')  $fromName  = 'Tertiary Infotech Academy';
+
+            $t0   = microtime(true);
+            $transport = new Zend_Mail_Transport_Smtp($host, $transportConfig);
+
+            $mail = new Zend_Mail('utf-8');
+            $mail->setFrom($fromEmail, $fromName);
+            $mail->addTo($to);
+            $mail->setSubject('SMTP test (' . ucfirst($code) . ') — ' . date('Y-m-d H:i:s'));
+            $mail->setBodyHtml(
+                '<p>This is a one-shot SMTP test from the <strong>' . htmlspecialchars(ucfirst($code)) . '</strong> store.</p>'
+                . '<p>Host: ' . htmlspecialchars($host) . ':' . $port . ' (' . htmlspecialchars($ssl ?: 'plain') . ', auth=' . htmlspecialchars($auth ?: 'none') . ')</p>'
+                . '<p>If you can read this in your inbox, real order-confirmation + contact-us mail will follow the same path.</p>'
+            );
+            $mail->send($transport);
+
+            $this->getResponse()->setBody(json_encode([
+                'ok'         => true,
+                'message'    => 'Accepted by ' . $host . ':' . $port . ' for ' . $to,
+                'host'       => $host,
+                'port'       => $port,
+                'elapsed_ms' => (int) round((microtime(true) - $t0) * 1000),
+            ]));
+        } catch (Exception $e) {
+            $this->getResponse()->setBody(json_encode([
+                'ok'        => false,
+                'error'     => $e->getMessage(),
+                'exception' => get_class($e),
+            ]));
         }
     }
 
