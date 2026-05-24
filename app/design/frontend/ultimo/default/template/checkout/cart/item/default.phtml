@@ -61,21 +61,13 @@ $imgHeight = 168;
         <?php if ($_options = $this->getOptionList()):?>
         <dl class="item-options">
             <?php foreach ($_options as $_option) : ?>
-            <?php
-                // Hide the "Type" option (internal classification, not useful in the cart line).
-                $_optLabel = (string) $_option['label'];
-                if (strcasecmp(trim($_optLabel), 'Type') === 0) { continue; }
-                $_formatedOptionValue = $this->getFormatedOptionValue($_option);
-                // Skip empty-value options so nothing renders without a selection,
-                // but never skip non-empty ones (so funding / sponsorship etc. always show).
-                if (!isset($_formatedOptionValue['value']) || trim((string) $_formatedOptionValue['value']) === '') { continue; }
-            ?>
-            <dt><?php echo $this->escapeHtml($_optLabel) ?></dt>
+            <?php $_formatedOptionValue = $this->getFormatedOptionValue($_option) ?>
+            <dt><?php echo $this->escapeHtml($_option['label']) ?></dt>
             <dd<?php if (isset($_formatedOptionValue['full_view'])): ?> class="truncated"<?php endif; ?>><?php echo $_formatedOptionValue['value'] ?>
                 <?php if (isset($_formatedOptionValue['full_view'])): ?>
                 <div class="truncated_full_value">
                     <dl class="item-options">
-                        <dt><?php echo $this->escapeHtml($_optLabel) ?></dt>
+                        <dt><?php echo $this->escapeHtml($_option['label']) ?></dt>
                         <dd><?php echo $_formatedOptionValue['full_view'] ?></dd>
                     </dl>
                 </div>
