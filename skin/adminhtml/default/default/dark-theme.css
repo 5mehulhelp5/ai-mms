@@ -5123,3 +5123,15 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 :root[data-theme="light"] dl.accordion dt:hover {
     background: #cbd5e1 !important;
 }
+
+/* Sales transaction view — wrap the "Transaction Data" fieldset as a
+   light gray card in light mode so the label/value list reads as a
+   distinct panel against the page background. Scoped to the txn view
+   body so the project-wide transparent-fieldset convention is untouched
+   elsewhere. */
+:root[data-theme="light"] body.adminhtml-sales-transactions-view .entry-edit fieldset,
+:root[data-theme="light"] body.adminhtml-sales-transactions-view .entry-edit .fieldset {
+    background: #e2e8f0 !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 10px !important;
+}
