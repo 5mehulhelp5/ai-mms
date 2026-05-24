@@ -91,9 +91,21 @@
 	$_hasWsqFunding    = false;
 	if ($shortDescription) {
 		$_wsqPattern = '#<div\b[^>]*border-radius\s*:[^>]*>(.*?)</div>#siu';
+		// Fallback for products whose WSQ block was pasted without the
+		// rounded-div wrapper: slice from the "WSQ Funding" heading up to
+		// the next top-level (h1/h2) section or end of description. The
+		// SFC/UTAP/SFEC sub-headings are h3 inside the block, so they stay
+		// in the slice and get wrapped as .wsq-sub blocks below.
+		$_wsqHeadingPattern = '#<h[1-6][^>]*>' . $_WS . '*WSQ' . $_WS . '+Funding' . $_WS . '*</h[1-6]>(.*?)(?=<h[12]\b|\z)#siu';
 		if (preg_match($_wsqPattern, $shortDescription, $_wsqMatch)) {
 			$_hasWsqFunding = true;
 			$_inner = $_wsqMatch[1];
+		} elseif (preg_match($_wsqHeadingPattern, $shortDescription, $_wsqMatch)) {
+			$_hasWsqFunding = true;
+			$_inner         = $_wsqMatch[1];
+			$_wsqPattern    = $_wsqHeadingPattern;
+		}
+		if ($_hasWsqFunding) {
 			$_inner = preg_replace('#<h[1-6][^>]*>' . $_WS . '*WSQ' . $_WS . '+Funding' . $_WS . '*</h[1-6]>#siu', '', $_inner);
 			$_inner = preg_replace('#<table\b.*?</table>#siu', '', $_inner);
 			$_inner = preg_replace('#<p[^>]*>' . $_WS . '*WSQ' . $_WS . '+funding' . $_WS . '+is' . $_WS . '+only.*?</p>#siu', '', $_inner);
