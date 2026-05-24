@@ -2326,7 +2326,7 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
 :root[data-theme="light"] button.lmc-link-btn:active { color:#64748b !important }
 :root[data-theme="light"] button.lmc-link-btn:hover { color:#0f172a !important }
 
-:root[data-theme="light"] .lmc-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .lmc-card { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
 :root[data-theme="light"] .lmc-card:hover { box-shadow:0 12px 28px rgba(15,23,42,0.10) !important }
 :root[data-theme="light"] .lmc-card-title { color:#0f172a !important }
 :root[data-theme="light"] .lmc-card:hover .lmc-card-title { color:#2563eb !important }
@@ -2606,7 +2606,7 @@ button.hsp-btn-submit{
    #1f2937 background. Lift to white + lighter shadow on hover. The
    icon medallion uses a cyan tint that works on both surfaces, so
    we leave it alone. */
-:root[data-theme="light"] .edt-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .edt-card { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
 :root[data-theme="light"] .edt-card:hover { border-color:#cbd5e1 !important; box-shadow:0 10px 24px rgba(15,23,42,0.08) !important }
 :root[data-theme="light"] .edt-card-desc { color:#64748b !important }
 
@@ -2619,7 +2619,7 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .dev-search-input::placeholder { color:#94a3b8 !important }
 :root[data-theme="light"] .dev-search-input-wrap svg { color:#94a3b8 !important }
 
-:root[data-theme="light"] .dev-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dev-card { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
 :root[data-theme="light"] .dev-card-title { color:#0f172a !important }
 :root[data-theme="light"] .dev-card-row { border-bottom-color:rgba(15,23,42,0.06) !important }
 :root[data-theme="light"] .dev-card-lbl { color:#64748b !important }
@@ -2648,7 +2648,7 @@ button.hsp-btn-submit{
    inputs, drafts list, and the right-side preview all hardcode dark
    slate. Flip each surface for light. The DEMO MODE pill and active
    template tint use semantic colors that read on both surfaces. */
-:root[data-theme="light"] .mn-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .mn-card { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
 :root[data-theme="light"] .mn-card h3 { color:#0f172a !important }
 
 /* Template picker buttons */
@@ -3038,7 +3038,7 @@ button.hsp-btn-submit{
    stays. */
 :root[data-theme="light"] .crd-title { color:#0f172a !important }
 :root[data-theme="light"] .crd-sub { color:#64748b !important }
-:root[data-theme="light"] .crd-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .crd-card { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
 :root[data-theme="light"] .crd-card h3 { color:#0f172a !important }
 :root[data-theme="light"] .crd-card h3 .crd-dot { background:#cbd5e1 !important }
 /* .has-value dot keeps cyan tint, semantic — works on both */
