@@ -735,9 +735,9 @@ li.level2 > a > span > .cat-label,
 }
 
 .wsq-funding-narrative {
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid #e5e7eb;
+    margin-top: 12px;
+    padding-top: 0;
+    border-top: 0;
     font-size: 13px;
     color: #334155;
     line-height: 1.55;

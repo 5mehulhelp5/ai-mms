@@ -104,6 +104,9 @@
 			$_inner = preg_replace('#<p[^>]*>(?:' . $_WS . '|<[^>]+>)*Upon\s+registration[^<]*advise[^<]*WSQ.*?</p>#siu', '', $_inner);
 			$_inner = preg_replace('#<p[^>]*>(?:' . $_WS . '|<[^>]+>)*You\s+can\s+pay\s+the\s+nett\s+fee.*?</p>#siu', '', $_inner);
 			$_inner = preg_replace('#<p[^>]*>' . $_WS . '*</p>#siu', '', $_inner);
+			// Drop any <hr> separators inside the narrative — the per-scheme
+			// .wsq-sub cards below already supply visual separation.
+			$_inner = preg_replace('#<hr\b[^>]*/?>#siu', '', $_inner);
 
 			// Wrap each remaining <h[1-6]>…(body until next h)…</h> into its
 			// own .wsq-sub block so the SFC / UTAP / PSEA / SFEC sub-sections
@@ -180,11 +183,25 @@
 			$_haystack = $_sm[1];
 		}
 		$_haystack = html_entity_decode(strip_tags($_haystack), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-		// Code pattern: 2+ uppercase letters, hyphen, repeating groups, ending
-		// in version like 1.1 — optionally followed by " T" or " TSC".
-		if (preg_match('#([A-Z]{2,}(?:-[A-Z0-9]+){2,}-\d+(?:\.\d+)+)\s*(T(?:SC)?)?#u', $_haystack, $_cm)) {
-			$_skillsCode  = trim($_cm[1] . (isset($_cm[2]) && $_cm[2] !== '' ? ' ' . $_cm[2] : ''));
-			$_skillsTitle = trim(preg_replace('#\s*' . preg_quote($_cm[0], '#') . '\s*$#u', '', $_haystack));
+		// Replace any Unicode whitespace (e.g. &nbsp; → U+00A0) with normal
+		// space so the regexes below match.
+		$_haystack = preg_replace('#[\x{00A0}\x{2007}\x{202F}]#u', ' ', $_haystack);
+		$_haystack = preg_replace('#\s+#u', ' ', trim($_haystack));
+
+		// Strategy 1 (preferred): code is whatever sits before the " T"/" TSC"
+		// marker. Handles all observed variants: ICT-DIT-3001-1.1, MED-ACE-3018-1,
+		// ICT-PMT-3026.1.1, BEV-BIN-5021-1.1-1, etc.
+		// Strategy 2 (fallback): structured code without a TSC marker.
+		if (preg_match('#([A-Z]{2,}(?:-[A-Z][A-Z0-9]*)+(?:[-.][0-9][0-9.\-]*)?)\s+(T(?:SC)?)\b#u', $_haystack, $_cm)) {
+			$_skillsCode  = trim($_cm[1] . ' ' . $_cm[2]);
+		} elseif (preg_match('#([A-Z]{2,}(?:-[A-Z][A-Z0-9]*)+(?:[-.][0-9][0-9.\-]*))#u', $_haystack, $_cm)) {
+			$_skillsCode = trim($_cm[1]);
+		}
+		if ($_skillsCode !== '') {
+			// Title = haystack with the matched code (and the optional TSC
+			// suffix) sliced out.
+			$_titleSrc = preg_replace('#\s*' . preg_quote($_cm[0], '#') . '\s*#u', ' ', $_haystack);
+			$_skillsTitle = trim($_titleSrc);
 		} else {
 			$_skillsTitle = trim($_haystack);
 		}
@@ -404,7 +421,6 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
 										</span>
 										<span class="brochure-cta__label"><?php echo $this->escapeHtml($_courseBrochureLabel); ?></span>
-										<span class="brochure-cta__hint">PDF · opens in new tab</span>
 									</a>
 								<?php else: ?>
 									<div class="std"><?php echo $_courseBrochureHtml; ?></div>
