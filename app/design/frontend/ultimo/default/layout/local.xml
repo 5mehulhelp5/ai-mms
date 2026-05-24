@@ -950,7 +950,7 @@
 
 			<block type="page/html_pager" name="product_review_list.toolbar">
 
-				<action method="setLimit"><limit>20</limit></action>
+				<action method="setLimit"><limit>5</limit></action>
 
 			</block>
 
