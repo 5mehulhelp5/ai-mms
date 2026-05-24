@@ -2436,6 +2436,22 @@ html.is-order-view body.is-order-view .main-col * {
     font-style: normal !important;
     line-height: 1.4 !important;
 }
+
+/* Comments History note rows — drop the two redundant icons:
+   - the decorative "note" background image on every <li> (boxes.css:557
+     paints icon_note_list.gif as a list bullet);
+   - the green ico_success.gif checkmark next to "Notified" (the text
+     itself already says "Notified" / "Not Notified", so the image is
+     purely visual reinforcement). */
+html.is-order-view #order_history_block .note-list li,
+body.is-order-view #order_history_block .note-list li {
+    background-image: none !important;
+    padding-left: 10px !important;
+}
+html.is-order-view #order_history_block .note-list li img,
+body.is-order-view #order_history_block .note-list li img {
+    display: none !important;
+}
 body.is-order-view .grid table.data.order-tables tbody td:not(:first-child) table,
 html.is-order-view .grid table.data.order-tables tbody td:not(:first-child) table,
 body.is-order-view .grid table.data.order-tables tbody td:not(:first-child) .qty-table,
