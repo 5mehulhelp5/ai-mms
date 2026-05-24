@@ -1228,7 +1228,7 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
 /* Company Setting — restyled 2026-05-07 to match the cyan-edit reference
    screenshot. Header logo + name, accordion sections collapsed by default,
    each section header has its own cyan Edit pill on the right. */
-.cs-wrap{max-width:1180px;margin:0 auto;padding:32px 36px 36px;background:#172033;border:1px solid #1e293b;border-radius:14px;box-shadow:0 1px 0 rgba(255,255,255,.02) inset}
+.cs-wrap{max-width:1180px;margin:0;padding:32px 36px 36px;background:#172033;border:1px solid #1e293b;border-radius:14px;box-shadow:0 1px 0 rgba(255,255,255,.02) inset}
 .cs-header{display:flex;align-items:center;gap:24px;padding:0 0 24px;background:transparent;border-bottom:1px solid rgba(148,163,184,.18);margin-bottom:8px}
 .cs-logo{width:78px;height:78px;border-radius:12px;background:#1e3a5f;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:800;color:#60a5fa;border:1px solid #2d4a6f}
 .cs-header-info{flex:1}

@@ -96,7 +96,7 @@ button.rm-role-toggle:hover,.rm-role-toggle.rm-role-toggle:hover{opacity:.85 !im
 
 /* --- seometadata.phtml --- */
 .seo-page{background:var(--d1);min-height:calc(100vh - 60px);padding:32px;color:var(--t1)}
-.seo-wrap{max-width:1400px;margin:0 auto}
+.seo-wrap{max-width:1400px;margin:0}
 .seo-header{margin-bottom:28px}
 .seo-header h1{font-size:30px;font-weight:700;color:#fff;margin:0 0 8px}
 .seo-header p{font-size:14px;color:#94a3b8;margin:0}
