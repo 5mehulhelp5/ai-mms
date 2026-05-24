@@ -47,15 +47,17 @@ $imgHeight = 168;
 <tr>
     <?php
         // Prefer the AI-generated course cover (course_image_url attribute,
-        // written by CourseImage module) over the legacy "thumbnail" image,
-        // which is rarely kept in sync with the cover dialog.
+        // written by CourseImage module) over the legacy "thumbnail" image.
+        // The quote-item's product proxy is a "lite" load that omits custom
+        // EAV attributes, so we re-fetch course_image_url directly from the
+        // catalog table by entity id when it's missing.
         $_cartProduct  = $_item->getProduct();
-        $_courseImgUrl = $_cartProduct ? trim((string) $_cartProduct->getData('course_image_url')) : '';
-        if ($_courseImgUrl === '' && $_cartProduct) {
-            // Fall back to small_image (the catalog list cover) before thumbnail.
-            $_smallImg = (string) $_cartProduct->getSmallImage();
-            if ($_smallImg !== '' && $_smallImg !== 'no_selection') {
-                $_courseImgUrl = (string) Mage::helper('catalog/image')->init($_cartProduct, 'small_image')->resize(168);
+        $_courseImgUrl = '';
+        if ($_cartProduct && $_cartProduct->getId()) {
+            $_courseImgUrl = trim((string) $_cartProduct->getData('course_image_url'));
+            if ($_courseImgUrl === '') {
+                $_courseImgUrl = trim((string) Mage::getResourceModel('catalog/product')
+                    ->getAttributeRawValue($_cartProduct->getId(), 'course_image_url', Mage::app()->getStore()));
             }
         }
     ?>
