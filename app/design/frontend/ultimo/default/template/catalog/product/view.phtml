@@ -208,9 +208,29 @@
 		$_skillsTitle = trim($_titleSrc);
 	}
 
-	// (5) Certification section — varies per course (External cert blurb
-	// differs by AWS/CompTIA/Microsoft etc.). Same lookahead rules.
-	list($_certificationHtml, $shortDescription) = $_extractSection('Certification', $shortDescription);
+	// (5) Certification section.
+	// SG store: ALWAYS render a standardised writeup keyed off the SKU
+	// prefix, regardless of whatever heading variant ("Certificate" /
+	// "Certification" / "Certifications") the legacy description used.
+	// - TGS-* SKUs (WSQ courses) → Certificate of Completion + OpenCert
+	// - All other SG SKUs (C-prefix etc.) → Certificate of Completion only
+	// Other stores keep the original per-course extraction.
+	if (Mage::app()->getStore()->getId() == 1) {
+		// Strip whatever heading variant the description carries so it
+		// doesn't double-render inside the course narrative below.
+		list($_certIgnored, $shortDescription) = $_extractSection('(?:Certifications?|Certificate)', $shortDescription);
+		unset($_certIgnored);
+
+		$_isWsqCert = (stripos((string) $_product->getSku(), 'TGS-') === 0);
+		$_certificationHtml  = '<ul class="cert-bullets">';
+		$_certificationHtml .= '<li><strong>Certificate of Completion from Tertiary Infotech</strong> - Upon meeting at least 75% attendance and passing the assessment(s), participants will receive a Certificate of Completion from Tertiary Infotech.</li>';
+		if ($_isWsqCert) {
+			$_certificationHtml .= '<li><strong>OpenCerts from SkillsFuture Singapore</strong> - After passing the assessment(s) and achieving at least 75% attendance, participants will receive a OpenCert (aka Statement of Achievement) from SkillsFuture Singapore, certifying that they have achieved the Competency Standard(s) in the above Skills Framework.</li>';
+		}
+		$_certificationHtml .= '</ul>';
+	} else {
+		list($_certificationHtml, $shortDescription) = $_extractSection('Certification', $shortDescription);
+	}
 
 	//Rich snippets
 	$useRichSnippets = ($helperSnippets->isEnabledOnProductPage() && $productTypeId !== 'grouped');
