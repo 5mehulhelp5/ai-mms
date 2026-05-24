@@ -47,9 +47,9 @@ Cart Subtotal:,Cart Subtotal:
 Change,Change
 Change Billing Address,Change Billing Address
 Checkbox Text,Checkbox Text
-Checkout,Checkout
-Checkout Conditions,Checkout Conditions
-Checkout Method,Checkout Method
+Checkout,Registration
+Checkout Conditions,Registration Conditions
+Checkout Method,Register Process
 Checkout Options,Checkout Options
 Checkout Progress Wrapper,Checkout Progress Wrapper
 Checkout Section,Checkout Section
@@ -200,7 +200,7 @@ Payment method information,Payment method information
 Payment method is not defined,Payment method is not defined
 Payment methods in shopping cart,Payment methods in shopping cart
 "Payment profile # %s: ""%s"".","Payment profile # %s: ""%s""."
-Place Order,Place Order
+Place Order,Submit Course Registration
 Please agree to all Terms and Conditions before placing the order.,Please agree to all Terms and Conditions before placing the order.
 Please agree to all Terms and Conditions before placing the orders.,Please agree to all Terms and Conditions before placing the orders.
 Please agree to all the terms and conditions before placing the order.,Please agree to all the terms and conditions before placing the order.
@@ -217,7 +217,7 @@ Please specify payment method.,Please specify payment method.
 Please specify shipping method.,Please specify shipping method.
 Please specify shipping methods for all addresses.,Please specify shipping methods for all addresses.
 Price,Price
-Proceed to Checkout,Proceed to Checkout
+Proceed to Checkout,Proceed to Register
 Product,Product
 Product Name,Product Name
 Products,Products
@@ -324,7 +324,7 @@ We are processing your order and you will soon receive an email with details of 
 What's this?,What's this?
 You have no items in your shopping cart.,You have no items in your shopping cart.
 You will receive an order confirmation email with details of your order and a link to track its progress.,You will receive an order confirmation email with details of your order and a link to track its progress.
-Your Checkout Progress,Your Checkout Progress
+Your Checkout Progress,Registration Progress
 Your billing agreement # is: %s.,Your billing agreement # is: %s.
 Your order # is: %s.,Your order # is: %s.
 Your order cannot be completed at this time as there is no payment methods available for it.,Your order cannot be completed at this time as there is no payment methods available for it.
