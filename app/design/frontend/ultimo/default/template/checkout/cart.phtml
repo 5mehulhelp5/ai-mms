@@ -45,6 +45,7 @@
         <?php endif; */ ?>
         
     </div>
+    <?php if (Mage::app()->getStore()->getCode() === 'singapore'): /* SG-only: WSQ / SkillsFuture / e-invoice funding flows */ ?>
     <div class="cart-info-callout" role="note" aria-label="<?php echo $this->__('Payment information') ?>">
         <div class="cart-info-callout__icon" aria-hidden="true">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
@@ -56,6 +57,7 @@
             </p>
         </div>
     </div>
+    <?php endif; ?>
     <style>
         .cart-info-callout{display:flex;gap:14px;align-items:flex-start;margin:0 0 20px;padding:14px 18px;background:#eff6ff;border:1px solid #bfdbfe;border-left:4px solid #2563eb;border-radius:6px;color:#1e3a8a;}
         .cart-info-callout__icon{flex:0 0 auto;color:#2563eb;display:flex;align-items:center;justify-content:center;margin-top:2px;}
