@@ -2053,4 +2053,23 @@ li.level2 > a > span > .cat-label,
     .catalog-product-view .related-products-wrapper {
         display: none !important;
     }
+
+    /* Shrink the dead space between Register Your Interest and the footer.
+       The hidden tabs/related rail leaves trailing empty wrappers; the
+       product-view + nested container also keep their desktop bottom
+       padding. Collapse the lot on mobile. */
+    .catalog-product-view .product-view,
+    .catalog-product-view .product-view.nested-container,
+    .catalog-product-view #product_addtocart_form,
+    .catalog-product-view .product-secondary-column .inner,
+    .catalog-product-view .product-secondary-column .box-additional,
+    .catalog-product-view .container2-wrapper,
+    .catalog-product-view .add-to-box {
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+    }
+    .catalog-product-view .product-view::after,
+    .catalog-product-view #product_addtocart_form::after { display: none; }
+    .catalog-product-view .product-view > .box-additional,
+    .catalog-product-view .product-view > .box-additional + .box-additional { display: none !important; }
 }
