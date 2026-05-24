@@ -5018,14 +5018,15 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     color: #1e293b !important;            /* slate-800 body text */
 }
 
-/* Cast a wide net for descendants in the main content area —
-   any element NOT in an exclusion class flips to dark text. */
-:root[data-theme="light"] .admin-main *:not(.button):not(button.button):not(button.btn-cart)
-    :not([class*="badge"]):not([class*="pill"]):not([class*="chip"]):not(.cat-label)
-    :not(svg):not(svg *):not(.theme-toggle):not(.theme-toggle *)
-    :not([class*="al-num"]):not([class*="kpi-num"]) {
-    color: #1e293b !important;
-}
+/* (Removed the broad *:not(...) safety-net: it was overriding
+   intentionally-coloured text from dark mode — e.g. the orange
+   .grand-total values in the Order Totals box — and flattening them
+   to slate-800 in light mode. Per user request, any text that's a
+   non-grey colour in dark mode should keep that colour in light
+   mode. Relying on the body/main inherited dark + targeted rules
+   below (headings / links / muted) handles the common cases;
+   element-specific colour rules in the rest of this file naturally
+   win because they're more specific than the body inheritance. */
 
 /* Headings get the strongest contrast. */
 :root[data-theme="light"] .admin-main h1,
@@ -5055,4 +5056,19 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 :root[data-theme="light"] .admin-main [class*="-help"],
 :root[data-theme="light"] .admin-main [class*="-lbl"] {
     color: #475569 !important;            /* slate-600 */
+}
+
+/* Light mode — sidebar nav text dark. .lms-nav-item is hardcoded to
+   slate-400 (#94a3b8) for dark mode (sidebar-nav.css:2098), which is
+   unreadable on a light-mode white sidebar. Flip every sidebar text
+   item (and icons via currentColor) to slate-900 in light mode,
+   including hover and active states. Also covers nested nav classes
+   (.tools-*, .dcf-nav-* etc.) via the .side-col descendant sweep. */
+:root[data-theme="light"] .side-col,
+:root[data-theme="light"] .side-col *,
+:root[data-theme="light"] .lms-nav-item,
+:root[data-theme="light"] .lms-nav-item:hover,
+:root[data-theme="light"] .lms-nav-item.active,
+:root[data-theme="light"] .lms-nav-item.active:hover {
+    color: #0f172a !important;            /* slate-900 */
 }
