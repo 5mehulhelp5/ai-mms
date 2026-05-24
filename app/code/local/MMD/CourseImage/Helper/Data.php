@@ -123,6 +123,30 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Badges that are *legitimate* to surface on a given country's storefront.
+     * Used as a per-website whitelist applied AFTER the product-tag fetch so
+     * data leakage across stores (e.g. an MY-coded product showing HRDF on
+     * its GH listing because the catalog is shared) never reaches the chip
+     * renderer. Unknown website codes return the full vocabulary so any new
+     * country we add starts permissive and tightens as we learn its rules.
+     */
+    public function getApplicableBadgesForWebsite(string $websiteCode): array
+    {
+        $map = [
+            'base'     => ['WSQ', 'SkillsFuture Credit', 'PSEA', 'UTAP', 'IBF', 'SFEC', 'Absentee Payroll', 'MCES'],
+            'malaysia' => ['HRDF'],
+            // Ghana / Nigeria / Bhutan / India have no government funding
+            // schemes we model — explicit empty list so HRDF/WSQ never bleed
+            // through from a shared product.
+            'ghana'    => [],
+            'nigeria'  => [],
+            'bhutan'   => [],
+            'india'    => [],
+        ];
+        return array_key_exists($websiteCode, $map) ? $map[$websiteCode] : $this->getAllBadges();
+    }
+
+    /**
      * Return the canonical funding badges currently assigned to a product
      * via Magento's tag system, filtered to the controlled vocabulary in
      * getAllBadges() and ordered by that vocabulary (not by tag_id).
@@ -130,6 +154,12 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
      * Reads tag_relation joined to tag with status = APPROVED. Storefront
      * callers must filter by name whitelist so any non-canonical tag (e.g.
      * legacy "1"-"5" rating tags) never reaches the chip renderer.
+     *
+     * Further intersects with the current store's website-applicable list
+     * (see getApplicableBadgesForWebsite) so country-irrelevant badges from
+     * the shared catalog (HRDF on GH, WSQ on NG, etc.) never render. Admin
+     * context — no resolvable frontend website — skips this filter so the
+     * cover-dialog read path keeps showing all assigned tags.
      *
      * Returns an empty array on any error so the catalog page never fatals
      * because of a tag lookup.
@@ -158,11 +188,27 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
                     ->distinct()
             );
 
+            // Apply per-website applicability filter when we can resolve
+            // the current frontend website. Admin/CLI contexts (no resolvable
+            // website code) skip the filter so they keep seeing all tags.
+            $websiteCode = '';
+            try {
+                $store = Mage::app()->getStore();
+                if ($store && !$store->isAdmin()) {
+                    $websiteCode = (string) $store->getWebsite()->getCode();
+                }
+            } catch (Throwable $e) {
+                $websiteCode = '';
+            }
+            $applicable = $websiteCode !== ''
+                ? $this->getApplicableBadgesForWebsite($websiteCode)
+                : $allowed;
+
             // Preserve canonical order from getAllBadges()
             $set = array_flip($rows);
             $ordered = [];
             foreach ($allowed as $name) {
-                if (isset($set[$name])) {
+                if (isset($set[$name]) && in_array($name, $applicable, true)) {
                     $ordered[] = $name;
                 }
             }
