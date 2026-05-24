@@ -1,0 +1,140 @@
+<?php
+/**
+ * Ultimo override — replaces the verbose right-column "Registration Progress"
+ * with a slim vertical timeline. The inner step blocks (billing/shipping/
+ * shipping_method/payment) are kept as AJAX targets but their child templates
+ * are also overridden to emit minimal status text so nothing overflows.
+ *
+ * @see Mage_Checkout_Block_Onepage_Progress
+ */
+
+$checkout      = $this->getCheckout();
+$showBilling   = (bool) $checkout->getStepData('billing', 'is_show');
+$showShipping  = (bool) $checkout->getStepData('shipping', 'is_show');
+$showShipMeth  = (bool) $checkout->getStepData('shipping_method', 'is_show');
+$showPayment   = (bool) $checkout->getStepData('payment', 'is_show');
+
+$billingDone   = (bool) $checkout->getStepData('billing', 'complete');
+$shippingDone  = (bool) $checkout->getStepData('shipping', 'complete');
+$shipMethDone  = (bool) $checkout->getStepData('shipping_method', 'complete');
+$paymentDone   = (bool) $checkout->getStepData('payment', 'complete');
+
+// Build ordered step list. "Login" step has no progress child block, so we
+// infer its state: if billing is reached/shown, login is done.
+$steps = array(
+    array(
+        'key'      => 'login',
+        'label'    => $this->__('Register Process'),
+        'complete' => $showBilling || $billingDone,
+        'current'  => !$showBilling && !$billingDone,
+        'has_slot' => false,
+    ),
+    array(
+        'key'      => 'billing',
+        'label'    => $this->__('Contact Person'),
+        'complete' => $billingDone,
+        'current'  => $showBilling && !$billingDone,
+        'has_slot' => $showBilling,
+        'slot_id'  => 'billing-progress-opcheckout',
+        'slot_html'=> $showBilling ? $this->getChildHtml('billing.progress') : '',
+    ),
+);
+if ($showShipping) {
+    $steps[] = array(
+        'key'      => 'shipping',
+        'label'    => $this->__('Shipping'),
+        'complete' => $shippingDone,
+        'current'  => !$shippingDone && $billingDone,
+        'has_slot' => true,
+        'slot_id'  => 'shipping-progress-opcheckout',
+        'slot_html'=> $this->getChildHtml('shipping.progress'),
+    );
+}
+if ($showShipMeth) {
+    $steps[] = array(
+        'key'      => 'shipping_method',
+        'label'    => $this->__('Delivery'),
+        'complete' => $shipMethDone,
+        'current'  => !$shipMethDone && ($shippingDone || $billingDone),
+        'has_slot' => true,
+        'slot_id'  => 'shipping_method-progress-opcheckout',
+        'slot_html'=> $this->getChildHtml('shippingmethod.progress'),
+    );
+}
+$steps[] = array(
+    'key'      => 'payment',
+    'label'    => $this->__('Funding / Payment'),
+    'complete' => $paymentDone,
+    'current'  => $showPayment && !$paymentDone,
+    'has_slot' => $showPayment,
+    'slot_id'  => 'payment-progress-opcheckout',
+    'slot_html'=> $showPayment ? $this->getChildHtml('payment.progress') : '',
+);
+$steps[] = array(
+    'key'      => 'review',
+    'label'    => $this->__('Review & Submit'),
+    'complete' => false,
+    'current'  => $paymentDone,
+    'has_slot' => false,
+);
+?>
+<div class="block block-progress opc-block-progress opc-timeline">
+    <div class="opc-timeline__title">
+        <?php echo $this->__('Registration Progress') ?>
+    </div>
+    <ol class="opc-timeline__list">
+        <?php $stepNum = 0; foreach ($steps as $step): $stepNum++; ?>
+            <?php
+            $cls = 'opc-timeline__item';
+            if (!empty($step['complete'])) { $cls .= ' is-complete'; }
+            elseif (!empty($step['current'])) { $cls .= ' is-current'; }
+            else { $cls .= ' is-upcoming'; }
+            ?>
+            <li class="<?php echo $cls ?>">
+                <span class="opc-timeline__marker" aria-hidden="true">
+                    <?php if (!empty($step['complete'])): ?>
+                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3.5 8.5 6.5 11.5 12.5 5"></polyline></svg>
+                    <?php else: ?>
+                        <span class="opc-timeline__num"><?php echo $stepNum ?></span>
+                    <?php endif; ?>
+                </span>
+                <div class="opc-timeline__body">
+                    <span class="opc-timeline__label"><?php echo $this->escapeHtml($step['label']) ?></span>
+                    <?php if (!empty($step['complete'])): ?>
+                        <span class="opc-timeline__status"><?php echo $this->__('Saved') ?></span>
+                    <?php elseif (!empty($step['current'])): ?>
+                        <span class="opc-timeline__status opc-timeline__status--current"><?php echo $this->__('In progress') ?></span>
+                    <?php endif; ?>
+                    <?php if (!empty($step['has_slot'])): ?>
+                        <div id="<?php echo $step['slot_id'] ?>" class="opc-timeline__slot"><?php echo $step['slot_html'] ?></div>
+                    <?php endif; ?>
+                </div>
+            </li>
+        <?php endforeach; ?>
+    </ol>
+</div>
+<style>
+    .opc-timeline{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:18px 18px 14px;box-shadow:0 1px 2px rgba(15,23,42,.04);}
+    .opc-timeline .block-title,.opc-timeline dl,.opc-timeline .block-content{display:none !important;}
+    .opc-timeline__title{font-size:15px;font-weight:700;color:#0f172a;letter-spacing:.02em;text-transform:uppercase;margin:0 0 14px;padding-bottom:10px;border-bottom:1px solid #f1f5f9;}
+    .opc-timeline__list{list-style:none;margin:0;padding:0;position:relative;}
+    .opc-timeline__list::before{content:"";position:absolute;left:13px;top:6px;bottom:6px;width:2px;background:#e5e7eb;border-radius:2px;}
+    .opc-timeline__item{position:relative;display:flex;gap:12px;align-items:flex-start;padding:6px 0 14px;}
+    .opc-timeline__item:last-child{padding-bottom:0;}
+    .opc-timeline__marker{position:relative;z-index:1;flex:0 0 28px;width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:#fff;border:2px solid #cbd5e1;color:#64748b;font-size:13px;font-weight:600;line-height:1;}
+    .opc-timeline__num{font-size:12px;}
+    .opc-timeline__item.is-complete .opc-timeline__marker{background:#16a34a;border-color:#16a34a;color:#fff;}
+    .opc-timeline__item.is-current .opc-timeline__marker{background:#2563eb;border-color:#2563eb;color:#fff;box-shadow:0 0 0 4px rgba(37,99,235,.15);}
+    .opc-timeline__body{flex:1 1 auto;min-width:0;padding-top:4px;}
+    .opc-timeline__label{display:block;font-size:14px;font-weight:600;color:#0f172a;line-height:1.3;}
+    .opc-timeline__item.is-upcoming .opc-timeline__label{color:#94a3b8;font-weight:500;}
+    .opc-timeline__status{display:inline-block;margin-top:3px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#16a34a;}
+    .opc-timeline__status--current{color:#2563eb;}
+    .opc-timeline__slot{margin-top:4px;font-size:12px;color:#475569;line-height:1.45;word-break:break-word;overflow-wrap:anywhere;}
+    .opc-timeline__slot:empty{display:none;}
+    .opc-timeline__slot p{margin:0 0 2px;}
+    .opc-timeline__slot a{color:#2563eb;text-decoration:none;}
+    .opc-timeline__slot a:hover{text-decoration:underline;}
+    /* hide stock changelink markup that base templates emit */
+    .opc-timeline__slot .changelink,.opc-timeline__slot .separator{display:none;}
+</style>

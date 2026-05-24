@@ -44,7 +44,28 @@
         </ul>
         <?php endif; */ ?>
         
-    </div><p>You do not need to pay upfront during registration if you opt for an applicable funding scheme, e-invoice or Company Invoicing. Please click on the Register button to proceed to fill up contact person, funding/payment information and submit the booking order.</p>
+    </div>
+    <div class="cart-info-callout" role="note" aria-label="<?php echo $this->__('Payment information') ?>">
+        <div class="cart-info-callout__icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        </div>
+        <div class="cart-info-callout__body">
+            <strong class="cart-info-callout__title"><?php echo $this->__('No upfront payment required') ?></strong>
+            <p class="cart-info-callout__text">
+                <?php echo $this->__('You do not need to pay upfront during registration if you opt for an applicable funding scheme, e-invoice or Company Invoicing. Please click on the <strong>Register</strong> button to proceed — you\'ll fill in contact, funding/payment details and submit the booking order on the next step.') ?>
+            </p>
+        </div>
+    </div>
+    <style>
+        .cart-info-callout{display:flex;gap:14px;align-items:flex-start;margin:0 0 20px;padding:14px 18px;background:#eff6ff;border:1px solid #bfdbfe;border-left:4px solid #2563eb;border-radius:6px;color:#1e3a8a;}
+        .cart-info-callout__icon{flex:0 0 auto;color:#2563eb;display:flex;align-items:center;justify-content:center;margin-top:2px;}
+        .cart-info-callout__icon svg{display:block;}
+        .cart-info-callout__body{flex:1 1 auto;min-width:0;}
+        .cart-info-callout__title{display:block;font-size:15px;font-weight:600;color:#1e3a8a;margin-bottom:4px;letter-spacing:.01em;}
+        .cart-info-callout__text{margin:0;font-size:14px;line-height:1.55;color:#1e40af;}
+        .cart-info-callout__text strong{color:#1e3a8a;}
+        @media (max-width:640px){.cart-info-callout{padding:12px 14px;gap:10px;}.cart-info-callout__title{font-size:14px;}.cart-info-callout__text{font-size:13px;}}
+    </style>
     <?php echo $this->getMessagesBlock()->getGroupedHtml() ?>
     <?php echo $this->getChildHtml('form_before') ?>
     <form action="<?php echo $this->getUrl('checkout/cart/updatePost') ?>" method="post" class="the-cart-form">

@@ -4,7 +4,7 @@
         <reference name="head">
             <action method="addItem">
                 <type>skin_css</type>
-                <file>hitpay/css/hitpay.css</file>
+                <file>css/hitpay.css</file>
             </action>
         </reference>
     </checkout_onepage_index>
@@ -15,11 +15,11 @@
         <reference name="head">
             <action method="addItem">
                 <type>skin_css</type>
-                <file>hitpay/css/hitpay.css</file>
+                <file>css/hitpay.css</file>
             </action>
             <action method="addItem">
                 <type>skin_js</type>
-                <file>hitpay/js/hitpay.js</file>
+                <file>js/hitpay.js</file>
             </action>
         </reference>
         <reference name="content">

@@ -1,0 +1,16 @@
+<?php
+/**
+ * Ultimo override — payment method line in the timeline sidebar.
+ * Renders just the selected method title (truncated to first line) so the
+ * full instruction text doesn't overflow the sidebar.
+ */
+?>
+<?php if ($this->getCheckout()->getStepData('payment', 'complete')):
+    $method = $this->getQuote()->getPayment()->getMethodInstance();
+    $title  = $method ? $method->getTitle() : '';
+?>
+    <?php if ($title !== ''): ?>
+        <p><?php echo $this->escapeHtml($title) ?></p>
+    <?php endif; ?>
+    <p><a href="#payment" onclick="checkout.changeSection('opc-payment'); return false;"><?php echo $this->__('Change') ?></a></p>
+<?php endif; ?>

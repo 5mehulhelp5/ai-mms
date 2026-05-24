@@ -1,0 +1,19 @@
+<?php
+/**
+ * Ultimo override — slim billing summary for the timeline sidebar.
+ * Shows only name + change link to avoid overflow; full data stays in the
+ * accordion step itself.
+ */
+$address = $this->getBilling();
+?>
+<?php if ($this->getCheckout()->getStepData('billing', 'complete') && $address): ?>
+    <?php $name = trim($address->getFirstname() . ' ' . $address->getLastname()); ?>
+    <?php if ($name !== ''): ?>
+        <p><?php echo $this->escapeHtml($name) ?></p>
+    <?php endif; ?>
+    <?php $city = $address->getCity(); $country = $address->getCountryModel() ? $address->getCountryModel()->getName() : ''; ?>
+    <?php if ($city || $country): ?>
+        <p><?php echo $this->escapeHtml(trim($city . ($city && $country ? ', ' : '') . $country)) ?></p>
+    <?php endif; ?>
+    <p><a href="#billing" onclick="checkout.changeSection('opc-billing'); return false;"><?php echo $this->__('Change') ?></a></p>
+<?php endif; ?>

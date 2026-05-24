@@ -27,6 +27,100 @@
 <div class="page-title">
     <h1><?php echo $this->__('Checkout') ?></h1>
 </div>
+<style>
+    /* === Onepage checkout — visual polish for the LMS course-registration flow === */
+
+    /* Primary buttons: consistent size across every step, fit padding to font */
+    .opc .buttons-set button.button,
+    .opc .buttons-set1 button.button,
+    .opc .buttons-set button.btn-checkout,
+    .opc .buttons-set1 button.btn-checkout{
+        font-size:15px !important;
+        font-weight:600;
+        letter-spacing:.01em;
+        line-height:1.2 !important;
+        padding:9px 22px !important;
+        min-height:0 !important;
+        height:auto !important;
+        border-radius:6px;
+    }
+    .opc .buttons-set button.button > span,
+    .opc .buttons-set1 button.button > span,
+    .opc .buttons-set button.button > span > span,
+    .opc .buttons-set1 button.button > span > span,
+    .opc .buttons-set button.btn-checkout > span,
+    .opc .buttons-set1 button.btn-checkout > span,
+    .opc .buttons-set button.btn-checkout > span > span,
+    .opc .buttons-set1 button.btn-checkout > span > span{
+        font-size:15px !important;
+        line-height:1.2 !important;
+        padding:0 !important;
+        height:auto !important;
+        background:none !important;
+    }
+    .opc .buttons-set .back-link,
+    .opc .buttons-set1 .back-link{display:inline-flex;align-items:center;}
+    .opc .buttons-set .back-link a,
+    .opc .buttons-set1 .back-link a{font-size:14px;color:#475569;text-decoration:none;}
+    .opc .buttons-set .back-link a:hover,
+    .opc .buttons-set1 .back-link a:hover{color:#0f172a;}
+    .opc .buttons-set,
+    .opc .buttons-set1{padding-top:14px;border-top:1px solid #f1f5f9;}
+
+    /* Step header — tighter, more "card" feeling */
+    .opc .step-title{background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px 6px 0 0;padding:12px 16px;}
+    .opc .step-title h2{font-size:16px;font-weight:600;color:#0f172a;margin:0;}
+    .opc .step-title .number{font-size:13px;width:26px;height:26px;line-height:26px;background:#0f172a;color:#fff;border-radius:50%;text-align:center;font-weight:700;}
+    .opc li.section.allow .step-title{cursor:pointer;}
+    .opc li.section.active .step-title{background:#eff6ff;border-color:#bfdbfe;}
+    .opc li.section.active .step-title .number{background:#2563eb;}
+    .opc li.section{border:0;margin-bottom:14px;border-radius:6px;}
+    .opc li.section .step{background:#fff;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 6px 6px;padding:20px 22px;}
+
+    /* Form fields — match the rest of the site (rounded, neutral border, blue focus) */
+    .opc .step input[type=text],
+    .opc .step input[type=email],
+    .opc .step input[type=tel],
+    .opc .step input[type=number],
+    .opc .step input[type=password],
+    .opc .step textarea,
+    .opc .step select{
+        font-size:14px;
+        padding:9px 12px;
+        border:1px solid #d1d5db;
+        border-radius:6px;
+        background:#fff;
+        color:#0f172a;
+        transition:border-color .15s,box-shadow .15s;
+        box-shadow:none;
+    }
+    .opc .step input[type=text]:focus,
+    .opc .step input[type=email]:focus,
+    .opc .step input[type=tel]:focus,
+    .opc .step input[type=number]:focus,
+    .opc .step input[type=password]:focus,
+    .opc .step textarea:focus,
+    .opc .step select:focus{
+        border-color:#2563eb;
+        box-shadow:0 0 0 3px rgba(37,99,235,.15);
+        outline:none;
+    }
+    .opc .step label{font-size:13px;font-weight:600;color:#0f172a;margin-bottom:4px;display:inline-block;}
+    .opc .step .field{margin-bottom:14px;}
+    .opc .step .required em{color:#ef4444;font-style:normal;margin-left:2px;}
+
+    /* Payment method radio list — cleaner cards, no overflow */
+    .opc #checkout-payment-method-load dl.sp-methods{margin:0;}
+    .opc #checkout-payment-method-load dl.sp-methods > dt{padding:10px 12px;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:8px;background:#fff;transition:border-color .15s,background .15s;}
+    .opc #checkout-payment-method-load dl.sp-methods > dt:hover{border-color:#cbd5e1;background:#f8fafc;}
+    .opc #checkout-payment-method-load dl.sp-methods > dt label{font-size:14px;font-weight:600;color:#0f172a;margin:0;}
+    .opc #checkout-payment-method-load dl.sp-methods > dd{margin:0 0 8px 28px;font-size:13px;color:#475569;line-height:1.5;}
+    .opc #checkout-payment-method-load dl.sp-methods > dd a{color:#2563eb;}
+
+    /* Helper / hint text */
+    .opc .step p.required{font-size:12px;color:#ef4444;margin-top:10px;text-align:right;}
+    .opc .step h3,.opc .step h4{font-size:15px;font-weight:600;color:#0f172a;margin:0 0 12px;}
+</style>
 <script type="text/javascript" src="<?php echo $this->getJsUrl('varien/accordion.js') ?>"></script>
 <script type="text/javascript" src="<?php echo $this->getSkinUrl('js/opcheckout.js') ?>"></script>
 <ol class="opc" id="checkoutSteps">
