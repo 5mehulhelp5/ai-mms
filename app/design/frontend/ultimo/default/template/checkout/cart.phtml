@@ -65,6 +65,46 @@
         .cart-info-callout__text{margin:0;font-size:14px;line-height:1.55;color:#1e40af;}
         .cart-info-callout__text strong{color:#1e3a8a;}
         @media (max-width:640px){.cart-info-callout{padding:12px 14px;gap:10px;}.cart-info-callout__title{font-size:14px;}.cart-info-callout__text{font-size:13px;}}
+
+        /* Course Booking Review — larger, consistent buttons */
+        .cart .buttons-set button.button,
+        .cart .cart-totals button.button,
+        .cart #discount-coupon-form button.button,
+        .cart .checkout-types button.button,
+        .cart .checkout-types li button.button{
+            font-size:16px !important;
+            font-weight:600;
+            letter-spacing:.01em;
+            line-height:1.2 !important;
+            padding:11px 26px !important;
+            min-height:0 !important;
+            height:auto !important;
+            border-radius:6px;
+        }
+        .cart .buttons-set button.button > span,
+        .cart .buttons-set button.button > span > span,
+        .cart .cart-totals button.button > span,
+        .cart .cart-totals button.button > span > span,
+        .cart #discount-coupon-form button.button > span,
+        .cart #discount-coupon-form button.button > span > span,
+        .cart .checkout-types button.button > span,
+        .cart .checkout-types button.button > span > span{
+            font-size:16px !important;
+            line-height:1.2 !important;
+            padding:0 !important;
+            height:auto !important;
+            background:none !important;
+        }
+        /* Primary "Proceed to Register" should pop a bit more */
+        .cart .checkout-types button.btn-checkout,
+        .cart .cart-totals button.btn-checkout{
+            font-size:17px !important;
+            padding:13px 30px !important;
+        }
+        .cart .checkout-types button.btn-checkout > span,
+        .cart .checkout-types button.btn-checkout > span > span,
+        .cart .cart-totals button.btn-checkout > span,
+        .cart .cart-totals button.btn-checkout > span > span{font-size:17px !important;}
     </style>
     <?php echo $this->getMessagesBlock()->getGroupedHtml() ?>
     <?php echo $this->getChildHtml('form_before') ?>

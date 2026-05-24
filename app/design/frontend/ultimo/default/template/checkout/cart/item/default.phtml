@@ -45,7 +45,21 @@ $imgHeight = 168;
     }
 ?>
 <tr>
-    <td><?php if ($this->hasProductUrl()):?><a href="<?php echo $this->getProductUrl() ?>" title="<?php echo $this->htmlEscape($this->getProductName()) ?>" class="product-image"><?php endif;?><img src="<?php echo $this->getProductThumbnail()->resize(168); ?>" alt="<?php echo $this->htmlEscape($this->getProductName()) ?>" /><?php if ($this->hasProductUrl()):?></a><?php endif;?></td>
+    <?php
+        // Prefer the AI-generated course cover (course_image_url attribute,
+        // written by CourseImage module) over the legacy "thumbnail" image,
+        // which is rarely kept in sync with the cover dialog.
+        $_cartProduct  = $_item->getProduct();
+        $_courseImgUrl = $_cartProduct ? trim((string) $_cartProduct->getData('course_image_url')) : '';
+        if ($_courseImgUrl === '' && $_cartProduct) {
+            // Fall back to small_image (the catalog list cover) before thumbnail.
+            $_smallImg = (string) $_cartProduct->getSmallImage();
+            if ($_smallImg !== '' && $_smallImg !== 'no_selection') {
+                $_courseImgUrl = (string) Mage::helper('catalog/image')->init($_cartProduct, 'small_image')->resize(168);
+            }
+        }
+    ?>
+    <td><?php if ($this->hasProductUrl()):?><a href="<?php echo $this->getProductUrl() ?>" title="<?php echo $this->htmlEscape($this->getProductName()) ?>" class="product-image"><?php endif;?><img src="<?php echo $_courseImgUrl !== '' ? $this->escapeHtml($_courseImgUrl) : $this->getProductThumbnail()->resize(168); ?>" alt="<?php echo $this->htmlEscape($this->getProductName()) ?>" /><?php if ($this->hasProductUrl()):?></a><?php endif;?></td>
     <td>
     <?php /* TODO
     <td class="col-img"><?php if ($this->hasProductUrl()):?><a href="<?php echo $this->getProductUrl() ?>" title="<?php echo $this->escapeHtml($this->getProductName()) ?>" class="product-image"><?php endif;?><img src="<?php echo $this->helper('infortis/image')->getImg($_item->getProduct(), $imgWidth, $imgHeight, 'thumbnail'); ?>" alt="<?php echo $this->escapeHtml($this->getProductName()) ?>" /><?php if ($this->hasProductUrl()):?></a><?php endif;?></td>
