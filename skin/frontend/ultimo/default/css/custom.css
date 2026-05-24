@@ -586,6 +586,7 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--skills        .course-policy-card__header { background: linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%); }
 .course-policy-card--learning      .course-policy-card__header { background: linear-gradient(180deg, #f0fdfa 0%, #ccfbf1 100%); }
 .course-policy-card--brochure      .course-policy-card__header { background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%); }
+.course-policy-card--funding       .course-policy-card__header { background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%); }
 
 .course-policy-card__icon {
     flex: 0 0 28px;
@@ -602,6 +603,12 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--skills        .course-policy-card__icon { background: #7c3aed; }
 .course-policy-card--learning      .course-policy-card__icon { background: #0d9488; }
 .course-policy-card--brochure      .course-policy-card__icon { background: #ea580c; }
+.course-policy-card--funding       .course-policy-card__icon { background: #059669; }
+/* --funding body: tame the inline red <span> and oversized HRD Corp logo that admins typically paste in. Card chrome stays; the inner red link reads as a normal blue card link, the logo caps at 96px so it doesn't push the card height. */
+.course-policy-card--funding .course-policy-card__body a { color: #2563eb !important; }
+.course-policy-card--funding .course-policy-card__body a span,
+.course-policy-card--funding .course-policy-card__body span[style*="color"] { color: inherit !important; font-size: inherit !important; }
+.course-policy-card--funding .course-policy-card__body img { max-width: 96px !important; width: auto !important; height: auto !important; display: block; margin: 8px 0 0; }
 .course-policy-card__icon svg { width: 16px; height: 16px; display: block; }
 
 .course-policy-card__body { padding: 14px 18px 16px; color: #334155; font-size: 13.5px; line-height: 1.6; }

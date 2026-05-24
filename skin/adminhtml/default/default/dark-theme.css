@@ -5086,3 +5086,40 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 :root[data-theme="light"] .tools-sub-item.active:hover {
     color: #0f172a !important;            /* slate-900 */
 }
+
+/* Horizontal tabs (catalog_category edit, etc.) — base rule paints them
+   with --d4 which resolves to slate-100 (#f1f5f9) in light mode, almost
+   indistinguishable from the slate-50 page background. Bump inactive
+   tabs to slate-200 + slate-300 border so they read as the same surface
+   tone as the dashboard cards. Active tab keeps its white pill so it
+   still pops against the gray row. */
+:root[data-theme="light"] ul.tabs-horiz li a,
+:root[data-theme="light"] body ul.tabs-horiz li a {
+    background: #e2e8f0 !important;
+    border-color: #cbd5e1 !important;
+    color: #334155 !important;
+}
+:root[data-theme="light"] ul.tabs-horiz li a:hover,
+:root[data-theme="light"] body ul.tabs-horiz li a:hover {
+    background: #cbd5e1 !important;
+    color: #1e3a8a !important;
+}
+:root[data-theme="light"] ul.tabs-horiz li a.active,
+:root[data-theme="light"] body ul.tabs-horiz li a.active {
+    background: #ffffff !important;
+    color: #2563eb !important;
+    border-bottom-color: #ffffff !important;
+}
+
+/* Accordion headers (tag edit, anywhere dl.accordion appears) — same
+   issue: base rule paints them with --d4 (slate-100) which is invisible
+   against the slate-50 page background in light mode. Bump to the same
+   slate-200 + slate-300 border as the tabs/cards. */
+:root[data-theme="light"] dl.accordion dt,
+:root[data-theme="light"] .accordion-head {
+    background: #e2e8f0 !important;
+    border-color: #cbd5e1 !important;
+}
+:root[data-theme="light"] dl.accordion dt:hover {
+    background: #cbd5e1 !important;
+}

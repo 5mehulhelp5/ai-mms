@@ -243,6 +243,13 @@
 		unset($_certExtracted);
 	}
 
+	// (6) Funding and Grant — MY-side pattern. Most MY product short_descriptions
+	// end with "<h2>Funding and Grant</h2>" followed by the HRD Corp Claimable
+	// link + logo. Pull it out so it renders inside a styled card instead of
+	// trailing the description as loose paragraphs. SG/GH/NG/BT/IN typically
+	// don't carry this heading, so the extract returns empty and no card renders.
+	list($_fundingAndGrantHtml, $shortDescription) = $_extractSection('Funding' . $_WS . '+(?:and|&amp;|&)' . $_WS . '+Grant', $shortDescription);
+
 	//Rich snippets
 	$useRichSnippets = ($helperSnippets->isEnabledOnProductPage() && $productTypeId !== 'grouped');
 	$priceProperties = '';
@@ -462,6 +469,18 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 								<h3 class="course-policy-card__title">Certification</h3>
 							</header>
 							<div class="course-policy-card__body std"><?php echo $_certificationHtml; ?></div>
+						</section>
+					<?php endif; ?>
+
+					<?php if ($_fundingAndGrantHtml !== ''): ?>
+						<section class="course-policy-card course-policy-card--funding">
+							<header class="course-policy-card__header">
+								<span class="course-policy-card__icon" aria-hidden="true">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+								</span>
+								<h3 class="course-policy-card__title">Funding and Grant</h3>
+							</header>
+							<div class="course-policy-card__body std"><?php echo $_fundingAndGrantHtml; ?></div>
 						</section>
 					<?php endif; ?>
 
