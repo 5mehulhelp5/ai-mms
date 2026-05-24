@@ -5124,6 +5124,20 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     background: #cbd5e1 !important;
 }
 
+/* Aschroder SMTPPro — the vendor module injects a hardcoded inline
+   <div style='background-color:#efefef;…'> with a broken external logo
+   image (aschroder.com/smtppro-logo.png) as the section comment. Hide
+   the strip + the broken <img> so the System Configuration -> SMTP Pro
+   page reads cleanly on the dark theme. Editing system.xml would
+   diverge from upstream; a scoped CSS rule is safer. */
+.section-config#smtppro_section div[style*="background-color: #efefef"],
+.section-config#smtppro_section div[style*="background-color:#efefef"],
+#smtppro img[src*="smtppro-logo"],
+.section-config div[style*="background-color: #efefef"][style*="height: 40px"],
+.section-config div[style*="background-color:#efefef"][style*="height: 40px"] {
+    display: none !important;
+}
+
 /* Sales transaction view — wrap the "Transaction Data" fieldset as a
    light gray card in light mode so the label/value list reads as a
    distinct panel against the page background. Scoped to the txn view
