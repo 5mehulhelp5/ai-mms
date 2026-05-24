@@ -472,17 +472,9 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 						</section>
 					<?php endif; ?>
 
-					<?php if ($_fundingAndGrantHtml !== ''): ?>
-						<section class="course-policy-card course-policy-card--funding">
-							<header class="course-policy-card__header">
-								<span class="course-policy-card__icon" aria-hidden="true">
-									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-								</span>
-								<h3 class="course-policy-card__title">Funding and Grant</h3>
-							</header>
-							<div class="course-policy-card__body std"><?php echo $_fundingAndGrantHtml; ?></div>
-						</section>
-					<?php endif; ?>
+					<?php /* Funding and Grant card was here previously — moved to the
+					          primary (center) column, next to the WSQ funding card, so
+					          the MY funding writeup sits alongside the price like SG's. */ ?>
 
 					<?php /* Post-Course Support and Cancellation & Reschedule Policy
 					          cards render under "Register Your Interest" in the
@@ -582,6 +574,18 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 							<div class="wsq-funding-narrative std"><?php echo $_wsqNarrativeHtml; ?></div>
 						<?php endif; ?>
 					</div>
+				</section>
+			<?php endif; ?>
+
+			<?php if ($_fundingAndGrantHtml !== ''): ?>
+				<section class="course-policy-card course-policy-card--funding course-policy-card--wsq-in-primary">
+					<header class="course-policy-card__header">
+						<span class="course-policy-card__icon" aria-hidden="true">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+						</span>
+						<h3 class="course-policy-card__title">Funding and Grant</h3>
+					</header>
+					<div class="course-policy-card__body std"><?php echo $_fundingAndGrantHtml; ?></div>
 				</section>
 			<?php endif; ?>
 
