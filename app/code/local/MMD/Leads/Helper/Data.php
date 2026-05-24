@@ -165,34 +165,55 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
         try {
             $template = Mage::getStoreConfig(self::XML_PATH_AUTO_REPLY_TEMPLATE, $storeId)
                 ?: self::AUTO_REPLY_TEMPLATE_FALLBACK;
-
-            $mail = Mage::getModel('core/email_template');
-            /** @var Mage_Core_Model_Email_Template $mail */
-            $mail->setDesignConfig(array('area' => 'frontend', 'store' => $storeId));
-
-            // CC the training team on every auto-reply so they see exactly
-            // what the visitor was sent. addCc() on the underlying Zend_Mail
-            // is set before send() — which only re-adds To/Bcc and never
-            // clears Cc — so the header survives into the dispatched message.
-            foreach ($this->_getAutoReplyCc($storeId) as $cc) {
-                $mail->getMail()->addCc($cc);
-            }
-
-            $mail->sendTransactional(
-                $template,
-                $this->getReplySender($storeId),
-                $lead->getEmail(),
-                $lead->getName(),
-                array(
-                    'lead_name'        => $this->getFirstName($lead->getName()),
-                    'course_info_html' => $this->buildCourseInfoHtml($lead),
-                    'contact_html'     => $this->buildContactHtml($lead),
-                ),
-                $storeId
+            $sender   = $this->getReplySender($storeId);
+            $vars     = array(
+                'lead_name'        => $this->getFirstName($lead->getName()),
+                'course_info_html' => $this->buildCourseInfoHtml($lead),
+                'contact_html'     => $this->buildContactHtml($lead),
             );
+            $ccList = $this->_getAutoReplyCc($storeId);
 
-            if (!$mail->getSentSuccess()) {
-                Mage::throwException('Auto-reply send returned no success flag.');
+            // SG sends through Gmail OAuth2; every other country store
+            // goes through Aschroder SMTPPro via sendTransactional() so
+            // the per-store SMTP credentials in core_config_data still
+            // power its outbound mail.
+            $gmail = Mage::helper('mmd_email/gmail');
+            if ($gmail && $gmail->isConfigured() && $gmail->isGmailStore($storeId)) {
+                $tpl = Mage::getModel('core/email_template');
+                $tpl->loadDefault($template);
+                $tpl->setDesignConfig(array('area' => 'frontend', 'store' => $storeId));
+                $tpl->setSenderName(Mage::getStoreConfig('trans_email/ident_' . $sender . '/name', $storeId));
+                $tpl->setSenderEmail(Mage::getStoreConfig('trans_email/ident_' . $sender . '/email', $storeId));
+                $subject  = $tpl->getProcessedTemplateSubject($vars);
+                $body     = $tpl->getProcessedTemplate($vars);
+                $fromName = (string) Mage::getStoreConfig('trans_email/ident_' . $sender . '/name', $storeId);
+                $replyTo  = (string) Mage::getStoreConfig('trans_email/ident_' . $sender . '/email', $storeId);
+                $gmail->send($lead->getEmail(), $subject, $body, $fromName, $ccList, $replyTo);
+            } else {
+                $mail = Mage::getModel('core/email_template');
+                /** @var Mage_Core_Model_Email_Template $mail */
+                $mail->setDesignConfig(array('area' => 'frontend', 'store' => $storeId));
+
+                // CC the training team on every auto-reply so they see exactly
+                // what the visitor was sent. addCc() on the underlying Zend_Mail
+                // is set before send() — which only re-adds To/Bcc and never
+                // clears Cc — so the header survives into the dispatched message.
+                foreach ($ccList as $cc) {
+                    $mail->getMail()->addCc($cc);
+                }
+
+                $mail->sendTransactional(
+                    $template,
+                    $sender,
+                    $lead->getEmail(),
+                    $lead->getName(),
+                    $vars,
+                    $storeId
+                );
+
+                if (!$mail->getSentSuccess()) {
+                    Mage::throwException('Auto-reply send returned no success flag.');
+                }
             }
 
             $lead->setAutoReplyStatus(MMD_Leads_Model_Lead::AUTO_REPLY_SENT)

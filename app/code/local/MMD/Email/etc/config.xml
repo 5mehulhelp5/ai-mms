@@ -101,6 +101,36 @@
                     </mmd_email_set_reply_to>
                 </observers>
             </email_template_send_before>
+            <!--
+                Aschroder SMTPPro rewrites core/email_template and core/email
+                and, when enabled, ALWAYS sends via its own SMTP transport
+                (passed explicitly to $mail->send($transport), which wins
+                over Zend_Mail::getDefaultTransport()). For Singapore we
+                must guarantee Gmail OAuth is used for *every* email path —
+                including contact-form staff notifications and any other
+                Magento mailer that lands in SMTPPro. These two observers
+                hand SMTPPro our Gmail transport when the current store is
+                SG (or admin), so SG always ships via Gmail and the other
+                country stores keep their normal SMTPPro behaviour.
+            -->
+            <aschroder_smtppro_template_before_send>
+                <observers>
+                    <mmd_email_force_gmail_sg>
+                        <type>singleton</type>
+                        <class>mmd_email/observer</class>
+                        <method>forceGmailTransportForSg</method>
+                    </mmd_email_force_gmail_sg>
+                </observers>
+            </aschroder_smtppro_template_before_send>
+            <aschroder_smtppro_before_send>
+                <observers>
+                    <mmd_email_force_gmail_sg>
+                        <type>singleton</type>
+                        <class>mmd_email/observer</class>
+                        <method>forceGmailTransportForSg</method>
+                    </mmd_email_force_gmail_sg>
+                </observers>
+            </aschroder_smtppro_before_send>
         </events>
         <template>
             <email>

@@ -73,23 +73,41 @@ class MMD_OtpLogin_Adminhtml_OtpController extends Mage_Adminhtml_Controller_Act
             $session->setAdminOtpEmail($email);
             $session->setAdminOtpExpires($now + 600); // 10 minutes
 
-            // Send email
+            // Send email. Admin OTP is served from the single (SG-team)
+            // admin panel, so we route it through Gmail OAuth2 directly
+            // and skip the SMTPPro path entirely. Falls back to the
+            // stock mailer if Gmail credentials aren't configured.
             try {
-                $mail = Mage::getModel('core/email');
-                $mail->setToEmail($email);
-                $mail->setToName($user->getFirstname() . ' ' . $user->getLastname());
-                $mail->setSubject('Your Login OTP Code - Tertiary Infotech Academy');
-                $mail->setBody(
-                    "Hi " . $user->getFirstname() . ",\n\n" .
-                    "Your one-time login code is: " . $otp . "\n\n" .
-                    "This code expires in 10 minutes.\n" .
-                    "If you did not request this, please ignore this email.\n\n" .
-                    "— Tertiary Infotech Academy"
-                );
-                $mail->setFromEmail(Mage::getStoreConfig('trans_email/ident_general/email'));
-                $mail->setFromName(Mage::getStoreConfig('trans_email/ident_general/name'));
-                $mail->setType('text');
-                $mail->send();
+                $subject  = 'Your Login OTP Code - Tertiary Infotech Academy';
+                $fromName = (string) Mage::getStoreConfig('trans_email/ident_general/name');
+                $fromMail = (string) Mage::getStoreConfig('trans_email/ident_general/email');
+                $gmail    = Mage::helper('mmd_email/gmail');
+                if ($gmail && $gmail->isConfigured()) {
+                    $bodyHtml =
+                        '<p>Hi ' . htmlspecialchars($user->getFirstname()) . ',</p>' .
+                        '<p>Your one-time login code is: <strong style="font-size:18px;letter-spacing:2px;">'
+                        . htmlspecialchars($otp) . '</strong></p>' .
+                        '<p>This code expires in 10 minutes.<br>' .
+                        'If you did not request this, please ignore this email.</p>' .
+                        '<p>— Tertiary Infotech Academy</p>';
+                    $gmail->send($email, $subject, $bodyHtml, $fromName);
+                } else {
+                    $mail = Mage::getModel('core/email');
+                    $mail->setToEmail($email);
+                    $mail->setToName($user->getFirstname() . ' ' . $user->getLastname());
+                    $mail->setSubject($subject);
+                    $mail->setBody(
+                        "Hi " . $user->getFirstname() . ",\n\n" .
+                        "Your one-time login code is: " . $otp . "\n\n" .
+                        "This code expires in 10 minutes.\n" .
+                        "If you did not request this, please ignore this email.\n\n" .
+                        "— Tertiary Infotech Academy"
+                    );
+                    $mail->setFromEmail($fromMail);
+                    $mail->setFromName($fromName);
+                    $mail->setType('text');
+                    $mail->send();
+                }
             } catch (Exception $e) {
                 Mage::logException($e);
             }

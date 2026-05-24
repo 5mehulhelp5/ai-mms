@@ -122,10 +122,13 @@ class MMD_Email_Model_Observer
      * transport argument — that picks up Zend_Mail::getDefaultTransport()
      * which we've just set to our Gmail HTTPS sender.
      *
-     * Why this beats SMTPPro: SMTPPro opens a TCP socket to a legacy
-     * SMTP relay that isn't reachable from the Coolify container for
-     * non-SG stores, so it silently drops mail. The Gmail REST API is
-     * always reachable on outbound 443.
+     * Scope: SG storefront + admin panel ONLY. Every other country store
+     * (MY/NG/GH/BT/IN) stays on Aschroder SMTPPro, which has its own
+     * per-store SMTP credentials configured in core_config_data and
+     * dispatches via an explicit transport (so even if Gmail were the
+     * Zend_Mail default, SMTPPro's path would not pick it up — but we
+     * still avoid installing it to keep ad-hoc Zend_Mail callers and
+     * the email_queue flush on the SMTPPro transport for those stores).
      *
      * Idempotent + best-effort: a boot failure must never block the
      * request. Wired to `controller_front_init_before` (earliest event
@@ -141,6 +144,9 @@ class MMD_Email_Model_Observer
             $gmail = Mage::helper('mmd_email/gmail');
             if (!$gmail || !$gmail->isConfigured()) {
                 return; // no creds; leave whatever Magento's stock default is
+            }
+            if (!$gmail->isGmailStore()) {
+                return; // non-SG storefront — let SMTPPro handle outbound mail
             }
             Zend_Mail::setDefaultTransport(new MMD_Email_Model_Transport_Gmail());
         } catch (Exception $e) {
@@ -159,6 +165,35 @@ class MMD_Email_Model_Observer
      * Mage_Core_Model_Email_Template::send() call regardless of the
      * underlying transport.
      */
+    /**
+     * Force SMTPPro to send via our Gmail OAuth2 transport whenever the
+     * current store context is Singapore (or admin). Wired to BOTH
+     * `aschroder_smtppro_template_before_send` (core/email_template path)
+     * and `aschroder_smtppro_before_send` (core/email path). SMTPPro
+     * checks `$transport->getTransport()` and, if set, passes it to
+     * `$mail->send($transport)` — which overrides whatever explicit
+     * SMTP transport SMTPPro had built from `system/smtp/*`.
+     *
+     * Non-SG stores: this observer is a no-op, so SMTPPro keeps using
+     * its own SMTP transport with the per-store SMTP credentials.
+     */
+    public function forceGmailTransportForSg($observer)
+    {
+        try {
+            $transport = $observer->getEvent()->getTransport();
+            if (!$transport instanceof Varien_Object) {
+                return;
+            }
+            $gmail = Mage::helper('mmd_email/gmail');
+            if (!$gmail || !$gmail->isConfigured() || !$gmail->isGmailStore()) {
+                return;
+            }
+            $transport->setTransport(new MMD_Email_Model_Transport_Gmail());
+        } catch (Exception $e) {
+            Mage::logException($e);
+        }
+    }
+
     public function setReplyTo($observer)
     {
         try {
@@ -233,12 +268,12 @@ class MMD_Email_Model_Observer
             $identity = (string) Mage::getStoreConfig('mmd_email/course_registration/identity', $storeId);
             if ($identity === '') $identity = 'sales';
 
-            // Prefer Gmail OAuth2 when the credentials page has been
-            // filled in — that's our actual outbound mail path on the
-            // live site. Falls back to Magento's standard mailer (SMTP
-            // via SMTPPro) for environments where OAuth2 isn't set up.
+            // SG sends via Gmail OAuth2; every other country store goes
+            // through Magento's standard mailer, which Aschroder SMTPPro
+            // intercepts and routes through the per-store SMTP creds in
+            // core_config_data.
             $gmail = Mage::helper('mmd_email/gmail');
-            if ($gmail && $gmail->isConfigured()) {
+            if ($gmail && $gmail->isConfigured() && $gmail->isGmailStore($storeId)) {
                 $tpl = Mage::getModel('core/email_template');
                 $tpl->loadDefault($templateCode);
                 // Magento processes both subject and body with the

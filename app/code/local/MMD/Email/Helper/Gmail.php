@@ -48,6 +48,25 @@ class MMD_Email_Helper_Gmail extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Singapore (and the admin panel, which is staffed by the SG team)
+     * sends all transactional mail through Gmail OAuth2. Every other
+     * country store stays on Aschroder SMTPPro, which uses the per-store
+     * SMTP credentials still configured in core_config_data.
+     *
+     * @param int|string|Mage_Core_Model_Store|null $store
+     * @return bool
+     */
+    public function isGmailStore($store = null)
+    {
+        try {
+            $code = Mage::app()->getStore($store)->getCode();
+        } catch (Exception $e) {
+            return false;
+        }
+        return $code === 'singapore' || $code === 'admin';
+    }
+
+    /**
      * Exchange the saved refresh token for a fresh access token.
      * Throws on auth failure so the caller can log a clear error.
      *
@@ -104,7 +123,7 @@ class MMD_Email_Helper_Gmail extends Mage_Core_Helper_Abstract
      * @return string Gmail message id
      * @throws Exception
      */
-    public function send($to, $subject, $bodyHtml, $fromName = '')
+    public function send($to, $subject, $bodyHtml, $fromName = '', array $cc = array(), $replyTo = '')
     {
         $c = $this->getConfig();
         $from = $fromName !== '' ? '"' . str_replace('"', '\"', $fromName) . '" <' . $c['user'] . '>'
@@ -120,6 +139,13 @@ class MMD_Email_Helper_Gmail extends Mage_Core_Helper_Abstract
             'Content-Type: text/html; charset=UTF-8',
             'Content-Transfer-Encoding: quoted-printable',
         );
+        $cc = array_values(array_filter(array_map('trim', $cc)));
+        if (!empty($cc)) {
+            $headers[] = 'Cc: ' . implode(', ', $cc);
+        }
+        if ($replyTo !== '') {
+            $headers[] = 'Reply-To: ' . $replyTo;
+        }
         $rfc = implode("\r\n", $headers) . "\r\n\r\n" . quoted_printable_encode($bodyHtml);
 
         // Gmail expects base64url (RFC 4648 §5) — '+' → '-', '/' → '_',
