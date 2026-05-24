@@ -176,35 +176,36 @@
 	$_skillsTitle = '';
 	$_skillsCode  = '';
 	if ($_skillsFrameworkRawHtml !== '') {
-		// Look inside <strong>…</strong> first; that's where ops put the
-		// "{Title} {Code} TSC" string. Fallback to the whole body text.
-		$_haystack = $_skillsFrameworkRawHtml;
-		if (preg_match('#<strong[^>]*>(.*?)</strong>#siu', $_skillsFrameworkRawHtml, $_sm)) {
-			$_haystack = $_sm[1];
-		}
-		$_haystack = html_entity_decode(strip_tags($_haystack), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-		// Replace any Unicode whitespace (e.g. &nbsp; → U+00A0) with normal
-		// space so the regexes below match.
+		// Flatten the whole section body to text — the code may sit in a
+		// different <strong> from the title (e.g. Power Apps WSQ course has
+		// 3 separate strongs: "{Title}", "{Code}", "TSC"). Looking at only
+		// the first strong would miss the code entirely.
+		$_haystack = html_entity_decode(strip_tags($_skillsFrameworkRawHtml), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 		$_haystack = preg_replace('#[\x{00A0}\x{2007}\x{202F}]#u', ' ', $_haystack);
 		$_haystack = preg_replace('#\s+#u', ' ', trim($_haystack));
 
-		// Strategy 1 (preferred): code is whatever sits before the " T"/" TSC"
-		// marker. Handles all observed variants: ICT-DIT-3001-1.1, MED-ACE-3018-1,
-		// ICT-PMT-3026.1.1, BEV-BIN-5021-1.1-1, etc.
-		// Strategy 2 (fallback): structured code without a TSC marker.
+		// Code lookup — strategy 1: anchor on the " T"/" TSC" marker.
+		// Strategy 2: structured uppercase-dash-digits pattern.
+		$_codeFull = '';
 		if (preg_match('#([A-Z]{2,}(?:-[A-Z][A-Z0-9]*)+(?:[-.][0-9][0-9.\-]*)?)\s+(T(?:SC)?)\b#u', $_haystack, $_cm)) {
-			$_skillsCode  = trim($_cm[1] . ' ' . $_cm[2]);
+			$_skillsCode = trim($_cm[1] . ' ' . $_cm[2]);
+			$_codeFull   = $_cm[0];
 		} elseif (preg_match('#([A-Z]{2,}(?:-[A-Z][A-Z0-9]*)+(?:[-.][0-9][0-9.\-]*))#u', $_haystack, $_cm)) {
 			$_skillsCode = trim($_cm[1]);
+			$_codeFull   = $_cm[0];
 		}
-		if ($_skillsCode !== '') {
-			// Title = haystack with the matched code (and the optional TSC
-			// suffix) sliced out.
-			$_titleSrc = preg_replace('#\s*' . preg_quote($_cm[0], '#') . '\s*#u', ' ', $_haystack);
-			$_skillsTitle = trim($_titleSrc);
-		} else {
-			$_skillsTitle = trim($_haystack);
+
+		// Title — start from the haystack, slice the code out, then trim the
+		// surrounding boilerplate prefix/suffix ("This course follows the
+		// guideline of … under … Skills Framework"). What's left is the
+		// human-readable framework title.
+		$_titleSrc = $_haystack;
+		if ($_codeFull !== '') {
+			$_titleSrc = preg_replace('#\s*' . preg_quote($_codeFull, '#') . '\s*#u', ' ', $_titleSrc);
 		}
+		$_titleSrc = preg_replace('#^.*?follows\s+the\s+guideline\s+of\s+#iu', '', $_titleSrc);
+		$_titleSrc = preg_replace('#\s+under\s+.*?Skills\s+Framework\s*\.?\s*$#iu', '', $_titleSrc);
+		$_skillsTitle = trim($_titleSrc);
 	}
 
 	// (5) Certification section — varies per course (External cert blurb
