@@ -583,6 +583,9 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--certification .course-policy-card__header { background: linear-gradient(180deg, #eef2ff 0%, #e0e7ff 100%); }
 .course-policy-card--policy        .course-policy-card__header { background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%); }
 .course-policy-card--extra         .course-policy-card__header { background: linear-gradient(180deg, #fefce8 0%, #fef9c3 100%); }
+/* --extra body: match the Venue sub-section above it (which sits in the same column) — same 13.5px / #334155, tighter line-height + p margin so the Disclaimer block reads as a peer instead of a heavier callout. */
+.course-policy-card--extra         .course-policy-card__body { line-height: 1.55; }
+.course-policy-card--extra         .course-policy-card__body p { margin: 0 0 8px; }
 .course-policy-card--skills        .course-policy-card__header { background: linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%); }
 .course-policy-card--learning      .course-policy-card__header { background: linear-gradient(180deg, #f0fdfa 0%, #ccfbf1 100%); }
 .course-policy-card--brochure      .course-policy-card__header { background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%); }
