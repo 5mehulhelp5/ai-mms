@@ -476,10 +476,21 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 					/* MY store only: render the Additional Note card in the LEFT
 					   column directly under Certification. Other stores keep it in
 					   the right column next to Post-Course Support (rendered later).
-					   Mobile hides the .course-policy-card--note via custom.css. */
-					$_leftNote = trim((string) $_product->getAdditional_note());
+					   Mobile hides the .course-policy-card--note via custom.css.
+					   `$_isMyStore` / `$_extraHtml` are also referenced below by
+					   the legacy left-column extra-info card — we hoist their
+					   computation here so this section can use them too. Without
+					   this hoist the variables were undefined at this point and
+					   the card silently failed to render. */
+					$_isMyStore    = (Mage::app()->getStore()->getId() == 2);
+					$_extraBlockId = ($attributeSetId == 21) ? 'tour_info' : 'grant';
+					$_extraHtml    = trim($this->getLayout()->createBlock('cms/block')->setBlockId($_extraBlockId)->toHtml());
+					$_leftNote      = trim((string) $_product->getAdditional_note());
 					$_leftNoteExtra = ($_isMyStore && $_extraHtml !== '') ? $_extraHtml : '';
-					if ($_isMyStore && ($_leftNote !== '' || $_leftNoteExtra !== '')):
+					/* On MY, always render the card so the disclaimer/grant copy
+					   reaches every product page even when the per-product
+					   `additional_note` attribute is blank. */
+					if ($_isMyStore):
 					?>
 						<section class="course-policy-card course-policy-card--note">
 							<header class="course-policy-card__header">
@@ -508,12 +519,11 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 					          secondary (right) column. See further down. */ ?>
 
 					<?php
-					$_extraBlockId = ($attributeSetId == 21) ? 'tour_info' : 'grant';
-					$_extraHtml    = trim($this->getLayout()->createBlock('cms/block')->setBlockId($_extraBlockId)->toHtml());
-					/* On the MY store the Additional Information block is merged into
-					   the right-column Additional Note card instead of rendering as
-					   its own left-column card. See course-side-policies block below. */
-					$_isMyStore = (Mage::app()->getStore()->getId() == 2);
+					/* `$_extraHtml` and `$_isMyStore` were computed above the
+					   Certification card so the new MY Additional Note card can
+					   read them. On MY the extra block is folded into that
+					   Additional Note card; other stores keep this dedicated
+					   left-column Additional Information card. */
 					if ($_extraHtml !== '' && !$_isMyStore):
 					?>
 						<section class="course-policy-card course-policy-card--extra">
