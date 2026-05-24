@@ -2067,7 +2067,8 @@ li.level2 > a > span > .cat-label,
     .catalog-product-view #customer-reviews,
     .catalog-product-view .box-reviews,
     .catalog-product-view .box-up-sell,
-    .catalog-product-view .related-products-wrapper {
+    .catalog-product-view .related-products-wrapper,
+    .catalog-product-view .course-policy-card--note {
         display: none !important;
     }
 

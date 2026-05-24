@@ -749,9 +749,22 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 				// commitment moment.
 				$_supportHtml = trim($this->getLayout()->createBlock('cms/block')->setBlockId('post_course_support')->toHtml());
 				$_cancelHtml  = trim($this->getLayout()->createBlock('cms/block')->setBlockId('course_cancellation_policy')->toHtml());
-				if ($_supportHtml !== '' || $_cancelHtml !== ''):
+				$_additionalNote = trim((string) $_product->getAdditional_note());
+				if ($_supportHtml !== '' || $_cancelHtml !== '' || $_additionalNote !== ''):
 				?>
 					<div class="inner course-side-policies">
+						<?php if ($_additionalNote !== ''): ?>
+							<section class="course-policy-card course-policy-card--note course-policy-card--side">
+								<header class="course-policy-card__header">
+									<span class="course-policy-card__icon" aria-hidden="true">
+										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+									</span>
+									<h3 class="course-policy-card__title">Additional Note</h3>
+								</header>
+								<div class="course-policy-card__body std"><?php echo nl2br($this->escapeHtml($_additionalNote)); ?></div>
+							</section>
+						<?php endif; ?>
+
 						<?php if ($_supportHtml !== ''): ?>
 							<section class="course-policy-card course-policy-card--support course-policy-card--side">
 								<header class="course-policy-card__header">
