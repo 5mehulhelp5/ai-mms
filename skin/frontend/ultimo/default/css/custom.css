@@ -2119,4 +2119,171 @@ li.level2 > a > span > .cat-label,
     .catalog-product-view #product_addtocart_form::after { display: none; }
     .catalog-product-view .product-view > .box-additional,
     .catalog-product-view .product-view > .box-additional + .box-additional { display: none !important; }
+
+    /* Course-date / course-time <select>: shrink the source font size so
+       iOS Safari's native picker overlay (which inherits from the select
+       element on most versions) can fit "22/23 Aug 2026 Thu/Fri" on one
+       line. The JS shortener in view.phtml strips the parens and
+       abbreviates Thur/Tues; this CSS narrows the per-line width. */
+    .catalog-product-view select.product-custom-option,
+    .catalog-product-view select.product-custom-option option { font-size: 13px; }
+
+    /* Belt-and-braces: the existing `#product_addtocart_form ~ .box-additional`
+       rule and the `display:none` above both target the trailing rails, but
+       the wrapper still left ~250px of dead space below the "Register Your
+       Interest" button on actual phones (between the button and the footer
+       accordion). Source: `.product-view` keeps its desktop `padding-bottom`
+       and the `.product-secondary-column .inner` keeps its bottom padding,
+       and any `<form>::after` clearfix is still pushing the wrapper height.
+       Collapse them all on mobile. */
+    .catalog-product-view .product-view,
+    .catalog-product-view .product-secondary-column,
+    .catalog-product-view .product-secondary-column > .inner,
+    .catalog-product-view .product-secondary-column > .inner:last-child,
+    .catalog-product-view .product-secondary-column .course-side-policies,
+    .catalog-product-view .product-secondary-column .course-policy-card:last-of-type,
+    .catalog-product-view .product-primary-column,
+    .catalog-product-view #product_addtocart_form {
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+    }
+    .catalog-product-view .product-view::before,
+    .catalog-product-view .product-secondary-column::after,
+    .catalog-product-view #product_addtocart_form::before { display: none; }
+    /* Hide the empty trailing box-additional wrapper outright in case the
+       sibling-combinator rule above doesn't match in some store-view markup
+       variants. */
+    .catalog-product-view .product-view .box-additional:empty,
+    .catalog-product-view .product-view > .box-additional.grid12-8 { display: none !important; }
+
+    /* Empty wrappers that still occupy vertical space below the button.
+       The secondary column emits an empty `.inner`, an empty
+       `.paypal-wrapper`, and a `.feature-wrapper.bottom-border` divider
+       even when their content is suppressed on mobile. Strip them. */
+    .catalog-product-view .product-secondary-column .inner:empty,
+    .catalog-product-view .product-secondary-column .paypal-wrapper:empty,
+    .catalog-product-view .product-secondary-column .feature-wrapper.bottom-border,
+    .catalog-product-view .product-secondary-column .feature-wrapper.top-border { display: none !important; }
+    .catalog-product-view .product-secondary-column > .inner:last-child:empty,
+    .catalog-product-view .product-secondary-column .course-side-policies:empty { display: none !important; }
 }
+
+/* ============================================================
+ * Recommended Courses (tabbed Related + Upsell) — replaces the
+ * two stacked "You May Be Interested" + "Related Courses" blocks
+ * with a single tabbed block at the bottom of the product page.
+ * Right column gets a Photo Gallery built from the product's
+ * Magento Media Gallery (see view.phtml).
+ * ============================================================ */
+.box-recommended { margin-top: 0; }
+/* Parent heading is suppressed in markup; guard against legacy CSS that
+   might re-introduce a section-title via .box-collateral > h3. */
+.box-recommended > .section-title { display: none; }
+/* Collapse the dead space above the tabs.
+   Ultimo applies `margin-top:20px` to every `.product-view .box-additional`
+   (styles.css:2200), and the description-tabs `.box-collateral` above adds
+   its own `margin-bottom:30px` (styles.css:2208). When the box-additional
+   below contains our `.box-recommended`, both gaps are pure whitespace —
+   plus the description tabs wrapper draws a thin bottom border. Strip
+   them all for this specific block. */
+.product-view .box-additional:has(> .box-collateral.box-recommended) {
+    margin-top: 0;
+    border-top: 0;
+    padding-top: 0;
+}
+.product-view .box-additional:has(> .box-collateral.box-recommended) > .feature-wrapper.bottom-border,
+.product-view .box-additional:has(> .box-collateral.box-recommended) > .feature-wrapper.top-border { display: none; }
+/* Also pull the description-tabs container's own bottom margin so the
+   tabs sit flush above the recommended block. */
+.product-view .box-additional:has(+ .box-additional > .box-collateral.box-recommended) {
+    margin-bottom: 0;
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+.product-view .box-additional:has(+ .box-additional > .box-collateral.box-recommended) .box-collateral {
+    margin-bottom: 0;
+}
+
+.recommended-tabs {
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 0;
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.recommended-tab {
+    cursor: pointer;
+    padding: 6px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #6b7280;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    margin-bottom: -1px;
+    transition: color .15s, background .15s, border-color .15s;
+}
+.recommended-tab:hover { color: #111827; }
+.recommended-tab.is-active {
+    color: #111827;
+    background: #fff;
+    border-color: #e5e7eb;
+}
+
+.recommended-panel { display: none; }
+.recommended-panel.is-active { display: block; }
+/* Drop the inner block's own heading — tabs carry the section name now */
+.recommended-panel .section-title { display: none; }
+/* Drop the "Check items to add to the cart or select all" subtitle —
+   irrelevant for course pages (we don't surface a related-add-to-cart UI). */
+.recommended-panel .block-subtitle { display: none; }
+/* Sit panels flush under the tabs and zero out the inner Ultimo block's
+   own margins so the carousel hugs the tab strip. */
+.recommended-panel > .box-collateral { margin: 0; padding: 0; }
+.recommended-panel > .box-collateral > .block { margin: 0; padding: 0; }
+.recommended-panel .itemslider-wrapper { margin-top: 0; }
+
+/* Title clamp — keep card titles at 2 lines with ellipsis on overflow so
+   long course names don't push one card taller than its row neighbour.
+   Typography itself now comes from .products-grid .product-name (the
+   wrapper class is matched in related_multi.phtml and upsell.phtml). */
+.recommended-panel .product-name {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: calc(1.3333em * 1.25 * 2);
+}
+
+/* Photo Gallery (right column) */
+.box-photo-gallery { margin-bottom: 20px; }
+.box-photo-gallery > .section-title {
+    font-size: 14px;
+    margin: 0 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.photo-gallery-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+.photo-gallery-item a {
+    display: block;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #f3f4f6;
+}
+.photo-gallery-item img {
+    display: block;
+    width: 100%;
+    height: 90px;
+    object-fit: cover;
+    transition: transform .25s;
+}
+.photo-gallery-item a:hover img { transform: scale(1.05); }

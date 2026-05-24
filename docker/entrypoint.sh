@@ -106,6 +106,26 @@ if [ -d "$WYS_SEED_DIR" ]; then
     chmod -R a+r "$WYS_TARGET_DIR" 2>/dev/null || true
 fi
 
+# Seed catalog product gallery images (media/catalog/product/<h>/<a>/<file>)
+# so migrations that attach images via catalog_product_entity_media_gallery
+# have something to point at on the volume-mounted media disk. Same
+# COPY-IF-MISSING contract as the wysiwyg seed: never overwrite admin uploads.
+CPG_SEED_DIR=/var/www/html/docker/seeds/catalog_product
+CPG_TARGET_DIR=/var/www/html/media/catalog/product
+if [ -d "$CPG_SEED_DIR" ]; then
+    mkdir -p "$CPG_TARGET_DIR"
+    while IFS= read -r f; do
+        rel="${f#$CPG_SEED_DIR/}"
+        target="$CPG_TARGET_DIR/$rel"
+        if [ ! -f "$target" ]; then
+            mkdir -p "$(dirname "$target")"
+            cp "$f" "$target" && echo "entrypoint: seeded $target"
+        fi
+    done < <(find "$CPG_SEED_DIR" -type f)
+    chown -R www-data:www-data "$CPG_TARGET_DIR" 2>/dev/null || true
+    chmod -R a+r "$CPG_TARGET_DIR" 2>/dev/null || true
+fi
+
 echo "entrypoint: running migrations..."
 
 MAX_ATTEMPTS=12

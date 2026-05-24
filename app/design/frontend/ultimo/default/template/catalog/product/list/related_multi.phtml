@@ -62,7 +62,11 @@
 
     //Assign number of items in a row to specific viewport width
 
-    $breakpoints = '[0, 1], [480, 2], [768, 1]';
+    // Match the upsell slider so the Related tab renders the same
+    // multi-column carousel — fixes the old "two cards stacked vertically"
+    // effect that happened at viewport >= 768px under the previous
+    // [0,1], [480,2], [768,1] config.
+    $breakpoints = '[0, 1], [320, 2], [480, 3], [960, 4], [1280, 5]';
 
 
 
@@ -74,9 +78,12 @@
 
     //Default image size
 
-    $imgWidth = 100;
+    // Match upsell.phtml so the Related tab cards render at the same size
+    // as the Recommended tab cards (was 100x100 thumbnails — looked tiny
+    // next to the upsell 196x196 cards).
+    $imgWidth = 196;
 
-    $imgHeight = 100;
+    $imgHeight = 196;
 
     
 
@@ -136,79 +143,43 @@
 
 ?>
 
-<div class="block block-related block-related-thumbnails">
+<?php // Wrapper class mirrors upsell.phtml so the card typography (product-name
+       // size, weight, family) inherits from the standard products-grid rules
+       // instead of Ultimo's font-suppressing .block-related-thumbnails block. ?>
+<div class="block block-related">
 
     <h3 class="section-title padding-right"><?php echo $this->__('Related Courses'); ?></h3>
 
     <div class="itemslider-wrapper itemslider-related-wrapper slider-arrows1 slider-arrows1-pos-top-right slider-pagination1">
 
-        <div id="<?php echo $sliderId; ?>" class="itemslider <?php if($sliderClasses) echo $sliderClasses; ?>">
+        <div id="<?php echo $sliderId; ?>" class="itemslider <?php if($sliderClasses) echo $sliderClasses; ?> products-grid centered">
 
+        <?php // One product per Owl slide — mirrors upsell.phtml so the
+              // breakpoints (1/2/3/4/5 per row) actually take effect. The old
+              // grouping into <ul class="clearer"> sub-slides made each
+              // breakpoint show ONE slide containing N stacked <li>s, which
+              // visually rendered as a vertical column. ?>
         <?php foreach ($_productCollection as $_item): ?>
 
-            <?php if ($i++ % $productCountInSlide == 0): //Open: new slide and list of products ?>
-
-                <div class="item">
-
-                    <ul class="clearer">
-
-            <?php endif; ?>
-
-
-
-            <li class="product">
+            <div class="item">
 
                 <a class="product-image" href="<?php echo $_item->getProductUrl(); ?>" title="<?php echo $this->escapeHtml($_item->getName()); ?>">
 
-                    <img src="<?php echo $helpImg->getImg($_item, $imgWidth, $imgHeight, 'thumbnail'); ?>" alt="<?php echo $this->escapeHtml($_item->getName()); ?>" />
+                    <img src="<?php echo $helpImg->getImg($_item, $imgWidth, $imgHeight, 'small_image'); ?>" alt="<?php echo $this->escapeHtml($_item->getName()); ?>" />
 
                 </a>
 
-                <div class="product-details">
+                <h3 class="product-name"><a href="<?php echo $_item->getProductUrl(); ?>" title="<?php echo $this->escapeHtml($_item->getName()); ?>"><?php echo $this->escapeHtml($_item->getName()); ?></a></h3>
 
-                    <?php /* Course title hidden — cover image already shows the title */ ?>
+                <?php echo $this->getReviewsSummaryHtml($_item, 'short') ?>
 
-                    
-
-                    <?php if ($theme->getCfg('magento_blocks/related_products_checkbox')): ?>
-
-                        <?php if(!$_item->isComposite() && $_item->isSaleable()): ?>
-
-                            <?php if (!$_item->getRequiredOptions()): ?>
-
-                            <input type="checkbox" class="checkbox related-checkbox" id="related-checkbox<?php echo $_item->getId() ?>" name="related_products[]" value="<?php echo $_item->getId() ?>" />
-
-                            <?php endif; ?>
-
-                        <?php endif; ?>
-
+                <?php if ($theme->getCfg('magento_blocks/related_products_checkbox')): ?>
+                    <?php if(!$_item->isComposite() && $_item->isSaleable() && !$_item->getRequiredOptions()): ?>
+                        <input type="checkbox" class="checkbox related-checkbox" id="related-checkbox<?php echo $_item->getId() ?>" name="related_products[]" value="<?php echo $_item->getId() ?>" />
                     <?php endif; ?>
+                <?php endif; ?>
 
-                    
-
-                    <?php echo $this->getPriceHtml($_item, true, '-related') ?>
-
-                    
-
-                    <?php if ($this->helper('wishlist')->isAllow()): ?>
-
-                        <a class="related-add-to-wishlist" href="<?php echo $this->getAddToWishlistUrl($_item); ?>" title="<?php echo $this->__('Add to Wishlist') ?>"><?php echo $this->__('Add to Wishlist'); ?></a>
-
-                    <?php endif; ?>
-
-                </div> <!-- end: product-details -->
-
-            </li>
-
-
-
-            <?php if ($i % $productCountInSlide == 0 || $i == $_collectionSize): //Close: list of products and slide ?>
-
-                    </ul> <!-- end: list of products -->
-
-                </div> <!-- end: slider item -->
-
-            <?php endif ?>
+            </div>
 
         <?php endforeach; ?>
 

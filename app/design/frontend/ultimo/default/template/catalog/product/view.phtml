@@ -334,19 +334,145 @@
 	//Assign blocks to selected position
 	$p = array();
 
-	//Related products
-	$position = $theme->getCfg('product_page/related_position');
-	if (isset($p[$position]))
-		$p[$position] = $p[$position] . $relatedProductsHtml;
-	else
-		$p[$position] = $relatedProductsHtml;
+	// ----------------------------------------------------------------------
+	// Recommended Courses (tabbed) + right-column Photo Gallery
+	//
+	// Defaults from Ultimo:
+	//   related_position = secCol_3   (right column)
+	//   upsell_position  = lowerPrimCol_2 (full-width bottom)
+	//
+	// We override that wiring:
+	//   * Bottom of page: ONE block "Recommended Courses" with two tabs —
+	//     "You May Be Interested" (upsells) and "Related Courses". Lets the
+	//     learner flip between two angles of cross-sell without scrolling
+	//     twice. Tabs hidden if either list is empty.
+	//   * Right column (was Related): a Photo Gallery sourced from the
+	//     product's standard Media Gallery (Manage Images). Skips the base
+	//     image so we don't double-show the hero. Renders nothing if the
+	//     product has no extra gallery images — no empty wrapper.
+	// ----------------------------------------------------------------------
 
-	//Up-sell products
-	$position = $theme->getCfg('product_page/upsell_position');
-	if (isset($p[$position]))
-		$p[$position] = $p[$position] . $upsellProductsHtml;
-	else
-		$p[$position] = $upsellProductsHtml;
+	$relatedTabHtml = trim((string) $relatedProductsHtml);
+	$upsellTabHtml  = trim((string) $upsellProductsHtml);
+	$recommendedHtml = '';
+	if ($relatedTabHtml !== '' || $upsellTabHtml !== '') {
+		$tabs = array();
+		if ($upsellTabHtml !== '') {
+			$tabs['upsell'] = array(
+				'label' => $this->__('Recommended Courses'),
+				'html'  => $upsellTabHtml,
+			);
+		}
+		if ($relatedTabHtml !== '') {
+			$tabs['related'] = array(
+				'label' => $this->__('Related Courses'),
+				'html'  => $relatedTabHtml,
+			);
+		}
+		$activeKey = array_key_first($tabs);
+		$recommendedHtml .= '<div class="box-collateral box-recommended">';
+		// Parent heading intentionally omitted — the tab labels carry the
+		// section name; an extra "Recommended Courses" h3 above them was
+		// visually redundant.
+		if (count($tabs) > 1) {
+			$recommendedHtml .= '<ul class="recommended-tabs" role="tablist">';
+			foreach ($tabs as $k => $tab) {
+				$active = ($k === $activeKey) ? ' is-active' : '';
+				$recommendedHtml .= '<li class="recommended-tab' . $active . '" role="tab" data-target="recommended-' . $k . '" aria-selected="' . ($k === $activeKey ? 'true' : 'false') . '">' . $tab['label'] . '</li>';
+			}
+			$recommendedHtml .= '</ul>';
+		}
+		foreach ($tabs as $k => $tab) {
+			$active = ($k === $activeKey) ? ' is-active' : '';
+			$recommendedHtml .= '<div class="recommended-panel' . $active . '" id="recommended-' . $k . '" role="tabpanel">';
+			// Strip the original block's own h3 — the parent block owns the heading now.
+			$panel = preg_replace('#<h3 class="section-title[^"]*">.*?</h3>#s', '', $tab['html'], 1);
+			$recommendedHtml .= $panel;
+			$recommendedHtml .= '</div>';
+		}
+		$recommendedHtml .= '</div>';
+		// JS tab toggle — vanilla, no jQuery dependency.
+		if (count($tabs) > 1) {
+			$recommendedHtml .= <<<HTML
+<script>
+(function(){
+	var box = document.currentScript.previousElementSibling;
+	if (!box) return;
+	var tabs = box.querySelectorAll('.recommended-tab');
+	var panels = box.querySelectorAll('.recommended-panel');
+	// Owl Carousel 1.x measures width at init time; sliders living inside a
+	// display:none tab read width=0 and fall back to a single column. When a
+	// tab is activated we trigger an Owl refresh so the carousel re-measures
+	// against the now-visible panel.
+	function refreshSliders(panel) {
+		if (!window.jQuery) return;
+		var sliders = panel.querySelectorAll('.itemslider');
+		sliders.forEach(function(el){
+			var \$el = window.jQuery(el);
+			var data = \$el.data('owlCarousel');
+			if (data) {
+				if (typeof data.reinit === 'function') {
+					data.reinit();
+				} else if (typeof \$el.trigger === 'function') {
+					\$el.trigger('owl.refresh');
+				}
+			}
+		});
+	}
+	tabs.forEach(function(t){
+		t.addEventListener('click', function(){
+			tabs.forEach(function(x){ x.classList.remove('is-active'); x.setAttribute('aria-selected','false'); });
+			panels.forEach(function(x){ x.classList.remove('is-active'); });
+			t.classList.add('is-active');
+			t.setAttribute('aria-selected','true');
+			var target = document.getElementById(t.getAttribute('data-target'));
+			if (target) {
+				target.classList.add('is-active');
+				refreshSliders(target);
+			}
+		});
+	});
+})();
+</script>
+HTML;
+		}
+	}
+	if ($recommendedHtml !== '') {
+		$p['lowerPrimCol_2'] = isset($p['lowerPrimCol_2']) ? $p['lowerPrimCol_2'] . $recommendedHtml : $recommendedHtml;
+	}
+
+	// Photo Gallery — replaces what Ultimo's related block used to render in
+	// the right column. Walks the product's Media Gallery, drops the image
+	// flagged as base (already shown as the main product image), and renders
+	// the rest as a simple thumbnail grid. Each thumb links to the full-size
+	// image so the existing lightbox / direct view works.
+	$photoGalleryHtml = '';
+	if (method_exists($_product, 'getMediaGalleryImages')) {
+		$galleryImages = $_product->getMediaGalleryImages();
+		$baseImage = (string) $_product->getImage();
+		$extras = array();
+		if ($galleryImages) {
+			foreach ($galleryImages as $img) {
+				if ($img->getDisabled()) continue;
+				if ($baseImage !== '' && $baseImage !== 'no_selection' && $img->getFile() === $baseImage) continue;
+				$extras[] = $img;
+			}
+		}
+		if (!empty($extras)) {
+			$photoGalleryHtml .= '<div class="box-collateral box-photo-gallery">';
+			$photoGalleryHtml .= '<h3 class="section-title padding-right">' . $this->__('Photo Gallery') . '</h3>';
+			$photoGalleryHtml .= '<ul class="photo-gallery-grid">';
+			foreach ($extras as $img) {
+				$full  = $this->escapeHtml($img->getUrl());
+				$label = $this->escapeHtml((string) $img->getLabel());
+				$photoGalleryHtml .= '<li class="photo-gallery-item"><a href="' . $full . '" target="_blank" rel="noopener"><img src="' . $full . '" alt="' . $label . '" loading="lazy" /></a></li>';
+			}
+			$photoGalleryHtml .= '</ul></div>';
+		}
+	}
+	if ($photoGalleryHtml !== '') {
+		$p['secCol_3'] = isset($p['secCol_3']) ? $p['secCol_3'] . $photoGalleryHtml : $photoGalleryHtml;
+	}
 
 	//Product collateral data (displayed as tabs or stacked blocks)
 	$position = $theme->getCfg('product_page/collateral_position');
@@ -948,6 +1074,26 @@ document.addEventListener("DOMContentLoaded", function () {
             tab.scrollIntoView({ behavior: "smooth", block: "start" });
         }
     }
+
+    // Date-label shortener for course-date <select> options. iOS Safari
+    // renders <select> as a native picker overlay; CSS can't affect option
+    // wrapping or font size inside that overlay. The only thing the picker
+    // shows is the literal text content of <option>, so we shorten it here
+    // — drop the parens around the day-of-week and abbreviate any 4-letter
+    // weekday ("Thur"/"Tues") to 3 letters so labels like
+    // "22/23 Aug 2026 (Thur/Fri)" become "22/23 Aug 2026 Thu/Fri" and
+    // fit on one row on a phone-width picker.
+    document.querySelectorAll('select.product-custom-option option').forEach(function (opt) {
+        var t = opt.textContent;
+        if (!t || !/\d{4}/.test(t)) return; // only touch year-bearing labels
+        var shortened = t
+            .replace(/\s*\(([A-Za-z]+\/[A-Za-z]+)\)\s*$/, ' $1')
+            .replace(/\bThur\b/g, 'Thu')
+            .replace(/\bTues\b/g, 'Tue')
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (shortened !== t) opt.textContent = shortened;
+    });
 });
 
 	</script>
