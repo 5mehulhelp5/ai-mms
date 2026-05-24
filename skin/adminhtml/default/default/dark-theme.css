@@ -173,7 +173,9 @@
 }
 /* Footer / version line */
 :root[data-theme="light"] .admin-page-footer,
-:root[data-theme="light"] .footer-copyright { color: #64748b !important; }
+:root[data-theme="light"] .admin-page-footer *,
+:root[data-theme="light"] .footer-copyright,
+:root[data-theme="light"] .footer-copyright * { color: #0f172a !important; }
 
 /* === 2. Global Reset for Dark === */
 * { border-color: var(--b1) !important; }
@@ -4993,4 +4995,64 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 .admin-main table.mm-table.mm-table-tight td {
     padding: 4px 8px;
     font-size: 11.5px;
+}
+
+/* ============================================================
+   Light mode — text-contrast safety net
+   ------------------------------------------------------------
+   The --t1…--t5 design tokens already flip to dark in light mode,
+   so any element using `color: var(--t*)` reads correctly. The
+   complaint is about elements with HARDCODED colors (mostly
+   `color: #fff` or various grays carried over from dark-mode
+   rules) that never got per-element light-mode overrides.
+   This block is a broad sweep: flip default text in the admin
+   content area to dark, with explicit exclusions for elements
+   that intentionally need light-on-color text (buttons, badges,
+   pills, chips, the theme toggle icon, SVGs that paint with
+   currentColor).
+   ============================================================ */
+
+:root[data-theme="light"] body,
+:root[data-theme="light"] .middle,
+:root[data-theme="light"] .admin-main {
+    color: #1e293b !important;            /* slate-800 body text */
+}
+
+/* Cast a wide net for descendants in the main content area —
+   any element NOT in an exclusion class flips to dark text. */
+:root[data-theme="light"] .admin-main *:not(.button):not(button.button):not(button.btn-cart)
+    :not([class*="badge"]):not([class*="pill"]):not([class*="chip"]):not(.cat-label)
+    :not(svg):not(svg *):not(.theme-toggle):not(.theme-toggle *)
+    :not([class*="al-num"]):not([class*="kpi-num"]) {
+    color: #1e293b !important;
+}
+
+/* Headings get the strongest contrast. */
+:root[data-theme="light"] .admin-main h1,
+:root[data-theme="light"] .admin-main h2,
+:root[data-theme="light"] .admin-main h3,
+:root[data-theme="light"] .admin-main h4,
+:root[data-theme="light"] .admin-main h5,
+:root[data-theme="light"] .admin-main h6 {
+    color: #0f172a !important;            /* slate-900 */
+}
+
+/* Links keep the link-blue identity (otherwise they'd disappear
+   into the body text). Excludes button-styled anchors. */
+:root[data-theme="light"] .admin-main a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]) {
+    color: #2563eb !important;
+}
+:root[data-theme="light"] .admin-main a:not([class*="btn"]):not(.button):not([class*="badge"]):not([class*="pill"]):hover {
+    color: #1d4ed8 !important;
+}
+
+/* Muted/secondary text (sub-labels, helper text, counters) stays
+   readable but visually de-emphasised. */
+:root[data-theme="light"] .admin-main .note,
+:root[data-theme="light"] .admin-main small,
+:root[data-theme="light"] .admin-main [class*="muted"],
+:root[data-theme="light"] .admin-main [class*="-sub"],
+:root[data-theme="light"] .admin-main [class*="-help"],
+:root[data-theme="light"] .admin-main [class*="-lbl"] {
+    color: #475569 !important;            /* slate-600 */
 }
