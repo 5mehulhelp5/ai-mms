@@ -62,7 +62,13 @@ $_icons = array(
         </div>
         <div class="course-info-venue__body">
             <?php
-            $venueBlockId = ($currentStoreId == 2) ? 'my_venue_address' : 'sg_venue_address';
+            if ($currentStoreId == 2) {
+                $venueBlockId = 'my_venue_address';
+            } elseif ($_product->getSku() === 'TGS-2025053916') {
+                $venueBlockId = 'sg_venue_address_hydroponics';
+            } else {
+                $venueBlockId = 'sg_venue_address';
+            }
             echo $this->getLayout()->createBlock('cms/block')->setBlockId($venueBlockId)->toHtml();
             ?>
         </div>
