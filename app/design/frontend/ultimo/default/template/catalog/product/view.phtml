@@ -97,6 +97,12 @@
 			$_inner = preg_replace('#<h[1-6][^>]*>' . $_WS . '*WSQ' . $_WS . '+Funding' . $_WS . '*</h[1-6]>#siu', '', $_inner);
 			$_inner = preg_replace('#<table\b.*?</table>#siu', '', $_inner);
 			$_inner = preg_replace('#<p[^>]*>' . $_WS . '*WSQ' . $_WS . '+funding' . $_WS . '+is' . $_WS . '+only.*?</p>#siu', '', $_inner);
+			// Drop redundant tier-explainer / nett-payment lines that the
+			// auto-calc tiles already convey.
+			$_inner = preg_replace('#<p[^>]*>(?:' . $_WS . '|<[^>]+>)*Baseline\s*:.*?</p>#siu', '', $_inner);
+			$_inner = preg_replace('#<p[^>]*>(?:' . $_WS . '|<[^>]+>)*MCES\b.*?</p>#siu', '', $_inner);
+			$_inner = preg_replace('#<p[^>]*>(?:' . $_WS . '|<[^>]+>)*Upon\s+registration[^<]*advise[^<]*WSQ.*?</p>#siu', '', $_inner);
+			$_inner = preg_replace('#<p[^>]*>(?:' . $_WS . '|<[^>]+>)*You\s+can\s+pay\s+the\s+nett\s+fee.*?</p>#siu', '', $_inner);
 			$_inner = preg_replace('#<p[^>]*>' . $_WS . '*</p>#siu', '', $_inner);
 			$_wsqNarrativeHtml = trim($_inner);
 			$shortDescription  = preg_replace($_wsqPattern, '', $shortDescription, 1);
@@ -389,35 +395,9 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 						</section>
 					<?php endif; ?>
 
-					<?php
-					$_supportHtml = trim($this->getLayout()->createBlock('cms/block')->setBlockId('post_course_support')->toHtml());
-					if ($_supportHtml !== ''):
-					?>
-						<section class="course-policy-card course-policy-card--support">
-							<header class="course-policy-card__header">
-								<span class="course-policy-card__icon" aria-hidden="true">
-									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
-								</span>
-								<h3 class="course-policy-card__title">Post-Course Support</h3>
-							</header>
-							<div class="course-policy-card__body std"><?php echo $_supportHtml; ?></div>
-						</section>
-					<?php endif; ?>
-
-					<?php
-					$_cancelHtml = trim($this->getLayout()->createBlock('cms/block')->setBlockId('course_cancellation_policy')->toHtml());
-					if ($_cancelHtml !== ''):
-					?>
-						<section class="course-policy-card course-policy-card--policy">
-							<header class="course-policy-card__header">
-								<span class="course-policy-card__icon" aria-hidden="true">
-									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
-								</span>
-								<h3 class="course-policy-card__title">Cancellation &amp; Reschedule Policy</h3>
-							</header>
-							<div class="course-policy-card__body std"><?php echo $_cancelHtml; ?></div>
-						</section>
-					<?php endif; ?>
+					<?php /* Post-Course Support and Cancellation & Reschedule Policy
+					          cards render under "Register Your Interest" in the
+					          secondary (right) column. See further down. */ ?>
 
 					<?php
 					$_extraBlockId = ($attributeSetId == 21) ? 'tour_info' : 'grant';
@@ -510,7 +490,6 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 								<span class="wsq-fee-tile__hint">SG age 40+ · 70% funded</span>
 							</div>
 						</div>
-						<p class="wsq-funding-note">Effective for courses starting from 1&nbsp;Jan&nbsp;2024. Upon registration, we will advise on how to tap the WSQ Training Subsidy.</p>
 						<?php if ($_wsqNarrativeHtml !== ''): ?>
 							<div class="wsq-funding-narrative std"><?php echo $_wsqNarrativeHtml; ?></div>
 						<?php endif; ?>
@@ -670,10 +649,43 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 					
 
 				</div>
-     <?php /* Course Information + Post-Course Support + Cancellation Policy
-              moved to the LEFT (image) column under .course-info-stack.
-              See above in this template. */ ?>
-                
+
+				<?php
+				// Post-Course Support + Cancellation/Reschedule Policy live in
+				// the right (secondary) column directly under the "Register
+				// Your Interest" CTA so the support context sits beside the
+				// commitment moment.
+				$_supportHtml = trim($this->getLayout()->createBlock('cms/block')->setBlockId('post_course_support')->toHtml());
+				$_cancelHtml  = trim($this->getLayout()->createBlock('cms/block')->setBlockId('course_cancellation_policy')->toHtml());
+				if ($_supportHtml !== '' || $_cancelHtml !== ''):
+				?>
+					<div class="inner course-side-policies">
+						<?php if ($_supportHtml !== ''): ?>
+							<section class="course-policy-card course-policy-card--support course-policy-card--side">
+								<header class="course-policy-card__header">
+									<span class="course-policy-card__icon" aria-hidden="true">
+										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+									</span>
+									<h3 class="course-policy-card__title">Post-Course Support</h3>
+								</header>
+								<div class="course-policy-card__body std"><?php echo $_supportHtml; ?></div>
+							</section>
+						<?php endif; ?>
+
+						<?php if ($_cancelHtml !== ''): ?>
+							<section class="course-policy-card course-policy-card--policy course-policy-card--side">
+								<header class="course-policy-card__header">
+									<span class="course-policy-card__icon" aria-hidden="true">
+										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+									</span>
+									<h3 class="course-policy-card__title">Cancellation &amp; Reschedule Policy</h3>
+								</header>
+								<div class="course-policy-card__body std"><?php echo $_cancelHtml; ?></div>
+							</section>
+						<?php endif; ?>
+					</div>
+				<?php endif; ?>
+
                 <div class="inner">
 
 					<?php echo $this->getChildHtml('container_product_secondary_1'); ?>
