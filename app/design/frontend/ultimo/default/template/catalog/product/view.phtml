@@ -483,7 +483,11 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 					<?php
 					$_extraBlockId = ($attributeSetId == 21) ? 'tour_info' : 'grant';
 					$_extraHtml    = trim($this->getLayout()->createBlock('cms/block')->setBlockId($_extraBlockId)->toHtml());
-					if ($_extraHtml !== ''):
+					/* On the MY store the Additional Information block is merged into
+					   the right-column Additional Note card instead of rendering as
+					   its own left-column card. See course-side-policies block below. */
+					$_isMyStore = (Mage::app()->getStore()->getId() == 2);
+					if ($_extraHtml !== '' && !$_isMyStore):
 					?>
 						<section class="course-policy-card course-policy-card--extra">
 							<header class="course-policy-card__header">
@@ -750,10 +754,14 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 				$_supportHtml = trim($this->getLayout()->createBlock('cms/block')->setBlockId('post_course_support')->toHtml());
 				$_cancelHtml  = trim($this->getLayout()->createBlock('cms/block')->setBlockId('course_cancellation_policy')->toHtml());
 				$_additionalNote = trim((string) $_product->getAdditional_note());
-				if ($_supportHtml !== '' || $_cancelHtml !== '' || $_additionalNote !== ''):
+				/* MY store: the left-column Additional Information CMS block
+				   (`grant` / `tour_info`) is merged into this Additional Note
+				   card instead of rendering separately. */
+				$_noteExtraMergeHtml = ($_isMyStore && $_extraHtml !== '') ? $_extraHtml : '';
+				if ($_supportHtml !== '' || $_cancelHtml !== '' || $_additionalNote !== '' || $_noteExtraMergeHtml !== ''):
 				?>
 					<div class="inner course-side-policies">
-						<?php if ($_additionalNote !== ''): ?>
+						<?php if ($_additionalNote !== '' || $_noteExtraMergeHtml !== ''): ?>
 							<section class="course-policy-card course-policy-card--note course-policy-card--side">
 								<header class="course-policy-card__header">
 									<span class="course-policy-card__icon" aria-hidden="true">
@@ -761,7 +769,14 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 									</span>
 									<h3 class="course-policy-card__title">Additional Note</h3>
 								</header>
-								<div class="course-policy-card__body std"><?php echo nl2br($this->escapeHtml($_additionalNote)); ?></div>
+								<div class="course-policy-card__body std">
+									<?php if ($_additionalNote !== ''): ?>
+										<?php echo nl2br($this->escapeHtml($_additionalNote)); ?>
+									<?php endif; ?>
+									<?php if ($_noteExtraMergeHtml !== ''): ?>
+										<?php echo $_noteExtraMergeHtml; ?>
+									<?php endif; ?>
+								</div>
 							</section>
 						<?php endif; ?>
 
