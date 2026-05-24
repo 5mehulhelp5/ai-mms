@@ -1892,3 +1892,131 @@ li.level2 > a > span > .cat-label,
 #product-tabs.gen-tabs.accor #acctab-whoshouldattend + .panel {
     display: none !important;
 }
+
+/* Mobile product view: hide the breadcrumb (which on a course page is just
+   "Home → <course title>") so the cover image is the first thing the learner
+   sees. The title still renders later in the product-shop column. */
+@media (max-width: 770px) {
+    .catalog-product-view .breadcrumbs {
+        display: none;
+    }
+}
+
+/* ------------------------------------------------------------------------
+   Mobile product view — explicit content order (spec from angch, 2026-05-24)
+   ------------------------------------------------------------------------
+   The desktop layout uses three columns (img / primary / secondary). On
+   mobile we want a single stream in this order:
+     1. Cover image
+     2. Course title
+     3. Course code
+     4. Funding badges
+     5. Star review
+     6. Course description
+     7. Course Info card (Sessions / Duration / Venue)
+     8. Skills Framework / Learning Outcomes / Brochure (kept, grouped)
+     9. Certificate
+    10. WSQ Funding (+ Funding & Grant for MY)
+    11. Course Fee heading + price
+    12. Options
+    13. Register Your Interest (add-to-cart container2)
+    14. Post-Course Support / Cancellation Policy
+
+   Hidden on mobile (per spec): bottom tabs block — Course Details, Course
+   Info tab, Job Roles, Review — and the related/upsell rail.
+
+   Mechanism: make the form a flex column and the three column wrappers
+   `display: contents` so all their descendants become flex siblings. Then
+   stamp `order:` on each named card.
+   ------------------------------------------------------------------------ */
+@media (max-width: 770px) {
+    .catalog-product-view #product_addtocart_form {
+        display: flex;
+        flex-direction: column;
+    }
+    .catalog-product-view #product_addtocart_form > .product-img-column,
+    .catalog-product-view #product_addtocart_form > .product-primary-column,
+    .catalog-product-view #product_addtocart_form > .product-secondary-column,
+    .catalog-product-view .product-img-column > .course-info-stack,
+    .catalog-product-view .product-secondary-column > .inner {
+        display: contents;
+    }
+
+    /* Anything we did not explicitly rank sinks to the bottom. */
+    .catalog-product-view #product_addtocart_form .no-display { order: -1; }
+    #messages_product_view { order: -1; }
+
+    /* 1. Cover image (Infortis cloudzoom wraps it in .img-box) */
+    .catalog-product-view .product-img-column .img-box,
+    .catalog-product-view .product-img-column > .product-image { order: 1; }
+
+    /* 2. Course title */
+    .catalog-product-view .product-primary-column .product-name { order: 2; }
+
+    /* 3. Course code */
+    .catalog-product-view .course-code-inline { order: 3; }
+
+    /* 4. Funding badges */
+    .catalog-product-view .course-badges--view { order: 4; }
+
+    /* 5. Star review summary */
+    .catalog-product-view .product-primary-column .ratings,
+    .catalog-product-view .product-primary-column .no-rating { order: 5; }
+
+    /* 6. Course description (long blurb) */
+    .catalog-product-view .product-primary-column .short-description { order: 6; }
+
+    /* 7. Course Information card (Sessions / Duration / Venue) */
+    .catalog-product-view .course-info-card { order: 7; }
+
+    /* 8. Skills Framework / Learning Outcomes / Brochure — kept visible,
+          grouped between Course Info and Certificate. */
+    .catalog-product-view .course-policy-card--skills    { order: 8; }
+    .catalog-product-view .course-policy-card--learning  { order: 8; }
+    .catalog-product-view .course-policy-card--brochure  { order: 8; }
+
+    /* 9. Certificate */
+    .catalog-product-view .course-policy-card--certification { order: 9; }
+
+    /* 10. WSQ Funding (SG) + Funding & Grant (MY) */
+    .catalog-product-view .course-policy-card--wsq     { order: 10; }
+    .catalog-product-view .course-policy-card--funding { order: 10; }
+
+    /* 11. Course Fee heading + price/GST */
+    .catalog-product-view .product-secondary-column .course-fee-heading,
+    .catalog-product-view .product-secondary-column > h2,
+    .catalog-product-view #productTypeData,
+    .catalog-product-view .product-secondary-column .product-type-data,
+    .catalog-product-view .product-secondary-column .extrahint-wrapper { order: 11; }
+
+    /* 12. Options */
+    .catalog-product-view .container1-wrapper { order: 12; }
+
+    /* 13. Register Your Interest CTA (container2 wraps the add-to-cart) */
+    .catalog-product-view .product-secondary-column .box-additional,
+    .catalog-product-view .container2-wrapper,
+    .catalog-product-view .product-secondary-column .add-to-box { order: 13; }
+
+    /* 14. Side policies — last */
+    .catalog-product-view .course-side-policies { order: 14; }
+
+    /* "Additional Information" residual card (CMS block `grant`/`tour_info`) — keep
+       but push to the very end so it doesn't disrupt the ordered flow above. */
+    .catalog-product-view .course-policy-card--extra { order: 19; }
+
+    /* Hidden on mobile per spec: bottom tabs (Course Details / Course Info
+       tab / Job Roles / Review) and related/upsell rail. The bottom block
+       in view.phtml is a single wrapper (`.box-additional.grid12-8`) so
+       hiding it kills the lot. */
+    .catalog-product-view #product_addtocart_form ~ .box-additional,
+    .catalog-product-view .product-collateral,
+    .catalog-product-view #product-tabs,
+    .catalog-product-view .product-additional-data,
+    .catalog-product-view #product_additional_data,
+    .catalog-product-view #customer-reviews,
+    .catalog-product-view .box-reviews,
+    .catalog-product-view .box-up-sell,
+    .catalog-product-view .related-products-wrapper {
+        display: none !important;
+    }
+}
