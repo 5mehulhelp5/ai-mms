@@ -37,9 +37,26 @@
 }
 .product-view .box-additional {
     margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
 }
 
-.product-view .container2-wrapper { border:none !important;}
+.product-view .container2-wrapper {
+    border: none !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
+/* Trim the trailing gap inside the booking card (right-column .inner) so the
+   "Register Your Interest" button sits close to the card's bottom edge
+   instead of leaving a tall empty band before the next card. */
+.product-secondary-column .inner:first-of-type {
+    padding-bottom: 12px !important;
+}
+.product-secondary-column .inner:first-of-type > *:last-child,
+.product-secondary-column .inner:first-of-type .container2-wrapper,
+.product-secondary-column .inner:first-of-type .add-to-box {
+    margin-bottom: 0 !important;
+}
 .catalog-product-view .custom-sidebar-right ol li {
     list-style-type: decimal;
     margin-left: 15px;
