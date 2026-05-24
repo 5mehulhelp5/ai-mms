@@ -8449,6 +8449,16 @@ $_credMask = function ($v) {
 .crd-preset:hover { background: #1e293b; border-color: #65b7d5; color: #f1f5f9; }
 .crd-smtp-card select.crd-input { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, #94a3b8 50%), linear-gradient(135deg, #94a3b8 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 32px; }
 .crd-smtp-card option { background: #1e293b; color: #f1f5f9; }
+/* Collapsible SMTP section */
+.crd-smtp-collapse { margin-top: 32px; border-top: 1px solid #1e293b; padding-top: 18px; }
+.crd-smtp-collapse > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 6px 0; color: #cbd5e1; font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; user-select: none; }
+.crd-smtp-collapse > summary::-webkit-details-marker { display: none; }
+.crd-smtp-collapse > summary:hover { color: #f1f5f9; }
+.crd-smtp-collapse > summary:focus-visible { outline: 2px solid #65b7d5; outline-offset: 4px; border-radius: 4px; }
+.crd-smtp-collapse__chev { display: inline-flex; transition: transform 0.15s ease; color: #94a3b8; }
+.crd-smtp-collapse[open] .crd-smtp-collapse__chev { transform: rotate(90deg); }
+.crd-smtp-collapse__title { flex: 1 1 auto; }
+.crd-smtp-collapse__count { font-size: 11px; font-weight: 600; color: #94a3b8; background: #1e293b; padding: 3px 9px; border-radius: 999px; border: 1px solid #334155; text-transform: none; letter-spacing: 0; }
 </style>
 <div id="dash-panel-credentials" style="display:none;">
 <div class="crd-wrap">
@@ -8580,8 +8590,21 @@ $_credMask = function ($v) {
             </div>
         </div>
 
-        <div class="crd-section-title" style="margin:32px 0 8px;color:#cbd5e1;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">SMTP — non-Singapore stores</div>
-        <p class="crd-sub" style="margin:0 0 18px;">Singapore sends via Gmail OAuth (above). These five cards configure SMTPPro per country website. Fill Host + Username + Password and click <strong>Save Credentials</strong> — SMTP turns on automatically. Use <strong>Send Test</strong> to verify before relying on it for real orders.</p>
+        <?php
+            // Auto-expand if any store already has SMTP enabled; otherwise stay
+            // collapsed so the panel doesn't dominate the page on first load.
+            $_smtpAnyOn = false;
+            foreach ($_smtpCfg as $_c) { if (!empty($_c['enabled']) && $_c['enabled'] !== '-1') { $_smtpAnyOn = true; break; } }
+        ?>
+        <details class="crd-smtp-collapse"<?php echo $_smtpAnyOn ? ' open' : '' ?>>
+            <summary>
+                <span class="crd-smtp-collapse__chev" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </span>
+                <span class="crd-smtp-collapse__title">SMTP — non-Singapore stores</span>
+                <span class="crd-smtp-collapse__count"><?php echo count($_smtpWebsites) ?> stores</span>
+            </summary>
+            <p class="crd-sub" style="margin:14px 0 18px;">Singapore sends via Gmail OAuth (above). These five cards configure SMTPPro per country website. Fill Host + Username + Password and click <strong>Save Credentials</strong> — SMTP turns on automatically. Use <strong>Send Test</strong> to verify before relying on it for real orders.</p>
 
         <?php
         $_userPlaceholders = array(
@@ -8685,6 +8708,7 @@ $_credMask = function ($v) {
             <input type="hidden" name="smtp_<?php echo $_code ?>_enabled" value="<?php echo $_isOn ? '1' : '0' ?>" />
         </div>
         <?php endforeach; ?>
+        </details>
 
         <div class="crd-actions">
             <button type="button" class="crd-btn crd-btn-ghost" onclick="window.location.reload()">Cancel</button>
