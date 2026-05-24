@@ -8436,6 +8436,7 @@ $_credMask = function ($v) {
 .crd-input[readonly] { color: #94a3b8; }
 .crd-hint { font-size: 11px; color: #64748b; margin-top: 2px; }
 .crd-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.crd-actions--top { margin-top: 0; margin-bottom: 18px; }
 .crd-btn { padding: 10px 22px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: transform 0.1s; }
 .crd-btn-primary { background: linear-gradient(180deg, #65b7d5 0%, #55a9c9 100%); color: #fff; }
 .crd-btn-primary:hover { background: linear-gradient(180deg, #75c4df 0%, #65b7d5 100%); transform: translateY(-1px); }
@@ -8455,6 +8456,11 @@ $_credMask = function ($v) {
     <p class="crd-sub">API keys and OAuth tokens used by other modules. Saved values are masked — leave a field as-is to keep its current secret.</p>
 
     <form id="crd-form" onsubmit="return crdSubmit(event)">
+
+        <div class="crd-actions crd-actions--top">
+            <button type="button" class="crd-btn crd-btn-ghost" onclick="window.location.reload()">Cancel</button>
+            <button type="submit" class="crd-btn crd-btn-primary">Save Credentials</button>
+        </div>
 
         <div class="crd-card<?php echo $_creds['mmd_marketing/api/anthropic_key'] ? ' has-value' : '' ?>">
             <h3><span class="crd-dot"></span>Anthropic (Claude API)</h3>
