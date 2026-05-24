@@ -1941,8 +1941,26 @@ li.level2 > a > span > .cat-label,
     .catalog-product-view .product-secondary-column > .inner {
         display: contents;
     }
+    /* The offer-itemscope <div> in the secondary column wraps #productTypeData
+       (price + GST) and the tier-price block. Without flattening it, the price
+       sits inside an unranked div and floats to the very top of the page
+       (since unranked flex items default to order:0). Flatten it so its
+       children become direct flex siblings and can be ranked individually. */
+    .catalog-product-view .product-secondary-column .inner > div:has(> #productTypeData) {
+        display: contents;
+    }
 
-    /* Anything we did not explicitly rank sinks to the bottom. */
+    /* Anything we did not explicitly rank sinks to the bottom. CSS default
+       order is 0, which would land unranked items ABOVE the image (order:1).
+       Default everything to 100 so only the named items climb up. */
+    .catalog-product-view #product_addtocart_form > *,
+    .catalog-product-view .product-img-column > *,
+    .catalog-product-view .product-primary-column > *,
+    .catalog-product-view .product-secondary-column > *,
+    .catalog-product-view .product-secondary-column .inner > *,
+    .catalog-product-view .course-info-stack > * {
+        order: 100;
+    }
     .catalog-product-view #product_addtocart_form .no-display { order: -1; }
     #messages_product_view { order: -1; }
 
