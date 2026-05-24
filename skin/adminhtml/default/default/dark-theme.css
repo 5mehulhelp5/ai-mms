@@ -5058,17 +5058,31 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
     color: #475569 !important;            /* slate-600 */
 }
 
-/* Light mode — sidebar nav text dark. .lms-nav-item is hardcoded to
-   slate-400 (#94a3b8) for dark mode (sidebar-nav.css:2098), which is
-   unreadable on a light-mode white sidebar. Flip every sidebar text
-   item (and icons via currentColor) to slate-900 in light mode,
-   including hover and active states. Also covers nested nav classes
-   (.tools-*, .dcf-nav-* etc.) via the .side-col descendant sweep. */
+/* Light mode — sidebar nav text dark. The sidebar container is
+   .sidebar-nav (NOT .side-col — that's the legacy Magento side
+   column, not the custom MMD sidebar). All sidebar text items
+   (.lms-nav-item, .tools-group-toggle, .tools-sub-item, .dcf-nav-*
+   etc.) hardcode slate-400/500 colours for dark mode and were
+   unreadable on a light-mode white sidebar. Flip everything inside
+   .sidebar-nav (and .side-col for any legacy sidebars) to slate-900
+   in light mode, including hover and active states. Icons inherit
+   via currentColor. The active state's distinguishing teal background
+   is kept; only the text colour flips. */
+:root[data-theme="light"] .sidebar-nav,
+:root[data-theme="light"] .sidebar-nav *,
 :root[data-theme="light"] .side-col,
 :root[data-theme="light"] .side-col *,
 :root[data-theme="light"] .lms-nav-item,
 :root[data-theme="light"] .lms-nav-item:hover,
 :root[data-theme="light"] .lms-nav-item.active,
-:root[data-theme="light"] .lms-nav-item.active:hover {
+:root[data-theme="light"] .lms-nav-item.active:hover,
+:root[data-theme="light"] .tools-group-toggle,
+:root[data-theme="light"] .tools-group-toggle:hover,
+:root[data-theme="light"] .tools-group-toggle.active,
+:root[data-theme="light"] .tools-group-toggle.active:hover,
+:root[data-theme="light"] .tools-sub-item,
+:root[data-theme="light"] .tools-sub-item:hover,
+:root[data-theme="light"] .tools-sub-item.active,
+:root[data-theme="light"] .tools-sub-item.active:hover {
     color: #0f172a !important;            /* slate-900 */
 }

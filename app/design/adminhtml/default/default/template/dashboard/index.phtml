@@ -2298,7 +2298,7 @@ endif; // end if ($_courseManagerActive) — closes the $_devCollection block
             <div class="lmc-view-toggle"><button type="button" class="lmc-view-btn active" id="dev-grid-btn" onclick="devSetView('grid')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button><button type="button" class="lmc-view-btn" id="dev-list-btn" onclick="devSetView('list')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button></div>
             <button type="button" onclick="devResetFilters()" style="background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;cursor:pointer !important;padding:4px 8px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;">Reset</button>
             <?php $_devFiltersOpen = $_devFilterType !== '' || $_devFilterCourseware !== ''; ?>
-            <button type="button" id="dev-filter-toggle" onclick="devToggleFilters()" style="background:transparent !important;background-image:none !important;border:1px solid <?php echo $_devFiltersOpen ? '#60a5fa' : '#475569' ?> !important;color:<?php echo $_devFiltersOpen ? '#fff' : '#e2e8f0' ?> !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;padding:6px 16px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;border-radius:8px !important;"><?php echo $_devFiltersOpen ? 'Hide Filters' : 'Show Filters' ?></button>
+            <button type="button" id="dev-filter-toggle" data-open="<?php echo $_devFiltersOpen ? '1' : '0' ?>" onclick="devToggleFilters()" style="background:transparent !important;background-image:none !important;border:1px solid !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;padding:6px 16px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;border-radius:8px !important;"><?php echo $_devFiltersOpen ? 'Hide Filters' : 'Show Filters' ?></button>
         </div>
         <div id="dev-filter-row" style="display:<?php echo $_devFiltersOpen ? 'block' : 'none' ?>;margin-top:14px;">
             <div style="display:flex;gap:16px;flex-wrap:wrap;">
@@ -2437,13 +2437,11 @@ function devToggleFilters() {
     if (row.style.display === 'none') {
         row.style.display = '';
         btn.textContent = 'Hide Filters';
-        btn.style.borderColor = '#60a5fa';
-        btn.style.color = '#fff';
+        btn.setAttribute('data-open', '1');
     } else {
         row.style.display = 'none';
         btn.textContent = 'Show Filters';
-        btn.style.borderColor = '#475569';
-        btn.style.color = '#e2e8f0';
+        btn.setAttribute('data-open', '0');
     }
 }
 function devApplyFilters() {
@@ -4522,8 +4520,8 @@ window.dcfToggleNavGroup = function(headBtn){
                         <?php if (!empty($_courseware[$_k])): ?>
                         <div class="dce-field">
                             <div class="dce-label"><?php echo $_lbl ?></div>
-                            <div style="background:#283548;border:1px solid #384a60;border-radius:8px;padding:10px 14px;overflow-wrap:anywhere;">
-                                <a href="<?php echo htmlspecialchars($_courseware[$_k]) ?>" target="_blank" style="color:#60a5fa;text-decoration:none;font-size:13px;"><?php echo htmlspecialchars($_courseware[$_k]) ?></a>
+                            <div class="dce-url-box">
+                                <a href="<?php echo htmlspecialchars($_courseware[$_k]) ?>" target="_blank" class="dce-url-link"><?php echo htmlspecialchars($_courseware[$_k]) ?></a>
                             </div>
                         </div>
                         <?php endif; ?>
