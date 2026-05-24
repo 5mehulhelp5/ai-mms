@@ -26,15 +26,20 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
     const AUTO_REPLY_TEMPLATE_FALLBACK = 'mmd_leads_auto_reply';
 
     /**
-     * Course recommender pool per store. The SKU prefix is the course-code
-     * convention each storefront uses: SG WSQ/SkillsFuture courses are
-     * TGS-…, Malaysia HRD Corp courses are M…. MIN_RECOMMEND_SCORE is the
-     * minimum keyword score a course must reach to be recommended — below
-     * it the auto-reply shows the generic catalogue fallback instead of a
-     * weak guess.
+     * Course recommender pool per store. The SKU prefix scopes the
+     * recommendation pool to the storefront's course-code convention:
+     *
+     *   SG → TGS-…  (WSQ/SkillsFuture course reference convention)
+     *   MY/GH/NG/BT/IN → '' (no prefix filter — the storefront's visible
+     *   catalog already scopes the pool to that country, and there's no
+     *   distinct SKU marker for HRDF / regional courses since MY uses the
+     *   shared C-prefix / K-prefix numbering as the rest of the catalog).
+     *
+     * MIN_RECOMMEND_SCORE is the minimum keyword score a course must reach
+     * to be recommended — below it the auto-reply shows the generic
+     * catalogue fallback instead of a weak guess.
      */
     const WSQ_SKU_PREFIX          = 'TGS-';
-    const MY_SKU_PREFIX           = 'M';
     const MIN_RECOMMEND_SCORE     = 3;
     const MYSKILLSFUTURE_COURSE_URL = 'https://www.myskillsfuture.gov.sg/content/portal/en/training-exchange/course-directory/course-detail.html?courseReference=';
 
@@ -166,10 +171,15 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
             $template = Mage::getStoreConfig(self::XML_PATH_AUTO_REPLY_TEMPLATE, $storeId)
                 ?: self::AUTO_REPLY_TEMPLATE_FALLBACK;
             $sender   = $this->getReplySender($storeId);
+            // Inject `store` ourselves so the template's
+            // {{var store.frontend_name}} resolves on the Gmail path.
+            // sendTransactional() injects store automatically; our manual
+            // getProcessedTemplate*() call below does not.
             $vars     = array(
                 'lead_name'        => $this->getFirstName($lead->getName()),
                 'course_info_html' => $this->buildCourseInfoHtml($lead),
                 'contact_html'     => $this->buildContactHtml($lead),
+                'store'            => Mage::app()->getStore($storeId),
             );
             $ccList = $this->_getAutoReplyCc($storeId);
 
@@ -335,14 +345,14 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
 
         $code = trim((string) $lead->getCourseCode());
         if ($code !== '') {
-            $product = $this->_findCourseByCode($code, $storeId, $spec['sku_prefix']);
+            $product = $this->_findCourseByCode($code, $storeId, $spec);
             if ($product) {
                 return $this->_buildRecommendation($product, $spec);
             }
         }
 
         $text    = trim($lead->getCoursesInterested() . ' ' . $lead->getComment() . ' ' . $code);
-        $product = $this->_scoreCourses($text, $storeId, $spec['sku_prefix']);
+        $product = $this->_scoreCourses($text, $storeId, $spec);
         return $product ? $this->_buildRecommendation($product, $spec) : null;
     }
 
@@ -366,14 +376,17 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
         }
         switch ($code) {
             case 'singapore':
-                return array('kind' => 'wsq',     'sku_prefix' => self::WSQ_SKU_PREFIX);
+                return array('kind' => 'wsq',     'sku_prefix' => self::WSQ_SKU_PREFIX, 'exclude_sku_prefix' => '');
             case 'malaysia':
-                return array('kind' => 'hrdf',    'sku_prefix' => self::MY_SKU_PREFIX);
+                // Catalog is shared across websites, so TGS- (SG WSQ) courses
+                // are visible to MY too. Exclude them so the recommender
+                // doesn't suggest a Singapore-only WSQ course to a MY lead.
+                return array('kind' => 'hrdf',    'sku_prefix' => '', 'exclude_sku_prefix' => self::WSQ_SKU_PREFIX);
             case 'ghana':
             case 'nigeria':
             case 'bhutan':
             case 'india':
-                return array('kind' => 'generic', 'sku_prefix' => self::MY_SKU_PREFIX);
+                return array('kind' => 'generic', 'sku_prefix' => '', 'exclude_sku_prefix' => self::WSQ_SKU_PREFIX);
         }
         return null;
     }
@@ -405,7 +418,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
      *
      * @return Mage_Catalog_Model_Product|null
      */
-    protected function _findCourseByCode($code, $storeId, $skuPrefix)
+    protected function _findCourseByCode($code, $storeId, array $spec)
     {
         $code = strtoupper(trim($code));
         if ($code === '') {
@@ -415,11 +428,16 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
         $collection = Mage::getModel('catalog/product')->getCollection()
             ->setStoreId($storeId)
             ->addAttributeToSelect(array('name', 'sku', 'url_key'))
-            ->addAttributeToFilter('sku', array('like' => $skuPrefix . '%'))
             ->addAttributeToFilter('sku', array('like' => '%' . $code . '%'))
             ->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_ENABLED)
             ->addAttributeToFilter('visibility', array('neq' => Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE))
             ->setPageSize(1);
+        if (!empty($spec['sku_prefix'])) {
+            $collection->addAttributeToFilter('sku', array('like' => $spec['sku_prefix'] . '%'));
+        }
+        if (!empty($spec['exclude_sku_prefix'])) {
+            $collection->addAttributeToFilter('sku', array('nlike' => $spec['exclude_sku_prefix'] . '%'));
+        }
 
         foreach ($collection as $product) {
             return $product;
@@ -438,7 +456,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
      *
      * @return Mage_Catalog_Model_Product|null
      */
-    protected function _scoreCourses($text, $storeId, $skuPrefix)
+    protected function _scoreCourses($text, $storeId, array $spec)
     {
         $keywords = $this->_extractKeywords($text);
         if (empty($keywords['raw']) && empty($keywords['expanded'])) {
@@ -448,9 +466,14 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
         $collection = Mage::getModel('catalog/product')->getCollection()
             ->setStoreId($storeId)
             ->addAttributeToSelect(array('name', 'sku', 'url_key'))
-            ->addAttributeToFilter('sku', array('like' => $skuPrefix . '%'))
             ->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_ENABLED)
             ->addAttributeToFilter('visibility', array('neq' => Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE));
+        if (!empty($spec['sku_prefix'])) {
+            $collection->addAttributeToFilter('sku', array('like' => $spec['sku_prefix'] . '%'));
+        }
+        if (!empty($spec['exclude_sku_prefix'])) {
+            $collection->addAttributeToFilter('sku', array('nlike' => $spec['exclude_sku_prefix'] . '%'));
+        }
 
         $best = null;
         $bestScore = 0;
