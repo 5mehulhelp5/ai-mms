@@ -2298,7 +2298,7 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
    Add more selectors here as we spot pages that haven't been
    covered. */
 :root[data-theme="light"] .lmc-title { color:#0f172a !important }
-:root[data-theme="light"] .lmc-kpi-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .lmc-kpi-card { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
 :root[data-theme="light"] .lmc-kpi-lbl { color:#64748b !important }
 :root[data-theme="light"] .lmc-kpi-num.gray { color:#64748b !important }
 
@@ -2339,7 +2339,7 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
 
 /* Generic dashboard KPI cards used elsewhere (dash-kpi-card) — same
    hardcoded slate. */
-:root[data-theme="light"] .dash-kpi-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dash-kpi-card { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
 :root[data-theme="light"] .dash-kpi-lbl { color:#64748b !important }
 
 /* Billing / Certificate History panels — heavily inline-styled
@@ -2909,7 +2909,7 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .al-back-link:hover { color:#1d4ed8 !important }
 
 /* KPI cards */
-:root[data-theme="light"] .al-kpi { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .al-kpi { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
 :root[data-theme="light"] .al-kpi-lbl { color:#64748b !important }
 /* .al-kpi-num color is semantic (blue/green/red), works on both */
 
@@ -2939,7 +2939,7 @@ button.hsp-btn-submit{
    Light theme — View Trainers panel (.trn-* class family)
    ============================================================ */
 /* KPI cards (Trainers / ACLP Trainers / Non-ACLP Trainers) */
-:root[data-theme="light"] .trn-kpi-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .trn-kpi-card { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
 /* KPI nums keep blue/green/pink semantic colors */
 
 /* Search wrapper + input */
@@ -2963,7 +2963,7 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .at-back-link:hover { color:#1d4ed8 !important }
 
 /* KPI cards (Upcoming / Trainers Assigned / Missing Trainers) */
-:root[data-theme="light"] .at-kpi { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .at-kpi { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
 :root[data-theme="light"] .at-kpi-lbl { color:#64748b !important }
 /* Nums keep blue/green/red semantic colors */
 
