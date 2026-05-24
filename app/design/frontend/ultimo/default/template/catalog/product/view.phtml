@@ -229,7 +229,18 @@
 		}
 		$_certificationHtml .= '</ul>';
 	} else {
-		list($_certificationHtml, $shortDescription) = $_extractSection('Certification', $shortDescription);
+		// Other stores (MY/GH/NG/BT/IN/Infotech): strip whatever heading
+		// variant the description carries so it doesn't double-render, then
+		// pull the standardised card content from the per-store
+		// `course_certification` CMS block (seeded in migrations/143).
+		// Fall back to whatever was extracted from the description if the
+		// CMS block is empty or missing.
+		list($_certExtracted, $shortDescription) = $_extractSection('(?:Certifications?|Certificate)', $shortDescription);
+		$_certificationHtml = trim($this->getLayout()->createBlock('cms/block')->setBlockId('course_certification')->toHtml());
+		if ($_certificationHtml === '') {
+			$_certificationHtml = $_certExtracted;
+		}
+		unset($_certExtracted);
 	}
 
 	//Rich snippets
