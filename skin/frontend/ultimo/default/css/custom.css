@@ -629,6 +629,28 @@ li.level2 > a > span > .cat-label,
 .course-policy-card__icon svg { width: 16px; height: 16px; display: block; }
 
 .course-policy-card__body { padding: 14px 18px 16px; color: #334155; font-size: 13.5px; line-height: 1.6; }
+
+/* Additional Note merges hand-typed product copy with a CMS block on MY
+   (the "Disclaimer" paragraph from `grant`). The CMS block carries its
+   own inline font sizing that blows up next to the plain note text;
+   normalize everything inside the card body so the two read as one
+   uniform paragraph block. */
+.course-policy-card--note .course-policy-card__body,
+.course-policy-card--note .course-policy-card__body * {
+    font-size: 13.5px !important;
+    line-height: 1.6 !important;
+    font-family: inherit !important;
+}
+.course-policy-card--note .course-policy-card__body strong,
+.course-policy-card--note .course-policy-card__body b {
+    font-weight: 600 !important;
+}
+.course-policy-card--note .course-policy-card__body p { margin: 0 0 8px; }
+.course-policy-card--note .course-policy-card__body p:last-child { margin-bottom: 0; }
+.course-policy-card--note .course-policy-card__body a {
+    color: #2563eb !important;
+    text-decoration: underline;
+}
 .course-policy-card__body h3 {
     margin: 14px 0 6px;
     font-size: 14px;
