@@ -1,9 +1,53 @@
 <?php $prerequisite = $this->getProduct()->getPrerequisite(); ?>
-<?php if ($prerequisite){ 
-
-?>
-    <h2><?php echo $this->__('Course Info') ?></h2>
-    <div class="std">
+<?php if ($prerequisite){ ?>
+    <div class="std course-info-std">
         <?php echo $prerequisite; ?>
     </div>
+    <script type="text/javascript">
+    /* Course Info — convert flat <h2>section + content runs into a stacked
+       accordion. Each <h2> becomes a clickable header; everything between
+       that <h2> and the next <h2> becomes the collapsible body. All
+       collapsed by default so the panel reads as a clean section index
+       rather than a wall of nested headings/tables. */
+    (function () {
+        var s = document.currentScript;
+        var root = s ? s.previousElementSibling : null;
+        if (!root || !root.classList || !root.classList.contains('course-info-std')) {
+            root = document.querySelector('#acctab-prerequisite + .panel .course-info-std');
+        }
+        if (!root) { return; }
+        var headings = Array.prototype.slice.call(root.children).filter(function (n) {
+            return n.tagName === 'H2';
+        });
+        if (!headings.length) { return; }
+        headings.forEach(function (h2, idx) {
+            var item = document.createElement('div');
+            item.className = 'course-info-acc__item';
+            var header = document.createElement('button');
+            header.type = 'button';
+            header.className = 'course-info-acc__header';
+            header.setAttribute('aria-expanded', 'false');
+            header.innerHTML = '<span class="course-info-acc__title">' + h2.innerHTML +
+                '</span><span class="course-info-acc__chevron" aria-hidden="true"></span>';
+            var body = document.createElement('div');
+            body.className = 'course-info-acc__body';
+            root.insertBefore(item, h2);
+            item.appendChild(header);
+            item.appendChild(body);
+            h2.parentNode.removeChild(h2);
+            var sib = item.nextSibling;
+            while (sib && !(sib.nodeType === 1 && sib.tagName === 'H2'
+                            && !sib.classList.contains('course-info-acc__header'))) {
+                var next = sib.nextSibling;
+                if (sib.nodeType === 1 && sib.classList && sib.classList.contains('course-info-acc__item')) break;
+                body.appendChild(sib);
+                sib = next;
+            }
+            header.addEventListener('click', function () {
+                var open = item.classList.toggle('is-open');
+                header.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+        });
+    })();
+    </script>
 <?php } ?>

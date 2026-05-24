@@ -65,4 +65,48 @@
         }
     })();
     </script>
+    <script type="text/javascript">
+    /* Two post-tab-render shims, run on DOMContentLoaded so the tab block
+       (rendered later in the page) is already in the DOM.
+
+       1) Mobile accordion label filler: tabs.phtml emits <h2 class="acctab">
+          with empty text content; only the desktop <li id="tab-X"><a> carries
+          the visible label. Copy the desktop label across so the mobile
+          accordion headers are tappable.
+
+       2) No-comment review compactor: tag review <dd>s whose body between
+          the ratings table and the date is empty / "N/A" / "-" so CSS can
+          drop the dashed divider and tighten spacing. */
+    document.addEventListener('DOMContentLoaded', function () {
+        // (1) acctab labels
+        var acctabs = document.querySelectorAll('#product-tabs .acctab');
+        for (var i = 0; i < acctabs.length; i++) {
+            var acc = acctabs[i];
+            if (acc.textContent.trim() !== '') continue;
+            var alias = acc.id.replace(/^acctab-/, '');
+            var src = document.querySelector('#tab-' + alias + ' a');
+            if (src) acc.textContent = src.textContent.trim();
+        }
+
+        // (2) compact no-comment reviews
+        var dds = document.querySelectorAll('.box-reviews dl dd');
+        for (var j = 0; j < dds.length; j++) {
+            var dd = dds[j];
+            var table = dd.querySelector('.ratings-table');
+            var date  = dd.querySelector('.date');
+            if (!date) continue;
+            var startFrom = table || dd.firstChild;
+            var node = startFrom.nextSibling, txt = '';
+            while (node && node !== date) {
+                txt += node.nodeType === 3 ? node.nodeValue
+                     : (node.nodeType === 1 ? node.textContent : '');
+                node = node.nextSibling;
+            }
+            var norm = txt.replace(/[\s ]+/g, '').toLowerCase();
+            if (!norm || norm === 'n/a' || norm === 'na' || norm === '-' || norm === '--') {
+                dd.classList.add('review-no-comment');
+            }
+        }
+    });
+    </script>
 <?php endif; ?>

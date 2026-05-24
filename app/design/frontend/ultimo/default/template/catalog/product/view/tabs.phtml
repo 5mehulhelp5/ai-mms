@@ -71,10 +71,20 @@ $tabTitle="";
     <?php
 
         if($tmpBlock = $this->getChildHtml($_tab['alias']))
-
         {
-			
-
+            $tabTitle = $_tab['title'];
+            if ($productType == "simple" && $_tab['title'] == "Course Details") {
+                $tabTitle = "Book Description";
+            }
+            if ($productType == "simple" && $_tab['title'] == "Course Feedback") {
+                $tabTitle = "Review";
+            }
+            if ($attributeSetId == 22 && $tabTitle == 'Book Description') {
+                $tabTitle = "Info";
+            }
+            if ($attributeSetId == 22 && $tabTitle == 'Review') {
+                continue;
+            }
 
             $_panes .= '<h2 class="acctab" id="acctab-'. $_tab['alias'] .'">'. $tabTitle .'</h2>';
 
