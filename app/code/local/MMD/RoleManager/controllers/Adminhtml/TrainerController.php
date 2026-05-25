@@ -33,6 +33,7 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
             $type     = trim((string) $this->getRequest()->getPost('trainer_type'));
             $gender   = trim((string) $this->getRequest()->getPost('gender'));
             $linkedin = trim((string) $this->getRequest()->getPost('linkedin_url'));
+            $description = (string) $this->getRequest()->getPost('description');
 
             // Required-field validation (matches the form's `required` markers)
             if ($email === '' || $name === '' || $tel === '' || $type === '' || $statusIn === '' || $gender === '') {
@@ -81,6 +82,7 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
             if (isset($colSet['gender']))      $row['gender']      = $gender;
             if (isset($colSet['linkedin_url']))$row['linkedin_url']= $linkedin;
             if (isset($colSet['linkedin']))    $row['linkedin']    = $linkedin;
+            if (isset($colSet['description'])) $row['description'] = $description !== '' ? $description : null;
 
             $write->insert($table, $row);
             $newId = (int) $write->lastInsertId($table);
@@ -125,6 +127,7 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
             $statusIn = (string) $this->getRequest()->getPost('status');
             $gender   = trim((string) $this->getRequest()->getPost('gender'));
             $linkedin = trim((string) $this->getRequest()->getPost('linkedin_url'));
+            $description = (string) $this->getRequest()->getPost('description');
 
             if ($email === '' || $name === '') {
                 $result['message'] = 'Email and Full Name are required';
@@ -147,6 +150,7 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
             if (isset($cols['trainer_type'])) $row['trainer_type'] = $type;
             if (isset($cols['gender']))       $row['gender']       = $gender;
             if (isset($cols['linkedin_url'])) $row['linkedin_url'] = $linkedin;
+            if (isset($cols['description']))  $row['description']  = $description !== '' ? $description : null;
 
             $write->update($table, $row, array('trainers_id = ?' => $trainerId));
 
