@@ -427,6 +427,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
 
         $collection = Mage::getModel('catalog/product')->getCollection()
             ->setStoreId($storeId)
+            ->addStoreFilter($storeId)
             ->addAttributeToSelect(array('name', 'sku', 'url_key'))
             ->addAttributeToFilter('sku', array('like' => '%' . $code . '%'))
             ->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_ENABLED)
@@ -465,6 +466,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
 
         $collection = Mage::getModel('catalog/product')->getCollection()
             ->setStoreId($storeId)
+            ->addStoreFilter($storeId)
             ->addAttributeToSelect(array('name', 'sku', 'url_key'))
             ->addAttributeToFilter('status', Mage_Catalog_Model_Product_Status::STATUS_ENABLED)
             ->addAttributeToFilter('visibility', array('neq' => Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE));
