@@ -49,6 +49,98 @@
 //<![CDATA[
 var tree;
 
+/* Make the category tree row name itself the expand/collapse trigger
+   (instead of needing to click the small +/- elbow icon). Uses a
+   MutationObserver on the tree container so it works regardless of how
+   ExtJS internally adds/swaps nodes — we just inspect the rendered DOM. */
+function _wireCategoryRowToggle(t) {
+    var container = document.getElementById('tree-div');
+    if (!container) return;
+
+    // Tag every .x-tree-node-anchor whose node has children with .has-children,
+    // and add .is-expanded when the parent's collapse class is gone. Idempotent —
+    // safe to re-run after any DOM mutation.
+    function markAll() {
+        // ExtJS markup observed in the rendered DOM:
+        //   <li class="x-tree-node">
+        //     <div class="x-tree-node-el [x-tree-node-expanded]">
+        //       <span class="x-tree-node-indent"></span>
+        //       <img class="x-tree-ec-icon x-tree-elbow-{plus|minus}[-end]" />
+        //       <img class="x-tree-node-icon" />
+        //       <a><span>Name</span></a>
+        //     </div>
+        //     <ul class="x-tree-node-ct">…</ul>   (only when not a leaf)
+        //   </li>
+        // The <a> has NO .x-tree-node-anchor class in this build.
+        var nodes = container.querySelectorAll('.x-tree-node');
+        for (var i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            var el = node.querySelector(':scope > .x-tree-node-el');
+            if (!el) continue;
+            var anchor = el.querySelector('a');
+            if (!anchor) continue;
+            // "Has children" = the node contains a <ul> (children loaded) OR
+            // the elbow image is a plus/minus variant (async node not yet loaded).
+            var hasUl = node.querySelector(':scope > ul') !== null;
+            var elbow = el.querySelector('.x-tree-ec-icon');
+            var elbowCls = (elbow && elbow.className) || '';
+            var hasElbow = /x-tree-elbow(-end)?-(plus|minus)/.test(elbowCls);
+            var hasChildren = hasUl || hasElbow;
+            var expanded = hasChildren && el.classList.contains('x-tree-node-expanded');
+
+            // Inject a real <span> chevron BEFORE the <a> so clicking it doesn't
+            // also fire ExtJS's "select node for editing" handler on the anchor.
+            // The chevron lives outside the anchor entirely; its own click
+            // listener (delegated below) calls node.toggle().
+            var chev = el.querySelector(':scope > .cat-chevron');
+            if (hasChildren) {
+                if (!chev) {
+                    chev = document.createElement('span');
+                    chev.className = 'cat-chevron';
+                    el.insertBefore(chev, anchor);
+                }
+                chev.classList.toggle('is-expanded', expanded);
+            } else if (chev) {
+                chev.remove();
+            }
+        }
+    }
+
+    // Initial mark + on every DOM change inside the tree.
+    markAll();
+    var obs = new MutationObserver(function() { markAll(); });
+    obs.observe(container, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+
+    // Click on the injected .cat-chevron toggles expand/collapse without
+    // firing ExtJS's anchor-click select handler. Capture-phase so we beat
+    // ExtJS's own listeners and can stopPropagation cleanly.
+    container.addEventListener('click', function(ev) {
+        var chev = ev.target.closest && ev.target.closest('.cat-chevron');
+        if (!chev) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        var nodeEl = chev.closest('.x-tree-node-el');
+        if (!nodeEl) return;
+        try {
+            // Walk the ExtJS tree to find the node whose UI elNode === ours.
+            var match = null;
+            function visit(n) {
+                if (match) return;
+                var ui = n.ui;
+                var el = (ui && (ui.elNode || (ui.getEl && ui.getEl()))) || null;
+                if (el === nodeEl) { match = n; return; }
+                if (n.childNodes) n.childNodes.forEach(visit);
+            }
+            if (t.root) visit(t.root);
+            if (match) {
+                // toggle() works on both sync TreeNode (children present) and
+                // AsyncTreeNode (will fetch children on first expand).
+                match.toggle();
+            }
+        } catch (e) {}
+    }, true);
+}
+
 /**
  * Fix ext compatibility with prototype 1.6
  */
@@ -249,6 +341,7 @@ function _renderNewTree(config, storeParam)
         tree.el.dom.innerHTML = '';
     }
     tree = new Ext.tree.TreePanel.Enhanced('tree-div', newTreeParams);
+    _wireCategoryRowToggle(tree);
     tree.loadTree(config, true);
 
     // try to select current category

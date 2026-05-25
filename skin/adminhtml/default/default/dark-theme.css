@@ -640,9 +640,13 @@ body.catalog-categories #tree-div .x-tree-elbow-end-minus {
     visibility: visible !important;
     position: relative !important;
     width: 18px !important;
-    height: 22px !important;
+    height: 18px !important;
+    min-width: 18px !important;
+    min-height: 18px !important;
     cursor: pointer !important;
     display: inline-block !important;
+    vertical-align: middle !important;
+    flex: 0 0 18px !important;
 }
 body.adminhtml-catalog-category-index #tree-div .x-tree-elbow-plus::before,
 body.adminhtml-catalog-category-edit #tree-div .x-tree-elbow-plus::before,
@@ -659,11 +663,11 @@ body.catalog-categories #tree-div .x-tree-elbow-end-minus::before {
     content: '';
     position: absolute;
     top: 50%;
-    left: 4px;
-    width: 10px;
-    height: 10px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
     transform: translateY(-50%);
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'/></svg>");
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'/></svg>");
     background-repeat: no-repeat;
     background-size: contain;
     transition: transform 0.18s ease;
@@ -682,15 +686,26 @@ body.catalog-categories #tree-div .x-tree-elbow-end-minus::before {
 body.adminhtml-catalog-category-index #tree-div .x-tree-node,
 body.adminhtml-catalog-category-edit #tree-div .x-tree-node,
 body.catalog-categories #tree-div .x-tree-node {
-    line-height: 1.5 !important;
+    line-height: 1.2 !important;
 }
 body.adminhtml-catalog-category-index #tree-div .x-tree-node-el,
 body.adminhtml-catalog-category-edit #tree-div .x-tree-node-el,
 body.catalog-categories #tree-div .x-tree-node-el {
-    border-radius: 6px !important;
-    padding: 4px 8px !important;
-    margin: 2px 0 !important;
+    border-radius: 4px !important;
+    padding: 2px 6px !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
     transition: background 0.12s !important;
+}
+/* Drop the folder/file glyph entirely — node text alone is enough, and
+   the indent guides + +/− expander still convey the tree hierarchy. */
+body.adminhtml-catalog-category-index #tree-div .x-tree-node-icon,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-node-icon,
+body.catalog-categories #tree-div .x-tree-node-icon {
+    display: none !important;
+    width: 0 !important;
+    background: none !important;
 }
 body.adminhtml-catalog-category-index #tree-div .x-tree-node-el:hover,
 body.adminhtml-catalog-category-edit #tree-div .x-tree-node-el:hover,
@@ -702,10 +717,50 @@ body.adminhtml-catalog-category-edit #tree-div .x-tree-node-anchor,
 body.catalog-categories #tree-div .x-tree-node-anchor {
     color: var(--t2) !important;
     text-decoration: none !important;
-    font-size: 14px !important;
+    font-size: 13px !important;
     font-weight: 500 !important;
-    padding: 4px 6px !important;
-    border-radius: 4px !important;
+    padding: 2px 4px !important;
+    border-radius: 3px !important;
+    line-height: 1.2 !important;
+    display: inline-block !important;
+    vertical-align: middle !important;
+    position: relative !important;
+}
+/* Toggle chevron — injected by _wireCategoryRowToggle() in tree.phtml
+   as a real <span> outside the <a>, so clicking it doesn't fire ExtJS's
+   "select node for editing" handler on the anchor. .is-expanded rotates
+   the chevron 90° to point down. */
+body.adminhtml-catalog-category-index #tree-div .cat-chevron,
+body.adminhtml-catalog-category-edit #tree-div .cat-chevron,
+body.catalog-categories #tree-div .cat-chevron {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 4px;
+    color: #60a5fa;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.15s ease;
+    vertical-align: middle;
+}
+body.adminhtml-catalog-category-index #tree-div .cat-chevron::before,
+body.adminhtml-catalog-category-edit #tree-div .cat-chevron::before,
+body.catalog-categories #tree-div .cat-chevron::before {
+    content: "\25B8"; /* small right-pointing triangle */
+}
+body.adminhtml-catalog-category-index #tree-div .cat-chevron.is-expanded,
+body.adminhtml-catalog-category-edit #tree-div .cat-chevron.is-expanded,
+body.catalog-categories #tree-div .cat-chevron.is-expanded {
+    transform: rotate(90deg);
+}
+body.adminhtml-catalog-category-index #tree-div .cat-chevron:hover,
+body.adminhtml-catalog-category-edit #tree-div .cat-chevron:hover,
+body.catalog-categories #tree-div .cat-chevron:hover {
+    color: #93c5fd;
 }
 body.adminhtml-catalog-category-index #tree-div .x-tree-node-anchor span,
 body.adminhtml-catalog-category-edit #tree-div .x-tree-node-anchor span,
