@@ -471,15 +471,14 @@ li.level2 > a > span > .cat-label,
 .course-info-stack { margin-top: 24px; display: flex; flex-direction: column; gap: 18px; }
 
 /* "Course Details / Course Info / Job Roles / Trainers / Review" tabs container
-   (.box-additional.grid12-8, 66% wide) must always sit BELOW all floated
-   columns — left, center, AND right secondary — and span the left+center
-   width. Without `clear: both` the box floats up beside the right column
-   whenever the left+center stack ends taller (which now happens when the
-   Certification card grows with per-course extras like Pearson Vue or
-   AWS-specific certification copy), displacing the tabs to the right.
-   The earlier `clear: none` workaround was for when the right booking
-   sidebar dominated; the situation flipped after the cms/block migration. */
-.product-view > .box-additional { clear: both; }
+   (.box-additional.grid12-8, 66% wide) sits in the left+center column area
+   below the short-description / framework block. The right booking sidebar
+   is currently the tallest column on most course pages, so `clear: both`
+   leaves a large empty gap beneath the shorter left stack before the tabs.
+   Using `clear: none` lets the tabs flow up tight under the left column
+   content. Flip back to `clear: both` if the left+center stack starts
+   ending taller than the booking sidebar again. */
+.product-view > .box-additional { clear: none; }
 
 .course-info-card,
 .course-policy-card {
