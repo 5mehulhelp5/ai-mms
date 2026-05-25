@@ -289,24 +289,43 @@ class MMD_Email_Model_Observer
             $identity = (string) Mage::getStoreConfig('mmd_email/course_registration/identity', $storeId);
             if ($identity === '') $identity = 'sales';
 
-            // SG sends via Gmail OAuth2; every other country store goes
-            // through Magento's standard mailer, which Aschroder SMTPPro
-            // intercepts and routes through the per-store SMTP creds in
-            // core_config_data.
-            $gmail = Mage::helper('mmd_email/gmail');
-            if ($gmail && $gmail->isConfigured() && $gmail->isGmailStore($storeId)) {
-                $tpl = Mage::getModel('core/email_template');
-                $tpl->loadDefault($templateCode);
-                // Magento processes both subject and body with the
-                // template variables before we hand them to Gmail.
-                $tpl->setDesignConfig(array('area' => 'frontend', 'store' => $storeId));
-                $tpl->setSenderName(Mage::getStoreConfig('trans_email/ident_' . $identity . '/name', $storeId));
-                $tpl->setSenderEmail(Mage::getStoreConfig('trans_email/ident_' . $identity . '/email', $storeId));
-                $subject = $tpl->getProcessedTemplateSubject($vars);
-                $body    = $tpl->getProcessedTemplate($vars);
-                $fromName = (string) Mage::getStoreConfig('trans_email/ident_' . $identity . '/name', $storeId);
-                $gmail->send($email, $subject, $body, $fromName);
-            } else {
+            // SG sends via Gmail OAuth2 with SMTPPro as a fallback; every
+            // other country store goes straight through SMTPPro (which our
+            // Aschroder rewrite routes via the per-store SMTP creds in
+            // core_config_data).
+            $gmail        = Mage::helper('mmd_email/gmail');
+            $tryGmail     = $gmail && $gmail->isConfigured() && $gmail->isGmailStore($storeId);
+            $gmailWorked  = false;
+
+            if ($tryGmail) {
+                try {
+                    $tpl = Mage::getModel('core/email_template');
+                    $tpl->loadDefault($templateCode);
+                    // Magento processes both subject and body with the
+                    // template variables before we hand them to Gmail.
+                    $tpl->setDesignConfig(array('area' => 'frontend', 'store' => $storeId));
+                    $tpl->setSenderName(Mage::getStoreConfig('trans_email/ident_' . $identity . '/name', $storeId));
+                    $tpl->setSenderEmail(Mage::getStoreConfig('trans_email/ident_' . $identity . '/email', $storeId));
+                    $subject  = $tpl->getProcessedTemplateSubject($vars);
+                    $body     = $tpl->getProcessedTemplate($vars);
+                    $fromName = (string) Mage::getStoreConfig('trans_email/ident_' . $identity . '/name', $storeId);
+                    $gmail->send($email, $subject, $body, $fromName);
+                    $gmailWorked = true;
+                } catch (Exception $gmailErr) {
+                    // Token revoked / quota hit / Gmail API unreachable —
+                    // fall through to SMTPPro using the SG SMTP card creds
+                    // saved under Credentials. Log the original error so we
+                    // can see why Gmail failed without losing the email.
+                    Mage::log(
+                        'MMD_Email: Gmail send failed for order ' . $order->getIncrementId()
+                        . ' (store=' . $storeId . '); falling back to SMTPPro. Error: '
+                        . $gmailErr->getMessage(),
+                        Zend_Log::WARN, 'mmd_email.log'
+                    );
+                }
+            }
+
+            if (!$gmailWorked) {
                 $mailer = Mage::getModel('core/email_template_mailer');
                 $emailInfo = Mage::getModel('core/email_info');
                 $emailInfo->addTo($email, $customerName);

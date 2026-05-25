@@ -8397,16 +8397,19 @@ foreach ($_credPaths as $_cp) {
     $_creds[$_cp] = (string) Mage::getStoreConfig($_cp);
 }
 
-/* Per-website SMTP creds for the non-SG country stores. SG is omitted
-   because Singapore sends via Gmail OAuth2 (configured above). Each row
-   reads at the website's default store, which is exactly how SMTPPro
-   resolves the values when an order/contact-us fires at run time. */
+/* Per-website SMTP creds. MY/GH/NG/BT/IN use SMTP as their primary
+   transport. SG also gets a card here so SMTP creds are available as a
+   fallback for the order-email path when Gmail OAuth is unavailable
+   (token revoked, quota hit, API unreachable). Each row reads at the
+   website's default store — exactly how SMTPPro resolves the values
+   when an order / contact-us fires at run time. */
 $_smtpWebsites = array(
-    'malaysia' => array('id' => 2, 'label' => 'Malaysia',  'flag' => '🇲🇾'),
-    'ghana'    => array('id' => 3, 'label' => 'Ghana',     'flag' => '🇬🇭'),
-    'nigeria'  => array('id' => 4, 'label' => 'Nigeria',   'flag' => '🇳🇬'),
-    'bhutan'   => array('id' => 5, 'label' => 'Bhutan',    'flag' => '🇧🇹'),
-    'india'    => array('id' => 6, 'label' => 'India',     'flag' => '🇮🇳'),
+    'singapore' => array('id' => 1, 'label' => 'Singapore (fallback)', 'flag' => '🇸🇬'),
+    'malaysia'  => array('id' => 2, 'label' => 'Malaysia',             'flag' => '🇲🇾'),
+    'ghana'     => array('id' => 3, 'label' => 'Ghana',                'flag' => '🇬🇭'),
+    'nigeria'   => array('id' => 4, 'label' => 'Nigeria',              'flag' => '🇳🇬'),
+    'bhutan'    => array('id' => 5, 'label' => 'Bhutan',               'flag' => '🇧🇹'),
+    'india'     => array('id' => 6, 'label' => 'India',                'flag' => '🇮🇳'),
 );
 $_smtpFields = array('enabled', 'host', 'port', 'ssl', 'auth', 'username', 'password');
 $_smtpCfg = array();
@@ -8650,10 +8653,14 @@ $_credMask = function ($v) {
                 <span class="crd-smtp-collapse__chev" aria-hidden="true">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                 </span>
-                <span class="crd-smtp-collapse__title">SMTP — non-Singapore stores</span>
+                <span class="crd-smtp-collapse__title">SMTP — country stores</span>
                 <span class="crd-smtp-collapse__count"><?php echo count($_smtpWebsites) ?> stores</span>
             </summary>
-            <p class="crd-sub" style="margin:14px 0 18px;">Singapore sends via Gmail OAuth (above). These five cards configure SMTPPro per country website. Fill Host + Username + Password and click <strong>Save Credentials</strong> — SMTP turns on automatically. Use <strong>Send Test</strong> to verify before relying on it for real orders.</p>
+            <p class="crd-sub" style="margin:14px 0 18px;">
+                <strong>🇸🇬 Singapore</strong> sends via Gmail OAuth (configured above) and uses these SMTP credentials only as a <em>fallback</em> when the OAuth path is unavailable (token revoked / quota hit / Gmail API down).
+                <strong>🇲🇾 🇬🇭 🇳🇬 🇧🇹 🇮🇳 Other stores</strong> use SMTP as the primary transport.
+                For each country, fill Host + Username + Password and click <strong>Save Credentials</strong> — SMTP turns on automatically. Use <strong>Send Test</strong> to verify before relying on it for real orders.
+            </p>
 
         <!-- Step-by-step setup guide. Auto-expands when at least one card has
              no host/username saved (i.e. a fresh country to provision); stays
@@ -8747,11 +8754,12 @@ $_credMask = function ($v) {
 
         <?php
         $_userPlaceholders = array(
-            'malaysia' => 'sales@tertiarycourses.com.my',
-            'ghana'    => 'sales@tertiarycourses.com.gh',
-            'nigeria'  => 'sales@tertiarycourses.com.ng',
-            'bhutan'   => 'sales@tertiarycourses.bt',
-            'india'    => 'sales@tertiarycourses.co.in',
+            'singapore' => 'sales@tertiarycourses.com.sg',
+            'malaysia'  => 'sales@tertiarycourses.com.my',
+            'ghana'     => 'sales@tertiarycourses.com.gh',
+            'nigeria'   => 'sales@tertiarycourses.com.ng',
+            'bhutan'    => 'sales@tertiarycourses.bt',
+            'india'     => 'sales@tertiarycourses.co.in',
         );
         ?>
         <?php foreach ($_smtpWebsites as $_code => $_w):

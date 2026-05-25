@@ -18,16 +18,21 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
     }
 
     /**
-     * Per-website SMTP cards exposed in the Credentials panel.
-     * Keys are the website codes; ids must match core_website.website_id.
-     * SG is intentionally omitted because Singapore sends via Gmail OAuth2.
+     * Per-website SMTP cards exposed in the Credentials panel. Keys are
+     * the website codes; ids must match core_website.website_id.
+     *
+     * Singapore is included as a fallback path: SG primary transport is
+     * Gmail OAuth (configured in the Google OAuth card above), but if the
+     * OAuth token is revoked / quota hits / Gmail API is unreachable, the
+     * order-email path falls back to whatever SMTP creds are saved here.
      */
     protected $_smtpWebsites = array(
-        'malaysia' => array('id' => 2, 'label' => 'Malaysia'),
-        'ghana'    => array('id' => 3, 'label' => 'Ghana'),
-        'nigeria'  => array('id' => 4, 'label' => 'Nigeria'),
-        'bhutan'   => array('id' => 5, 'label' => 'Bhutan'),
-        'india'    => array('id' => 6, 'label' => 'India'),
+        'singapore' => array('id' => 1, 'label' => 'Singapore (fallback)'),
+        'malaysia'  => array('id' => 2, 'label' => 'Malaysia'),
+        'ghana'     => array('id' => 3, 'label' => 'Ghana'),
+        'nigeria'   => array('id' => 4, 'label' => 'Nigeria'),
+        'bhutan'    => array('id' => 5, 'label' => 'Bhutan'),
+        'india'     => array('id' => 6, 'label' => 'India'),
     );
 
     /**
