@@ -156,25 +156,18 @@ Ext.extend(Ext.tree.TreePanel.Enhanced, Ext.tree.TreePanel, {
 
     collapseTree : function()
     {
+        // Pure visual collapse — the fire-and-forget Ajax to a
+        // "collapsed-state" URL that used to follow this was leaving the
+        // tree in a state where the second click + the opposite button
+        // became no-ops. The Ajax response was discarded anyway, so the
+        // server round-trip wasn't doing anything useful for the JS.
         this.collapseAll();
-
         this.selectCurrentNode();
-
-        if (!this.collapsed) {
-            this.collapsed = true;
-            this.loader.dataUrl = '<?php echo $this->getLoadTreeUrl(false) ?>';
-            this.request(this.loader.dataUrl, false);
-        }
     },
 
     expandTree : function()
     {
         this.expandAll();
-        if (this.collapsed) {
-            this.collapsed = false;
-            this.loader.dataUrl = '<?php echo $this->getLoadTreeUrl(true) ?>';
-            this.request(this.loader.dataUrl, false);
-        }
     },
 
     categoryClick : function(node, e)
