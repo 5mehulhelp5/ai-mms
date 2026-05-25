@@ -972,9 +972,11 @@ li.level2 > a > span > .cat-label,
 .wsq-sub__body p:first-child { margin-top: 0; }
 .wsq-sub__body p:last-child  { margin-bottom: 0; }
 .wsq-sub__body ul {
-    margin: 6px 0 0 18px;
-    list-style: disc;
+    margin: 6px 0 0 0;
+    padding-left: 0;
+    list-style: none;
 }
+.wsq-sub__body ul li { list-style: none; }
 
 /* Colour-code by scheme. Slug is built from the heading text:
    "SkillsFuture Credit (SFC)" → wsq-sub--skillsfuture-credit-sfc, etc. */
@@ -1639,7 +1641,7 @@ li.level2 > a > span > .cat-label,
 
 /* --- Panel surface ------------------------------------------------------ */
 #product-tabs.gen-tabs .tabs-panels {
-    padding: 24px 4px;
+    padding: 8px 4px 24px;
     font-size: 15px;
     line-height: 1.65;
     color: #1f2937;
@@ -1746,7 +1748,9 @@ li.level2 > a > span > .cat-label,
    a hero rating chip, neat question rows, and harmonized typography matching
    the rest of the product page (same blue, same 8px radius, same gray scale).
    ========================================================================= */
-.product-view .box-reviews { margin-top: 4px; }
+.product-view .box-reviews { margin-top: 0; }
+.product-view .box-reviews dl dt:first-child,
+.product-view .box-reviews dl > dt:first-of-type { margin-top: 0 !important; }
 .product-view .box-reviews > h2 {
     font-size: 1.05em;
     font-weight: 700;
@@ -2431,3 +2435,99 @@ li.level2 > a > span > .cat-label,
     transition: transform .25s;
 }
 .photo-gallery-item a:hover img { transform: scale(1.05); }
+
+/* --------------------------------------------------------------------
+   Course tabs — Job Roles
+   Replace Ultimo's default '>' arrow bullet with chip-style pills so
+   the list reads as discrete job titles rather than a navigation tree.
+   -------------------------------------------------------------------- */
+.course-jobroles ul {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+}
+.course-jobroles ul li {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 7px 14px 7px 32px !important;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    color: #1e293b;
+    font-size: 14px;
+    line-height: 1.3;
+    position: relative;
+}
+.course-jobroles ul li::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    margin-top: -7px;
+    border-radius: 50%;
+    background: #2563eb url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='3.5 8.5 6.5 11.5 12.5 5'/></svg>") center/10px 10px no-repeat;
+}
+.course-jobroles ul li > a,
+.course-jobroles ul li > span { color: inherit; }
+
+/* --------------------------------------------------------------------
+   Course tabs — Trainers
+   Render each trainer as a card with an initial-avatar and structured
+   bio text instead of a wall of paragraphs.
+   -------------------------------------------------------------------- */
+.course-trainers__grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+@media (min-width: 768px) {
+    .course-trainers__grid { grid-template-columns: 1fr 1fr; }
+}
+.trainer-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #2563eb;
+    border-radius: 10px;
+    padding: 18px 20px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.trainer-card__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.trainer-card__avatar {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.trainer-card__name {
+    font-size: 17px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.2;
+}
+.trainer-card__body {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #334155;
+}
+.trainer-card__body p { margin: 0 0 10px; }
+.trainer-card__body p:last-child { margin-bottom: 0; }
