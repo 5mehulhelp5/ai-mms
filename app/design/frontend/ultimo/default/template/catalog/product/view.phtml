@@ -79,33 +79,52 @@
 	// Carve dynamic sections out of $shortDescription so they can render as
 	// their own styled cards in the left column. Order matters: extract WSQ
 	// first (it wraps SFC/UTAP/PSEA in a rounded <div>), then Certification.
+	//
+	// Primary source for each section is a per-course Magento cms/block with
+	// identifier `course_<sku>_<section>`. Editable via Course Edit dashboard
+	// or CMS → Static Blocks. Regex extraction from short_description is
+	// kept as a permanent fallback (belt and braces — if a course's block
+	// is empty, we still render whatever was in short_description, so
+	// nothing ever disappears silently).
 	// ---------------------------------------------------------------------
 	$_WS = '(?:\s|&nbsp;|\x{00A0}|\x{2007}|\x{202F})';
+	$_courseSku = (string) $_product->getSku();
+	$_courseSectionHtml = function (string $code) use ($_courseSku): string {
+		if ($_courseSku === '') return '';
+		$id = 'course_' . $_courseSku . '_' . $code;
+		return trim(Mage::app()->getLayout()->createBlock('cms/block')->setBlockId($id)->toHtml());
+	};
 
-	// (1) WSQ Funding wrapper — <div style="...border-radius:25px">...</div>
-	// containing the funding heading, hardcoded amount table, and the
-	// SFC/UTAP/PSEA narrative. We keep the narrative (it varies per course)
-	// but drop the funding heading and the hardcoded amount table — they're
-	// re-rendered from the live product price via the WSQ card below.
+	// (1) WSQ Funding wrapper — raw inner HTML of the SFC/UTAP/PSEA narrative.
+	// Per-course cms/block is primary; if empty, fall back to regex extract
+	// (the legacy <div style="border-radius:25px"> wrapper, or an
+	// <h2>WSQ Funding</h2> heading variant). The post-processor below (drop
+	// fee table / boilerplate, wrap sub-schemes in .wsq-sub) runs on
+	// whichever source produced the inner HTML — it's pipeline-stage and
+	// independent of source.
 	$_wsqNarrativeHtml = '';
 	$_hasWsqFunding    = false;
+	$_inner            = $_courseSectionHtml('funding_and_grant');
+	if ($_inner !== '') {
+		$_hasWsqFunding = true;
+	}
 	if ($shortDescription) {
 		$_wsqPattern = '#<div\b[^>]*border-radius\s*:[^>]*>(.*?)</div>#siu';
-		// Fallback for products whose WSQ block was pasted without the
-		// rounded-div wrapper: slice from the "WSQ Funding" heading up to
-		// the next top-level (h1/h2) section or end of description. The
-		// SFC/UTAP/SFEC sub-headings are h3 inside the block, so they stay
-		// in the slice and get wrapped as .wsq-sub blocks below.
 		$_wsqHeadingPattern = '#<h[1-6][^>]*>' . $_WS . '*WSQ' . $_WS . '+Funding' . $_WS . '*</h[1-6]>(.*?)(?=<h[12]\b|\z)#siu';
+		$_wsqStripPattern = null;
 		if (preg_match($_wsqPattern, $shortDescription, $_wsqMatch)) {
-			$_hasWsqFunding = true;
-			$_inner = $_wsqMatch[1];
+			$_wsqStripPattern = $_wsqPattern;
+			if (!$_hasWsqFunding) { $_hasWsqFunding = true; $_inner = $_wsqMatch[1]; }
 		} elseif (preg_match($_wsqHeadingPattern, $shortDescription, $_wsqMatch)) {
-			$_hasWsqFunding = true;
-			$_inner         = $_wsqMatch[1];
-			$_wsqPattern    = $_wsqHeadingPattern;
+			$_wsqStripPattern = $_wsqHeadingPattern;
+			if (!$_hasWsqFunding) { $_hasWsqFunding = true; $_inner = $_wsqMatch[1]; }
 		}
-		if ($_hasWsqFunding) {
+		if ($_wsqStripPattern !== null) {
+			$shortDescription = preg_replace($_wsqStripPattern, '', $shortDescription, 1);
+		}
+	}
+	if ($_hasWsqFunding) {
+		{
 			$_inner = preg_replace('#<h[1-6][^>]*>' . $_WS . '*WSQ' . $_WS . '+Funding' . $_WS . '*</h[1-6]>#siu', '', $_inner);
 			$_inner = preg_replace('#<table\b.*?</table>#siu', '', $_inner);
 			$_inner = preg_replace('#<p[^>]*>' . $_WS . '*WSQ' . $_WS . '+funding' . $_WS . '+is' . $_WS . '+only.*?</p>#siu', '', $_inner);
@@ -150,7 +169,6 @@
 			);
 
 			$_wsqNarrativeHtml = trim($_inner);
-			$shortDescription  = preg_replace($_wsqPattern, '', $shortDescription, 1);
 		}
 	}
 
@@ -165,11 +183,19 @@
 		return ['', $desc];
 	};
 
-	// (2) Learning Outcomes — per-course list of LO1..LON
-	list($_learningOutcomesHtml, $shortDescription) = $_extractSection('Learning' . $_WS . '+Outcomes', $shortDescription);
+	// (2) Learning Outcomes — per-course cms/block first, regex fallback.
+	// Always run the strip so any residual heading in short_description
+	// doesn't double-render in the narrative below.
+	list($_loExtracted, $shortDescription) = $_extractSection('Learning' . $_WS . '+Outcomes', $shortDescription);
+	$_learningOutcomesHtml = $_courseSectionHtml('learning_outcomes');
+	if ($_learningOutcomesHtml === '') { $_learningOutcomesHtml = $_loExtracted; }
+	unset($_loExtracted);
 
-	// (3) Course Brochure — usually a single <p><a href="...">Download …</a></p>
-	list($_courseBrochureHtml, $shortDescription) = $_extractSection('Course' . $_WS . '+Brochure', $shortDescription);
+	// (3) Course Brochure — per-course cms/block first, regex fallback.
+	list($_brExtracted, $shortDescription) = $_extractSection('Course' . $_WS . '+Brochure', $shortDescription);
+	$_courseBrochureHtml = $_courseSectionHtml('brochure');
+	if ($_courseBrochureHtml === '') { $_courseBrochureHtml = $_brExtracted; }
+	unset($_brExtracted);
 	// Pull the first <a href> out of the brochure block so the CTA button
 	// can link to it directly with a clean label.
 	$_courseBrochureUrl   = '';
@@ -180,11 +206,15 @@
 		if ($_clean !== '') { $_courseBrochureLabel = $_clean; }
 	}
 
-	// (4) Skills Framework — typically:
+	// (4) Skills Framework — per-course cms/block first, regex fallback.
+	// Typical body shape:
 	//   <h2>Skills Framework</h2>
 	//   <p>This course follows the guideline of <strong>{Title} {Code} TSC</strong> under {Framework} Skills Framework</p>
-	// Distill to two fields: TSC Title + TSC Code.
-	list($_skillsFrameworkRawHtml, $shortDescription) = $_extractSection('Skills' . $_WS . '+Framework', $shortDescription);
+	// TSC Title / TSC Code are derived from the body below.
+	list($_sfExtracted, $shortDescription) = $_extractSection('Skills' . $_WS . '+Framework', $shortDescription);
+	$_skillsFrameworkRawHtml = $_courseSectionHtml('skills_framework');
+	if ($_skillsFrameworkRawHtml === '') { $_skillsFrameworkRawHtml = $_sfExtracted; }
+	unset($_sfExtracted);
 	$_skillsTitle = '';
 	$_skillsCode  = '';
 	if ($_skillsFrameworkRawHtml !== '') {
@@ -241,26 +271,40 @@
 		}
 		$_certificationHtml .= '</ul>';
 	} else {
-		// Other stores (MY/GH/NG/BT/IN/Infotech): strip whatever heading
-		// variant the description carries so it doesn't double-render, then
-		// pull the standardised card content from the per-store
-		// `course_certification` CMS block (seeded in migrations/143).
-		// Fall back to whatever was extracted from the description if the
-		// CMS block is empty or missing.
+		// Other stores (MY/GH/NG/BT/IN/Infotech): strip the heading variant
+		// from short_description so it doesn't double-render, then resolve
+		// the cert body in priority order:
+		//   1. per-course cms/block `course_<sku>_certification`
+		//   2. per-store global cms/block `course_certification` (migration 143)
+		//   3. whatever the regex extracted from short_description
 		list($_certExtracted, $shortDescription) = $_extractSection('(?:Certifications?|Certificate)', $shortDescription);
-		$_certificationHtml = trim($this->getLayout()->createBlock('cms/block')->setBlockId('course_certification')->toHtml());
+		$_certificationHtml = $_courseSectionHtml('certification');
+		if ($_certificationHtml === '') {
+			$_certificationHtml = trim($this->getLayout()->createBlock('cms/block')->setBlockId('course_certification')->toHtml());
+		}
 		if ($_certificationHtml === '') {
 			$_certificationHtml = $_certExtracted;
 		}
 		unset($_certExtracted);
 	}
 
-	// (6) Funding and Grant — MY-side pattern. Most MY product short_descriptions
-	// end with "<h2>Funding and Grant</h2>" followed by the HRD Corp Claimable
-	// link + logo. Pull it out so it renders inside a styled card instead of
-	// trailing the description as loose paragraphs. SG/GH/NG/BT/IN typically
-	// don't carry this heading, so the extract returns empty and no card renders.
-	list($_fundingAndGrantHtml, $shortDescription) = $_extractSection('Funding' . $_WS . '+(?:and|&amp;|&)' . $_WS . '+Grant', $shortDescription);
+	// (6) Funding and Grant — MY-side pattern. Per-course cms/block first,
+	// regex fallback for legacy content still in short_description.
+	// SG/GH/NG/BT/IN typically don't carry this section, so block + regex
+	// both return empty and no card renders.
+	list($_fgExtracted, $shortDescription) = $_extractSection('Funding' . $_WS . '+(?:and|&amp;|&)' . $_WS . '+Grant', $shortDescription);
+	// Merged single block: funding_and_grant cms/block holds either WSQ
+	// narrative (SG WSQ) or HRD Corp content (MY) per course. When the WSQ
+	// card has ALREADY consumed it ($_hasWsqFunding == true), suppress the
+	// separate Funding and Grant card to avoid rendering the same content
+	// twice. Otherwise (non-WSQ products), this card renders the block.
+	if ($_hasWsqFunding) {
+		$_fundingAndGrantHtml = '';
+	} else {
+		$_fundingAndGrantHtml = $_courseSectionHtml('funding_and_grant');
+		if ($_fundingAndGrantHtml === '') { $_fundingAndGrantHtml = $_fgExtracted; }
+	}
+	unset($_fgExtracted);
 
 	//Rich snippets
 	$useRichSnippets = ($helperSnippets->isEnabledOnProductPage() && $productTypeId !== 'grouped');

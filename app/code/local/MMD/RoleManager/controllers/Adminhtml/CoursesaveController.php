@@ -121,6 +121,38 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             if (($v = $req->getParam('level'))           !== null) $product->setData('level',           $v === '' ? null : (int)$v);
             if (($v = $req->getParam('additional_note')) !== null) $product->setData('additional_note', $v);
 
+            // Per-course CMS block sections (Learning Outcomes, Brochure,
+            // Skills Framework, Certification, WSQ Funding). Identifier
+            // convention: course_<sku>_<section>. Empty submission deletes
+            // the row; non-empty upserts. See scripts/local-dev/cms-block-phase01.php
+            // for the bootstrap that initially populated these from short_description.
+            $_cmsSections = [
+                'learning_outcomes' => 'Learning Outcomes',
+                'brochure'          => 'Brochure',
+                'skills_framework'  => 'Skills Framework',
+                'certification'     => 'Certification',
+                'funding_and_grant' => 'Funding and Grant',
+            ];
+            $_cmsSku = (string) $product->getSku();
+            foreach ($_cmsSections as $_sec => $_label) {
+                $_v = $req->getParam('cms_block_' . $_sec);
+                if ($_v === null || $_cmsSku === '') continue;
+                $_v  = trim((string) $_v);
+                $_id = 'course_' . $_cmsSku . '_' . $_sec;
+                $_b  = Mage::getModel('cms/block')->load($_id, 'identifier');
+                if ($_v === '') {
+                    if ($_b->getId()) { $_b->delete(); }
+                    continue;
+                }
+                if (!$_b->getId()) {
+                    $_b->setIdentifier($_id)
+                       ->setTitle('Course ' . $_cmsSku . ' — ' . $_label)
+                       ->setIsActive(1)
+                       ->setStores([0]);
+                }
+                $_b->setContent($_v)->save();
+            }
+
             // SEO
             if (($v = $req->getParam('meta_title'))        !== null) $product->setMetaTitle($v);
             if (($v = $req->getParam('meta_description'))  !== null) $product->setMetaDescription($v);
