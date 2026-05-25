@@ -667,9 +667,13 @@ li.level2 > a > span > .cat-label,
 
 /* On mobile, hide the whole tabs/accordion section. Primary-column cards
    already carry the important content (description, course info, funding,
-   policies). Hiding the tab section trims a long scroll on phones. */
+   policies). Hiding the tab section trims a long scroll on phones.
+   Scope: bottom-tabs wrapper is `.product-view > .box-additional` (direct
+   child). DO NOT hide every `.box-additional` — the options + "Register
+   Your Interest" CTA in the secondary column lives in a nested
+   `.box-additional`, and a blanket selector buries it on phones. */
 @media (max-width: 770px) {
-    .catalog-product-view .box-additional,
+    .catalog-product-view .product-view > .box-additional,
     .catalog-product-view #product-tabs,
     .catalog-product-view .acctab,
     .catalog-product-view .acctab + .panel { display: none !important; }
