@@ -55,11 +55,19 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
         // Dashboard "Manage Courses" panel (?panel=courses) renders its
         // own inline country-pill strip inside the panel template, so the
         // global strip on top would just duplicate it. Suppress it there.
+        // Manage Categories (catalog_category): catalog is shared across
+        // all countries, the per-store category tree fetch already keys off
+        // the native store switcher, and the extra pill row on top of the
+        // tree was creating visual noise. Suppress it.
         if ($this->getNameInLayout() === 'mmd.branch.pills.global') {
             $_req = Mage::app()->getRequest();
             if ($_req->getRouteName() === 'adminhtml'
                 && $_req->getControllerName() === 'dashboard'
                 && $_req->getParam('panel') === 'courses') {
+                return '';
+            }
+            if ($_req->getRouteName() === 'adminhtml'
+                && $_req->getControllerName() === 'catalog_category') {
                 return '';
             }
         }

@@ -446,24 +446,86 @@ body .header-top {
 body.adminhtml-catalog-category-edit .side-col,
 body.adminhtml-catalog-category-index .side-col,
 body.catalog-categories .side-col {
-    flex: 0 0 480px !important;
-    width: 480px !important;
+    flex: 0 0 440px !important;
+    width: 440px !important;
 }
 
-/* Render the two "Add Root Category" + "Add Subcategory" buttons on the
-   same row instead of stacked. Tree.phtml wraps both in .categories-add-buttons. */
-body.adminhtml-catalog-category-edit .categories-add-buttons,
-body.adminhtml-catalog-category-index .categories-add-buttons,
-body.catalog-categories .categories-add-buttons {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 8px;
-}
-body.adminhtml-catalog-category-edit .categories-add-buttons button,
-body.adminhtml-catalog-category-index .categories-add-buttons button,
-body.catalog-categories .categories-add-buttons button {
+/* Tree-actions row — Add Root / Add Subcategory + Collapse / Expand All
+   all sit inline as text links separated by "|". The header card around
+   the title is stripped to a bare h3. */
+body.adminhtml-catalog-category-edit .content-header--bare,
+body.adminhtml-catalog-category-index .content-header--bare,
+body.catalog-categories .content-header--bare {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 0 4px 0 !important;
     margin: 0 !important;
+}
+body.adminhtml-catalog-category-edit .tree-actions--inline,
+body.adminhtml-catalog-category-index .tree-actions--inline,
+body.catalog-categories .tree-actions--inline {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    margin: 4px 20px 10px 0 !important;
+    text-align: left !important;
+    font-size: 11px !important;
+}
+/* Match Collapse / Expand All anchor font-size + weight to the buttons next to them. */
+body.adminhtml-catalog-category-edit .tree-actions--inline > a,
+body.adminhtml-catalog-category-index .tree-actions--inline > a,
+body.catalog-categories .tree-actions--inline > a {
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    line-height: 1.4 !important;
+}
+body.adminhtml-catalog-category-edit .tree-actions--inline .categories-add-buttons,
+body.adminhtml-catalog-category-index .tree-actions--inline .categories-add-buttons,
+body.catalog-categories .tree-actions--inline .categories-add-buttons {
+    display: inline-flex !important;
+    gap: 8px !important;
+    align-items: center !important;
+}
+/* Make the Magento widget buttons render as flat text-links matching
+   the Collapse/Expand All anchors next to them. */
+body.adminhtml-catalog-category-edit .tree-actions--inline .categories-add-buttons button,
+body.adminhtml-catalog-category-index .tree-actions--inline .categories-add-buttons button,
+body.catalog-categories .tree-actions--inline .categories-add-buttons button {
+    background: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    line-height: 1.4 !important;
+    color: #60a5fa !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    text-decoration: underline !important;
+    cursor: pointer !important;
+    text-transform: none !important;
+}
+body.adminhtml-catalog-category-edit .tree-actions--inline .categories-add-buttons button:hover,
+body.adminhtml-catalog-category-index .tree-actions--inline .categories-add-buttons button:hover,
+body.catalog-categories .tree-actions--inline .categories-add-buttons button:hover {
+    color: #93c5fd !important;
+}
+/* Strip the nested <span><span><span> chrome the widget renders inside the button. */
+body.adminhtml-catalog-category-edit .tree-actions--inline .categories-add-buttons button span,
+body.adminhtml-catalog-category-index .tree-actions--inline .categories-add-buttons button span,
+body.catalog-categories .tree-actions--inline .categories-add-buttons button span {
+    background: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    color: inherit !important;
+    font: inherit !important;
 }
 
 /* === Categories-page cleanup ===
@@ -548,20 +610,20 @@ body.adminhtml-catalog-category-index .main-col #category-edit-container:not(.ha
     pointer-events: auto;
 }
 
-/* Tighten the tree-side header so the Add Root + Add Subcategory buttons
-   sit on a single row rather than stacking with a forced <br>. */
+/* The Add Root / Add Subcategory buttons used to live inside this card —
+   they've been moved out into .tree-actions--inline alongside Collapse /
+   Expand All. The header is now just the "Categories" h3, flat on the
+   page background. */
 body.adminhtml-catalog-category-index .categories-side-col .content-header,
 body.adminhtml-catalog-category-edit .categories-side-col .content-header,
 body.catalog-categories .categories-side-col .content-header {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    align-items: center !important;
-    gap: 10px !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
     padding: 14px 16px !important;
-    margin-bottom: 12px !important;
-    background: var(--d3) !important;
-    border: 1px solid var(--b1) !important;
-    border-radius: 12px !important;
+    margin-bottom: 4px !important;
+    display: block !important;
 }
 body.adminhtml-catalog-category-index .categories-side-col .content-header h3,
 body.adminhtml-catalog-category-edit .categories-side-col .content-header h3,
@@ -607,9 +669,9 @@ body.catalog-categories .tree-actions {
 body.adminhtml-catalog-category-index .tree-holder,
 body.adminhtml-catalog-category-edit .tree-holder,
 body.catalog-categories .tree-holder {
-    background: var(--d3) !important;
-    border: 1px solid var(--b1) !important;
-    border-radius: 12px !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
     padding: 12px 8px !important;
     min-height: 400px;
 }
@@ -738,6 +800,10 @@ body.catalog-categories #tree-div .x-tree-node-el > a {
     display: inline-flex !important;
     align-items: center !important;
     vertical-align: middle !important;
+    /* Cancel the .side-col li a border-bottom rule that draws a divider
+       between every nav row — we don't want those between category rows. */
+    border-bottom: 0 !important;
+    padding: 0 4px !important;
 }
 /* Drop the folder/file glyph entirely — node text alone is enough, and
    the indent guides + +/− expander still convey the tree hierarchy. */
@@ -1886,8 +1952,8 @@ body.has-overlay-sidecol .main-col {
 body.has-overlay-sidecol .side-col.side-col-overlay {
     position: fixed !important;
     top: 60px !important;
-    left: -480px !important;
-    width: 480px !important;
+    left: -440px !important;
+    width: 440px !important;
     height: calc(100vh - 60px) !important;
     z-index: 1500 !important;
     transition: left 0.22s ease !important;

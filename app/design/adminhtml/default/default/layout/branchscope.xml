@@ -30,6 +30,12 @@
     <adminhtml_catalog_product_edit>
         <reference name="left"><action method="unsetChild"><name>store_switcher</name></action></reference>
     </adminhtml_catalog_product_edit>
+    <adminhtml_catalog_category_index>
+        <reference name="category.tree"><action method="unsetChild"><name>store_switcher</name></action></reference>
+    </adminhtml_catalog_category_index>
+    <adminhtml_catalog_category_edit>
+        <reference name="category.tree"><action method="unsetChild"><name>store_switcher</name></action></reference>
+    </adminhtml_catalog_category_edit>
 
     <!-- Dashboard -->
     <adminhtml_dashboard_index>
