@@ -154,6 +154,27 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
 
             $write->update($table, $row, array('trainers_id = ?' => $trainerId));
 
+            // Mirror the description into admin_user.trainer_description for
+            // the matching admin user, so the trainer-role user sees the
+            // latest text on their My Profile page (the two columns are
+            // kept as bidirectional siblings — see profile.phtml and the
+            // AccountController's saveAction which writes in the other
+            // direction). Silent no-op if no matching admin_user exists.
+            try {
+                $auTable = $resource->getTableName('admin/user');
+                $auWrite = isset($write) ? $write : $resource->getConnection('core_write');
+                $auCols  = array_flip($auWrite->fetchCol("SHOW COLUMNS FROM {$auTable}"));
+                if (isset($auCols['trainer_description'])) {
+                    $auWrite->update(
+                        $auTable,
+                        ['trainer_description' => $description !== '' ? $description : null],
+                        ['email = ?' => $email]
+                    );
+                }
+            } catch (Exception $_mirrEx) {
+                Mage::logException($_mirrEx);
+            }
+
             $result['success'] = true;
             $result['message'] = 'Trainer updated successfully';
         } catch (Exception $e) {

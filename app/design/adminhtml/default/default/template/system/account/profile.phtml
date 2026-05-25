@@ -21,8 +21,31 @@ $dobDisplay = $dob ? date('d M Y', strtotime($dob)) : '';
 $dobInput = $dob ? date('Y-m-d', strtotime($dob)) : '';
 $nricFin = $this->escapeHtml($user->getData('nric_fin'));
 $linkedinUrl = $this->escapeHtml($user->getData('linkedin_url'));
-$trainerDescription = (string) $user->getData('trainer_description');
 $isTrainer = in_array('trainer', (array) $roles, true);
+
+// Trainer description — courses_trainers.description (matched by email)
+// is the source of truth. The admin_user.trainer_description column is a
+// mirror kept in sync by the save handler; we read the trainer-table value
+// here so this page always shows the latest, regardless of whether the
+// most recent edit came from My Profile or the View Trainers grid.
+$trainerDescription = '';
+if ($isTrainer) {
+    try {
+        $_ctRead = Mage::getSingleton('core/resource')->getConnection('core_read');
+        $_ctTbl  = Mage::getSingleton('core/resource')->getTableName('courses_trainers');
+        $trainerDescription = (string) $_ctRead->fetchOne(
+            "SELECT description FROM {$_ctTbl} WHERE email = ? AND description IS NOT NULL LIMIT 1",
+            [$user->getEmail()]
+        );
+    } catch (Exception $e) {
+        $trainerDescription = (string) $user->getData('trainer_description');
+    }
+    if ($trainerDescription === '') {
+        // Fallback for the period before migration 161 has been applied
+        // OR if no matching courses_trainers row exists by email.
+        $trainerDescription = (string) $user->getData('trainer_description');
+    }
+}
 $profileImage = $user->getData('profile_image');
 $profileImageUrl = $profileImage ? Mage::getBaseUrl('media') . 'admin/profile/' . $profileImage : '';
 
