@@ -702,22 +702,34 @@ body.catalog-categories #tree-div .x-tree-elbow-end-minus::before {
 body.adminhtml-catalog-category-index #tree-div .x-tree-node,
 body.adminhtml-catalog-category-edit #tree-div .x-tree-node,
 body.catalog-categories #tree-div .x-tree-node {
-    line-height: 1.2 !important;
+    line-height: 1.1 !important;
+    margin: 0 !important;
 }
 body.adminhtml-catalog-category-index #tree-div .x-tree-node-el,
 body.adminhtml-catalog-category-edit #tree-div .x-tree-node-el,
 body.catalog-categories #tree-div .x-tree-node-el {
-    border-radius: 4px !important;
-    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    padding: 0 4px !important;
     margin: 0 !important;
     min-height: 0 !important;
-    height: auto !important;
+    height: 22px !important;
     transition: background 0.12s !important;
     /* Keep chevron + indent + anchor on one inline baseline. */
     display: flex !important;
     align-items: center !important;
     flex-wrap: nowrap !important;
     white-space: nowrap !important;
+}
+/* Children container — strip the inherited UL padding/margin so subtree
+   rows hug their parent without a gap. */
+body.adminhtml-catalog-category-index #tree-div .x-tree-node-ct,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-node-ct,
+body.catalog-categories #tree-div .x-tree-node-ct,
+body.adminhtml-catalog-category-index #tree-div ul.x-tree-root-ct,
+body.adminhtml-catalog-category-edit #tree-div ul.x-tree-root-ct,
+body.catalog-categories #tree-div ul.x-tree-root-ct {
+    margin: 0 !important;
+    padding: 0 !important;
 }
 /* Anchor inline + middle-aligned with the chevron sitting beside it. */
 body.adminhtml-catalog-category-index #tree-div .x-tree-node-el > a,
@@ -748,9 +760,9 @@ body.catalog-categories #tree-div .x-tree-node-anchor {
     text-decoration: none !important;
     font-size: 13px !important;
     font-weight: 500 !important;
-    padding: 2px 4px !important;
+    padding: 1px 4px !important;
     border-radius: 3px !important;
-    line-height: 1.2 !important;
+    line-height: 1.15 !important;
     display: inline-block !important;
     vertical-align: middle !important;
     position: relative !important;
@@ -764,16 +776,16 @@ body.catalog-categories #tree-div .x-tree-node-anchor {
 body.adminhtml-catalog-category-index #tree-div .x-tree-ec-icon,
 body.adminhtml-catalog-category-edit #tree-div .x-tree-ec-icon,
 body.catalog-categories #tree-div .x-tree-ec-icon {
-    width: 18px !important;
-    height: 18px !important;
-    margin: 0 4px 0 0 !important;
+    width: 16px !important;
+    height: 14px !important;
+    margin: 0 3px 0 0 !important;
     cursor: pointer !important;
     vertical-align: middle !important;
     visibility: visible !important;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 6 15 12 9 18'/></svg>") !important;
     background-repeat: no-repeat !important;
     background-position: center !important;
-    background-size: 16px 16px !important;
+    background-size: 14px 14px !important;
     transition: transform 0.15s ease !important;
 }
 body.adminhtml-catalog-category-index #tree-div .x-tree-elbow-minus,
