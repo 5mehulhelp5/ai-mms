@@ -8463,6 +8463,8 @@ $_credMask = function ($v) {
 .crd-preset { padding: 4px 10px; font-size: 11px; background: #0f172a; color: #cbd5e1; border: 1px solid #334155; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.1s; }
 .crd-preset:hover { background: #1e293b; border-color: #65b7d5; color: #f1f5f9; }
 .crd-smtp-card select.crd-input { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, #94a3b8 50%), linear-gradient(135deg, #94a3b8 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 32px; }
+.crd-pwd-eye:hover { color: #f1f5f9 !important; background: #1e293b !important; }
+.crd-pwd-input[type="text"] { font-family: ui-monospace, monospace; letter-spacing: 0.5px; }
 .crd-smtp-card option { background: #1e293b; color: #f1f5f9; }
 /* Collapsible SMTP section */
 .crd-smtp-collapse { margin-top: 32px; border-top: 1px solid #1e293b; padding-top: 18px; }
@@ -8785,11 +8787,25 @@ $_credMask = function ($v) {
             </div>
             <div class="crd-row">
                 <label class="crd-label">Password</label>
-                <input type="password" class="crd-input" name="smtp_<?php echo $_code ?>_password"
-                    data-original="<?php echo $_c['password'] ? '__MASKED__' : '' ?>"
-                    value="<?php echo $_c['password'] ? '••••••••••••' : '' ?>"
-                    placeholder="app password or SMTP secret" autocomplete="new-password" />
-                <div class="crd-hint">For Gmail / Workspace use a 16-char App Password (Google Account → Security → 2-Step Verification → App passwords). Leave masked dots untouched to keep the current password.</div>
+                <div class="crd-pwd-wrap" style="position:relative;display:flex;align-items:stretch;">
+                    <input type="password" class="crd-input crd-pwd-input"
+                        id="smtp-pwd-<?php echo $_code ?>"
+                        name="smtp_<?php echo $_code ?>_password"
+                        data-original="<?php echo $_c['password'] ? '__MASKED__' : '' ?>"
+                        data-website="<?php echo $_code ?>"
+                        value="<?php echo $_c['password'] ? '••••••••••••' : '' ?>"
+                        placeholder="app password or SMTP secret"
+                        autocomplete="new-password"
+                        style="padding-right:80px;flex:1;" />
+                    <button type="button" class="crd-pwd-eye"
+                        onclick="crdPwdToggle('<?php echo $_code ?>', this)"
+                        title="Show/hide password"
+                        aria-label="Show or hide password"
+                        style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;padding:4px 8px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;transition:color 0.1s,background 0.1s;">
+                        <span class="crd-pwd-eye-icon">👁</span>
+                    </button>
+                </div>
+                <div class="crd-hint">For Gmail / Workspace use a 16-char App Password (Google Account → Security → 2-Step Verification → App passwords). Leave masked dots untouched to keep the current password. Click 👁 to reveal — for previously-saved passwords this fetches the stored value so you can copy it (e.g. to set up the same password on another environment).</div>
             </div>
 
             <div class="crd-hint crd-hint-banner">
@@ -8858,6 +8874,73 @@ function crdSmtpPreset(code, presetKey) {
     set('ssl',  p.ssl);
     set('auth', p.auth);
     crdToast('Filled ' + presetKey.replace('_', ' ') + ' defaults — enter username + password and Save.', 'ok');
+}
+
+// Fire the per-website SMTP test endpoint and render the result inline
+// Toggle a per-card SMTP password between hidden (•••) and visible.
+// Two cases:
+//   1. User is typing a new password → just flip input type. Trivial.
+//   2. Field shows masked dots (saved password from a previous Save) →
+//      fetch the decrypted value from /maildiagnose/revealsmtp, replace
+//      the dots with the real password so the user can copy it. Flip
+//      back to "password" + restore the dots when toggled off so the
+//      reveal doesn't survive an accidental form submit (the save
+//      handler still skips fields that contain a • sentinel).
+function crdPwdToggle(code, btn) {
+    var inp  = document.getElementById('smtp-pwd-' + code);
+    var icon = btn.querySelector('.crd-pwd-eye-icon');
+    if (!inp) return;
+    var isHidden = inp.type === 'password';
+    if (isHidden) {
+        // Switching to visible.
+        if (inp.dataset.original === '__MASKED__' && inp.value.indexOf('•') !== -1) {
+            // Fetch the saved decrypted password from the backend.
+            icon.textContent = '⏳';
+            var data = new FormData();
+            data.append('website', code);
+            data.append('form_key', '<?php echo Mage::getSingleton('core/session')->getFormKey() ?>');
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '<?php echo Mage::helper("adminhtml")->getUrl("adminhtml/maildiagnose/revealsmtp") ?>', true);
+            xhr.onload = function() {
+                try {
+                    var r = JSON.parse(xhr.responseText);
+                    if (r.ok) {
+                        inp.dataset.maskedPlaceholder = inp.value; // remember to restore
+                        inp.value = r.password;
+                        inp.type  = 'text';
+                        icon.textContent = '🙈';
+                        btn.title = 'Hide password';
+                    } else {
+                        icon.textContent = '👁';
+                        crdToast('Could not reveal: ' + (r.error || 'unknown'), 'err');
+                    }
+                } catch (ex) {
+                    icon.textContent = '👁';
+                    crdToast('Reveal failed (HTTP ' + xhr.status + ')', 'err');
+                }
+            };
+            xhr.onerror = function() {
+                icon.textContent = '👁';
+                crdToast('Network error revealing password', 'err');
+            };
+            xhr.send(data);
+        } else {
+            // User typed a new value — just flip type.
+            inp.type = 'text';
+            icon.textContent = '🙈';
+            btn.title = 'Hide password';
+        }
+    } else {
+        // Switching back to hidden.
+        inp.type = 'password';
+        icon.textContent = '👁';
+        btn.title = 'Show password';
+        if (inp.dataset.original === '__MASKED__' && inp.dataset.maskedPlaceholder) {
+            // Restore the masked dots so a stray Save doesn't overwrite the
+            // saved password with the just-revealed real password.
+            inp.value = inp.dataset.maskedPlaceholder;
+        }
+    }
 }
 
 // Fire the per-website SMTP test endpoint and render the result inline

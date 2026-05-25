@@ -200,6 +200,49 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
     }
 
     /**
+     * Reveal the decrypted SMTP password for a single website so the
+     * operator can copy it (e.g. to set up the same App Password on
+     * production after first saving it on local). Admin-auth protected
+     * (controller extends Mage_Adminhtml_Controller_Action) and form-key
+     * gated, so it can't be hit by anyone outside an authenticated admin
+     * session. POST only.
+     *
+     * POST /maildiagnose/revealsmtp  body: website=<code>&form_key=…
+     * Returns JSON {ok, password|error}.
+     */
+    public function revealsmtpAction()
+    {
+        $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+
+        $postedKey = (string) $this->getRequest()->getPost('form_key');
+        $sessionKey = (string) Mage::getSingleton('core/session')->getFormKey();
+        if (!$this->getRequest()->isPost() || $postedKey === '' || $postedKey !== $sessionKey) {
+            $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => 'invalid request']));
+            return;
+        }
+
+        $code = (string) $this->getRequest()->getPost('website');
+        if (!isset($this->_smtpWebsites[$code])) {
+            $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => 'unknown website']));
+            return;
+        }
+
+        try {
+            $wid     = (int) $this->_smtpWebsites[$code]['id'];
+            $storeId = (int) Mage::app()->getWebsite($wid)->getDefaultStore()->getId();
+            $enc     = (string) Mage::getStoreConfig('smtppro/general/smtp_password', $storeId);
+            if ($enc === '') {
+                $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => 'no password saved']));
+                return;
+            }
+            $plain = Mage::helper('core')->decrypt($enc);
+            $this->getResponse()->setBody(json_encode(['ok' => true, 'password' => (string) $plain]));
+        } catch (Exception $e) {
+            $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => $e->getMessage()]));
+        }
+    }
+
+    /**
      * Send a real test email through a single website's SMTP configuration.
      * Wired to a "Test" button on each per-website SMTP card in the
      * Credentials panel. Builds Zend_Mail_Transport_Smtp directly from the
