@@ -2155,7 +2155,10 @@ button.mn-composer-send.mn-loading::after{content:"";position:absolute;width:18p
 .mn-composer-hint{margin-top:6px;font-size:11px;color:#64748b;line-height:1.4}
 .mn-composer-hint kbd{display:inline-block;background:#1e293b;border:1px solid #334155;border-radius:3px;padding:0 4px;font-family:inherit;font-size:10px;color:#cbd5e1}
 textarea.mn-brief{min-height:280px;font-family:inherit;font-size:13px;line-height:1.55}
-input.mn-file-input{display:block;width:100%;padding:9px 12px;background:#0f172a;border:1px dashed #334155;border-radius:8px;color:#94a3b8;font-size:12px;cursor:pointer;font-family:inherit}
+/* .admin-main scope + type[file] attribute bumps specificity to (0,3,1) so
+   this wins over sidebar-nav.css's color:transparent !important rule that
+   hides "No file chosen" on every other file input in the admin. */
+.admin-main input.mn-file-input[type="file"]{display:block;width:100%;padding:9px 12px;background:#0f172a;border:1px dashed #334155;border-radius:8px;color:#e2e8f0 !important;font-size:12px;cursor:pointer;font-family:inherit;color-scheme:dark}
 input.mn-file-input::-webkit-file-upload-button{padding:5px 12px;background:#1e293b;color:#cbd5e1;border:1px solid #334155;border-radius:6px;cursor:pointer;font-size:12px;margin-right:10px}
 input.mn-file-input::-webkit-file-upload-button:hover{background:#334155;color:#fff}
 .mn-image-thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
@@ -2167,6 +2170,9 @@ button.mn-btn,button.mn-btn:hover,button.mn-btn:focus{padding:9px 16px !importan
 button.mn-btn:hover{background:#1d4ed8 !important}
 button.mn-btn-ghost,button.mn-btn-ghost:hover,button.mn-btn-ghost:focus{background:transparent !important;background-image:none !important;color:#cbd5e1 !important;border:1px solid #334155 !important}
 button.mn-btn-ghost:hover{background:#1e293b !important}
+:root[data-theme="light"] button.mn-btn-ghost,
+:root[data-theme="light"] button.mn-btn-ghost:focus { color: #1e293b !important; border-color: #64748b !important }
+:root[data-theme="light"] button.mn-btn-ghost:hover { background: #e2e8f0 !important; color: #0f172a !important }
 button.mn-btn-cta,button.mn-btn-cta:hover,button.mn-btn-cta:focus{background:#22d3ee !important;color:#0f172a !important}
 button.mn-btn-cta:hover{background:#0ea5e9 !important}
 button.mn-btn:disabled,button.mn-btn[disabled]{opacity:.45;cursor:not-allowed !important}
