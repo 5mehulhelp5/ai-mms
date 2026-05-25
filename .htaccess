@@ -10,8 +10,19 @@ deny from 78.128.113.18
 #RewriteRule ^(.*)$ https://www.tertiarycourses.com.sg/$1 [R=301,L]
 
 
-# Disabled for local development
-#Header always set Strict-Transport-Security "max-age=31536000;includeSubDomains; preload"
+# HSTS (Strict-Transport-Security). Soft deployment — `max-age=31536000`
+# (one year) on this exact host only. Deliberately omits `includeSubDomains`
+# and `preload`:
+#   - `includeSubDomains` would lock e.g. mail.tertiarycourses.com.sg to
+#     HTTPS too; not every subdomain has TLS, so this could brick mail / dev
+#     subdomains for everyone who has hit the apex.
+#   - `preload` is a one-way submission to Chrome's hardcoded list — leave
+#     until we've run with bare HSTS for ≥3 months with no incidents.
+# All five primary hosts (tertiaryinfotech.edu.sg + tertiarycourses.com.{sg,my,gh,ng})
+# already serve HTTPS cleanly — verified 2026-05-26.
+<IfModule mod_headers.c>
+    Header always set Strict-Transport-Security "max-age=31536000"
+</IfModule>
 
 
 ############################################
