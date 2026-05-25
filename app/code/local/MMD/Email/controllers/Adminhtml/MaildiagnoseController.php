@@ -230,13 +230,35 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
         try {
             $wid     = (int) $this->_smtpWebsites[$code]['id'];
             $storeId = (int) Mage::app()->getWebsite($wid)->getDefaultStore()->getId();
-            $enc     = (string) Mage::getStoreConfig('smtppro/general/smtp_password', $storeId);
-            if ($enc === '') {
+
+            // Aschroder's smtp_password field is registered in system.xml
+            // with backend_model = adminhtml/system_config_backend_encrypted,
+            // so Magento auto-decrypts it on read via getStoreConfig. We just
+            // need to return what getStoreConfig gives us — calling decrypt()
+            // again on that plaintext would produce garbage. Fall back to a
+            // direct decrypt of the raw DB row only if the auto-decrypted
+            // value looks like base64-encoded ciphertext (defensive against
+            // older rows saved without the backend_model in effect).
+            $plain = (string) Mage::getStoreConfig('smtppro/general/smtp_password', $storeId);
+            if ($plain === '') {
                 $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => 'no password saved']));
                 return;
             }
-            $plain = Mage::helper('core')->decrypt($enc);
-            $this->getResponse()->setBody(json_encode(['ok' => true, 'password' => (string) $plain]));
+            // Defensive: if what we got back still looks like base64 ciphertext
+            // (no spaces, all base64 alphabet, length divisible by 4), try a
+            // manual decrypt as a fallback. Real App Passwords contain spaces.
+            if (strpos($plain, ' ') === false
+                && preg_match('/^[A-Za-z0-9+\/=]+$/', $plain)
+                && strlen($plain) % 4 === 0
+                && strlen($plain) > 24) {
+                try {
+                    $maybe = Mage::helper('core')->decrypt($plain);
+                    if ($maybe !== '' && preg_match('/^[\x20-\x7e]+$/', $maybe)) {
+                        $plain = $maybe;
+                    }
+                } catch (Exception $ignored) {}
+            }
+            $this->getResponse()->setBody(json_encode(['ok' => true, 'password' => $plain]));
         } catch (Exception $e) {
             $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => $e->getMessage()]));
         }

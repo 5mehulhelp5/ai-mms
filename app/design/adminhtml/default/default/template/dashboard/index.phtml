@@ -8931,21 +8931,29 @@ function crdPwdToggle(code, btn) {
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '<?php echo Mage::helper("adminhtml")->getUrl("adminhtml/maildiagnose/revealsmtp") ?>', true);
             xhr.onload = function() {
-                try {
-                    var r = JSON.parse(xhr.responseText);
-                    if (r.ok) {
-                        inp.dataset.maskedPlaceholder = inp.value; // remember to restore
-                        inp.value = r.password;
-                        inp.type  = 'text';
-                        icon.textContent = '🙈';
-                        btn.title = 'Hide password';
-                    } else {
-                        icon.textContent = '👁';
-                        crdToast('Could not reveal: ' + (r.error || 'unknown'), 'err');
-                    }
-                } catch (ex) {
-                    icon.textContent = '👁';
-                    crdToast('Reveal failed (HTTP ' + xhr.status + ')', 'err');
+                icon.textContent = '👁';
+                // Server returned non-JSON or 4xx/5xx — surface enough of the
+                // actual response that we can debug instead of just "HTTP 200".
+                if (xhr.status >= 400) {
+                    crdToast('Reveal HTTP ' + xhr.status + ': ' + xhr.responseText.substring(0, 120), 'err');
+                    return;
+                }
+                var r;
+                try { r = JSON.parse(xhr.responseText); }
+                catch (ex) {
+                    var snippet = (xhr.responseText || '').replace(/<[^>]+>/g, ' ').trim().substring(0, 140);
+                    crdToast('Reveal: non-JSON response (HTTP ' + xhr.status + '): ' + (snippet || '(empty)'), 'err');
+                    console.error('reveal raw response:', xhr.responseText);
+                    return;
+                }
+                if (r.ok) {
+                    inp.dataset.maskedPlaceholder = inp.value; // remember to restore
+                    inp.value = r.password;
+                    inp.type  = 'text';
+                    icon.textContent = '🙈';
+                    btn.title = 'Hide password';
+                } else {
+                    crdToast('Could not reveal: ' + (r.error || 'unknown'), 'err');
                 }
             };
             xhr.onerror = function() {
