@@ -237,14 +237,14 @@ dl.accordion .grid      { margin-bottom:0; }
 dl.accordion dt,
 .entry-edit .entry-edit-head { background:#6f8992; padding:2px 10px; }
 dl.accordion dt, div.collapseable { margin-top:1px; }
-dl.accordion dt a, div.collapseable a { background:url(images/entry_edit_head_arrow_down.gif) 100% 50% no-repeat; color:#fff; display:block; font-weight:bold; text-decoration:none; }
+dl.accordion dt a, div.collapseable a { color:#fff; display:block; font-weight:bold; text-decoration:none; }
 div.disabled { background:#c6cbc9 !important; }
 div.disabled a { background-image:url(images/entry_edit_head_arrow_down2.gif) !important; color:#f6f6f6 !important; }
 
 .entry-edit fieldset.collapseable { margin-bottom:10px; }
 
 dl.accordion dt a:hover, div.collapseable a:hover { color:#fff; text-decoration:none; }
-dl.accordion dt.open a, div.collapseable a.open  { background:url(images/entry_edit_head_arrow_up.gif) 100% 50% no-repeat; }
+dl.accordion dt.open a, div.collapseable a.open  { /* up-arrow GIF removed — chevron now rendered via dark-theme.css unified ::after rotated 180deg */ }
 dl.accordion dd         { display:none; }
 dl.accordion dd.open    { display:block; }
 img.accordion-btn       { float:right; margin-top:1px; margin-right:5px; }

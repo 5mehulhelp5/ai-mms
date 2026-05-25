@@ -3047,6 +3047,21 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .crd-input::placeholder { color:#94a3b8 !important }
 :root[data-theme="light"] .crd-input[readonly] { color:#64748b !important }
 :root[data-theme="light"] .crd-hint { color:#64748b !important }
+
+/* SMTP "auto-enables when fields are filled" banner. Was an inline
+   slate-900 box that stayed dark in light mode. Themed below. */
+.crd-hint-banner {
+    margin-top: 14px;
+    padding: 8px 12px;
+    background: #0f172a;
+    border-left: 3px solid #475569;
+    border-radius: 4px;
+}
+:root[data-theme="light"] .crd-hint-banner {
+    background: #e2e8f0 !important;
+    border-left-color: #64748b !important;
+    color: #334155 !important;
+}
 :root[data-theme="light"] .crd-btn-ghost { color:#64748b !important; border-color:#64748b !important }
 :root[data-theme="light"] .crd-btn-ghost:hover { color:#0f172a !important; border-color:#94a3b8 !important }
 /* .crd-btn-primary keeps its cyan gradient — works on both surfaces */

@@ -803,9 +803,14 @@ body[class*="adminhtml-system_config"] .section-config .entry-edit-head.collapse
 /* Chevron lives on the <a> (the full-width click target). Make the <a>
    fill the whole bar and paint the chevron as its own background so
    clicking the chevron IS clicking the toggle link. */
-body[class*="adminhtml-system_config"] #config_edit_form .entry-edit-head.collapseable > a,
-body[class*="adminhtml-system_config"] .section-config .entry-edit-head.collapseable > a,
-.section-config .entry-edit-head.collapseable > a {
+/* Unified chevron for every collapseable section header — System Config
+   sections, sales order panels, etc. SVG via background-image so it stays
+   crisp at any zoom. Two variants flip on theme: white stroke for dark
+   mode, slate-900 for light mode (see :root[data-theme="light"] block
+   below). Bumped from 15px to 22px (~50% larger) to match what the user
+   requested in dark mode. */
+.entry-edit-head.collapseable > a,
+div.collapseable > a {
     display: block !important;
     width: 100% !important;
     box-sizing: border-box !important;
@@ -815,13 +820,23 @@ body[class*="adminhtml-system_config"] .section-config .entry-edit-head.collapse
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f9fafb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") !important;
     background-repeat: no-repeat !important;
     background-position: right 12px center !important;
-    background-size: 15px 15px !important;
+    background-size: 22px 22px !important;
 }
-/* Collapsed → right-pointing chevron on the <a>. */
-body[class*="adminhtml-system_config"] #config_edit_form .entry-edit:not(.opened) .entry-edit-head.collapseable > a,
-body[class*="adminhtml-system_config"] #config_edit_form .section-config:has(> fieldset[style*="display: none"]) .entry-edit-head.collapseable > a,
-body[class*="adminhtml-system_config"] #config_edit_form .section-config:has(> fieldset[style*="display:none"]) .entry-edit-head.collapseable > a {
+/* Collapsed (fieldset hidden) → right-pointing chevron. */
+.entry-edit:not(.opened) > .entry-edit-head.collapseable > a,
+.section-config:has(> fieldset[style*="display: none"]) > .entry-edit-head.collapseable > a,
+.section-config:has(> fieldset[style*="display:none"]) > .entry-edit-head.collapseable > a {
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f9fafb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 6 15 12 9 18'/></svg>") !important;
+}
+/* Light mode — swap white stroke (%23f9fafb) for slate-900 (%230f172a). */
+:root[data-theme="light"] .entry-edit-head.collapseable > a,
+:root[data-theme="light"] div.collapseable > a {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f172a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") !important;
+}
+:root[data-theme="light"] .entry-edit:not(.opened) > .entry-edit-head.collapseable > a,
+:root[data-theme="light"] .section-config:has(> fieldset[style*="display: none"]) > .entry-edit-head.collapseable > a,
+:root[data-theme="light"] .section-config:has(> fieldset[style*="display:none"]) > .entry-edit-head.collapseable > a {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f172a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 6 15 12 9 18'/></svg>") !important;
 }
 .entry-edit-head h4, .box-head h4, .box-head h3 {
     color: var(--t1) !important;
@@ -856,24 +871,9 @@ div.collapseable > a {
     display: block !important;
     position: static !important;
 }
-/* Chevron — only on collapsible headers */
-.entry-edit-head:has(> a)::after,
-.box-head:has(> a)::after,
-div.collapseable::after {
-    content: "\25BE";
-    color: var(--t3);
-    font-size: 12px;
-    line-height: 1;
-    margin-left: auto;
-    pointer-events: none;
-    transition: transform 0.15s ease;
-}
-.entry-edit:not(.opened) > .entry-edit-head::after,
-.entry-edit.section-config-collapsed > .entry-edit-head::after,
-.entry-edit:has(> fieldset[style*="display: none"]) > .entry-edit-head::after,
-.entry-edit:has(> fieldset[style*="display:none"]) > .entry-edit-head::after {
-    transform: rotate(-90deg);
-}
+/* Chevron — collapsible-section indicator. The actual chevron lives on
+   the inner <a>'s ::after (search for "down arrowhead" below). This
+   wrapper-level rule is intentionally empty so we don't double-render. */
 
 /* Grid mass-action header bar (the "0 items selected · ACTIONS · Submit"
    strip above every Magento grid). Flat on canvas — no panel fill,
@@ -3699,20 +3699,9 @@ body[class*="adminhtml-system_config"] #config_edit_form .entry-edit-head a {
     padding: 0 !important;
     margin: 0 !important;
 }
-body[class*="adminhtml-system_config"] #config_edit_form .entry-edit-head::after {
-    content: "\25BE" !important;
-    color: var(--t4) !important;
-    font-size: 11px !important;
-    transition: transform 0.15s ease !important;
-    margin-left: auto !important;
-    line-height: 1 !important;
-    pointer-events: none !important;
-    z-index: 2 !important;
-}
-body[class*="adminhtml-system_config"] #config_edit_form .entry-edit.section-config:not(.opened) .entry-edit-head::after,
-body[class*="adminhtml-system_config"] #config_edit_form .entry-edit.section-config-collapsed .entry-edit-head::after {
-    transform: rotate(-90deg) !important;
-}
+/* The system_config-specific .entry-edit-head::after chevron was retired —
+   the unified <a>::after rule near "down arrowhead" below now handles it
+   consistently across light and dark mode. */
 
 /* Section body — transparent, no card frame */
 body[class*="adminhtml-system_config"] #config_edit_form .entry-edit fieldset,
@@ -4028,6 +4017,10 @@ ul.config-accordion li dt.accordion-toggle::after {
     font-size: 10px;
     opacity: 0.75;
 }
+
+/* The collapseable-header chevron now lives in the SVG rule near
+   ".entry-edit-head.collapseable > a" earlier in this file — see that
+   block for both the dark (white) and light (slate-900) variants. */
 ul.config-accordion li.accordion-open dt.accordion-toggle::after {
     transform: translateY(-50%) rotate(90deg);
 }
