@@ -21,6 +21,8 @@ $dobDisplay = $dob ? date('d M Y', strtotime($dob)) : '';
 $dobInput = $dob ? date('Y-m-d', strtotime($dob)) : '';
 $nricFin = $this->escapeHtml($user->getData('nric_fin'));
 $linkedinUrl = $this->escapeHtml($user->getData('linkedin_url'));
+$trainerDescription = (string) $user->getData('trainer_description');
+$isTrainer = in_array('trainer', (array) $roles, true);
 $profileImage = $user->getData('profile_image');
 $profileImageUrl = $profileImage ? Mage::getBaseUrl('media') . 'admin/profile/' . $profileImage : '';
 
@@ -203,6 +205,19 @@ $roleColors = array(
     </div>
 </div>
 
+<?php if ($isTrainer): ?>
+<!-- TRAINER PROFILE DESCRIPTION (read-only, trainer role only) -->
+<div class="bio-section" id="trainer-profile-section">
+    <h3 class="bio-title">Profile Description</h3>
+    <p class="trainer-profile-text"><?php echo $trainerDescription !== '' ? nl2br($this->escapeHtml($trainerDescription)) : '<span style="color:#94a3b8;">No profile description yet — click <strong>Edit Profile</strong> to add one.</span>'; ?></p>
+</div>
+<style>
+.trainer-profile-text{color:#f1f5f9;font-size:14px;line-height:1.55;margin:0;white-space:pre-wrap}
+.edit-field textarea{width:100%;padding:10px 14px;background:transparent;border:1px solid #4b5563;border-radius:8px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box;font-family:inherit;resize:vertical;min-height:120px}
+.edit-field textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 3px rgba(96,165,250,0.15)}
+</style>
+<?php endif; ?>
+
 <!-- LOGIN DETAILS (read-only) -->
 <div class="login-section" id="login-section">
     <h3 class="bio-title">Login Details</h3>
@@ -304,6 +319,14 @@ $roleColors = array(
                 <input type="url" id="pf-linkedin" name="linkedin_url" value="<?php echo $linkedinUrl ?>" placeholder="https://linkedin.com/in/yourprofile" />
             </div>
 
+            <?php if ($isTrainer): ?>
+            <div class="edit-field full-width">
+                <label for="pf-trainer-description">Profile Description</label>
+                <textarea id="pf-trainer-description" name="trainer_description" rows="6" placeholder="Tell learners about your background, teaching style, and the courses you specialise in."><?php echo $this->escapeHtml($trainerDescription); ?></textarea>
+                <p class="edit-note">Shown on your trainer card to learners.</p>
+            </div>
+            <?php endif; ?>
+
             <hr class="edit-section-divider" />
 
             <div class="edit-field">
@@ -328,6 +351,7 @@ function toggleEdit() {
     var bio = document.getElementById('bio-section');
     var login = document.getElementById('login-section');
     var appearance = document.getElementById('appearance-section');
+    var trainer = document.getElementById('trainer-profile-section');
     var edit = document.getElementById('edit-section');
     var headerBtn = document.getElementById('profile-edit-btn');
     if (edit.classList.contains('active')) {
@@ -335,12 +359,14 @@ function toggleEdit() {
         bio.style.display = '';
         login.style.display = '';
         if (appearance) appearance.style.display = '';
+        if (trainer) trainer.style.display = '';
         if (headerBtn) headerBtn.textContent = 'Edit Profile';
     } else {
         edit.classList.add('active');
         bio.style.display = 'none';
         login.style.display = 'none';
         if (appearance) appearance.style.display = 'none';
+        if (trainer) trainer.style.display = 'none';
         if (headerBtn) headerBtn.textContent = 'Save Changes';
     }
 }

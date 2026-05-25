@@ -547,7 +547,16 @@ if (isset($_tnCols['trainer_type'])) {
     $tnNonAclp = max(0, $tnTotal - $tnAclp);
 }
 
-$trainerRows = $read->fetchAll("SELECT * FROM {$trainersTable} ORDER BY title ASC LIMIT 300");
+// LEFT JOIN admin_user on email to pull the trainer_description set from
+// the trainer's My Profile page. Trainers without a matching admin_user
+// (external / non-admin trainers) get NULL — rendered as a dash in the grid.
+$trainerRows = $read->fetchAll(
+    "SELECT t.*, u.trainer_description AS description
+       FROM {$trainersTable} t
+  LEFT JOIN {$resource->getTableName('admin/user')} u ON u.email = t.email
+   ORDER BY t.title ASC
+      LIMIT 300"
+);
 endif; // end if (admin || training_provider)
 
 // =====================================================================
@@ -6727,7 +6736,9 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
                 <th>Trainer Type</th><th>Area of Expertise</th>
                 <th>Trainer Status</th><th>Account Status</th>
                 <th>LinkedIn Profile</th><th>CV Folder</th>
-                <th>Skill Tags</th><th>Certification Tags</th><th>Action</th>
+                <th>Skill Tags</th><th>Certification Tags</th>
+                <th>Profile Description</th>
+                <th>Action</th>
             </tr></thead>
             <tbody id="trnTableBody">
             <?php foreach ($trainerRows as $tr):
@@ -6781,6 +6792,21 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
                 <td><span class="trn-na">N/A</span></td>
                 <td><span class="trn-na">N/A</span></td>
                 <td><span class="trn-na">N/A</span></td>
+                <?php
+                // Profile Description — sourced from the matching admin_user
+                // (via email LEFT JOIN above). Truncate long bios so the
+                // grid row doesn't blow up; full text shown on title hover.
+                $tDescription = isset($tr['description']) ? trim((string) $tr['description']) : '';
+                ?>
+                <td>
+                    <?php if ($tDescription !== ''): ?>
+                        <span title="<?php echo htmlspecialchars($tDescription, ENT_QUOTES) ?>" style="display:inline-block;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;color:var(--t2);font-size:12px;">
+                            <?php echo htmlspecialchars(mb_strimwidth($tDescription, 0, 80, '…')) ?>
+                        </span>
+                    <?php else: ?>
+                        <span class="trn-na">N/A</span>
+                    <?php endif; ?>
+                </td>
                 <td>
                     <a href="#" class="trn-action" onclick="event.preventDefault();trnOpenEditModal(<?php echo $tid ?>,<?php echo htmlspecialchars(json_encode(array('email'=>$tr['email'],'name'=>$tr['title'],'phone'=>(isset($tr['telephone'])?$tr['telephone']:''),'type'=>$ttype,'status'=>($isActive?'Active':'Inactive'),'gender'=>$tgender,'linkedin'=>$tlinked)), ENT_QUOTES) ?>)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</a>
                     <a href="#" class="trn-action" onclick="event.preventDefault();"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sync Image</a>
