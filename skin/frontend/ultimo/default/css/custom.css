@@ -2453,7 +2453,8 @@ li.level2 > a > span > .cat-label,
     list-style: none !important;
     margin: 0 !important;
     padding: 7px 14px 7px 32px !important;
-    background: #f8fafc;
+    background: #f8fafc none !important;
+    background-image: none !important;
     border: 1px solid #e2e8f0;
     border-radius: 999px;
     color: #1e293b;
