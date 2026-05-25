@@ -28,8 +28,10 @@
     <div class="content-header">
         <h3 class="icon-head head-categories"><?php echo Mage::helper('catalog')->__('Categories') ?></h3>
         <?php if ($this->getRoot()): ?>
-            <?php echo $this->getAddRootButtonHtml() ?><br />
-            <?php echo $this->getAddSubButtonHtml() ?>
+            <span class="categories-add-buttons">
+                <?php echo $this->getAddRootButtonHtml() ?>
+                <?php echo $this->getAddSubButtonHtml() ?>
+            </span>
         <?php endif; ?>
     </div>
     <?php echo $this->getStoreSwitcherHtml();?>

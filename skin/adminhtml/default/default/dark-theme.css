@@ -446,8 +446,24 @@ body .header-top {
 body.adminhtml-catalog-category-edit .side-col,
 body.adminhtml-catalog-category-index .side-col,
 body.catalog-categories .side-col {
-    flex: 0 0 380px !important;
-    width: 380px !important;
+    flex: 0 0 480px !important;
+    width: 480px !important;
+}
+
+/* Render the two "Add Root Category" + "Add Subcategory" buttons on the
+   same row instead of stacked. Tree.phtml wraps both in .categories-add-buttons. */
+body.adminhtml-catalog-category-edit .categories-add-buttons,
+body.adminhtml-catalog-category-index .categories-add-buttons,
+body.catalog-categories .categories-add-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+body.adminhtml-catalog-category-edit .categories-add-buttons button,
+body.adminhtml-catalog-category-index .categories-add-buttons button,
+body.catalog-categories .categories-add-buttons button {
+    margin: 0 !important;
 }
 
 /* === Categories-page cleanup ===
@@ -697,6 +713,19 @@ body.catalog-categories #tree-div .x-tree-node-el {
     min-height: 0 !important;
     height: auto !important;
     transition: background 0.12s !important;
+    /* Keep chevron + indent + anchor on one inline baseline. */
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    white-space: nowrap !important;
+}
+/* Anchor inline + middle-aligned with the chevron sitting beside it. */
+body.adminhtml-catalog-category-index #tree-div .x-tree-node-el > a,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-node-el > a,
+body.catalog-categories #tree-div .x-tree-node-el > a {
+    display: inline-flex !important;
+    align-items: center !important;
+    vertical-align: middle !important;
 }
 /* Drop the folder/file glyph entirely — node text alone is enough, and
    the indent guides + +/− expander still convey the tree hierarchy. */
@@ -1845,8 +1874,8 @@ body.has-overlay-sidecol .main-col {
 body.has-overlay-sidecol .side-col.side-col-overlay {
     position: fixed !important;
     top: 60px !important;
-    left: -360px !important;
-    width: 360px !important;
+    left: -480px !important;
+    width: 480px !important;
     height: calc(100vh - 60px) !important;
     z-index: 1500 !important;
     transition: left 0.22s ease !important;
