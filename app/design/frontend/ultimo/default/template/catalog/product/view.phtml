@@ -270,6 +270,18 @@
 			$_certificationHtml .= '<li><strong>OpenCerts from SkillsFuture Singapore</strong> - After passing the assessment(s) and achieving at least 75% attendance, participants will receive a OpenCert (aka Statement of Achievement) from SkillsFuture Singapore, certifying that they have achieved the Competency Standard(s) in the above Skills Framework.</li>';
 		}
 		$_certificationHtml .= '</ul>';
+
+		// Append per-course certification supplement from the cms_block
+		// `course_<sku>_certification`. Carries vendor-specific copy like
+		// "Certification Exam at Pearson Vue" for CompTIA courses (migration
+		// 151). The SG baseline bullets above are hardcoded and the
+		// per-course block ALSO has its own baseline (migration 143), so we
+		// can't append the whole block or we'd double the bullets — extract
+		// just the Pearson-Vue-and-after suffix and append that.
+		$_certBlock = $_courseSectionHtml('certification');
+		if ($_certBlock !== '' && preg_match('#<p>\s*<strong>\s*Certification Exam at Pearson Vue\s*</strong>\s*</p>.*$#siu', $_certBlock, $_pvMatch)) {
+			$_certificationHtml .= $_pvMatch[0];
+		}
 	} else {
 		// Other stores (MY/GH/NG/BT/IN/Infotech): strip the heading variant
 		// from short_description so it doesn't double-render, then resolve
@@ -683,7 +695,11 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 							</header>
 							<div class="course-policy-card__body std">
 								<?php if ($_leftNote !== ''): ?>
-									<?php echo nl2br($this->escapeHtml($_leftNote)); ?>
+									<?php /* additional_note may contain admin-authored HTML
+									         (e.g. the CompTIA Exam Voucher block migrated out of
+									         short_description). Render raw and nl2br plain-text
+									         newlines so legacy plain notes still get line breaks. */ ?>
+									<?php echo nl2br($_leftNote); ?>
 								<?php endif; ?>
 								<?php if ($_leftNoteExtra !== ''): ?>
 									<?php echo $_leftNoteExtra; ?>
@@ -991,7 +1007,7 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 								</header>
 								<div class="course-policy-card__body std">
 									<?php if ($_additionalNote !== ''): ?>
-										<?php echo nl2br($this->escapeHtml($_additionalNote)); ?>
+										<?php echo nl2br($_additionalNote); ?>
 									<?php endif; ?>
 									<?php if ($_noteExtraMergeHtml !== ''): ?>
 										<?php echo $_noteExtraMergeHtml; ?>
