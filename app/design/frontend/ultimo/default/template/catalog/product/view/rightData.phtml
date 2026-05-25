@@ -23,6 +23,11 @@ if ($_product->getDuration()) {
 if ($_product->getAttributeText('level')) {
     $_rows[] = array('label' => 'Level',          'value' => $_product->getAttributeText('level'), 'icon' => 'bar');
 }
+$_assessDur = $_product->getAttributeText('assessment_duration');
+if ($_assessDur) {
+    $_assessLabel = ($_assessDur === 'NA') ? 'NA' : $_assessDur . ' hr' . ($_assessDur === '1' ? '' : 's');
+    $_rows[] = array('label' => 'Assessment',     'value' => $_assessLabel, 'icon' => 'clock');
+}
 /* Additional Note used to render here as a wide tile inside the Course
    Information grid. It now lives as its own card next to Post-Course
    Support in the right column — see catalog/product/view.phtml. */

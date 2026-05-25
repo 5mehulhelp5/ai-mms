@@ -120,6 +120,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             if (($v = $req->getParam('sessions'))        !== null) $product->setData('sessions',        $v === '' ? null : $v);
             if (($v = $req->getParam('level'))           !== null) $product->setData('level',           $v === '' ? null : (int)$v);
             if (($v = $req->getParam('additional_note')) !== null) $product->setData('additional_note', $v);
+            if (($v = $req->getParam('assessment_duration')) !== null) $product->setData('assessment_duration', $v === '' ? null : (int)$v);
 
             // Assessment Methods (multiselect EAV `assessment_methods`).
             // The form always submits a hidden `_assessment_methods_loaded`

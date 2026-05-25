@@ -2641,6 +2641,8 @@ function devSetView(view) {
                     $_attrLevel   = Mage::getModel('eav/config')->getAttribute('catalog_product', 'level');
                     $_valLevel    = (string) $_editProd->getData('level');
                     $_valSessions = (string) $_editProd->getData('sessions');
+                    $_attrAssessDur = Mage::getModel('eav/config')->getAttribute('catalog_product', 'assessment_duration');
+                    $_valAssessDur  = (string) $_editProd->getData('assessment_duration');
                     ?>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Duration <span class="dcf-required">*</span></div>
@@ -2650,6 +2652,20 @@ function devSetView(view) {
                         </div>
                         <div class="dcf-row-scope">[GLOBAL]</div>
                     </div>
+                    <?php if ($_attrAssessDur && $_attrAssessDur->getId()): ?>
+                    <div class="dcf-row">
+                        <div class="dcf-row-label">Assessment (hours)</div>
+                        <div class="dcf-row-input">
+                            <select class="dcf-select" name="assessment_duration">
+                                <option value="">— Select —</option>
+                                <?php foreach ($_attrAssessDur->getSource()->getAllOptions(false) as $_optAd): ?>
+                                <option value="<?php echo htmlspecialchars($_optAd['value']) ?>"<?php echo (string)$_optAd['value'] === $_valAssessDur ? ' selected' : '' ?>><?php echo htmlspecialchars($_optAd['label']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="dcf-row-scope">[GLOBAL]</div>
+                    </div>
+                    <?php endif; ?>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Session (days)</div>
                         <div class="dcf-row-input">
