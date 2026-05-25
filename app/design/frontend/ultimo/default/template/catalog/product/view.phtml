@@ -430,14 +430,12 @@
 		// Parent heading intentionally omitted — the tab labels carry the
 		// section name; an extra "Recommended Courses" h3 above them was
 		// visually redundant.
-		if (count($tabs) > 1) {
-			$recommendedHtml .= '<ul class="recommended-tabs" role="tablist">';
-			foreach ($tabs as $k => $tab) {
-				$active = ($k === $activeKey) ? ' is-active' : '';
-				$recommendedHtml .= '<li class="recommended-tab' . $active . '" role="tab" data-target="recommended-' . $k . '" aria-selected="' . ($k === $activeKey ? 'true' : 'false') . '">' . $tab['label'] . '</li>';
-			}
-			$recommendedHtml .= '</ul>';
+		$recommendedHtml .= '<ul class="recommended-tabs" role="tablist">';
+		foreach ($tabs as $k => $tab) {
+			$active = ($k === $activeKey) ? ' is-active' : '';
+			$recommendedHtml .= '<li class="recommended-tab' . $active . '" role="tab" data-target="recommended-' . $k . '" aria-selected="' . ($k === $activeKey ? 'true' : 'false') . '">' . $tab['label'] . '</li>';
 		}
+		$recommendedHtml .= '</ul>';
 		foreach ($tabs as $k => $tab) {
 			$active = ($k === $activeKey) ? ' is-active' : '';
 			$recommendedHtml .= '<div class="recommended-panel' . $active . '" id="recommended-' . $k . '" role="tabpanel">';

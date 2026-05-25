@@ -1459,48 +1459,48 @@ li.level2 > a > span > .cat-label,
 #product-tabs.gen-tabs {
     background: transparent;
 }
+/* Match .recommended-tabs design — pill tabs with bordered active state
+   sitting on a shared bottom rule. */
 #product-tabs.gen-tabs .tabs {
     border-bottom: 1px solid #e5e7eb;
-    margin: 0 0 0;
+    margin: 0 0 8px;
     display: flex;
     flex-wrap: wrap;
-    gap: 2px;
-    padding: 0 0 0 0;
+    gap: 4px;
+    padding: 0;
     background: transparent;
 }
 #product-tabs.gen-tabs .tabs li { float: none; margin: 0; list-style: none; }
 #product-tabs.gen-tabs .tabs a {
+    display: inline-block;
     background: transparent !important;
     color: #6b7280 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    padding: 11px 18px !important;
+    border: 1px solid transparent !important;
+    border-bottom: none !important;
+    border-radius: 6px 6px 0 0 !important;
+    padding: 6px 14px !important;
     font-weight: 600;
-    font-size: 14.5px;
+    font-size: 14px;
     line-height: 1.4;
     letter-spacing: 0.01em;
-    position: relative;
-    transition: color 0.15s ease;
     margin-bottom: -1px;
+    transition: color .15s, background .15s, border-color .15s;
 }
 #product-tabs.gen-tabs .tabs a:hover,
 #product-tabs.gen-tabs .tabs a:focus {
     background: transparent !important;
-    color: #0b4d86 !important;
+    color: #111827 !important;
 }
 #product-tabs.gen-tabs .tabs a.current {
-    background: transparent !important;
+    background: #fff !important;
     color: #0b4d86 !important;
+    border-color: #0b4d86 !important;
 }
-#product-tabs.gen-tabs .tabs a.current::after {
-    content: "";
-    position: absolute;
-    left: 14px;
-    right: 14px;
-    bottom: -1px;
-    height: 2px;
-    background: #0b4d86;
-    border-radius: 0;
+
+/* Theme default puts a second `border-top` rule on .tabs-panels, which
+   reads as a duplicate divider directly under the tab strip. Suppress it. */
+#product-tabs.gen-tabs .tabs-panels {
+    border-top: 0 !important;
 }
 
 /* --- Panel surface ------------------------------------------------------ */
@@ -2230,9 +2230,9 @@ li.level2 > a > span > .cat-label,
 }
 .recommended-tab:hover { color: #111827; }
 .recommended-tab.is-active {
-    color: #111827;
+    color: #0b4d86;
     background: #fff;
-    border-color: #e5e7eb;
+    border-color: #0b4d86;
 }
 
 .recommended-panel { display: none; }
