@@ -606,6 +606,7 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--learning      .course-policy-card__header { background: linear-gradient(180deg, #f0fdfa 0%, #ccfbf1 100%); }
 .course-policy-card--brochure      .course-policy-card__header { background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%); }
 .course-policy-card--funding       .course-policy-card__header { background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%); }
+.course-policy-card--about         .course-policy-card__header { background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%); }
 
 .course-policy-card__icon {
     flex: 0 0 28px;
@@ -623,6 +624,89 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--learning      .course-policy-card__icon { background: #0d9488; }
 .course-policy-card--brochure      .course-policy-card__icon { background: #ea580c; }
 .course-policy-card--funding       .course-policy-card__icon { background: #059669; }
+.course-policy-card--about         .course-policy-card__icon { background: #2563eb; }
+
+/* Font consistency across the whole product page. Admin-pasted HTML in
+   short_description, custom tabs, CMS blocks, and product options
+   frequently carries inline `font-family: Times`, `Arial`, `Verdana`,
+   etc. which makes the page read as a patchwork of fonts. Force every
+   text node inside the product-view content surfaces to inherit the
+   theme's body font so the typography stays uniform. */
+.catalog-product-view .product-view .short-description,
+.catalog-product-view .product-view .short-description *,
+.catalog-product-view .product-view .product-collateral,
+.catalog-product-view .product-view .product-collateral *,
+.catalog-product-view .product-view .box-tabs,
+.catalog-product-view .product-view .box-tabs *,
+.catalog-product-view .product-view .course-policy-card,
+.catalog-product-view .product-view .course-policy-card *,
+.catalog-product-view .product-view .course-info-card,
+.catalog-product-view .product-view .course-info-card *,
+.catalog-product-view .product-view .product-options,
+.catalog-product-view .product-view .product-options * {
+    font-family: inherit !important;
+}
+/* Preserve the title's display font (Oswald) and the icon-font glyphs —
+   they're set via class, not inline style, so this won't catch them, but
+   be explicit for clarity. */
+.catalog-product-view .product-view h1,
+.catalog-product-view .product-view h2,
+.catalog-product-view .product-view h3,
+.catalog-product-view .product-view .course-policy-card__title,
+.catalog-product-view .product-view .course-info-card__title { font-family: "Oswald", georgia, serif !important; }
+
+/* Re-establish card chrome that the legacy `.product-shop .short-description`
+   reset (border:0; padding:0) further down strips off when the new About card
+   carries the `short-description` class for flex-ordering. */
+.product-shop .short-description.course-policy-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    padding: 0;
+    margin: 16px 0 18px;
+    background: #fff;
+    overflow: hidden;
+}
+
+/* "What's This Course About" card — short_description rendered as a card.
+   Normalize admin-pasted inline font sizes / families so the body type
+   matches the rest of the product-page cards (Course Info, Funding, etc.),
+   and tame the legacy short_description table styling defined above so
+   tables render flush inside the card body on mobile. */
+.course-policy-card--about .course-policy-card__body,
+.course-policy-card--about .course-policy-card__body * {
+    font-family: inherit !important;
+}
+.course-policy-card--about .course-policy-card__body {
+    font-size: 14px;
+    line-height: 1.65;
+    color: #1f2937;
+}
+.course-policy-card--about .course-policy-card__body p,
+.course-policy-card--about .course-policy-card__body li,
+.course-policy-card--about .course-policy-card__body span {
+    font-size: 14px !important;
+    line-height: 1.65 !important;
+    color: inherit;
+}
+.course-policy-card--about .course-policy-card__body p { margin: 0 0 10px; }
+.course-policy-card--about .course-policy-card__body p:last-child { margin-bottom: 0; }
+.course-policy-card--about .course-policy-card__body img { max-width: 100%; height: auto; }
+.course-policy-card--about .course-policy-card__body table { margin: 12px 0; font-size: 13px; width: 100%; display: block; overflow-x: auto; }
+.course-policy-card--about .course-policy-card__body strong,
+.course-policy-card--about .course-policy-card__body b { font-weight: 600; color: #0f172a; }
+.course-policy-card--about .course-policy-card__body a { color: #2563eb; }
+/* Kill the legacy drop-cap on the first paragraph — the card header already
+   labels the section, so the oversized blue capital reads as visual noise. */
+.product-shop .short-description.course-policy-card .std > p:first-of-type::first-letter {
+    color: inherit;
+    font-weight: inherit;
+}
+@media (max-width: 600px) {
+    .course-policy-card--about .course-policy-card__header { padding: 12px 14px; }
+    .course-policy-card--about .course-policy-card__title { font-size: 15px; }
+    .course-policy-card--about .course-policy-card__body { padding: 12px 14px 14px; font-size: 13.5px; }
+}
 /* --funding body: tame the inline red <span> and oversized HRD Corp logo that admins typically paste in. Card chrome stays; the inner red link reads as a normal blue card link, the logo caps at 96px so it doesn't push the card height. */
 .course-policy-card--funding .course-policy-card__body a { color: #2563eb !important; }
 .course-policy-card--funding .course-policy-card__body a span,

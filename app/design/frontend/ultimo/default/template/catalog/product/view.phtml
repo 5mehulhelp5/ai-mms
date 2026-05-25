@@ -762,7 +762,15 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 			<?php echo $this->getReviewsSummaryHtml($_product, false, true); //reviews ?>
 
 			<?php if ($shortDescription): ?>
-				<div class="short-description"><div class="std" itemprop="description"><?php echo $shortDescription; ?></div></div>
+				<section class="course-policy-card course-policy-card--about short-description">
+					<header class="course-policy-card__header">
+						<span class="course-policy-card__icon" aria-hidden="true">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+						</span>
+						<h3 class="course-policy-card__title"><?php echo $this->__("What's This Course About"); ?></h3>
+					</header>
+					<div class="course-policy-card__body std" itemprop="description"><?php echo $shortDescription; ?></div>
+				</section>
 			<?php endif;?>
 
 			<?php
