@@ -547,15 +547,12 @@ if (isset($_tnCols['trainer_type'])) {
     $tnNonAclp = max(0, $tnTotal - $tnAclp);
 }
 
-// LEFT JOIN admin_user on email to pull the trainer_description set from
-// the trainer's My Profile page. Trainers without a matching admin_user
-// (external / non-admin trainers) get NULL — rendered as a dash in the grid.
+// description lives directly on courses_trainers (migration 160 added
+// the column; 161 backfilled from the legacy trainerprofile EAV blob).
+// Trainer-role admins editing My Profile sync into this column via
+// MMD_Adminhtml_System_AccountController::saveAction() (email match).
 $trainerRows = $read->fetchAll(
-    "SELECT t.*, u.trainer_description AS description
-       FROM {$trainersTable} t
-  LEFT JOIN {$resource->getTableName('admin/user')} u ON u.email = t.email
-   ORDER BY t.title ASC
-      LIMIT 300"
+    "SELECT * FROM {$trainersTable} ORDER BY title ASC LIMIT 300"
 );
 endif; // end if (admin || training_provider)
 

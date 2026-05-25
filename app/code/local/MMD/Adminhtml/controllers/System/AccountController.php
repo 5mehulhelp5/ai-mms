@@ -103,6 +103,22 @@ class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_Accou
                 'user_id = ' . (int)$userId
             );
 
+            // Mirror trainer_description into courses_trainers.description
+            // for the trainer row that shares this user's email — keeps
+            // the View Trainers grid in sync with what the trainer just
+            // saved on their My Profile page. Silent no-op if no match.
+            if (array_key_exists('trainer_description', $profileData)) {
+                try {
+                    $write->update(
+                        $resource->getTableName('courses_trainers'),
+                        ['description' => $profileData['trainer_description']],
+                        ['email = ?' => $user->getEmail()]
+                    );
+                } catch (Exception $_syncEx) {
+                    Mage::logException($_syncEx);
+                }
+            }
+
             Mage::getSingleton('adminhtml/session')->addSuccess(
                 Mage::helper('adminhtml')->__('The account has been saved.')
             );
