@@ -118,17 +118,26 @@
 /* <ul><li> item rows: drop Ultimo's arrow image and render as the same
    bullet + italic as the <p><em> rows above. Plain lists only — leave
    ul.disc / ul.no-bullets (intentionally-styled lists) untouched. */
-#acctab-description + .panel .std ul:not(.no-bullets):not(.disc) {
+/* Scoped to direct .std children of .panel — the legacy flat-description
+   layout. The new What-You'll-Learn card nests .std inside .course-policy-card
+   so its lists fall through to the policy-card bullet styling instead. */
+#acctab-description + .panel > .std ul:not(.no-bullets):not(.disc) {
     list-style: none;
     padding-left: 0;
     margin: 4px 0 0;
 }
-#acctab-description + .panel .std ul:not(.no-bullets):not(.disc) li {
+/* Scoped to direct .std children of .panel — the legacy flat-description
+   layout. The new What-You'll-Learn card nests .std inside .course-policy-card
+   so its lists fall through to the policy-card bullet styling instead. */
+#acctab-description + .panel > .std ul:not(.no-bullets):not(.disc) li {
     background-image: none !important;
     padding-left: 0 !important;
     font-style: italic;
 }
-#acctab-description + .panel .std ul:not(.no-bullets):not(.disc) li::before {
+/* Scoped to direct .std children of .panel — the legacy flat-description
+   layout. The new What-You'll-Learn card nests .std inside .course-policy-card
+   so its lists fall through to the policy-card bullet styling instead. */
+#acctab-description + .panel > .std ul:not(.no-bullets):not(.disc) li::before {
     content: "\2022\00a0\00a0"; /* bullet + two nbsp */
     font-style: normal;
     color: inherit;
@@ -607,6 +616,7 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--brochure      .course-policy-card__header { background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%); }
 .course-policy-card--funding       .course-policy-card__header { background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%); }
 .course-policy-card--about         .course-policy-card__header { background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%); }
+.course-policy-card--assessment    .course-policy-card__header { background: linear-gradient(180deg, #fdf4ff 0%, #fae8ff 100%); }
 
 .course-policy-card__icon {
     flex: 0 0 28px;
@@ -625,6 +635,46 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--brochure      .course-policy-card__icon { background: #ea580c; }
 .course-policy-card--funding       .course-policy-card__icon { background: #059669; }
 .course-policy-card--about         .course-policy-card__icon { background: #2563eb; }
+.course-policy-card--assessment    .course-policy-card__icon { background: #a21caf; }
+
+/* Course Details tab — render the description + assessment as stacked cards
+   instead of a flat <h2> + <div.std>. Hides the legacy heading and gives the
+   cards a little breathing room when they're inside the tab panel. */
+.course-details-tab-heading { display: none; }
+.course-details-card { margin: 0 0 16px; }
+.course-details-card:last-child { margin-bottom: 0; }
+
+/* Assessment list — clean checkmark bullets matching the policy-card body. */
+.course-assessment-list { margin: 0; padding: 0; list-style: none; }
+.course-assessment-list li {
+    position: relative;
+    padding: 8px 0 8px 32px;
+    border-bottom: 1px dashed #e2e8f0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #1f2937;
+}
+.course-assessment-list li:last-child { border-bottom: 0; }
+.course-assessment-list li::before {
+    content: "";
+    position: absolute;
+    left: 4px; top: 11px;
+    width: 18px; height: 18px;
+    border-radius: 4px;
+    background: #a21caf;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>") center / 14px 14px no-repeat;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>") center / 14px 14px no-repeat;
+}
+
+/* On mobile, hide the whole tabs/accordion section. Primary-column cards
+   already carry the important content (description, course info, funding,
+   policies). Hiding the tab section trims a long scroll on phones. */
+@media (max-width: 770px) {
+    .catalog-product-view .box-additional,
+    .catalog-product-view #product-tabs,
+    .catalog-product-view .acctab,
+    .catalog-product-view .acctab + .panel { display: none !important; }
+}
 
 /* Font consistency across the whole product page. Admin-pasted HTML in
    short_description, custom tabs, CMS blocks, and product options
@@ -1657,7 +1707,10 @@ li.level2 > a > span > .cat-label,
    the italics on item rows (italics at length feel placeholder-ish) and
    tightens spacing so each topic block reads as a discrete group. */
 #acctab-description + .panel .std p:not(:has(strong)),
-#acctab-description + .panel .std ul:not(.no-bullets):not(.disc) li {
+/* Scoped to direct .std children of .panel — the legacy flat-description
+   layout. The new What-You'll-Learn card nests .std inside .course-policy-card
+   so its lists fall through to the policy-card bullet styling instead. */
+#acctab-description + .panel > .std ul:not(.no-bullets):not(.disc) li {
     font-style: normal;
     color: #1f2937;
     line-height: 1.65;
@@ -1670,7 +1723,10 @@ li.level2 > a > span > .cat-label,
     border-bottom: 1px solid #f1f5f9;
 }
 #acctab-description + .panel .std p:not(:has(strong))::before,
-#acctab-description + .panel .std ul:not(.no-bullets):not(.disc) li::before {
+/* Scoped to direct .std children of .panel — the legacy flat-description
+   layout. The new What-You'll-Learn card nests .std inside .course-policy-card
+   so its lists fall through to the policy-card bullet styling instead. */
+#acctab-description + .panel > .std ul:not(.no-bullets):not(.disc) li::before {
     color: #0b4d86;
     font-weight: 700;
 }

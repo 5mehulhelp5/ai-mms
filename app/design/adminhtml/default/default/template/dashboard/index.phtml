@@ -2768,6 +2768,48 @@ function devSetView(view) {
                 <textarea class="dcf-textarea dcf-textarea-rich" name="learning_outcomes" placeholder="Enter course topics and learning units (HTML supported)..."><?php echo htmlspecialchars($_editCourseData['learning_outcomes']) ?></textarea>
             </div>
 
+            <!-- Assessment Methods — backs the storefront "Assessment" card
+                 inside the Course Details tab. WSQ-only on storefront; the
+                 attribute is editable for every course so non-WSQ courses
+                 can opt-in later if the policy changes. -->
+            <?php
+            $_asmtAttr  = Mage::getModel('eav/entity_attribute')->loadByCode('catalog_product', 'assessment_methods');
+            $_asmtOpts  = [];
+            if ($_asmtAttr->getId()) {
+                foreach ($_asmtAttr->getSource()->getAllOptions(false) as $_o) {
+                    if (!empty($_o['value'])) {
+                        $_asmtOpts[] = ['id' => (int) $_o['value'], 'label' => (string) $_o['label']];
+                    }
+                }
+            }
+            $_asmtCurrentRaw = (string) $_editProd->getData('assessment_methods');
+            $_asmtCurrentIds = array_map('intval', array_filter(explode(',', $_asmtCurrentRaw), 'strlen'));
+            $_asmtIsWsq      = (stripos((string) $_editProd->getSku(), 'TGS-') === 0);
+            ?>
+            <div class="dcf-section">
+                <div class="dcf-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    Assessment Methods
+                    <span style="font-size:11px;color:#94a3b8;font-weight:normal;margin-left:8px;">
+                        Storefront: <?php echo $_asmtIsWsq ? 'shown (WSQ course)' : 'hidden (non-WSQ — TGS- SKU only)' ?>
+                    </span>
+                </div>
+                <div style="font-size:12px;color:#94a3b8;margin:0 0 10px;">Select the assessment methods used in this course. WSQ courses default to Written Exam + Practical Exam if none are selected.</div>
+                <input type="hidden" name="_assessment_methods_loaded" value="1" />
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 18px;">
+                    <?php foreach ($_asmtOpts as $_o): ?>
+                    <label style="display:flex;align-items:center;gap:8px;color:#f1f5f9;font-size:14px;cursor:pointer;">
+                        <input type="checkbox"
+                               name="assessment_methods[]"
+                               value="<?php echo (int) $_o['id'] ?>"
+                               <?php echo in_array((int) $_o['id'], $_asmtCurrentIds, true) ? 'checked' : '' ?>
+                               style="accent-color:#2563eb;width:16px;height:16px;" />
+                        <?php echo htmlspecialchars($_o['label']) ?>
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
             <!-- Course Info — backs the storefront "Course Info" tab (prerequisite attribute). -->
             <div class="dcf-section">
                 <div class="dcf-section-title">

@@ -121,6 +121,19 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             if (($v = $req->getParam('level'))           !== null) $product->setData('level',           $v === '' ? null : (int)$v);
             if (($v = $req->getParam('additional_note')) !== null) $product->setData('additional_note', $v);
 
+            // Assessment Methods (multiselect EAV `assessment_methods`).
+            // The form always submits a hidden `_assessment_methods_loaded`
+            // sentinel so we can tell "user unchecked everything" (sentinel
+            // present, checkbox array absent or empty) from "form panel
+            // wasn't rendered at all" (sentinel absent — never touch).
+            if ($req->getParam('_assessment_methods_loaded') !== null) {
+                $_methods = $req->getParam('assessment_methods');
+                if (!is_array($_methods)) { $_methods = []; }
+                $_methods = array_values(array_unique(array_map('intval', array_filter($_methods, 'strlen'))));
+                sort($_methods, SORT_NUMERIC);
+                $product->setData('assessment_methods', $_methods ? implode(',', $_methods) : null);
+            }
+
             // Per-course CMS block sections (Learning Outcomes, Brochure,
             // Skills Framework, Certification, WSQ Funding). Identifier
             // convention: course_<sku>_<section>. Empty submission deletes
