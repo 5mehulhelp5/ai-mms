@@ -2142,7 +2142,7 @@ try {
 
     // Server-side filter by course type (software attribute)
     if ($_devFilterType !== '') {
-        $_typeMap = array('nonfunded'=>'Non-funded');
+        $_typeMap = array('funded'=>'Funded', 'nonfunded'=>'Non-funded');
         $_typeKey = strtolower($_devFilterType);
         if (isset($_typeMap[$_typeKey])) {
             $_optId = Mage::getSingleton('eav/config')->getAttribute('catalog_product', 'software')->getSource()->getOptionId($_typeMap[$_typeKey]);
@@ -2306,6 +2306,7 @@ endif; // end if ($_courseManagerActive) — closes the $_devCollection block
                     <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:6px;">Course Type</div>
                     <select id="dev-filter-type" onchange="devApplyFilters()" style="width:100%;padding:10px 14px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;outline:none;">
                         <option value="">All Types</option>
+                        <option value="funded" <?php echo strtolower($_devFilterType) === 'funded' ? 'selected' : '' ?>>Funded</option>
                         <option value="nonfunded" <?php echo strtolower($_devFilterType) === 'nonfunded' ? 'selected' : '' ?>>Non-funded</option>
                     </select>
                 </div>
