@@ -11,22 +11,36 @@ Disallow: /pkginfo/
 Disallow: /report/
 Disallow: /var/
 Disallow: /catalog/product_compare/
-Disallow: /catalog/ 
+Disallow: /catalog/
+Disallow: /catalog/product/view/id/
 Disallow: /customer/
-Disallow: /catalogsearch/advanced/
 Disallow: /wishlist/
 Disallow: /404/
 Disallow: /admin/
+Disallow: /tigerdragon/
 Disallow: /api/
 Disallow: /install/
-Disallow: /catalog/product/view/id/</code>
-Disallow: /customer/
 Disallow: /oldsite/
 Disallow: /directory/
 Disallow: /captcha/
 Disallow: /tag/
 Disallow: /review/
+Disallow: /sendfriend/
+Disallow: /poll/
+Disallow: /newsletter/
 
+# Disallow URL parameters (layered nav, sort, store switcher)
+Disallow: /*?dir=
+Disallow: /*?order=
+Disallow: /*?p=
+Disallow: /*?price=
+Disallow: /*?cat=
+Disallow: /*?manufacturer=
+Disallow: /*?limit=
+Disallow: /*?mode=
+Disallow: /*?___store=
+Disallow: /*?___from_store=
+Disallow: /*?SID=
 
 # Files
 Disallow: /cron.php
@@ -40,5 +54,11 @@ Disallow: /STATUS.txt
 Disallow: /meta-certified-media-buying-professional-400-101-exam-prep-640.html
 Disallow: /meta-certified*
 
-
-
+# Sitemaps (one per live country domain — Google reads the one matching the requested host)
+# Reserved domains (tertiarycourses.bt, tertiarycourses.com.in) are intentionally omitted
+# until their DNS is pointed at this hosting; sitemap files still generate via cron.
+Sitemap: https://www.tertiarycourses.com.sg/sitemap.xml
+Sitemap: https://www.tertiaryinfotech.edu.sg/sitemap.xml
+Sitemap: https://www.tertiarycourses.com.my/sitemap.xml
+Sitemap: https://www.tertiarycourses.com.ng/sitemap.xml
+Sitemap: https://www.tertiarycourses.com.gh/sitemap.xml

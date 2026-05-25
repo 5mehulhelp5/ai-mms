@@ -57,6 +57,33 @@ RewriteCond %{HTTP_HOST} ^tertiarycourses\.com\.sg$ [NC]
 RewriteRule ^(.*)$ https://www.tertiarycourses.com.sg/$1 [L,R=301]
 
 ############################################
+## Per-host sitemap routing
+## Maps /sitemap.xml on each country domain to that store's generated file.
+## Per-store files come from Magento's sitemap cron (Admin: Catalog → Google Sitemap,
+## rows seeded by migrations/163-per-store-sitemaps.sql).
+RewriteCond %{HTTP_HOST} ^(www\.)?tertiarycourses\.com\.sg$ [NC]
+RewriteRule ^sitemap\.xml$ /sitemap_singapore.xml [L]
+
+RewriteCond %{HTTP_HOST} ^(www\.)?tertiarycourses\.com\.my$ [NC]
+RewriteRule ^sitemap\.xml$ /sitemap_malaysia.xml [L]
+
+RewriteCond %{HTTP_HOST} ^(www\.)?tertiarycourses\.com\.gh$ [NC]
+RewriteRule ^sitemap\.xml$ /sitemap_ghana.xml [L]
+
+RewriteCond %{HTTP_HOST} ^(www\.)?tertiarycourses\.com\.ng$ [NC]
+RewriteRule ^sitemap\.xml$ /sitemap_nigeria.xml [L]
+
+RewriteCond %{HTTP_HOST} ^(www\.)?tertiaryinfotech\.edu\.sg$ [NC]
+RewriteRule ^sitemap\.xml$ /sitemap_infotech.xml [L]
+
+## Reserved (DNS not yet pointed at this hosting):
+##   tertiarycourses.bt     → sitemap_bhutan.xml
+##   tertiarycourses.com.in → sitemap_india.xml
+## Sitemap files are still generated daily by cron so they're ready when DNS cuts over;
+## just uncomment the matching RewriteCond/RewriteRule block here and re-enable the
+## Sitemap: line in robots.txt + add the store_id to $_hreflangMap in head.phtml.
+
+############################################
 ## uncomment these lines for CGI mode
 ## make sure to specify the correct cgi php binary file name
 ## it might be /cgi-bin/php-cgi
