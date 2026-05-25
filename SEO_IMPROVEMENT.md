@@ -115,14 +115,15 @@ done
 # Expected: Strict-Transport-Security: max-age=31536000
 ```
 
-## Week 3–4 — Structural (target ship: 2026-06-13)
+## Week 3 — Structural (partial ship 2026-05-26)
 
 | # | Item | File(s) | Status |
 |---|------|---------|--------|
-| 3.1 | Replace `<div class="header/main/footer">` with `<header>/<main>/<footer>` HTML5 landmarks | `page/1column.phtml`, `2columns-*.phtml`, `3columns.phtml`, header.phtml, footer.phtml | ☐ |
-| 3.2 | Add `aria-expanded` toggling to Ultimo mega menu items | `page/html/topmenu.phtml` + Ultimo menu JS | ☐ |
-| 3.3 | Audit + decide on "Use Categories Path for Product URLs" (current=Yes, redirects 1.3K short URLs to long ones — wastes crawl) | Admin → Catalog → SEO config + URL rewrite reindex | ☐ |
-| 3.4 | Fix homepage H1 — move keyword phrase to real H1 inside hero block, demote logo wrapper to div | header.phtml + hero CMS block | ☐ |
+| 3.1 | Replace `<div class="header/main/footer">` with `<header>/<main>/<footer>` HTML5 landmarks (classes preserved, additive) | header.phtml, footer.phtml, 1column/2col-left/2col-right/3col templates | ✅ `8a630b260` |
+| 3.2 | Add `aria-expanded` toggling to Ultimo mega menu items | `infortis/ultramegamenu/mainmenu.phtml` + JS | ☐ Deferred — needs block override + JS togglers, not cosmetic |
+| 3.3 | Decide on "Use Categories Path for Product URLs" (currently YES, redirects 1.3K short URLs — wastes crawl) | Admin → Catalog → SEO config + URL rewrite reindex | ☐ **High-risk; ship in its own dedicated week** with no other SEO changes (4-8 week stabilisation window in GSC) |
+| 3.4 | Demote logo H1 wrapper to div (was keyword-stuffed brand slogan, not a real H1) | [logo.phtml](app/design/frontend/ultimo/default/template/page/html/logo.phtml) | ✅ `8a630b260` |
+| 3.4b | Add a real H1 inside the homepage hero CMS block | admin → CMS → Static Blocks (hero block on homepage) | ☐ Pending — content task, needs admin |
 
 **Risk note 3.3:** Flipping the SEO category-path setting will **301 every existing long URL back to the short URL**. Google must re-crawl all 1,365 catalog URLs. Plan a 4-week stabilisation window after this change; don't combine with other indexability changes.
 
