@@ -178,7 +178,7 @@
 
                     <?php else: ?>
 
-                        <img src="<?php echo $helpImg->getImg($_item, $imgWidth, $imgHeight, 'small_image'); ?>" alt="<?php echo $this->escapeHtml($_item->getName()); ?>" />
+                        <img src="<?php echo $helpImg->getImg($_item, $imgWidth, $imgHeight, 'small_image'); ?>" alt="<?php echo $this->escapeHtml($_item->getName()); ?>" loading="lazy" decoding="async" />
 
                     <?php endif; ?>
 

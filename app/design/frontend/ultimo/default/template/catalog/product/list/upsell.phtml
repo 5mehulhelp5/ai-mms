@@ -192,7 +192,7 @@
 
                     <?php else: ?>
 
-                        <img src="<?php echo $helpImg->getImg($_product, $imgWidth, $imgHeight, 'small_image'); ?>" alt="<?php echo $this->escapeHtml($_product->getName()) ?>" />
+                        <img src="<?php echo $helpImg->getImg($_product, $imgWidth, $imgHeight, 'small_image'); ?>" alt="<?php echo $this->escapeHtml($_product->getName()) ?>" loading="lazy" decoding="async" />
 
                     <?php endif; ?>
 
