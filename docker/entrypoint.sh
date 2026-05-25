@@ -154,6 +154,11 @@ for i in $(seq 1 $MAX_ATTEMPTS); do
     if php "$MIGRATION_RUNNER"; then
         echo "entrypoint: migrations complete"
         apply_local_db_mode
+        # Sync SMTPPro fallback passwords from env -> core_config_data
+        # (encrypted). No-op if the relevant env vars are unset. Never fatal:
+        # SMTP misconfig should not block the container from serving traffic.
+        php /var/www/html/scripts/maintenance/ensure-smtp-fallback-passwords.php \
+            || echo "entrypoint: WARNING — SMTP fallback sync errored (non-fatal)"
         break
     fi
     if [ "$i" -eq "$MAX_ATTEMPTS" ]; then
