@@ -446,8 +446,8 @@ body .header-top {
 body.adminhtml-catalog-category-edit .side-col,
 body.adminhtml-catalog-category-index .side-col,
 body.catalog-categories .side-col {
-    flex: 0 0 320px !important;
-    width: 320px !important;
+    flex: 0 0 310px !important;
+    width: 310px !important;
 }
 
 /* Tree-actions row — Add Root / Add Subcategory + Collapse / Expand All
@@ -1960,8 +1960,8 @@ body.has-overlay-sidecol .main-col {
 body.has-overlay-sidecol .side-col.side-col-overlay {
     position: fixed !important;
     top: 60px !important;
-    left: -320px !important;
-    width: 320px !important;
+    left: -310px !important;
+    width: 310px !important;
     height: calc(100vh - 60px) !important;
     z-index: 1500 !important;
     transition: left 0.22s ease !important;
