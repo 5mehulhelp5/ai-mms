@@ -2023,38 +2023,11 @@ $_devCountry       = isset($_devStoreToCountry[$_devActiveStoreId])
     ? $_devStoreToCountry[$_devActiveStoreId]
     : 'All';
 $_devFilterType = (string) Mage::app()->getRequest()->getParam('dev_type', '');
+$_devFilterLevel = (string) Mage::app()->getRequest()->getParam('dev_level', '');
 $_devFilterQuery = trim((string) Mage::app()->getRequest()->getParam('dev_q', ''));
-// Courseware filter:
-//   ''        = all
-//   'missing' = no row in course_courseware, OR all 5 URL columns empty
-//   'partial' = row exists and between 1 and 4 URLs are filled
-//   'all'     = row exists and all 5 URLs are filled
-$_devFilterCourseware = (string) Mage::app()->getRequest()->getParam('dev_courseware', '');
-$_devCwCount = array(); // product_id => count of non-empty URLs (0..5)
-$_devCwTotal = 5;       // number of URL columns we care about — must match the SUM-over-CASE in the count query below + the $_cwFields array in the edit form
 $_devTotalCount = 0;
 $_devTotalPages = 1;
 $_devTotalAll = 0;
-
-// Courseware-URL counts are only used by the Developer panel's filter
-// chips, so skip the SUM-over-CASE query for every other role.
-if ($_courseManagerActive && in_array($_devFilterCourseware, array('missing','partial','all'), true)) {
-    try {
-        $_cwRead = Mage::getSingleton('core/resource')->getConnection('core_read');
-        // Count non-empty URLs per product. (col != '') casts to 0/1, summed.
-        $_cwRows = $_cwRead->fetchAll(
-            "SELECT product_id,
-                ((COALESCE(lesson_plan_url,'')        != '') +
-                 (COALESCE(learner_slides_url,'')     != '') +
-                 (COALESCE(trainer_slides_url,'')     != '') +
-                 (COALESCE(courseware_link,'')        != '') +
-                 (COALESCE(brochure_link,'')          != '')
-                ) AS filled
-             FROM course_courseware"
-        );
-        foreach ($_cwRows as $_cwR) $_devCwCount[(int)$_cwR['product_id']] = (int)$_cwR['filled'];
-    } catch (Exception $_cwEx) { /* table may not exist yet — fall through */ }
-}
 
 // Build a single "back" query string from the active filter/page state.
 // Threaded through View / Edit / Save / Cancel as ?dev_back=… so the editor
@@ -2062,8 +2035,8 @@ if ($_courseManagerActive && in_array($_devFilterCourseware, array('missing','pa
 $_devBackParams = array('dev_country' => $_devCountry);
 if ($_devCurPage > 1)             $_devBackParams['dev_page']       = $_devCurPage;
 if ($_devFilterType !== '')       $_devBackParams['dev_type']       = $_devFilterType;
+if ($_devFilterLevel !== '')      $_devBackParams['dev_level']      = $_devFilterLevel;
 if ($_devFilterQuery !== '')      $_devBackParams['dev_q']          = $_devFilterQuery;
-if ($_devFilterCourseware !== '') $_devBackParams['dev_courseware'] = $_devFilterCourseware;
 $_devBackQs = http_build_query($_devBackParams);
 // "All" → website_id 0 (treated as "no country filter" everywhere below)
 // Canonical branch order across the admin (matches store_id ordering):
@@ -2152,6 +2125,16 @@ try {
         }
     }
 
+    // Server-side filter by course level (level attribute). Resolves the
+    // dropdown's value (canonical option label) to the EAV option_id and
+    // filters the collection.
+    if ($_devFilterLevel !== '') {
+        $_levelOptId = Mage::getSingleton('eav/config')->getAttribute('catalog_product', 'level')->getSource()->getOptionId($_devFilterLevel);
+        if ($_levelOptId) {
+            $_devCollection->addAttributeToFilter('level', $_levelOptId);
+        }
+    }
+
     // Server-side search by course name or SKU
     if ($_devFilterQuery !== '') {
         $_devCollection->addFieldToFilter(array(
@@ -2163,15 +2146,6 @@ try {
     $_devTotalCount = $_devCollection->getSize();
     $_devCollection->setPageSize($_devPageSize)->setCurPage($_devCurPage);
     foreach ($_devCollection as $_dp) {
-        // Apply courseware filter — skip rows that don't match the chosen state
-        if (in_array($_devFilterCourseware, array('missing','partial','all'), true)) {
-            $_pid = (int)$_dp->getId();
-            $_filled = isset($_devCwCount[$_pid]) ? $_devCwCount[$_pid] : 0;
-            if ($_devFilterCourseware === 'missing' && $_filled !== 0)            continue;
-            if ($_devFilterCourseware === 'partial' && ($_filled === 0 || $_filled === $_devCwTotal)) continue;
-            if ($_devFilterCourseware === 'all'     && $_filled !== $_devCwTotal) continue;
-        }
-
         $_dName = $_dp->getName();
         $_dSoftware = $_dp->getAttributeText('software');
         $_devUnfunded++;
@@ -2266,8 +2240,8 @@ endif; // end if ($_courseManagerActive) — closes the $_devCollection block
     ));
     $_devBranchCarry = array();
     if ($_devFilterType !== '')       $_devBranchCarry['dev_type']       = $_devFilterType;
+    if ($_devFilterLevel !== '')      $_devBranchCarry['dev_level']      = $_devFilterLevel;
     if ($_devFilterQuery !== '')      $_devBranchCarry['dev_q']          = $_devFilterQuery;
-    if ($_devFilterCourseware !== '') $_devBranchCarry['dev_courseware'] = $_devFilterCourseware;
     try {
         $_devBranchOptions = Mage::helper('branchscope')->getStorePillOptions();
     } catch (Exception $_e) { $_devBranchOptions = array(); }
@@ -2297,7 +2271,7 @@ endif; // end if ($_courseManagerActive) — closes the $_devCollection block
             <span style="color:#94a3b8;font-size:13px;flex-shrink:0;">View:</span>
             <div class="lmc-view-toggle"><button type="button" class="lmc-view-btn active" id="dev-grid-btn" onclick="devSetView('grid')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button><button type="button" class="lmc-view-btn" id="dev-list-btn" onclick="devSetView('list')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button></div>
             <button type="button" onclick="devResetFilters()" style="background:transparent !important;background-image:none !important;border:none !important;color:#94a3b8 !important;font-size:13px !important;font-weight:500 !important;cursor:pointer !important;padding:4px 8px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;">Reset</button>
-            <?php $_devFiltersOpen = $_devFilterType !== '' || $_devFilterCourseware !== ''; ?>
+            <?php $_devFiltersOpen = $_devFilterType !== '' || $_devFilterLevel !== ''; ?>
             <button type="button" id="dev-filter-toggle" data-open="<?php echo $_devFiltersOpen ? '1' : '0' ?>" onclick="devToggleFilters()" style="background:transparent !important;background-image:none !important;border:1px solid !important;font-size:13px !important;font-weight:600 !important;cursor:pointer !important;padding:6px 16px !important;box-shadow:none !important;text-shadow:none !important;text-transform:none !important;height:auto !important;min-width:0 !important;line-height:normal !important;border-radius:8px !important;"><?php echo $_devFiltersOpen ? 'Hide Filters' : 'Show Filters' ?></button>
         </div>
         <div id="dev-filter-row" style="display:<?php echo $_devFiltersOpen ? 'block' : 'none' ?>;margin-top:14px;">
@@ -2311,21 +2285,12 @@ endif; // end if ($_courseManagerActive) — closes the $_devCollection block
                     </select>
                 </div>
                 <div style="flex:1;min-width:200px;">
-                    <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:6px;">Mode of Training</div>
-                    <select id="dev-filter-mode" onchange="devApplyFilters()" style="width:100%;padding:10px 14px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;outline:none;">
-                        <option value="">All Modes</option>
-                        <option value="physical">Physical</option>
-                        <option value="virtual">Virtual</option>
-                        <option value="hybrid">Hybrid</option>
-                    </select>
-                </div>
-                <div style="flex:1;min-width:200px;">
-                    <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:6px;">Courseware</div>
-                    <select id="dev-filter-courseware" onchange="devApplyFilters()" style="width:100%;padding:10px 14px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;outline:none;">
-                        <option value="">All</option>
-                        <option value="missing"<?php echo $_devFilterCourseware === 'missing' ? ' selected' : '' ?>>Has no courseware links</option>
-                        <option value="partial"<?php echo $_devFilterCourseware === 'partial' ? ' selected' : '' ?>>Partially filled links</option>
-                        <option value="all"<?php echo $_devFilterCourseware === 'all' ? ' selected' : '' ?>>All links filled</option>
+                    <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-bottom:6px;">Level</div>
+                    <select id="dev-filter-level" onchange="devApplyFilters()" style="width:100%;padding:10px 14px;background:#111827;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;appearance:auto;outline:none;">
+                        <option value="">All Levels</option>
+                        <?php foreach (array('Beginner','Beginner to Intermediate','Intermediate','Advanced') as $_lvl): ?>
+                            <option value="<?php echo htmlspecialchars($_lvl) ?>"<?php echo $_devFilterLevel === $_lvl ? ' selected' : '' ?>><?php echo htmlspecialchars($_lvl) ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
             </div>
@@ -2399,11 +2364,11 @@ endif; // end if ($_courseManagerActive) — closes the $_devCollection block
     <div class="dev-pagination">
         <?php
         $_devBaseUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
-        $_devPageUrl = function($p) use ($_devBaseUrl, $_devCountry, $_devFilterType, $_devFilterQuery, $_devFilterCourseware) {
+        $_devPageUrl = function($p) use ($_devBaseUrl, $_devCountry, $_devFilterType, $_devFilterLevel, $_devFilterQuery) {
             $qs = array('dev_country=' . urlencode($_devCountry), 'dev_page=' . $p);
             if ($_devFilterType !== '') $qs[] = 'dev_type=' . urlencode($_devFilterType);
+            if ($_devFilterLevel !== '') $qs[] = 'dev_level=' . urlencode($_devFilterLevel);
             if ($_devFilterQuery !== '') $qs[] = 'dev_q=' . urlencode($_devFilterQuery);
-            if ($_devFilterCourseware !== '') $qs[] = 'dev_courseware=' . urlencode($_devFilterCourseware);
             return $_devBaseUrl . '?' . implode('&', $qs) . '#courses';
         };
         ?>
@@ -2450,16 +2415,16 @@ function devApplyFilters() {
     var country = <?php echo json_encode($_devCountry) ?>;
     var curPage = <?php echo json_encode($_devCurPage) ?>;
     var typeEl = document.getElementById('dev-filter-type');
+    var levelEl = document.getElementById('dev-filter-level');
     var qEl = document.getElementById('dev-search-input');
-    var cwEl = document.getElementById('dev-filter-courseware');
     var params = ['dev_country=' + encodeURIComponent(country)];
     // Carry current page across filter changes so changing a dropdown doesn't
     // bounce the user back to page 1. The server clamps if the page no longer
     // exists in the new result set.
     if (curPage > 1) params.push('dev_page=' + curPage);
     if (typeEl && typeEl.value) params.push('dev_type=' + encodeURIComponent(typeEl.value));
+    if (levelEl && levelEl.value) params.push('dev_level=' + encodeURIComponent(levelEl.value));
     if (qEl && qEl.value.trim() !== '') params.push('dev_q=' + encodeURIComponent(qEl.value.trim()));
-    if (cwEl && cwEl.value) params.push('dev_courseware=' + encodeURIComponent(cwEl.value));
     window.location.href = base + '?' + params.join('&') + '#courses';
 }
 function devResetFilters() {
