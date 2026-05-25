@@ -739,7 +739,26 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 		<div class="product-primary-column product-shop <?php echo $grid['primCol']; ?>">
 
 			<div class="product-name">
-				<h1 itemprop="name"><?php echo $_helper->productAttribute($_product, $_product->getName(), 'name') ?></h1>
+				<?php
+				// SEO: prefer the product's meta_title for the H1 so a single-word
+				// course name ("Python") doesn't outrank-compete with python.org. Fall
+				// back to "<Name> Course in <Country>" so the H1 always carries country
+				// context — strongest on-page signal after <title>.
+				$_productName = $_product->getName();
+				$_metaTitle   = trim((string) $_product->getMetaTitle());
+				if ($_metaTitle !== '' && $_metaTitle !== $_productName) {
+					$_h1 = $_metaTitle;
+				} else {
+					$_countryByStore = [
+						1 => 'Singapore', 2 => 'Malaysia', 3 => 'Ghana',
+						4 => 'Nigeria',   5 => 'Bhutan',   6 => 'India',
+						7 => 'Singapore',
+					];
+					$_country = $_countryByStore[(int) Mage::app()->getStore()->getId()] ?? 'Singapore';
+					$_h1 = $_productName . ' Course in ' . $_country;
+				}
+				?>
+				<h1 itemprop="name"><?php echo $_helper->productAttribute($_product, $_h1, 'name') ?></h1>
 			</div>
 
 			<?php if ($sku = $_product->getSku()): ?>

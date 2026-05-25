@@ -29,8 +29,7 @@
 <meta http-equiv="Content-Type" content="<?php echo $this->getContentType() ?>" />
 <title><?php echo $this->getTitle() ?></title>
 <?php if ($theme->getCfgLayout('responsive/responsive')): ?>
-	<?php /*<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />*/?>
-	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
 <?php endif; ?>
 
 <meta name="description" content="<?php echo htmlspecialchars($this->getDescription()) ?>" />
@@ -151,6 +150,44 @@ $_xdBase = isset($_stores[1]) ? rtrim($_stores[1]->getBaseUrl(Mage_Core_Model_St
 $_xdPath = $_perStorePath[1] ?? $_curPath;
 ?>
 <link rel="alternate" hreflang="x-default" href="<?php echo htmlspecialchars($_xdBase . $_xdPath, ENT_QUOTES, 'UTF-8'); ?>" />
+
+<?php
+/* ----------------------------------------------------------------------
+ * Open Graph + Twitter card. Restores rich previews on Facebook, LinkedIn,
+ * WhatsApp, Slack, X — without these the share preview shows a blank/random
+ * image picked by each crawler.
+ *
+ * og:image: product page → product main image; otherwise → store logo.
+ * og:type:  product page → "product"; otherwise → "website".
+ * ---------------------------------------------------------------------- */
+$_ogTitle = strip_tags((string) $this->getTitle());
+$_ogDesc  = strip_tags((string) $this->getDescription());
+$_ogUrl   = $_selfCanonical;
+$_ogType  = ($_product && $_product->getId()) ? 'product' : 'website';
+$_ogImage = '';
+if ($_product && $_product->getId()) {
+    try {
+        $_imgFile = $_product->getImage();
+        if ($_imgFile && $_imgFile !== 'no_selection') {
+            $_ogImage = (string) Mage::helper('catalog/image')->init($_product, 'image');
+        }
+    } catch (Exception $_e) { /* no-op */ }
+}
+if (!$_ogImage) {
+    $_ogImage = $_curBase . '/skin/frontend/ultimo/default/images/TertiaryCoursesSingapore.png';
+}
+$_ogSiteName = (string) Mage::getStoreConfig('general/store_information/name') ?: 'Tertiary Courses';
+?>
+<meta property="og:title" content="<?php echo htmlspecialchars($_ogTitle, ENT_QUOTES, 'UTF-8'); ?>" />
+<meta property="og:description" content="<?php echo htmlspecialchars($_ogDesc, ENT_QUOTES, 'UTF-8'); ?>" />
+<meta property="og:url" content="<?php echo htmlspecialchars($_ogUrl, ENT_QUOTES, 'UTF-8'); ?>" />
+<meta property="og:type" content="<?php echo $_ogType; ?>" />
+<meta property="og:image" content="<?php echo htmlspecialchars($_ogImage, ENT_QUOTES, 'UTF-8'); ?>" />
+<meta property="og:site_name" content="<?php echo htmlspecialchars($_ogSiteName, ENT_QUOTES, 'UTF-8'); ?>" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="<?php echo htmlspecialchars($_ogTitle, ENT_QUOTES, 'UTF-8'); ?>" />
+<meta name="twitter:description" content="<?php echo htmlspecialchars($_ogDesc, ENT_QUOTES, 'UTF-8'); ?>" />
+<meta name="twitter:image" content="<?php echo htmlspecialchars($_ogImage, ENT_QUOTES, 'UTF-8'); ?>" />
 
 <link rel="icon" href="<?php echo $this->getFaviconFile(); ?>" type="image/x-icon" />
 <link rel="shortcut icon" href="<?php echo $this->getFaviconFile(); ?>" type="image/x-icon" />
