@@ -8490,39 +8490,33 @@ $_credMask = function ($v) {
 .crd-preset { padding: 4px 10px; font-size: 11px; background: #0f172a; color: #cbd5e1; border: 1px solid #334155; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.1s; }
 .crd-preset:hover { background: #1e293b; border-color: #65b7d5; color: #f1f5f9; }
 .crd-smtp-card select.crd-input { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, #94a3b8 50%), linear-gradient(135deg, #94a3b8 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 32px; }
-/* SMTP password reveal — input + eye button as one connected unit.
-   Avoids absolute positioning (which floated outside in dark theme)
-   by laying them out as flex siblings with stitched borders so they
-   read as a single control. */
-.crd-pwd-wrap { display: flex; align-items: stretch; width: 100%; }
-.crd-pwd-wrap .crd-pwd-input {
-    flex: 1 1 auto;
-    min-width: 0;
-    border-top-right-radius: 0 !important;
-    border-bottom-right-radius: 0 !important;
-    border-right: none !important;
-}
+/* SMTP password reveal — eye button overlaid inside the input field.
+   Wrapper is positioned, input has right padding for the button, and
+   the button sits absolutely on the right edge with a transparent
+   background so it reads as part of the field, not a separate control. */
+.crd-pwd-wrap { position: relative; width: 100%; }
+.crd-pwd-wrap .crd-pwd-input { padding-right: 40px !important; }
 .crd-pwd-wrap .crd-pwd-eye {
-    flex: 0 0 auto;
-    width: 44px;
-    background: #0f172a;
-    border: 1px solid #475569;
-    border-top-right-radius: 8px;
-    border-bottom-right-radius: 8px;
-    color: #94a3b8;
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    background: transparent;
+    border: none;
+    color: #cbd5e1;
     cursor: pointer;
     padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
-    line-height: 1;
-    transition: color 0.1s, background 0.1s, border-color 0.1s;
+    border-radius: 6px;
+    transition: color 0.1s, background 0.1s;
 }
-.crd-pwd-wrap .crd-pwd-eye:hover { color: #f1f5f9; background: #1e293b; border-color: #65b7d5; }
-.crd-pwd-wrap .crd-pwd-eye:focus { outline: none; border-color: #65b7d5; }
-.crd-pwd-wrap .crd-pwd-input:focus { box-shadow: none !important; border-color: #65b7d5 !important; }
-.crd-pwd-wrap .crd-pwd-input:focus + .crd-pwd-eye { border-color: #65b7d5; }
+.crd-pwd-wrap .crd-pwd-eye:hover { color: #f1f5f9; background: rgba(255,255,255,0.06); }
+.crd-pwd-wrap .crd-pwd-eye:focus { outline: none; background: rgba(101,183,213,0.12); color: #f1f5f9; }
+.crd-pwd-wrap .crd-pwd-eye svg { display: block; }
 .crd-pwd-input[type="text"] { font-family: ui-monospace, monospace; letter-spacing: 0.5px; }
 .crd-smtp-card option { background: #1e293b; color: #f1f5f9; }
 /* Collapsible SMTP section */
@@ -8548,15 +8542,47 @@ $_credMask = function ($v) {
             <button type="submit" class="crd-btn crd-btn-primary">Save Credentials</button>
         </div>
 
+        <?php
+        /* Renders a masked credential input with an eye-toggle that reveals
+           the saved value on click. Pass the form field name + the symbolic
+           reveal name (must be in MaildiagnoseController::_revealableCreds)
+           and the saved value. */
+        $_renderRevealable = function ($name, $credField, $savedValue, $placeholder = '', $hint = '') use ($_credMask) {
+            $hasValue = (string) $savedValue !== '';
+            $masked   = $_credMask($savedValue);
+            ?>
+            <div class="crd-pwd-wrap">
+                <input type="text" class="crd-input crd-pwd-input"
+                    id="cred-<?php echo htmlspecialchars($credField) ?>"
+                    name="<?php echo htmlspecialchars($name) ?>"
+                    data-original="<?php echo $hasValue ? '__MASKED__' : '' ?>"
+                    data-credfield="<?php echo htmlspecialchars($credField) ?>"
+                    value="<?php echo htmlspecialchars($masked) ?>"
+                    placeholder="<?php echo htmlspecialchars($placeholder) ?>" />
+                <?php if ($hasValue): ?>
+                <button type="button" class="crd-pwd-eye"
+                    onclick="crdCredToggle('<?php echo htmlspecialchars($credField) ?>', this)"
+                    title="Show saved value"
+                    aria-label="Show saved value">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                </button>
+                <?php endif; ?>
+            </div>
+            <?php if ($hint !== ''): ?>
+            <div class="crd-hint"><?php echo $hint ?></div>
+            <?php endif;
+        };
+        ?>
+
         <div class="crd-card<?php echo $_creds['mmd_marketing/api/anthropic_key'] ? ' has-value' : '' ?>">
             <h3><span class="crd-dot"></span>Anthropic (Claude API)</h3>
             <div class="crd-row">
                 <label class="crd-label">API Key</label>
-                <input type="text" class="crd-input" name="anthropic_key"
-                    data-original="<?php echo $_creds['mmd_marketing/api/anthropic_key'] ? '__MASKED__' : '' ?>"
-                    value="<?php echo $_credMask($_creds['mmd_marketing/api/anthropic_key']) ?>"
-                    placeholder="sk-ant-api03-…" />
-                <div class="crd-hint">Native Anthropic key (sk-ant-…) or OpenRouter (sk-or-…) for marketing-newsletter AI.</div>
+                <?php $_renderRevealable('anthropic_key', 'anthropic_key', $_creds['mmd_marketing/api/anthropic_key'], 'sk-ant-api03-…', 'Native Anthropic key (sk-ant-…) or OpenRouter (sk-or-…) for marketing-newsletter AI.') ?>
             </div>
             <div class="crd-row">
                 <label class="crd-label">Model</label>
@@ -8570,10 +8596,7 @@ $_credMask = function ($v) {
             <h3><span class="crd-dot"></span>MailerLite</h3>
             <div class="crd-row">
                 <label class="crd-label">API Key</label>
-                <input type="text" class="crd-input" name="mailerlite_key"
-                    data-original="<?php echo $_creds['mmd_marketing/api/mailerlite_key'] ? '__MASKED__' : '' ?>"
-                    value="<?php echo $_credMask($_creds['mmd_marketing/api/mailerlite_key']) ?>"
-                    placeholder="eyJ0eXAiOiJKV1QiLCJhbGc…" />
+                <?php $_renderRevealable('mailerlite_key', 'mailerlite_key', $_creds['mmd_marketing/api/mailerlite_key'], 'eyJ0eXAiOiJKV1QiLCJhbGc…') ?>
             </div>
         </div>
 
@@ -8598,10 +8621,24 @@ $_credMask = function ($v) {
             <div class="crd-row">
                 <label class="crd-label">API Key</label>
                 <div style="display:flex;gap:8px;align-items:stretch">
-                    <input type="text" class="crd-input" name="kael_review_key" id="kael-review-key-input"
-                        data-original="<?php echo $_creds['mmd_company/api/kael_review_key'] ? '__MASKED__' : '' ?>"
-                        value="<?php echo $_credMask($_creds['mmd_company/api/kael_review_key']) ?>"
-                        placeholder="kael_rv_… (or click Generate)" style="flex:1" />
+                    <div class="crd-pwd-wrap" style="flex:1;">
+                        <input type="text" class="crd-input crd-pwd-input" name="kael_review_key" id="kael-review-key-input"
+                            data-original="<?php echo $_creds['mmd_company/api/kael_review_key'] ? '__MASKED__' : '' ?>"
+                            data-credfield="kael_review_key"
+                            value="<?php echo $_credMask($_creds['mmd_company/api/kael_review_key']) ?>"
+                            placeholder="kael_rv_… (or click Generate)" />
+                        <?php if ($_creds['mmd_company/api/kael_review_key']): ?>
+                        <button type="button" class="crd-pwd-eye"
+                            onclick="crdCredToggle('kael_review_key', this)"
+                            title="Show saved value" aria-label="Show saved value">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                        <?php endif; ?>
+                    </div>
                     <button type="button" class="crd-btn crd-btn-ghost" onclick="kaelGenerateKey()"
                             style="padding:0 16px;white-space:nowrap;font-size:12px">
                         Generate
@@ -8644,25 +8681,15 @@ $_credMask = function ($v) {
             </div>
             <div class="crd-row">
                 <label class="crd-label">Client ID</label>
-                <input type="text" class="crd-input" name="gmail_client_id"
-                    data-original="<?php echo $_creds['mmd_email/google/client_id'] ? '__MASKED__' : '' ?>"
-                    value="<?php echo $_credMask($_creds['mmd_email/google/client_id']) ?>"
-                    placeholder="…apps.googleusercontent.com" />
+                <?php $_renderRevealable('gmail_client_id', 'gmail_client_id', $_creds['mmd_email/google/client_id'], '…apps.googleusercontent.com') ?>
             </div>
             <div class="crd-row">
                 <label class="crd-label">Client Secret</label>
-                <input type="text" class="crd-input" name="gmail_client_secret"
-                    data-original="<?php echo $_creds['mmd_email/google/client_secret'] ? '__MASKED__' : '' ?>"
-                    value="<?php echo $_credMask($_creds['mmd_email/google/client_secret']) ?>"
-                    placeholder="GOCSPX-…" />
+                <?php $_renderRevealable('gmail_client_secret', 'gmail_client_secret', $_creds['mmd_email/google/client_secret'], 'GOCSPX-…') ?>
             </div>
             <div class="crd-row">
                 <label class="crd-label">Refresh Token</label>
-                <input type="text" class="crd-input" name="gmail_refresh_token"
-                    data-original="<?php echo $_creds['mmd_email/google/refresh_token'] ? '__MASKED__' : '' ?>"
-                    value="<?php echo $_credMask($_creds['mmd_email/google/refresh_token']) ?>"
-                    placeholder="1//0g…" />
-                <div class="crd-hint">Obtain from the OAuth Playground after granting Gmail send scope.</div>
+                <?php $_renderRevealable('gmail_refresh_token', 'gmail_refresh_token', $_creds['mmd_email/google/refresh_token'], '1//0g…', 'Obtain from the OAuth Playground after granting Gmail send scope.') ?>
             </div>
         </div>
 
@@ -8969,6 +8996,60 @@ function crdSmtpPreset(code, presetKey) {
 var CRD_EYE_SVG     = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
 var CRD_EYE_OFF_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 6.1A10 10 0 0112 6c6.5 0 10 7 10 7a16.6 16.6 0 01-3.3 4.1"/><path d="M6.5 7.1A16.6 16.6 0 002 12s3.5 7 10 7a10 10 0 003.8-.7"/><path d="M9.9 9.9a3 3 0 004.2 4.2"/></svg>';
 var CRD_SPIN_SVG    = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"/><path d="M21 12a9 9 0 00-9-9"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.9s" repeatCount="indefinite"/></path></svg>';
+
+// Eye toggle for the partial-mask credential cards (API keys + Google
+// OAuth secrets). Sister of crdPwdToggle but talks to /maildiagnose/
+// revealcred and works on the masked placeholder ("xxxx••••yyyy"
+// pattern) rather than the all-dots SMTP password pattern. Same SVG
+// swap + spinner behaviour for visual consistency.
+function crdCredToggle(field, btn) {
+    var inp = document.getElementById('cred-' + field);
+    if (!inp) return;
+    var setIcon = function(svg) { btn.innerHTML = svg; };
+    var isHidden = inp.dataset.original === '__MASKED__' && inp.value.indexOf('•') !== -1;
+
+    if (isHidden) {
+        setIcon(CRD_SPIN_SVG);
+        var data = new FormData();
+        data.append('field', field);
+        data.append('form_key', '<?php echo Mage::getSingleton('core/session')->getFormKey() ?>');
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '<?php echo Mage::helper("adminhtml")->getUrl("adminhtml/maildiagnose/revealcred") ?>', true);
+        xhr.onload = function() {
+            setIcon(CRD_EYE_SVG);
+            if (xhr.status >= 400) {
+                crdToast('Reveal HTTP ' + xhr.status + ': ' + xhr.responseText.substring(0, 120), 'err');
+                return;
+            }
+            var r;
+            try { r = JSON.parse(xhr.responseText); }
+            catch (ex) {
+                var snippet = (xhr.responseText || '').replace(/<[^>]+>/g, ' ').trim().substring(0, 140);
+                crdToast('Reveal: non-JSON response (HTTP ' + xhr.status + '): ' + (snippet || '(empty)'), 'err');
+                return;
+            }
+            if (r.ok) {
+                inp.dataset.maskedPlaceholder = inp.value;
+                inp.value = r.value;
+                setIcon(CRD_EYE_OFF_SVG);
+                btn.title = 'Hide saved value';
+            } else {
+                crdToast('Could not reveal: ' + (r.error || 'unknown'), 'err');
+            }
+        };
+        xhr.onerror = function() {
+            setIcon(CRD_EYE_SVG);
+            crdToast('Network error revealing value', 'err');
+        };
+        xhr.send(data);
+    } else {
+        setIcon(CRD_EYE_SVG);
+        btn.title = 'Show saved value';
+        if (inp.dataset.original === '__MASKED__' && inp.dataset.maskedPlaceholder) {
+            inp.value = inp.dataset.maskedPlaceholder;
+        }
+    }
+}
 
 function crdPwdToggle(code, btn) {
     var inp  = document.getElementById('smtp-pwd-' + code);

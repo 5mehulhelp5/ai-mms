@@ -270,6 +270,60 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
     }
 
     /**
+     * Whitelisted credential paths the reveal endpoint will serve.
+     * Keyed by the field name used in the Credentials panel inputs, so
+     * the JS can pass a symbolic name and the server resolves to the
+     * real core_config_data path. Anything not in this list is rejected
+     * — we never echo arbitrary config back to the client.
+     */
+    protected $_revealableCreds = array(
+        'anthropic_key'       => 'mmd_marketing/api/anthropic_key',
+        'mailerlite_key'      => 'mmd_marketing/api/mailerlite_key',
+        'kael_review_key'     => 'mmd_company/api/kael_review_key',
+        'gmail_client_id'     => 'mmd_email/google/client_id',
+        'gmail_client_secret' => 'mmd_email/google/client_secret',
+        'gmail_refresh_token' => 'mmd_email/google/refresh_token',
+    );
+
+    /**
+     * Generic reveal for the partial-mask credential cards (API keys +
+     * Google OAuth secrets). Sister of revealsmtpAction but for the
+     * default-scope config rows the Credentials panel writes. Admin-auth
+     * (controller class) + form-key gated.
+     *
+     * POST /maildiagnose/revealcred  body: field=<symbolic>&form_key=…
+     * Returns JSON {ok, value|error}.
+     */
+    public function revealcredAction()
+    {
+        $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+
+        $postedKey = (string) $this->getRequest()->getPost('form_key');
+        $sessionKey = (string) Mage::getSingleton('core/session')->getFormKey();
+        if (!$this->getRequest()->isPost() || $postedKey === '' || $postedKey !== $sessionKey) {
+            $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => 'invalid request']));
+            return;
+        }
+
+        $field = (string) $this->getRequest()->getPost('field');
+        if (!isset($this->_revealableCreds[$field])) {
+            $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => 'field not revealable']));
+            return;
+        }
+
+        try {
+            $value = (string) Mage::getStoreConfig($this->_revealableCreds[$field]);
+            if ($value === '') {
+                $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => 'no value saved']));
+                return;
+            }
+            $this->getResponse()->setBody(json_encode(['ok' => true, 'value' => $value]));
+        } catch (Exception $e) {
+            $this->getResponse()->setBody(json_encode(['ok' => false, 'error' => $e->getMessage()]));
+        }
+    }
+
+    /**
      * Send a real test email through a single website's SMTP configuration.
      * Wired to a "Test" button on each per-website SMTP card in the
      * Credentials panel. Builds Zend_Mail_Transport_Smtp directly from the
