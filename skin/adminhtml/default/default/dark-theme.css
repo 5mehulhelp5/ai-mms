@@ -75,9 +75,9 @@
     --d5: #e2e8f0;   /* hover */
     --d6: #cbd5e1;
 
-    --b1: #e2e8f0;   /* hairline */
-    --b2: #cbd5e1;   /* default border */
-    --b3: #94a3b8;   /* strong */
+    --b1: #94a3b8;   /* hairline (was #e2e8f0 — too pale against page bg) */
+    --b2: #64748b;   /* default border (was #cbd5e1) */
+    --b3: #334155;   /* strong (was #94a3b8) */
 
     --t1: #0f172a;   /* headings */
     --t2: #1e293b;   /* body text */
@@ -5096,7 +5096,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 :root[data-theme="light"] ul.tabs-horiz li a,
 :root[data-theme="light"] body ul.tabs-horiz li a {
     background: #e2e8f0 !important;
-    border-color: #cbd5e1 !important;
+    border-color: #64748b !important;
     color: #334155 !important;
 }
 :root[data-theme="light"] ul.tabs-horiz li a:hover,
@@ -5118,7 +5118,7 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 :root[data-theme="light"] dl.accordion dt,
 :root[data-theme="light"] .accordion-head {
     background: #e2e8f0 !important;
-    border-color: #cbd5e1 !important;
+    border-color: #64748b !important;
 }
 :root[data-theme="light"] dl.accordion dt:hover {
     background: #cbd5e1 !important;
@@ -5146,6 +5146,6 @@ html body[class*="customoptions-options-edit"] [id^="option_"] table textarea {
 :root[data-theme="light"] body.adminhtml-sales-transactions-view .entry-edit fieldset,
 :root[data-theme="light"] body.adminhtml-sales-transactions-view .entry-edit .fieldset {
     background: #e2e8f0 !important;
-    border: 1px solid #cbd5e1 !important;
+    border: 1px solid #64748b !important;
     border-radius: 10px !important;
 }

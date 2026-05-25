@@ -2298,11 +2298,11 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
    Add more selectors here as we spot pages that haven't been
    covered. */
 :root[data-theme="light"] .lmc-title { color:#0f172a !important }
-:root[data-theme="light"] .lmc-kpi-card { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .lmc-kpi-card { background:#e2e8f0 !important; border-color:#64748b !important }
 :root[data-theme="light"] .lmc-kpi-lbl { color:#64748b !important }
 :root[data-theme="light"] .lmc-kpi-num.gray { color:#64748b !important }
 
-:root[data-theme="light"] .lmc-tabs { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .lmc-tabs { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] button.lmc-tab,
 :root[data-theme="light"] button.lmc-tab:hover,
 :root[data-theme="light"] button.lmc-tab:focus,
@@ -2310,11 +2310,11 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
 :root[data-theme="light"] button.lmc-tab:hover { color:#0f172a !important; background:rgba(148,163,184,0.18) !important }
 :root[data-theme="light"] button.lmc-tab.active { background:rgba(37,99,235,0.10) !important; color:#1d4ed8 !important }
 
-:root[data-theme="light"] .lmc-search input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .lmc-search input { background:#ffffff !important; border-color:#64748b !important; color:#0f172a !important }
 :root[data-theme="light"] .lmc-search input::placeholder { color:#94a3b8 !important }
 :root[data-theme="light"] .lmc-search-input-wrap > svg { color:#94a3b8 !important }
 
-:root[data-theme="light"] .lmc-view-toggle { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .lmc-view-toggle { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] button.lmc-view-btn,
 :root[data-theme="light"] button.lmc-view-btn:hover,
 :root[data-theme="light"] button.lmc-view-btn:focus,
@@ -2326,7 +2326,7 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
 :root[data-theme="light"] button.lmc-link-btn:active { color:#64748b !important }
 :root[data-theme="light"] button.lmc-link-btn:hover { color:#0f172a !important }
 
-:root[data-theme="light"] .lmc-card { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .lmc-card { background:#e2e8f0 !important; border-color:#64748b !important }
 :root[data-theme="light"] .lmc-card:hover { box-shadow:0 12px 28px rgba(15,23,42,0.10) !important }
 :root[data-theme="light"] .lmc-card-title { color:#0f172a !important }
 :root[data-theme="light"] .lmc-card:hover .lmc-card-title { color:#2563eb !important }
@@ -2339,7 +2339,7 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
 
 /* Generic dashboard KPI cards used elsewhere (dash-kpi-card) — same
    hardcoded slate. */
-:root[data-theme="light"] .dash-kpi-card { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .dash-kpi-card { background:#e2e8f0 !important; border-color:#64748b !important }
 :root[data-theme="light"] .dash-kpi-lbl { color:#64748b !important }
 
 /* Billing / Certificate History panels — heavily inline-styled
@@ -2352,7 +2352,7 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
 :root[data-theme="light"] #dash-panel-certhistory [style*="background:#131d2e"],
 :root[data-theme="light"] #dash-panel-certhistory [style*="background:#1e293b"] {
     background: #ffffff !important;
-    border-color: #e2e8f0 !important;
+    border-color: #64748b !important;
 }
 /* Lift bright body text (white-ish slate) to near-black */
 :root[data-theme="light"] #dash-panel-billing [style*="color:#cbd5e1"],
@@ -2379,7 +2379,7 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
    Surfaces are hardcoded #1e293b / #0f172a / #334155 / #fff;
    we re-paint each on a light background and lift text to dark. */
 :root[data-theme="light"] .lcd-sidebar-details,
-:root[data-theme="light"] .lcd-section { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .lcd-section { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .lcd-section-title,
 :root[data-theme="light"] .lcd-drawer-section-title,
 :root[data-theme="light"] .lcd-topic-title,
@@ -2394,7 +2394,7 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
 :root[data-theme="light"] .lcd-footer strong { color:#1e293b !important }
 
 /* Tiles (Google Meet / Courseware items) */
-:root[data-theme="light"] .lcd-tile { background:#f8fafc !important; border-color:#e2e8f0 !important; color:#1e293b !important }
+:root[data-theme="light"] .lcd-tile { background:#f8fafc !important; border-color:#64748b !important; color:#1e293b !important }
 :root[data-theme="light"] .lcd-tile:hover { background:#e2e8f0 !important; color:#0f172a !important }
 
 /* Lesson topic rows */
@@ -2407,13 +2407,13 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
 :root[data-theme="light"] button.lcd-mark-btn,
 :root[data-theme="light"] button.lcd-mark-btn:hover,
 :root[data-theme="light"] button.lcd-mark-btn:focus,
-:root[data-theme="light"] button.lcd-mark-btn:active { background:#ffffff !important; border-color:#cbd5e1 !important; color:#1e293b !important }
+:root[data-theme="light"] button.lcd-mark-btn:active { background:#ffffff !important; border-color:#64748b !important; color:#1e293b !important }
 :root[data-theme="light"] button.lcd-mark-btn:hover { background:#e2e8f0 !important; color:#0f172a !important }
 
 /* Empty / cert boxes (cert of achievement placeholder) */
-:root[data-theme="light"] .lcd-empty-box { border-color:#cbd5e1 !important; color:#64748b !important }
+:root[data-theme="light"] .lcd-empty-box { border-color:#64748b !important; color:#64748b !important }
 :root[data-theme="light"] .lcd-empty-title { color:#1e293b !important }
-:root[data-theme="light"] .lcd-cert-box { background:#f8fafc !important; border-color:#e2e8f0 !important; color:#64748b !important }
+:root[data-theme="light"] .lcd-cert-box { background:#f8fafc !important; border-color:#64748b !important; color:#64748b !important }
 :root[data-theme="light"] .lcd-cert-title { color:#1e293b !important }
 
 /* Side drawer */
@@ -2444,7 +2444,7 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
    set of classes (`.lcd-topic-card-head`, `-title`, `-body`,
    `-subsec`, `-link`, `-link-title`) that all hardcode dark colors. */
 :root[data-theme="light"] .lcd-topic-card,
-:root[data-theme="light"] .lcd-shared-topic { background:#f8fafc !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .lcd-shared-topic { background:#f8fafc !important; border-color:#64748b !important }
 :root[data-theme="light"] .lcd-topic-card-head:hover,
 :root[data-theme="light"] .lcd-shared-topic-head:hover { background:#e2e8f0 !important }
 :root[data-theme="light"] .lcd-topic-card-title,
@@ -2462,7 +2462,7 @@ button.mn-vp-btn.active,button.mn-vp-btn.active:hover,button.mn-vp-btn.active:fo
 :root[data-theme="light"] .lcd-shared-subsec,
 :root[data-theme="light"] .lcd-shared-subsec span { color:#0f172a !important }
 :root[data-theme="light"] .lcd-topic-link,
-:root[data-theme="light"] .lcd-shared-link { background:#ffffff !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .lcd-shared-link { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .lcd-topic-link:hover,
 :root[data-theme="light"] .lcd-shared-link:hover { border-color:#2563eb !important }
 :root[data-theme="light"] .lcd-topic-link-title,
@@ -2572,20 +2572,20 @@ button.hsp-btn-submit{
 .admin-main button.hsp-btn-submit:hover{background:#0891b2 !important;border-color:#0891b2 !important}
 
 /* ----- Light theme overrides for Help & Support ----- */
-:root[data-theme="light"] .hsp-card{background:#ffffff !important;border-color:#e2e8f0 !important}
+:root[data-theme="light"] .hsp-card{background:#ffffff !important;border-color:#64748b !important}
 :root[data-theme="light"] .hsp-card-title{color:#0f172a !important}
 :root[data-theme="light"] .hsp-info-label{color:#64748b !important}
 :root[data-theme="light"] .hsp-info-value{color:#0f172a !important}
 :root[data-theme="light"] .hsp-info-value a{color:#2563eb !important}
-:root[data-theme="light"] .hsp-tickets-empty{background:#ffffff !important;border-color:#e2e8f0 !important}
+:root[data-theme="light"] .hsp-tickets-empty{background:#ffffff !important;border-color:#64748b !important}
 :root[data-theme="light"] .hsp-tickets-title{color:#0f172a !important}
 :root[data-theme="light"] .hsp-tickets-sub{color:#1e293b !important}
 :root[data-theme="light"] .hsp-tickets-desc{color:#64748b !important}
-:root[data-theme="light"] .hsp-modal{background:#ffffff !important;border-color:#e2e8f0 !important}
+:root[data-theme="light"] .hsp-modal{background:#ffffff !important;border-color:#64748b !important}
 :root[data-theme="light"] .hsp-form-label{color:#0f172a !important}
 :root[data-theme="light"] .hsp-form-input,
 :root[data-theme="light"] .hsp-form-select,
-:root[data-theme="light"] .hsp-form-textarea{background:#ffffff !important;border-color:#cbd5e1 !important;color:#0f172a !important}
+:root[data-theme="light"] .hsp-form-textarea{background:#ffffff !important;border-color:#64748b !important;color:#0f172a !important}
 :root[data-theme="light"] .hsp-form-input::placeholder,
 :root[data-theme="light"] .hsp-form-textarea::placeholder{color:#94a3b8 !important}
 :root[data-theme="light"] .hsp-modal-footer{border-top-color:#e2e8f0 !important}
@@ -2598,7 +2598,7 @@ button.hsp-btn-submit{
    in template/dashboard/index.phtml. Also lift the muted labels +
    Reset/Show Filters buttons inside (color:#94a3b8 inline) so they
    stay readable on the white surface. */
-:root[data-theme="light"] .trn-search-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .trn-search-card { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .trn-search-label { color:#64748b !important }
 :root[data-theme="light"] .trn-search-card [style*="color:#94a3b8"] { color:#64748b !important }
 
@@ -2606,20 +2606,20 @@ button.hsp-btn-submit{
    #1f2937 background. Lift to white + lighter shadow on hover. The
    icon medallion uses a cyan tint that works on both surfaces, so
    we leave it alone. */
-:root[data-theme="light"] .edt-card { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
-:root[data-theme="light"] .edt-card:hover { border-color:#cbd5e1 !important; box-shadow:0 10px 24px rgba(15,23,42,0.08) !important }
+:root[data-theme="light"] .edt-card { background:#e2e8f0 !important; border-color:#64748b !important }
+:root[data-theme="light"] .edt-card:hover { border-color:#64748b !important; box-shadow:0 10px 24px rgba(15,23,42,0.08) !important }
 :root[data-theme="light"] .edt-card-desc { color:#64748b !important }
 
 /* Developer dashboard — Manage Courses view. The `.dev-*` class
    family hardcodes #1e293b / #334155 / #fff / #94a3b8 / #e2e8f0
    throughout. Flip every surface + every text color for light. */
-:root[data-theme="light"] .dev-search-wrap { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dev-search-wrap { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .dev-search-label { color:#64748b !important }
-:root[data-theme="light"] .dev-search-input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .dev-search-input { background:#ffffff !important; border-color:#64748b !important; color:#0f172a !important }
 :root[data-theme="light"] .dev-search-input::placeholder { color:#94a3b8 !important }
 :root[data-theme="light"] .dev-search-input-wrap svg { color:#94a3b8 !important }
 
-:root[data-theme="light"] .dev-card { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .dev-card { background:#e2e8f0 !important; border-color:#64748b !important }
 :root[data-theme="light"] .dev-card-title { color:#0f172a !important }
 :root[data-theme="light"] .dev-card-row { border-bottom-color:rgba(15,23,42,0.06) !important }
 :root[data-theme="light"] .dev-card-lbl { color:#64748b !important }
@@ -2648,13 +2648,13 @@ button.hsp-btn-submit{
    inputs, drafts list, and the right-side preview all hardcode dark
    slate. Flip each surface for light. The DEMO MODE pill and active
    template tint use semantic colors that read on both surfaces. */
-:root[data-theme="light"] .mn-card { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .mn-card { background:#e2e8f0 !important; border-color:#64748b !important }
 :root[data-theme="light"] .mn-card h3 { color:#0f172a !important }
 
 /* Template picker buttons */
 :root[data-theme="light"] button.mn-tpl,
 :root[data-theme="light"] button.mn-tpl:hover,
-:root[data-theme="light"] button.mn-tpl:focus { background:#f8fafc !important; border-color:#e2e8f0 !important; color:#1e293b !important }
+:root[data-theme="light"] button.mn-tpl:focus { background:#f8fafc !important; border-color:#64748b !important; color:#1e293b !important }
 :root[data-theme="light"] button.mn-tpl.active,
 :root[data-theme="light"] button.mn-tpl.active:hover { background:rgba(37,99,235,0.10) !important; border-color:#2563eb !important; color:#1d4ed8 !important }
 :root[data-theme="light"] button.mn-tpl strong { color:inherit !important }
@@ -2663,12 +2663,12 @@ button.hsp-btn-submit{
 /* Form inputs / textarea / select / search results */
 :root[data-theme="light"] .mn-input,
 :root[data-theme="light"] textarea.mn-input,
-:root[data-theme="light"] select.mn-input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] select.mn-input { background:#ffffff !important; border-color:#64748b !important; color:#0f172a !important }
 :root[data-theme="light"] .mn-input:focus { border-color:#2563eb !important }
-:root[data-theme="light"] .mn-search-results { background:#ffffff !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .mn-search-results { background:#ffffff !important; border-color:#64748b !important }
 
 /* Right-side preview frame */
-:root[data-theme="light"] .mn-preview { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .mn-preview { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .mn-preview-head { background:#ffffff !important; border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .mn-preview-head h3 { color:#0f172a !important }
 :root[data-theme="light"] .mn-preview-empty { background:#ffffff !important; color:#64748b !important }
@@ -2677,20 +2677,20 @@ button.hsp-btn-submit{
 /* Desktop / Mobile viewport toggle (right of LIVE PREVIEW). The
    wrapper has its own dark bg; the active button stays solid blue
    on both themes. */
-:root[data-theme="light"] .mn-vp-toggle { background:#f1f5f9 !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .mn-vp-toggle { background:#f1f5f9 !important; border-color:#64748b !important }
 :root[data-theme="light"] button.mn-vp-btn:hover { color:#0f172a !important; background:rgba(15,23,42,0.06) !important }
 
 /* Reference Images — Choose Files input. Custom `.mn-file-input`
    class has its OWN dashed-border + slate bg styling (separate from
    the global ::file-selector-button rule). Use the WebKit pseudo
    here since this input also targets ::-webkit-file-upload-button. */
-:root[data-theme="light"] input.mn-file-input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#64748b !important }
-:root[data-theme="light"] input.mn-file-input::-webkit-file-upload-button { background:#f1f5f9 !important; color:#1e293b !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] input.mn-file-input { background:#ffffff !important; border-color:#64748b !important; color:#64748b !important }
+:root[data-theme="light"] input.mn-file-input::-webkit-file-upload-button { background:#f1f5f9 !important; color:#1e293b !important; border-color:#64748b !important }
 :root[data-theme="light"] input.mn-file-input::-webkit-file-upload-button:hover { background:#e2e8f0 !important; color:#0f172a !important }
 
 /* Conversation history box + assistant messages */
-:root[data-theme="light"] .mn-chat { background:#ffffff !important; border-color:#e2e8f0 !important }
-:root[data-theme="light"] .mn-msg.assistant { background:#f1f5f9 !important; border-color:#e2e8f0 !important; color:#0f172a !important }
+:root[data-theme="light"] .mn-chat { background:#ffffff !important; border-color:#64748b !important }
+:root[data-theme="light"] .mn-msg.assistant { background:#f1f5f9 !important; border-color:#64748b !important; color:#0f172a !important }
 :root[data-theme="light"] .mn-msg.user { background:rgba(37,99,235,0.10) !important; color:#1d4ed8 !important }
 
 /* Admin dashboard summary tables — Latest Registrations / Most Popular
@@ -2699,7 +2699,7 @@ button.hsp-btn-submit{
    light. Cyan link color is preserved; row-hover keeps its cyan
    wash (works on both themes). */
 :root[data-theme="light"] .dash-summary-full,
-:root[data-theme="light"] .dash-summary-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dash-summary-card { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .dash-summary-head { color:#0f172a !important; border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .dash-summary-sub { color:#64748b !important }
 :root[data-theme="light"] .dash-summary-table thead th { color:#64748b !important; border-bottom-color:#e2e8f0 !important }
@@ -2717,13 +2717,13 @@ button.hsp-btn-submit{
    Most borders + button colors already use tokens (auto-flip) but
    the wrapper bg + the dash-search-input / .dash-adv-input bg are
    hardcoded #1f2937 / #111827. */
-:root[data-theme="light"] .dash-search-wrap { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dash-search-wrap { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .dash-search-label { color:#64748b !important }
-:root[data-theme="light"] .dash-search-input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .dash-search-input { background:#ffffff !important; border-color:#64748b !important; color:#0f172a !important }
 :root[data-theme="light"] .dash-search-input:focus { border-color:#2563eb !important }
 :root[data-theme="light"] .dash-search-input-wrap svg { color:#94a3b8 !important }
 :root[data-theme="light"] .dash-adv-input,
-:root[data-theme="light"] .dash-adv-select { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .dash-adv-select { background:#ffffff !important; border-color:#64748b !important; color:#0f172a !important }
 :root[data-theme="light"] .dash-adv-label { color:#64748b !important }
 :root[data-theme="light"] .dash-no-results { color:#64748b !important }
 
@@ -2731,12 +2731,12 @@ button.hsp-btn-submit{
    detail page. .lcd-back is admin-dashboard.css:846 (background:
    #334155); "Back to All Courses" uses identical INLINE styles, so
    we catch it with an attribute selector scoped to the panel. */
-:root[data-theme="light"] .lcd-back { background:#f1f5f9 !important; color:#1e293b !important; border:1px solid #cbd5e1 !important }
+:root[data-theme="light"] .lcd-back { background:#f1f5f9 !important; color:#1e293b !important; border:1px solid #64748b !important }
 :root[data-theme="light"] .lcd-back:hover { background:#e2e8f0 !important; color:#0f172a !important; border-color:#94a3b8 !important }
 :root[data-theme="light"] #dash-panel-course-detail a[style*="background:#334155"] {
     background: #f1f5f9 !important;
     color: #1e293b !important;
-    border: 1px solid #cbd5e1 !important;
+    border: 1px solid #64748b !important;
 }
 :root[data-theme="light"] #dash-panel-course-detail a[style*="background:#334155"]:hover {
     background: #e2e8f0 !important;
@@ -2751,19 +2751,19 @@ button.hsp-btn-submit{
    #cbd5e1 / #f1f5f9 — all of which need flipping. */
 
 /* Top KPI meta bar (Course Type / Duration / Sessions / Level / Price / Funding From) */
-:root[data-theme="light"] .dcf-meta-bar { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-meta-bar { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .dcf-meta-lbl { color:#64748b !important }
-:root[data-theme="light"] .dcf-meta-input { background:#f8fafc !important; border-color:#e2e8f0 !important; color:#0f172a !important }
+:root[data-theme="light"] .dcf-meta-input { background:#f8fafc !important; border-color:#64748b !important; color:#0f172a !important }
 :root[data-theme="light"] .dcf-meta-input:focus { border-color:#2563eb !important }
 
 /* Title pill (course code badge) keeps its cyan tint — works on both surfaces */
 
 /* Main sections (Course Details, Course Topics, Lesson, Courseware, Trainers, etc.) */
-:root[data-theme="light"] .dcf-section { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-section { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .dcf-section-title { color:#0f172a !important; border-bottom-color:#e2e8f0 !important }
 
 /* Magento-styled inner card (.dcf-mag) and its bar */
-:root[data-theme="light"] .dcf-mag { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-mag { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .dcf-mag-bar { background:linear-gradient(to bottom,#f1f5f9,#e2e8f0) !important; color:#0f172a !important; border-bottom-color:#e2e8f0 !important }
 
 /* Rows / labels */
@@ -2775,22 +2775,22 @@ button.hsp-btn-submit{
 /* Inputs / selects / textareas */
 :root[data-theme="light"] .dcf-input,
 :root[data-theme="light"] .dcf-select,
-:root[data-theme="light"] .dcf-textarea { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .dcf-textarea { background:#ffffff !important; border-color:#64748b !important; color:#0f172a !important }
 :root[data-theme="light"] .dcf-input:focus,
 :root[data-theme="light"] .dcf-select:focus,
 :root[data-theme="light"] .dcf-textarea:focus { border-color:#2563eb !important }
 
 /* Document row + assessment box + add-doc placeholder */
-:root[data-theme="light"] .dcf-doc-row { background:#f8fafc !important; border-color:#e2e8f0 !important }
-:root[data-theme="light"] .dcf-doc-add { background:#ffffff !important; border-color:#cbd5e1 !important; color:#1e293b !important }
-:root[data-theme="light"] .dcf-assess-box { background:#f8fafc !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-doc-row { background:#f8fafc !important; border-color:#64748b !important }
+:root[data-theme="light"] .dcf-doc-add { background:#ffffff !important; border-color:#64748b !important; color:#1e293b !important }
+:root[data-theme="light"] .dcf-assess-box { background:#f8fafc !important; border-color:#64748b !important }
 :root[data-theme="light"] .dcf-assess-row { color:#0f172a !important }
 
 /* Image preview border */
-:root[data-theme="light"] .dcf-img-preview { border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-img-preview { border-color:#64748b !important }
 
 /* Empty / placeholder block */
-:root[data-theme="light"] .dcf-placeholder { background:#f8fafc !important; border-color:#cbd5e1 !important; color:#64748b !important }
+:root[data-theme="light"] .dcf-placeholder { background:#f8fafc !important; border-color:#64748b !important; color:#64748b !important }
 :root[data-theme="light"] .dcf-placeholder strong { color:#1e293b !important }
 
 /* Footer */
@@ -2804,7 +2804,7 @@ button.hsp-btn-submit{
 
 /* Top-of-page action buttons (Cancel / Edit / Save / Save & Continue) */
 :root[data-theme="light"] button.dcf-btn-cancel,
-:root[data-theme="light"] button.dcf-btn-edit { background:#f1f5f9 !important; color:#1e293b !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] button.dcf-btn-edit { background:#f1f5f9 !important; color:#1e293b !important; border-color:#64748b !important }
 :root[data-theme="light"] button.dcf-btn-cancel:hover,
 :root[data-theme="light"] button.dcf-btn-edit:hover { background:#e2e8f0 !important; color:#0f172a !important }
 :root[data-theme="light"] button.dcf-btn-save-cont { background:#94a3b8 !important; color:#ffffff !important }
@@ -2820,23 +2820,23 @@ button.hsp-btn-submit{
 /* Cancel button — was dark slate; lift to a light pill */
 :root[data-theme="light"] button.dce-cancel-btn,
 :root[data-theme="light"] button.dce-cancel-btn:hover,
-:root[data-theme="light"] button.dce-cancel-btn:focus { background:#f1f5f9 !important; color:#1e293b !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] button.dce-cancel-btn:focus { background:#f1f5f9 !important; color:#1e293b !important; border-color:#64748b !important }
 :root[data-theme="light"] button.dce-cancel-btn:hover { background:#e2e8f0 !important; color:#0f172a !important }
 
 /* KPI meta bar (Course Type / Duration / Sessions / Level / Price / Funding From) */
-:root[data-theme="light"] .dce-meta-bar { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dce-meta-bar { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .dce-meta-lbl { color:#64748b !important }
 :root[data-theme="light"] .dce-meta-val { color:#0f172a !important }
 /* .dce-meta-val.dce-meta-badge-ok keeps green semantic, fine */
 
 /* Section cards (Course Details / Course Topics / Trainers) */
-:root[data-theme="light"] .dce-section { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dce-section { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .dce-section-title { color:#0f172a !important; border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .dce-label { color:#64748b !important }
 
 /* Long-form value blocks (.dce-value) — the inner scrollable card
    holding course description with paragraphs, headings, lists, table */
-:root[data-theme="light"] div.dce-value { background:#f8fafc !important; border-color:#e2e8f0 !important; color:#0f172a !important }
+:root[data-theme="light"] div.dce-value { background:#f8fafc !important; border-color:#64748b !important; color:#0f172a !important }
 :root[data-theme="light"] div.dce-value::-webkit-scrollbar-thumb { background:#cbd5e1 !important; border-color:#f8fafc !important }
 :root[data-theme="light"] div.dce-value::-webkit-scrollbar-thumb:hover { background:#94a3b8 !important }
 :root[data-theme="light"] .dce-value a { color:#2563eb !important }
@@ -2849,7 +2849,7 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .dce-value h2 { color:#0f172a !important; border-top-color:#cbd5e1 !important }
 :root[data-theme="light"] .dce-value strong { color:#0f172a !important }
 :root[data-theme="light"] .dce-value table { background:#ffffff !important }
-:root[data-theme="light"] .dce-value table td { color:#0f172a !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .dce-value table td { color:#0f172a !important; border-color:#64748b !important }
 :root[data-theme="light"] .dce-value table td strong,
 :root[data-theme="light"] .dce-value table td:first-child { color:#0f172a !important }
 :root[data-theme="light"] .dce-value hr { border-top-color:#cbd5e1 !important }
@@ -2857,15 +2857,15 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .dce-value span[style*="background-color"] { color:#0f172a !important }
 
 /* Misc surrounding pieces */
-:root[data-theme="light"] .dce-img-preview { border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dce-img-preview { border-color:#64748b !important }
 :root[data-theme="light"] .dce-trainer-list li { color:#1e293b !important; border-bottom-color:#e2e8f0 !important }
-:root[data-theme="light"] .dce-lo-item { background:#f8fafc !important; border-color:#e2e8f0 !important; color:#1e293b !important }
+:root[data-theme="light"] .dce-lo-item { background:#f8fafc !important; border-color:#64748b !important; color:#1e293b !important }
 :root[data-theme="light"] .dce-empty,
 :root[data-theme="light"] .dce-footer { color:#64748b !important }
 :root[data-theme="light"] .dce-footer strong { color:#1e293b !important }
 
 /* Topic accordion cards inside dce panel (LU1/LU2/...) */
-:root[data-theme="light"] .dce-topic-card { background:#f8fafc !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dce-topic-card { background:#f8fafc !important; border-color:#64748b !important }
 :root[data-theme="light"] .dce-topic-card-head:hover { background:#e2e8f0 !important }
 :root[data-theme="light"] .dce-topic-card-title { color:#0f172a !important }
 :root[data-theme="light"] .dce-topic-card-caret { color:#64748b !important }
@@ -2875,9 +2875,9 @@ button.hsp-btn-submit{
    trainers, each row a flex with name + email. Hardcoded #1e293b /
    #334155 / #e2e8f0 throughout. */
 :root[data-theme="light"] .tr-picker-label { color:#0f172a !important }
-:root[data-theme="light"] .tr-picker-search { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .tr-picker-search { background:#ffffff !important; border-color:#64748b !important; color:#0f172a !important }
 :root[data-theme="light"] .tr-picker-search:focus { border-color:#2563eb !important }
-:root[data-theme="light"] .tr-picker-list { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .tr-picker-list { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .tr-picker-list::-webkit-scrollbar-thumb { background:#cbd5e1 !important; border-color:#ffffff !important }
 :root[data-theme="light"] .tr-picker-item { color:#0f172a !important; border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .tr-picker-email { color:#64748b !important }
@@ -2891,9 +2891,9 @@ button.hsp-btn-submit{
    #cbd5e1 text — directly on inline style attributes. Attribute
    selectors scoped to `.dcf-mag-body` flip them without leaking
    to other panels. */
-:root[data-theme="light"] .dcf-mag-body [style*="background:#283548"] { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-mag-body [style*="background:#283548"] { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .dcf-mag-body [style*="background:#334155"] { background:#f1f5f9 !important; color:#0f172a !important }
-:root[data-theme="light"] .dcf-mag-body [style*="background:#0f172a"] { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-mag-body [style*="background:#0f172a"] { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .dcf-mag-body [style*="border-top:1px solid #384a60"] { border-top-color:#e2e8f0 !important }
 :root[data-theme="light"] .dcf-mag-body [style*="border-top:1px solid #334155"] { border-top-color:#e2e8f0 !important }
 :root[data-theme="light"] .dcf-mag-body [style*="color:#cbd5e1"] { color:#1e293b !important }
@@ -2909,12 +2909,12 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .al-back-link:hover { color:#1d4ed8 !important }
 
 /* KPI cards */
-:root[data-theme="light"] .al-kpi { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .al-kpi { background:#e2e8f0 !important; border-color:#64748b !important }
 :root[data-theme="light"] .al-kpi-lbl { color:#64748b !important }
 /* .al-kpi-num color is semantic (blue/green/red), works on both */
 
 /* Tabs strip (Upcoming / Ongoing / Completed) */
-:root[data-theme="light"] .al-tabs { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .al-tabs { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] button.al-tab,
 :root[data-theme="light"] button.al-tab:hover,
 :root[data-theme="light"] button.al-tab:focus { color:#64748b !important }
@@ -2922,12 +2922,12 @@ button.hsp-btn-submit{
 /* .active tab keeps solid blue, fine */
 
 /* Search row + input */
-:root[data-theme="light"] .al-search-row { background:transparent !important; border-color:#e2e8f0 !important }
-:root[data-theme="light"] .al-search-input { background:transparent !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .al-search-row { background:transparent !important; border-color:#64748b !important }
+:root[data-theme="light"] .al-search-input { background:transparent !important; border-color:#64748b !important; color:#0f172a !important }
 :root[data-theme="light"] .al-search-input:focus { border-color:#2563eb !important }
 
 /* Table */
-:root[data-theme="light"] .al-table-wrap { background:transparent !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .al-table-wrap { background:transparent !important; border-color:#64748b !important }
 :root[data-theme="light"] .al-table thead th { background:transparent !important; color:#64748b !important; border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .al-table tbody td { color:#1e293b !important; border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .al-table tbody tr:hover { background:rgba(37,99,235,0.05) !important }
@@ -2939,17 +2939,17 @@ button.hsp-btn-submit{
    Light theme — View Trainers panel (.trn-* class family)
    ============================================================ */
 /* KPI cards (Trainers / ACLP Trainers / Non-ACLP Trainers) */
-:root[data-theme="light"] .trn-kpi-card { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .trn-kpi-card { background:#e2e8f0 !important; border-color:#64748b !important }
 /* KPI nums keep blue/green/pink semantic colors */
 
 /* Search wrapper + input */
-:root[data-theme="light"] .trn-search-wrap { background:#ffffff !important; border-color:#e2e8f0 !important }
-:root[data-theme="light"] .trn-search-input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .trn-search-wrap { background:#ffffff !important; border-color:#64748b !important }
+:root[data-theme="light"] .trn-search-input { background:#ffffff !important; border-color:#64748b !important; color:#0f172a !important }
 :root[data-theme="light"] .trn-search-input:focus { border-color:#2563eb !important }
 :root[data-theme="light"] .trn-search-input-wrap svg { color:#94a3b8 !important }
 
 /* Table */
-:root[data-theme="light"] .trn-table-wrap { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .trn-table-wrap { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .trn-table thead th { color:#64748b !important; border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .trn-table tbody tr { border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .trn-table tbody tr:hover { background:rgba(37,99,235,0.05) !important }
@@ -2963,12 +2963,12 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .at-back-link:hover { color:#1d4ed8 !important }
 
 /* KPI cards (Upcoming / Trainers Assigned / Missing Trainers) */
-:root[data-theme="light"] .at-kpi { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .at-kpi { background:#e2e8f0 !important; border-color:#64748b !important }
 :root[data-theme="light"] .at-kpi-lbl { color:#64748b !important }
 /* Nums keep blue/green/red semantic colors */
 
 /* Tabs strip */
-:root[data-theme="light"] .at-tabs { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .at-tabs { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] button.at-tab,
 :root[data-theme="light"] button.at-tab:hover,
 :root[data-theme="light"] button.at-tab:focus { color:#64748b !important }
@@ -2976,7 +2976,7 @@ button.hsp-btn-submit{
 /* .active stays solid blue */
 
 /* Search input */
-:root[data-theme="light"] .at-search-input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .at-search-input { background:#ffffff !important; border-color:#64748b !important; color:#0f172a !important }
 :root[data-theme="light"] .at-search-input:focus { border-color:#2563eb !important }
 :root[data-theme="light"] .at-search-input::placeholder { color:#94a3b8 !important }
 
@@ -2985,7 +2985,7 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .at-filter-label { color:#64748b !important }
 
 /* Table */
-:root[data-theme="light"] .at-table-wrap { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .at-table-wrap { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .at-table thead th { background:#f8fafc !important; color:#64748b !important; border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .at-table tbody td { color:#1e293b !important; border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .at-table tbody tr:hover { background:rgba(37,99,235,0.05) !important }
@@ -3001,7 +3001,7 @@ button.hsp-btn-submit{
    .cs-section, .cs-card classes and tons of inline-styled blocks
    (badge pills, request-body <pre>, error tables). Flip all the
    neutrals — cyan accents preserved. */
-:root[data-theme="light"] .cs-wrap { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .cs-wrap { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .cs-header { border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .cs-header-info h1 { color:#0f172a !important }
 :root[data-theme="light"] .cs-header-info p { color:#64748b !important }
@@ -3009,11 +3009,11 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .cs-section-head { border-bottom-color:#e2e8f0 !important }
 :root[data-theme="light"] .cs-section-head h2 { color:#0f172a !important }
 :root[data-theme="light"] .cs-section-head .cs-caret { color:#64748b !important }
-:root[data-theme="light"] .cs-card { background:#ffffff !important; border-color:#e2e8f0 !important }
+:root[data-theme="light"] .cs-card { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .cs-card-title { color:#0f172a !important }
 :root[data-theme="light"] .cs-status.disabled { color:#64748b !important }
-:root[data-theme="light"] .cs-input-masked { background:#ffffff !important; border-color:#cbd5e1 !important }
-:root[data-theme="light"] .cs-input { color:#0f172a !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .cs-input-masked { background:#ffffff !important; border-color:#64748b !important }
+:root[data-theme="light"] .cs-input { color:#0f172a !important; border-color:#64748b !important }
 
 /* Inline-styled API pills, Copy buttons, X-Api-Key chips, request/
    response <pre> blocks, error-table cells — all live inside
@@ -3021,12 +3021,12 @@ button.hsp-btn-submit{
    inline patterns. */
 :root[data-theme="light"] #dash-panel-api_summary [style*="background:#0f172a"] {
     background: #f1f5f9 !important;
-    border-color: #cbd5e1 !important;
+    border-color: #64748b !important;
 }
 :root[data-theme="light"] #dash-panel-api_summary [style*="color:#e2e8f0"] { color:#0f172a !important }
 :root[data-theme="light"] #dash-panel-api_summary [style*="color:#94a3b8"] { color:#64748b !important }
 :root[data-theme="light"] #dash-panel-api_summary [style*="color:#64748b"] { color:#64748b !important } /* keep muted */
-:root[data-theme="light"] #dash-panel-api_summary [style*="border:1px solid #334155"] { border-color:#cbd5e1 !important }
+:root[data-theme="light"] #dash-panel-api_summary [style*="border:1px solid #334155"] { border-color:#64748b !important }
 /* Cyan ACTIVE pill border + text stay cyan — semantic */
 
 /* ============================================================
@@ -3038,16 +3038,16 @@ button.hsp-btn-submit{
    stays. */
 :root[data-theme="light"] .crd-title { color:#0f172a !important }
 :root[data-theme="light"] .crd-sub { color:#64748b !important }
-:root[data-theme="light"] .crd-card { background:#e2e8f0 !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .crd-card { background:#e2e8f0 !important; border-color:#64748b !important }
 :root[data-theme="light"] .crd-card h3 { color:#0f172a !important }
 :root[data-theme="light"] .crd-card h3 .crd-dot { background:#cbd5e1 !important }
 /* .has-value dot keeps cyan tint, semantic — works on both */
 :root[data-theme="light"] .crd-label { color:#64748b !important }
-:root[data-theme="light"] .crd-input { background:#ffffff !important; border-color:#cbd5e1 !important; color:#0f172a !important }
+:root[data-theme="light"] .crd-input { background:#ffffff !important; border-color:#64748b !important; color:#0f172a !important }
 :root[data-theme="light"] .crd-input::placeholder { color:#94a3b8 !important }
 :root[data-theme="light"] .crd-input[readonly] { color:#64748b !important }
 :root[data-theme="light"] .crd-hint { color:#64748b !important }
-:root[data-theme="light"] .crd-btn-ghost { color:#64748b !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .crd-btn-ghost { color:#64748b !important; border-color:#64748b !important }
 :root[data-theme="light"] .crd-btn-ghost:hover { color:#0f172a !important; border-color:#94a3b8 !important }
 /* .crd-btn-primary keeps its cyan gradient — works on both surfaces */
 
@@ -3070,7 +3070,7 @@ button.hsp-btn-submit{
 }
 :root[data-theme="light"] .dce-url-box {
     background: #f1f5f9 !important;       /* slate-100 */
-    border-color: #cbd5e1 !important;     /* slate-300 */
+    border-color: #64748b !important;     /* slate-300 */
 }
 :root[data-theme="light"] .dce-url-link {
     color: #2563eb !important;            /* blue-600 */
