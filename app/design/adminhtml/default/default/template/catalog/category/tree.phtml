@@ -31,15 +31,18 @@
     <?php echo $this->getStoreSwitcherHtml();?>
     <div class="tree-actions tree-actions--inline">
         <?php if($this->getRoot()): ?>
-            <span class="categories-add-buttons">
-                <?php echo $this->getAddRootButtonHtml() ?>
+            <div class="tree-actions__row">
+                <span class="categories-add-buttons">
+                    <?php echo $this->getAddRootButtonHtml() ?>
+                    <span class="separator">|</span>
+                    <?php echo $this->getAddSubButtonHtml() ?>
+                </span>
+            </div>
+            <div class="tree-actions__row">
+                <a href="#" onclick="tree.collapseTree(); return false;"><?php echo Mage::helper('catalog')->__('Collapse All'); ?></a>
                 <span class="separator">|</span>
-                <?php echo $this->getAddSubButtonHtml() ?>
-            </span>
-            <span class="separator">|</span>
-            <a href="#" onclick="tree.collapseTree(); return false;"><?php echo Mage::helper('catalog')->__('Collapse All'); ?></a>
-            <span class="separator">|</span>
-            <a href="#" onclick="tree.expandTree(); return false;"><?php echo Mage::helper('catalog')->__('Expand All'); ?></a>
+                <a href="#" onclick="tree.expandTree(); return false;"><?php echo Mage::helper('catalog')->__('Expand All'); ?></a>
+            </div>
         <?php endif; ?>
     </div>
     <?php if ($this->getRoot()): ?>

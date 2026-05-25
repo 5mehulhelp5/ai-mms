@@ -446,8 +446,8 @@ body .header-top {
 body.adminhtml-catalog-category-edit .side-col,
 body.adminhtml-catalog-category-index .side-col,
 body.catalog-categories .side-col {
-    flex: 0 0 440px !important;
-    width: 440px !important;
+    flex: 0 0 320px !important;
+    width: 320px !important;
 }
 
 /* Tree-actions row — Add Root / Add Subcategory + Collapse / Expand All
@@ -467,12 +467,20 @@ body.adminhtml-catalog-category-edit .tree-actions--inline,
 body.adminhtml-catalog-category-index .tree-actions--inline,
 body.catalog-categories .tree-actions--inline {
     display: flex !important;
-    align-items: center !important;
-    flex-wrap: wrap !important;
-    gap: 6px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 2px !important;
     margin: 4px 20px 10px 0 !important;
     text-align: left !important;
     font-size: 11px !important;
+}
+body.adminhtml-catalog-category-edit .tree-actions__row,
+body.adminhtml-catalog-category-index .tree-actions__row,
+body.catalog-categories .tree-actions__row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
 }
 /* Match Collapse / Expand All anchor font-size + weight to the buttons next to them. */
 body.adminhtml-catalog-category-edit .tree-actions--inline > a,
@@ -1952,8 +1960,8 @@ body.has-overlay-sidecol .main-col {
 body.has-overlay-sidecol .side-col.side-col-overlay {
     position: fixed !important;
     top: 60px !important;
-    left: -440px !important;
-    width: 440px !important;
+    left: -320px !important;
+    width: 320px !important;
     height: calc(100vh - 60px) !important;
     z-index: 1500 !important;
     transition: left 0.22s ease !important;
