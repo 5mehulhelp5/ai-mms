@@ -4,9 +4,11 @@
  */
 ?>
 <div class="logo-wrapper logo-wrapper--regular">
-	<?php if ($this->getIsHomePage()): ?>
-		<h1 class="logo logo--regular"><strong><?php echo $this->getLogoAlt() ?></strong><a href="<?php echo $this->getUrl('') ?>" title="<?php echo $this->getLogoAlt() ?>"><img src="<?php echo $this->getLogoSrc() ?>" alt="<?php echo $this->getLogoAlt() ?>" /></a></h1>
-	<?php else: ?>
-		<a class="logo logo--regular" href="<?php echo $this->getUrl('') ?>" title="<?php echo $this->getLogoAlt() ?>"><strong><?php echo $this->getLogoAlt() ?></strong><img src="<?php echo $this->getLogoSrc() ?>" alt="<?php echo $this->getLogoAlt() ?>" /></a>
-	<?php endif; ?>
+	<?php /* SEO/A11y: even on the homepage, wrap the logo image in a <div> instead
+	   of <h1>. The logo's alt text is the company slogan, not the page's
+	   topic — making it the H1 stuffed keywords into the wrong element.
+	   Real page H1 comes from CMS hero block or product/category view. */ ?>
+	<div class="logo logo--regular">
+		<a href="<?php echo $this->getUrl('') ?>" title="<?php echo $this->getLogoAlt() ?>" aria-label="<?php echo $this->getLogoAlt() ?>"><img src="<?php echo $this->getLogoSrc() ?>" alt="<?php echo $this->getLogoAlt() ?>" /></a>
+	</div>
 </div>
