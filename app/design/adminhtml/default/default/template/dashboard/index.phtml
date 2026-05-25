@@ -8404,13 +8404,37 @@ foreach ($_credPaths as $_cp) {
    website's default store — exactly how SMTPPro resolves the values
    when an order / contact-us fires at run time. */
 $_smtpWebsites = array(
-    'singapore' => array('id' => 1, 'label' => 'Singapore (fallback)', 'flag' => '🇸🇬'),
-    'malaysia'  => array('id' => 2, 'label' => 'Malaysia',             'flag' => '🇲🇾'),
-    'ghana'     => array('id' => 3, 'label' => 'Ghana',                'flag' => '🇬🇭'),
-    'nigeria'   => array('id' => 4, 'label' => 'Nigeria',              'flag' => '🇳🇬'),
-    'bhutan'    => array('id' => 5, 'label' => 'Bhutan',               'flag' => '🇧🇹'),
-    'india'     => array('id' => 6, 'label' => 'India',                'flag' => '🇮🇳'),
+    'singapore' => array('id' => 1, 'label' => 'Singapore (fallback)', 'code' => 'SG'),
+    'malaysia'  => array('id' => 2, 'label' => 'Malaysia',             'code' => 'MY'),
+    'ghana'     => array('id' => 3, 'label' => 'Ghana',                'code' => 'GH'),
+    'nigeria'   => array('id' => 4, 'label' => 'Nigeria',              'code' => 'NG'),
+    'bhutan'    => array('id' => 5, 'label' => 'Bhutan',               'code' => 'BT'),
+    'india'     => array('id' => 6, 'label' => 'India',                'code' => 'IN'),
 );
+
+/* Reusable inline-SVG icon helper for the SMTP section. Keeps the
+   markup minimal (no emoji, no external assets) and themes everything
+   via currentColor so the same stroke icon renders correctly inside
+   the active / disabled / pitfall pill colors. 16px viewBox, 1.6
+   stroke weight throughout for visual consistency. */
+$_icon = function($name, $size = 14) {
+    $paths = array(
+        'book'      => '<path d="M4 4.5A2.5 2.5 0 016.5 2H20v18H6.5A2.5 2.5 0 014 17.5v-13z"/><path d="M4 17.5A2.5 2.5 0 016.5 15H20"/>',
+        'bulb'      => '<path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 00-4 10.5c.7.7 1 1.6 1 2.5v1h6v-1c0-.9.3-1.8 1-2.5A6 6 0 0012 3z"/>',
+        'warn'      => '<path d="M12 3l10 18H2L12 3z"/><line x1="12" y1="10" x2="12" y2="14"/><circle cx="12" cy="17" r="0.5"/>',
+        'check'     => '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/>',
+        'dot'       => '<circle cx="12" cy="12" r="3.5"/>',
+        'eye'       => '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+        'eye-off'   => '<path d="M3 3l18 18"/><path d="M10.6 6.1A10 10 0 0112 6c6.5 0 10 7 10 7a16.6 16.6 0 01-3.3 4.1"/><path d="M6.5 7.1A16.6 16.6 0 002 12s3.5 7 10 7a10 10 0 003.8-.7"/><path d="M9.9 9.9a3 3 0 004.2 4.2"/>',
+        'spinner'   => '<circle cx="12" cy="12" r="9" stroke-opacity="0.25"/><path d="M21 12a9 9 0 00-9-9"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.9s" repeatCount="indefinite"/></path>',
+    );
+    if (!isset($paths[$name])) return '';
+    return '<svg width="' . (int)$size . '" height="' . (int)$size . '" viewBox="0 0 24 24"'
+        . ' fill="none" stroke="currentColor" stroke-width="1.6"'
+        . ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"'
+        . ' style="display:inline-block;vertical-align:-2px;">'
+        . $paths[$name] . '</svg>';
+};
 $_smtpFields = array('enabled', 'host', 'port', 'ssl', 'auth', 'username', 'password');
 $_smtpCfg = array();
 foreach ($_smtpWebsites as $_code => $_w) {
@@ -8657,8 +8681,8 @@ $_credMask = function ($v) {
                 <span class="crd-smtp-collapse__count"><?php echo count($_smtpWebsites) ?> stores</span>
             </summary>
             <p class="crd-sub" style="margin:14px 0 18px;">
-                <strong>🇸🇬 Singapore</strong> sends via Gmail OAuth (configured above) and uses these SMTP credentials only as a <em>fallback</em> when the OAuth path is unavailable (token revoked / quota hit / Gmail API down).
-                <strong>🇲🇾 🇬🇭 🇳🇬 🇧🇹 🇮🇳 Other stores</strong> use SMTP as the primary transport.
+                <strong>Singapore</strong> sends via Gmail OAuth (configured above) and uses these SMTP credentials only as a <em>fallback</em> when the OAuth path is unavailable (token revoked / quota hit / Gmail API down).
+                <strong>Other stores</strong> (MY / GH / NG / BT / IN) use SMTP as the primary transport.
                 For each country, fill Host + Username + Password and click <strong>Save Credentials</strong> — SMTP turns on automatically. Use <strong>Send Test</strong> to verify before relying on it for real orders.
             </p>
 
@@ -8673,8 +8697,8 @@ $_credMask = function ($v) {
         }
         ?>
         <details class="crd-guide"<?php echo $_anyCardEmpty ? ' open' : '' ?> style="margin:0 0 22px;background:#0f172a;border:1px solid #334155;border-radius:10px;overflow:hidden;">
-            <summary style="padding:14px 18px;cursor:pointer;color:#f1f5f9;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;list-style:none;user-select:none;">
-                <span style="font-size:16px;">📖</span>
+            <summary style="padding:14px 18px;cursor:pointer;color:#f1f5f9;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;list-style:none;user-select:none;">
+                <span style="color:#65b7d5;display:inline-flex;"><?php echo $_icon('book', 16) ?></span>
                 How to set up SMTP for a country store
                 <span style="margin-left:auto;font-size:11px;color:#64748b;font-weight:500;">click to expand</span>
             </summary>
@@ -8682,9 +8706,12 @@ $_credMask = function ($v) {
 
                 <p style="margin:14px 0;color:#94a3b8;">Each country website ships transactional mail (orders, OTP, contact-us notifications, lead auto-replies) through its own SMTP relay. The flow below assumes you use Google Workspace per country — adapt to your provider as needed.</p>
 
-                <div style="background:#1e293b;border-left:3px solid #65b7d5;padding:10px 14px;border-radius:4px;margin:0 0 16px;">
-                    <strong style="color:#65b7d5;">💡 Quick recap:</strong>
-                    Get an <strong>App Password</strong> from the country's mailbox → click <strong>Gmail / Workspace</strong> on the card → paste username + App Password → <strong>Save</strong> → <strong>Send Test</strong>.
+                <div style="background:#1e293b;border-left:3px solid #65b7d5;padding:10px 14px;border-radius:4px;margin:0 0 16px;display:flex;gap:10px;align-items:flex-start;">
+                    <span style="color:#65b7d5;flex-shrink:0;display:inline-flex;margin-top:2px;"><?php echo $_icon('bulb', 14) ?></span>
+                    <span>
+                        <strong style="color:#65b7d5;">Quick recap:</strong>
+                        Get an <strong>App Password</strong> from the country's mailbox → click <strong>Gmail / Workspace</strong> on the card → paste username + App Password → <strong>Save</strong> → <strong>Send Test</strong>.
+                    </span>
                 </div>
 
                 <h4 style="margin:18px 0 8px;color:#f1f5f9;font-size:13px;">Step 1 — Find which mailbox sends mail for the country</h4>
@@ -8719,15 +8746,15 @@ $_credMask = function ($v) {
                     <li>Click the <strong>Gmail / Workspace</strong> quick-fill button → Host / Port / SSL / Auth fill themselves</li>
                     <li><strong>Username</strong>: the country mailbox (e.g. <code style="background:#1e293b;padding:1px 6px;border-radius:3px;font-size:12px;">sales@tertiarycourses.com.my</code>)</li>
                     <li><strong>Password</strong>: paste the 16-char App Password (spaces ok, Google strips them)</li>
-                    <li>Click <strong>Save Credentials</strong> at the bottom of the page — status pill flips to <span style="color:#34d399;">✅ Active</span></li>
+                    <li>Click <strong>Save Credentials</strong> at the bottom of the page — status pill flips to <span style="color:#34d399;font-weight:600;">Active</span></li>
                 </ol>
 
                 <h4 style="margin:18px 0 8px;color:#f1f5f9;font-size:13px;">Step 6 — Verify with Send Test</h4>
                 <p style="margin:0 0 6px;">In the card's "test recipient" field enter your own email → click <strong>Send Test</strong>. Within a few seconds the inline result shows either:</p>
                 <ul style="margin:0 0 6px 18px;padding:0;">
-                    <li><span style="color:#34d399;">✅ Accepted by smtp.gmail.com:587</span> → check your inbox, the test mail will be there</li>
-                    <li><span style="color:#fecaca;">❌ "Username and Password not accepted"</span> → wrong App Password (typo when pasting, or you copied the masked dots). Re-generate from <a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:#65b7d5;">myaccount.google.com/apppasswords</a>.</li>
-                    <li><span style="color:#fecaca;">❌ Connection timed out</span> → wrong host (you're not on Gmail). Use a different preset or your provider's real SMTP host.</li>
+                    <li><span style="color:#34d399;font-weight:600;">Accepted by smtp.gmail.com:587</span> → check your inbox, the test mail will be there</li>
+                    <li><span style="color:#fecaca;font-weight:600;">"Username and Password not accepted"</span> → wrong App Password (typo when pasting, or you copied the masked dots). Re-generate from <a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:#65b7d5;">myaccount.google.com/apppasswords</a>.</li>
+                    <li><span style="color:#fecaca;font-weight:600;">Connection timed out</span> → wrong host (you're not on Gmail). Use a different preset or your provider's real SMTP host.</li>
                 </ul>
 
                 <h4 style="margin:18px 0 8px;color:#f1f5f9;font-size:13px;">Step 7 — End-to-end check on the live site</h4>
@@ -8736,14 +8763,17 @@ $_credMask = function ($v) {
                     <li><strong>Order email</strong>: place a small test order on the country storefront. Course-registration email lands in the customer mailbox via SMTP.</li>
                 </ul>
 
-                <div style="background:#1e293b;border-left:3px solid #fbbf24;padding:10px 14px;border-radius:4px;margin:18px 0 8px;font-size:12px;">
-                    <strong style="color:#fbbf24;">⚠ Common pitfalls:</strong>
-                    <ul style="margin:6px 0 0 18px;padding:0;color:#cbd5e1;">
-                        <li>Using the <strong>regular mailbox password</strong> instead of an App Password — Gmail rejects it.</li>
-                        <li>Pointing host at <code>mail.&lt;domain&gt;</code> (often Cloudflare/proxy, not a real SMTP server) instead of <code>smtp.gmail.com</code>.</li>
-                        <li>Using port <strong>25</strong> — outbound port 25 is blocked from the container by the host provider; always use <strong>587</strong> (TLS) or <strong>465</strong> (SSL).</li>
-                        <li>Not clicking <strong>Save Credentials</strong> before Send Test — the test reads from the database, not the form.</li>
-                    </ul>
+                <div style="background:#1e293b;border-left:3px solid #fbbf24;padding:10px 14px;border-radius:4px;margin:18px 0 8px;font-size:12px;display:flex;gap:10px;align-items:flex-start;">
+                    <span style="color:#fbbf24;flex-shrink:0;display:inline-flex;margin-top:2px;"><?php echo $_icon('warn', 14) ?></span>
+                    <div>
+                        <strong style="color:#fbbf24;">Common pitfalls:</strong>
+                        <ul style="margin:6px 0 0 18px;padding:0;color:#cbd5e1;">
+                            <li>Using the <strong>regular mailbox password</strong> instead of an App Password — Gmail rejects it.</li>
+                            <li>Pointing host at <code>mail.&lt;domain&gt;</code> (often Cloudflare/proxy, not a real SMTP server) instead of <code>smtp.gmail.com</code>.</li>
+                            <li>Using port <strong>25</strong> — outbound port 25 is blocked from the container by the host provider; always use <strong>587</strong> (TLS) or <strong>465</strong> (SSL).</li>
+                            <li>Not clicking <strong>Save Credentials</strong> before Send Test — the test reads from the database, not the form.</li>
+                        </ul>
+                    </div>
                 </div>
 
                 <p style="margin:14px 0 0;color:#64748b;font-size:11px;">
@@ -8766,15 +8796,17 @@ $_credMask = function ($v) {
             $_c = $_smtpCfg[$_code];
             $_isOn = ($_c['enabled'] !== '' && $_c['enabled'] !== 'disabled');
             $_hasValue = $_isOn || $_c['host'] !== '' || $_c['username'] !== '';
-            $_statusLabel = $_isOn ? '✅ Active' : ($_hasValue ? '⚠ Configured but disabled' : '○ Not configured');
+            $_statusLabel = $_isOn ? 'Active' : ($_hasValue ? 'Configured but disabled' : 'Not configured');
             $_statusColor = $_isOn ? '#34d399' : ($_hasValue ? '#fbbf24' : '#64748b');
+            $_statusIcon  = $_isOn ? 'check' : ($_hasValue ? 'warn' : 'dot');
         ?>
         <div class="crd-card crd-smtp-card<?php echo $_hasValue ? ' has-value' : '' ?>" data-website="<?php echo $_code ?>">
             <h3>
                 <span class="crd-dot"></span>
-                <span style="font-size:18px;line-height:1"><?php echo $_w['flag'] ?></span>
+                <span class="crd-country-code" style="display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;letter-spacing:0.05em;color:#cbd5e1;background:#0f172a;border:1px solid #334155;border-radius:4px;padding:2px 6px;min-width:24px;height:18px;line-height:1;"><?php echo htmlspecialchars($_w['code']) ?></span>
                 <?php echo htmlspecialchars($_w['label']) ?> SMTP
-                <span class="crd-smtp-status" style="margin-left:auto;font-size:11px;font-weight:600;color:<?php echo $_statusColor ?>;letter-spacing:0.02em;">
+                <span class="crd-smtp-status" style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:<?php echo $_statusColor ?>;letter-spacing:0.02em;">
+                    <?php echo $_icon($_statusIcon, 12) ?>
                     <?php echo $_statusLabel ?>
                 </span>
             </h3>
@@ -8838,15 +8870,22 @@ $_credMask = function ($v) {
                         autocomplete="new-password" />
                     <button type="button" class="crd-pwd-eye"
                         onclick="crdPwdToggle('<?php echo $_code ?>', this)"
-                        title="Show password">
-                        <span class="crd-pwd-eye-icon">👁</span>
+                        title="Show password"
+                        aria-label="Show password">
+                        <svg class="crd-pwd-eye-icon" width="16" height="16" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="1.6"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <!-- heroicons-style "eye" outline -->
+                            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                            <circle cx="12" cy="12" r="3" />
+                        </svg>
                     </button>
                 </div>
-                <div class="crd-hint">For Gmail / Workspace use a 16-char App Password (Google Account → Security → 2-Step Verification → App passwords). Leave masked dots untouched to keep the current password. Click 👁 to reveal — for previously-saved passwords this fetches the stored value so you can copy it (e.g. to set up the same password on another environment).</div>
+                <div class="crd-hint">For Gmail / Workspace use a 16-char App Password (Google Account → Security → 2-Step Verification → App passwords). Leave masked dots untouched to keep the current password. Click the eye icon to reveal — for previously-saved passwords this fetches the stored value so you can copy it (e.g. to set up the same password on another environment).</div>
             </div>
 
             <div class="crd-hint crd-hint-banner">
-                💡 SMTP turns on automatically when Host + Username are filled. To <strong>disable</strong> this store, clear both fields and Save.
+                <span style="color:#65b7d5;display:inline-flex;vertical-align:-2px;margin-right:6px;"><?php echo $_icon('bulb', 14) ?></span>SMTP turns on automatically when Host + Username are filled. To <strong>disable</strong> this store, clear both fields and Save.
             </div>
 
             <div class="crd-row" style="flex-direction:row;align-items:center;gap:10px;margin-top:12px;">
@@ -8925,25 +8964,31 @@ function crdSmtpPreset(code, presetKey) {
 //      back to "password" + restore the dots when toggled off so the
 //      reveal doesn't survive an accidental form submit (the save
 //      handler still skips fields that contain a • sentinel).
+// Minimal-icon set used by the eye toggle. Stroke icons, currentColor,
+// 16px viewBox — same visual language as the other SMTP-card icons.
+var CRD_EYE_SVG     = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+var CRD_EYE_OFF_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 6.1A10 10 0 0112 6c6.5 0 10 7 10 7a16.6 16.6 0 01-3.3 4.1"/><path d="M6.5 7.1A16.6 16.6 0 002 12s3.5 7 10 7a10 10 0 003.8-.7"/><path d="M9.9 9.9a3 3 0 004.2 4.2"/></svg>';
+var CRD_SPIN_SVG    = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"/><path d="M21 12a9 9 0 00-9-9"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.9s" repeatCount="indefinite"/></path></svg>';
+
 function crdPwdToggle(code, btn) {
     var inp  = document.getElementById('smtp-pwd-' + code);
     var icon = btn.querySelector('.crd-pwd-eye-icon');
     if (!inp) return;
     var isHidden = inp.type === 'password';
+    var setIcon = function(svg) { btn.innerHTML = svg; icon = btn.firstChild; };
+
     if (isHidden) {
         // Switching to visible.
         if (inp.dataset.original === '__MASKED__' && inp.value.indexOf('•') !== -1) {
             // Fetch the saved decrypted password from the backend.
-            icon.textContent = '⏳';
+            setIcon(CRD_SPIN_SVG);
             var data = new FormData();
             data.append('website', code);
             data.append('form_key', '<?php echo Mage::getSingleton('core/session')->getFormKey() ?>');
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '<?php echo Mage::helper("adminhtml")->getUrl("adminhtml/maildiagnose/revealsmtp") ?>', true);
             xhr.onload = function() {
-                icon.textContent = '👁';
-                // Server returned non-JSON or 4xx/5xx — surface enough of the
-                // actual response that we can debug instead of just "HTTP 200".
+                setIcon(CRD_EYE_SVG);
                 if (xhr.status >= 400) {
                     crdToast('Reveal HTTP ' + xhr.status + ': ' + xhr.responseText.substring(0, 120), 'err');
                     return;
@@ -8960,27 +9005,27 @@ function crdPwdToggle(code, btn) {
                     inp.dataset.maskedPlaceholder = inp.value; // remember to restore
                     inp.value = r.password;
                     inp.type  = 'text';
-                    icon.textContent = '🙈';
+                    setIcon(CRD_EYE_OFF_SVG);
                     btn.title = 'Hide password';
                 } else {
                     crdToast('Could not reveal: ' + (r.error || 'unknown'), 'err');
                 }
             };
             xhr.onerror = function() {
-                icon.textContent = '👁';
+                setIcon(CRD_EYE_SVG);
                 crdToast('Network error revealing password', 'err');
             };
             xhr.send(data);
         } else {
             // User typed a new value — just flip type.
             inp.type = 'text';
-            icon.textContent = '🙈';
+            setIcon(CRD_EYE_OFF_SVG);
             btn.title = 'Hide password';
         }
     } else {
         // Switching back to hidden.
         inp.type = 'password';
-        icon.textContent = '👁';
+        setIcon(CRD_EYE_SVG);
         btn.title = 'Show password';
         if (inp.dataset.original === '__MASKED__' && inp.dataset.maskedPlaceholder) {
             // Restore the masked dots so a stray Save doesn't overwrite the
@@ -9022,12 +9067,15 @@ function crdSmtpTest(code) {
         btn.textContent = 'Send Test';
         try {
             var r = JSON.parse(xhr.responseText);
+            // Minimal inline-SVG icons in JS results so we stay emoji-free.
+            var checkSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px;"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/></svg>';
+            var crossSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:5px;"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>';
             if (r.ok) {
                 out.style.color = '#34d399';
-                out.innerHTML = '✅ ' + r.message + ' <span style="color:#64748b">(' + r.elapsed_ms + 'ms)</span>';
+                out.innerHTML = checkSvg + r.message + ' <span style="color:#64748b">(' + r.elapsed_ms + 'ms)</span>';
             } else {
                 out.style.color = '#fecaca';
-                out.textContent = '❌ ' + (r.error || 'unknown error');
+                out.innerHTML = crossSvg + (r.error || 'unknown error');
             }
         } catch (ex) {
             out.style.color = '#fecaca';
