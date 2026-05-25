@@ -8490,33 +8490,51 @@ $_credMask = function ($v) {
 .crd-preset { padding: 4px 10px; font-size: 11px; background: #0f172a; color: #cbd5e1; border: 1px solid #334155; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.1s; }
 .crd-preset:hover { background: #1e293b; border-color: #65b7d5; color: #f1f5f9; }
 .crd-smtp-card select.crd-input { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, #94a3b8 50%), linear-gradient(135deg, #94a3b8 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 32px; }
-/* SMTP password reveal — eye button overlaid inside the input field.
-   Wrapper is positioned, input has right padding for the button, and
-   the button sits absolutely on the right edge with a transparent
-   background so it reads as part of the field, not a separate control. */
+/* Eye reveal — overlaid inside the input field's right edge. Strong
+   resets needed because the surrounding admin CSS otherwise: (a) draws
+   a blue button focus ring, (b) forces a min-width that pushes the
+   icon off-screen, and (c) hides inline SVG children of <button>. */
 .crd-pwd-wrap { position: relative; width: 100%; }
 .crd-pwd-wrap .crd-pwd-input { padding-right: 40px !important; }
-.crd-pwd-wrap .crd-pwd-eye {
-    position: absolute;
-    right: 6px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 30px;
-    height: 30px;
-    background: transparent;
-    border: none;
-    color: #cbd5e1;
-    cursor: pointer;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    transition: color 0.1s, background 0.1s;
+.crd-pwd-wrap .crd-pwd-eye,
+.crd-pwd-wrap .crd-pwd-eye:hover,
+.crd-pwd-wrap .crd-pwd-eye:focus,
+.crd-pwd-wrap .crd-pwd-eye:active {
+    position: absolute !important;
+    right: 6px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 0 !important;
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    outline: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    color: #cbd5e1 !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 1 !important;
+    font-size: 0 !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
 }
-.crd-pwd-wrap .crd-pwd-eye:hover { color: #f1f5f9; background: rgba(255,255,255,0.06); }
-.crd-pwd-wrap .crd-pwd-eye:focus { outline: none; background: rgba(101,183,213,0.12); color: #f1f5f9; }
-.crd-pwd-wrap .crd-pwd-eye svg { display: block; }
+.crd-pwd-wrap .crd-pwd-eye:hover { color: #f1f5f9 !important; background: rgba(255,255,255,0.07) !important; }
+.crd-pwd-wrap .crd-pwd-eye svg {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 16px !important;
+    height: 16px !important;
+    pointer-events: none;
+}
+.crd-pwd-wrap .crd-pwd-eye svg * { stroke: currentColor !important; fill: none !important; }
 .crd-pwd-input[type="text"] { font-family: ui-monospace, monospace; letter-spacing: 0.5px; }
 .crd-smtp-card option { background: #1e293b; color: #f1f5f9; }
 /* Collapsible SMTP section */
