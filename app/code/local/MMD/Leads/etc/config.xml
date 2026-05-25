@@ -79,6 +79,11 @@
                     <file>mmd_leads/auto_reply.html</file>
                     <type>html</type>
                 </mmd_leads_auto_reply>
+                <mmd_leads_auto_reply_sg translate="label" module="mmd_leads">
+                    <label>Lead Auto-Reply — Singapore (WSQ)</label>
+                    <file>mmd_leads/auto_reply_sg.html</file>
+                    <type>html</type>
+                </mmd_leads_auto_reply_sg>
             </email>
         </template>
     </global>

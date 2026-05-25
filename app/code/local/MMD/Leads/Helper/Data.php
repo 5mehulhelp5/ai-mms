@@ -41,7 +41,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
      */
     const WSQ_SKU_PREFIX          = 'TGS-';
     const MIN_RECOMMEND_SCORE     = 3;
-    const MYSKILLSFUTURE_COURSE_URL = 'https://www.myskillsfuture.gov.sg/content/portal/en/training-exchange/course-directory/course-detail.html?courseReference=';
+    const MYSKILLSFUTURE_COURSE_URL = 'https://www.myskillsfuture.gov.sg/content/portal/en/training-exchange/course-directory/course-detail.html?courseReferenceNumber=';
 
     /**
      * @param string $text     Lead's "courses_interested" + "comment" payload
@@ -299,7 +299,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
             . $portalRow
             . '</td></tr></table>'
             . '<p style="margin:0 0 12px;">You can find more information about the course, such as the '
-            . 'course info and available course run dates, on the link above.</p>'
+            . 'course info, and available course run dates on the link above.</p>'
             . $fundingNote;
     }
 
@@ -312,13 +312,9 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function buildContactHtml(MMD_Leads_Model_Lead $lead)
     {
-        if ($this->_isSingaporeStore((int) $lead->getStoreId())) {
-            return '<p style="margin:0 0 14px;">If you have any questions or need assistance on course '
-                . 'registration, please don\'t hesitate to reach out to us at '
-                . '<a href="tel:+6561000613" style="color:#2563eb;">6100 0613</a> or WhatsApp us at '
-                . '<a href="https://wa.me/6588666375" style="color:#2563eb;">https://wa.me/6588666375</a>.</p>';
-        }
-
+        // SG uses its own dedicated auto-reply template (mmd_leads_auto_reply_sg)
+        // which hardcodes the SG hotline + WhatsApp line, so this helper only
+        // ever runs for non-SG stores now.
         return '<p style="margin:0 0 14px;">If you have any questions or need assistance on course '
             . 'registration, simply reply to this email and our training consultants will be glad to help.</p>';
     }
