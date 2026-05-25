@@ -8740,7 +8740,7 @@ $_credMask = function ($v) {
                 </div>
 
                 <p style="margin:14px 0 0;color:#64748b;font-size:11px;">
-                    Need a different provider? Click <strong>Outlook 365</strong> for Microsoft 365, <strong>cPanel (TLS 587)</strong> or <strong>cPanel (SSL 465)</strong> for shared-hosting mailboxes — the preset fills the right SSL/Auth and you supply Host, Username, Password.
+                    Using a different provider? Click <strong>Outlook 365</strong> for Microsoft 365, or <strong>Custom · TLS 587</strong> / <strong>Custom · SSL 465</strong> for any other SMTP relay — these set the right port + SSL + auth while leaving Host blank for you to fill in.
                 </p>
             </div>
         </details>
@@ -8775,8 +8775,8 @@ $_credMask = function ($v) {
                 <span style="font-size:11px;color:#64748b;align-self:center;margin-right:4px;">Quick-fill:</span>
                 <button type="button" class="crd-preset" onclick="crdSmtpPreset('<?php echo $_code ?>','gmail')">Gmail / Workspace</button>
                 <button type="button" class="crd-preset" onclick="crdSmtpPreset('<?php echo $_code ?>','outlook')">Outlook 365</button>
-                <button type="button" class="crd-preset" onclick="crdSmtpPreset('<?php echo $_code ?>','cpanel_tls')">cPanel (TLS 587)</button>
-                <button type="button" class="crd-preset" onclick="crdSmtpPreset('<?php echo $_code ?>','cpanel_ssl')">cPanel (SSL 465)</button>
+                <button type="button" class="crd-preset" onclick="crdSmtpPreset('<?php echo $_code ?>','generic_tls')" title="STARTTLS on port 587 — standard transactional SMTP">Custom · TLS 587</button>
+                <button type="button" class="crd-preset" onclick="crdSmtpPreset('<?php echo $_code ?>','generic_ssl')" title="SSL on port 465 — legacy SMTPS">Custom · SSL 465</button>
             </div>
 
             <div class="crd-row" style="flex-direction:row;gap:12px;">
@@ -8880,10 +8880,12 @@ function crdToast(msg, kind) {
 // Doesn't touch username / password (those are per-mailbox secrets) — only
 // the transport knobs that 99% of relays expect for that provider.
 var CRD_SMTP_PRESETS = {
-    gmail:      { host: 'smtp.gmail.com',          port: '587', ssl: 'tls', auth: 'login' },
-    outlook:    { host: 'smtp.office365.com',      port: '587', ssl: 'tls', auth: 'login' },
-    cpanel_tls: { host: '',                         port: '587', ssl: 'tls', auth: 'login' },
-    cpanel_ssl: { host: '',                         port: '465', ssl: 'ssl', auth: 'login' }
+    gmail:       { host: 'smtp.gmail.com',     port: '587', ssl: 'tls', auth: 'login' },
+    outlook:     { host: 'smtp.office365.com', port: '587', ssl: 'tls', auth: 'login' },
+    // Generic port/SSL presets — leave host alone, user fills it. Covers any
+    // SMTP relay (cPanel mailbox, transactional service, third-party host).
+    generic_tls: { host: '',                   port: '587', ssl: 'tls', auth: 'login' },
+    generic_ssl: { host: '',                   port: '465', ssl: 'ssl', auth: 'login' }
 };
 function crdSmtpPreset(code, presetKey) {
     var p = CRD_SMTP_PRESETS[presetKey];
