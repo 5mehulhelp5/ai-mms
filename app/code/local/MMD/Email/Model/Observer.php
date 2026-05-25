@@ -138,17 +138,38 @@ class MMD_Email_Model_Observer
     {
         try {
             $current = Zend_Mail::getDefaultTransport();
-            if ($current instanceof MMD_Email_Model_Transport_Gmail) {
+            $gmail   = Mage::helper('mmd_email/gmail');
+
+            if ($gmail && $gmail->isConfigured() && $gmail->isGmailStore()) {
+                // SG storefront + admin → Gmail OAuth2 default.
+                if ($current instanceof MMD_Email_Model_Transport_Gmail) {
+                    return;
+                }
+                Zend_Mail::setDefaultTransport(new MMD_Email_Model_Transport_Gmail());
                 return;
             }
-            $gmail = Mage::helper('mmd_email/gmail');
-            if (!$gmail || !$gmail->isConfigured()) {
-                return; // no creds; leave whatever Magento's stock default is
+
+            // Non-SG storefront → install Aschroder SMTPPro's per-store
+            // transport (built from this website's `smtppro/general/*` rows)
+            // as Zend_Mail's default. Without this, any code path that calls
+            // a bare `$mail = new Zend_Mail(); $mail->send();` (e.g. the bank-
+            // payment receipt confirmation controller) falls back to PHP
+            // sendmail — which isn't available in the Coolify container, so
+            // the send throws and the calling controller surfaces the
+            // generic "Unable to submit your request" error to the customer.
+            if (!Mage::helper('smtppro') || !Mage::helper('smtppro')->isEnabled()) {
+                return; // SMTPPro not enabled for this scope; leave stock default
             }
-            if (!$gmail->isGmailStore()) {
-                return; // non-SG storefront — let SMTPPro handle outbound mail
+            // Don't re-install if the default is already an SMTP transport;
+            // the cost of re-resolving per-store creds on every request is
+            // small but unnecessary.
+            if ($current instanceof Zend_Mail_Transport_Smtp) {
+                return;
             }
-            Zend_Mail::setDefaultTransport(new MMD_Email_Model_Transport_Gmail());
+            $transport = Mage::helper('smtppro')->getTransport();
+            if ($transport) {
+                Zend_Mail::setDefaultTransport($transport);
+            }
         } catch (Exception $e) {
             Mage::logException($e);
         }
