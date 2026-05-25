@@ -726,41 +726,47 @@ body.catalog-categories #tree-div .x-tree-node-anchor {
     vertical-align: middle !important;
     position: relative !important;
 }
-/* Toggle chevron — injected by _wireCategoryRowToggle() in tree.phtml
-   as a real <span> outside the <a>, so clicking it doesn't fire ExtJS's
-   "select node for editing" handler on the anchor. .is-expanded rotates
-   the chevron 90° to point down. */
-body.adminhtml-catalog-category-index #tree-div .cat-chevron,
-body.adminhtml-catalog-category-edit #tree-div .cat-chevron,
-body.catalog-categories #tree-div .cat-chevron {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    margin-right: 4px;
-    color: #60a5fa;
-    font-size: 16px;
-    font-weight: 700;
-    line-height: 16px;
-    text-align: center;
-    cursor: pointer;
-    user-select: none;
-    transition: transform 0.15s ease;
-    vertical-align: middle;
+/* Toggle chevron drawn directly on the existing .x-tree-ec-icon image
+   (the spacer.gif ExtJS uses as the click target for expand/collapse).
+   Keeps the native ExtJS click handler intact — no DOM injection,
+   no broken element refs, so Collapse All / Expand All keep working.
+   The chevron rotates 90° when the node's .x-tree-elbow-(end-)minus
+   variant is active (i.e. the node is expanded). */
+body.adminhtml-catalog-category-index #tree-div .x-tree-ec-icon,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-ec-icon,
+body.catalog-categories #tree-div .x-tree-ec-icon {
+    width: 18px !important;
+    height: 18px !important;
+    margin: 0 4px 0 0 !important;
+    cursor: pointer !important;
+    vertical-align: middle !important;
+    visibility: visible !important;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 6 15 12 9 18'/></svg>") !important;
+    background-repeat: no-repeat !important;
+    background-position: center !important;
+    background-size: 16px 16px !important;
+    transition: transform 0.15s ease !important;
 }
-body.adminhtml-catalog-category-index #tree-div .cat-chevron::before,
-body.adminhtml-catalog-category-edit #tree-div .cat-chevron::before,
-body.catalog-categories #tree-div .cat-chevron::before {
-    content: "\25B8"; /* small right-pointing triangle */
+body.adminhtml-catalog-category-index #tree-div .x-tree-elbow-minus,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-elbow-minus,
+body.catalog-categories #tree-div .x-tree-elbow-minus,
+body.adminhtml-catalog-category-index #tree-div .x-tree-elbow-end-minus,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-elbow-end-minus,
+body.catalog-categories #tree-div .x-tree-elbow-end-minus {
+    transform: rotate(90deg) !important;
 }
-body.adminhtml-catalog-category-index #tree-div .cat-chevron.is-expanded,
-body.adminhtml-catalog-category-edit #tree-div .cat-chevron.is-expanded,
-body.catalog-categories #tree-div .cat-chevron.is-expanded {
-    transform: rotate(90deg);
-}
-body.adminhtml-catalog-category-index #tree-div .cat-chevron:hover,
-body.adminhtml-catalog-category-edit #tree-div .cat-chevron:hover,
-body.catalog-categories #tree-div .cat-chevron:hover {
-    color: #93c5fd;
+/* Leaf nodes have .x-tree-elbow / .x-tree-elbow-end (no plus/minus suffix)
+   and don't render a chevron — collapse the slot so leaves render tight. */
+body.adminhtml-catalog-category-index #tree-div .x-tree-ec-icon.x-tree-elbow,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-ec-icon.x-tree-elbow,
+body.catalog-categories #tree-div .x-tree-ec-icon.x-tree-elbow,
+body.adminhtml-catalog-category-index #tree-div .x-tree-ec-icon.x-tree-elbow-end,
+body.adminhtml-catalog-category-edit #tree-div .x-tree-ec-icon.x-tree-elbow-end,
+body.catalog-categories #tree-div .x-tree-ec-icon.x-tree-elbow-end {
+    background-image: none !important;
+    cursor: default !important;
+    width: 4px !important;
+    margin: 0 !important;
 }
 body.adminhtml-catalog-category-index #tree-div .x-tree-node-anchor span,
 body.adminhtml-catalog-category-edit #tree-div .x-tree-node-anchor span,
