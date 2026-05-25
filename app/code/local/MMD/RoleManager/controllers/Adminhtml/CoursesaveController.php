@@ -1218,6 +1218,377 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         $this->getResponse()->setBody(Mage::helper('core')->jsonEncode($result));
     }
 
+    /**
+     * Admin AJAX: generate SEO Meta (title, keywords, description) via Claude CLI.
+     *
+     * Mode is explicit — the admin clicks either the "WSQ" or "Non-WSQ"
+     * button beside the SEO Meta panel header, and that selection rides
+     * through as the `mode` POST param. We do NOT auto-detect from SKU
+     * because some non-TGS courses are still WSQ-funded (and vice versa).
+     * Inputs come from the modal that the admin reviews before clicking
+     * Generate; the modal pre-fills them from the current edit form so the
+     * caller doesn't need to re-type Course Name / Learning Outcomes /
+     * Course Description.
+     *
+     * Powered by the `claude` binary installed in the web container
+     * (Dockerfile) and authenticated via the host's ~/.claude mount
+     * (docker-compose.yml). Local-dev only for now.
+     */
+    public function aiSeoAction()
+    {
+        $resp = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) {
+                throw new Exception('POST required');
+            }
+            $productId = (int) $this->getRequest()->getParam('product_id');
+            if ($productId <= 0) {
+                throw new Exception('product_id missing');
+            }
+            $product = Mage::getModel('catalog/product')->load($productId);
+            if (!$product->getId()) {
+                throw new Exception('Course not found');
+            }
+
+            $mode  = (string) $this->getRequest()->getParam('mode');
+            $isWsq = ($mode === 'wsq');
+
+            $tplFile = Mage::getBaseDir('code')
+                . '/local/MMD/RoleManager/etc/ai-seo/'
+                . ($isWsq ? 'wsq.md' : 'non-wsq.md');
+            if (!is_readable($tplFile)) {
+                throw new Exception('Prompt template missing: ' . basename($tplFile));
+            }
+            $tpl = file_get_contents($tplFile);
+
+            $vals = $isWsq ? array(
+                'course_title'      => (string) $this->getRequest()->getParam('course_title'),
+                'learning_outcomes' => (string) $this->getRequest()->getParam('learning_outcomes'),
+                'topics'            => (string) $this->getRequest()->getParam('topics'),
+            ) : array(
+                'course_name'       => (string) $this->getRequest()->getParam('course_name'),
+                'key_topics'        => (string) $this->getRequest()->getParam('key_topics'),
+                'course_highlights' => (string) $this->getRequest()->getParam('course_highlights'),
+            );
+            foreach ($vals as $k => $v) {
+                $tpl = str_replace('{' . $k . '}', $v, $tpl);
+            }
+
+            // Two-tier generation strategy:
+            //   1. If a real Anthropic API key (sk-ant-api*) is set,
+            //      call the Messages API directly (3–8s).
+            //   2. Otherwise (or if API fails) fall through to the
+            //      `claude` CLI which uses the host's mounted ~/.claude
+            //      auth — this works even when the OAuth token in
+            //      local.xml is rate-limited (different auth path).
+            //   3. Last resort: deterministic stub keyed off the course
+            //      data so the UI always gets *something* usable.
+            $cfg     = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
+            $apiKey  = trim((string) ($cfg['anthropic_key']   ?? ''));
+            $model   = trim((string) ($cfg['anthropic_model'] ?? '')) ?: 'claude-sonnet-4-6';
+            $stdout  = '';
+            $stubbed = false;
+            $stubReason = '';
+
+            // Tier 1 — direct API, only when a real `sk-ant-api*` key is
+            // configured. OAuth tokens (sk-ant-oat*) are skipped here
+            // because they hit aggressive rate limits and consistently
+            // 429; we go straight to the CLI instead.
+            if (stripos($apiKey, 'sk-ant-api') === 0) {
+                try {
+                    $body = json_encode(array(
+                        'model'      => $model,
+                        'max_tokens' => 1500,
+                        'system'     => 'You are an SEO copywriter for a Singapore-based training provider. Output exactly the labeled sections requested, no preamble.',
+                        'messages'   => array(array('role' => 'user', 'content' => $tpl)),
+                    ));
+                    $ch = curl_init('https://api.anthropic.com/v1/messages');
+                    curl_setopt_array($ch, array(
+                        CURLOPT_POST           => true,
+                        CURLOPT_POSTFIELDS     => $body,
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_TIMEOUT        => 30,
+                        CURLOPT_CONNECTTIMEOUT => 10,
+                        CURLOPT_HTTPHEADER     => array(
+                            'anthropic-version: 2023-06-01',
+                            'content-type: application/json',
+                            'x-api-key: ' . $apiKey,
+                        ),
+                    ));
+                    $raw  = curl_exec($ch);
+                    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    curl_close($ch);
+                    $rsp = json_decode($raw, true);
+                    if ($code >= 400 || !isset($rsp['content'][0]['text'])) {
+                        $msg = $rsp['error']['message'] ?? substr($raw, 0, 150);
+                        throw new Exception('API HTTP ' . $code . ': ' . $msg);
+                    }
+                    $stdout = (string) $rsp['content'][0]['text'];
+                } catch (Exception $e) {
+                    $stubReason = $e->getMessage();
+                }
+            }
+
+            // Tier 2 — `claude` CLI. This uses the host's mounted
+            // ~/.claude OAuth which is a different auth path from the
+            // API key; bypasses the 429 the API path hits. We bound it
+            // with `timeout 75s` so a hung CLI can never lock up an
+            // Apache worker for minutes again.
+            if ($stdout === '') {
+                $descriptors = array(
+                    0 => array('pipe', 'r'),
+                    1 => array('pipe', 'w'),
+                    2 => array('pipe', 'w'),
+                );
+                $env = array();
+                foreach ($_ENV as $k => $v) {
+                    if ($k !== 'CLAUDECODE') $env[$k] = $v;
+                }
+                foreach (array('PATH', 'HOME') as $k) {
+                    if (!isset($env[$k]) && getenv($k) !== false) {
+                        $env[$k] = getenv($k);
+                    }
+                }
+                // Apache runs as www-data with HOME=/var/www. The
+                // `claude` CLI reads credentials from $HOME/.claude.
+                // The host's ~/.claude is mounted at /root/.claude but
+                // /root is 0700 root-only so www-data can't reach it —
+                // result: CLI sits at the auth prompt until our
+                // timeout fires and we wrongly fall to the stub.
+                // Fix: read creds from /var/www/.claude (copied at
+                // container start, owned by www-data).
+                if (is_dir('/var/www/.claude')) {
+                    $env['HOME'] = '/var/www';
+                } elseif (is_dir('/root/.claude') && is_readable('/root')) {
+                    $env['HOME'] = '/root';
+                }
+                $proc = @proc_open(
+                    'timeout 100 claude -p --output-format text',
+                    $descriptors, $pipes, null, $env
+                );
+                if (is_resource($proc)) {
+                    fwrite($pipes[0], $tpl);
+                    fclose($pipes[0]);
+                    stream_set_blocking($pipes[1], false);
+                    stream_set_blocking($pipes[2], false);
+                    $deadline = time() + 105;
+                    $cliOut = ''; $cliErr = '';
+                    $finalExit = -1;
+                    // Important gotcha: once proc_get_status returns
+                    // running=false, PHP records the exit code and
+                    // proc_close() returns -1 (process already reaped).
+                    // So we MUST capture exitcode from proc_get_status
+                    // — not from proc_close — or the success path is
+                    // unreachable.
+                    while (time() < $deadline) {
+                        $status = proc_get_status($proc);
+                        $cliOut .= stream_get_contents($pipes[1]);
+                        $cliErr .= stream_get_contents($pipes[2]);
+                        if (!$status['running']) {
+                            $finalExit = $status['exitcode'];
+                            break;
+                        }
+                        usleep(200000);
+                    }
+                    // Force-kill if we fell out of the loop without it
+                    // exiting on its own.
+                    $status = proc_get_status($proc);
+                    if ($status['running']) {
+                        proc_terminate($proc, 9);
+                        $finalExit = 137; // 128 + SIGKILL
+                    }
+                    $cliOut .= stream_get_contents($pipes[1]);
+                    $cliErr .= stream_get_contents($pipes[2]);
+                    fclose($pipes[1]);
+                    fclose($pipes[2]);
+                    proc_close($proc);  // reaps the resource; return value ignored
+                    if ($finalExit === 0 && trim($cliOut) !== '') {
+                        $stdout = $cliOut;
+                        $stubReason = '';  // CLI succeeded — clear API-tier error
+                    } elseif ($stubReason === '') {
+                        $stubReason = 'CLI exit ' . $finalExit . ': ' . trim($cliErr);
+                    }
+                }
+            }
+
+            // Tier 3 — deterministic stub. Last resort.
+            if ($stdout === '') {
+                $stubbed = true;
+                if ($stubReason === '') $stubReason = 'no generator available';
+                $stdout  = $this->_buildAiSeoStub($isWsq, $vals, $product);
+            }
+
+            $sections = $this->_parseAiSeoSections($stdout);
+
+            $resp['success']          = true;
+            $resp['mode']             = $isWsq ? 'wsq' : 'non_wsq';
+            $resp['meta_title']       = $sections['meta_title']       ?? '';
+            $resp['meta_keyword']     = $sections['meta_keywords']    ?? '';
+            $resp['meta_description'] = $sections['meta_description'] ?? '';
+            $resp['raw']              = $stdout;
+            $resp['stubbed']          = $stubbed;
+            if ($stubbed) $resp['stub_reason'] = $stubReason;
+        } catch (Exception $e) {
+            $resp['message'] = $e->getMessage();
+        }
+        $this->getResponse()
+            ->setHeader('Content-Type', 'application/json', true)
+            ->setBody(Mage::helper('core')->jsonEncode($resp));
+    }
+
+    /**
+     * Deterministic SEO stub used when no Anthropic key is configured or
+     * the upstream call fails (e.g. 429 rate limit on the OAuth token).
+     * Pulls the course name + keywords from the supplied form inputs so
+     * the output is tailored to *this* course rather than fully generic.
+     * Output mirrors what Claude would return so _parseAiSeoSections can
+     * read it unchanged.
+     */
+    protected function _buildAiSeoStub($isWsq, array $vals, $product)
+    {
+        $name = $isWsq
+            ? trim($vals['course_title'] ?? '')
+            : trim($vals['course_name']  ?? '');
+        if ($name === '') $name = (string) $product->getName();
+        if ($name === '') $name = 'Course';
+
+        // ---------- Meta Title ----------
+        // No truncation; Google trims SERP titles itself at ~60 chars and
+        // word-boundary cuts are uglier than letting the browser tab show
+        // the full name. Keep it human-readable.
+        $title = $isWsq
+            ? $name . ' | WSQ Course | Tertiary Courses Singapore'
+            : $name . ' | Tertiary Courses Singapore';
+
+        // ---------- Meta Keywords ----------
+        // Pull tokens from the user's typed inputs (learning outcomes,
+        // topics, highlights). Strip any leading "LO1:", "T2:", "L3:"-
+        // style outline prefixes (one or two letters + digits + colon).
+        $kwSource = trim(($vals['learning_outcomes'] ?? '') . ' '
+                       . ($vals['topics']            ?? '') . ' '
+                       . ($vals['key_topics']        ?? '') . ' '
+                       . ($vals['course_highlights'] ?? ''));
+        $kwSource = preg_replace('/\b[a-zA-Z]{1,3}\d+\s*:?/i', '', $kwSource);
+        $kwSource = preg_replace('/[^a-zA-Z0-9 \-]+/', ' ', $kwSource);
+        $words = preg_split('/\s+/', strtolower($kwSource));
+        $stop  = array('the','a','an','and','or','of','to','in','for','on',
+                       'with','by','at','from','as','is','are','be','will',
+                       'this','that','these','those','its','their','can',
+                       'has','have','had','was','were','they','them','it',
+                       'using','use','used','learn','learners','learner',
+                       'participants','including','various','about','also',
+                       'such','than','then','only','more','most','other',
+                       'each','etc','via','wsq');
+        $picked = array();
+        foreach ($words as $w) {
+            $w = trim($w);
+            if (strlen($w) < 4) continue;
+            if (in_array($w, $stop, true)) continue;
+            if (!preg_match('/^[a-z][a-z0-9\-]+$/', $w)) continue;
+            $picked[$w] = true;
+            if (count($picked) >= 8) break;
+        }
+        $topicWords = array_keys($picked);
+
+        // Build keyword list — variety: course name itself + a couple
+        // topic-tail phrases + Singapore intent terms. Dedupe
+        // case-insensitively so "WSQ" doesn't repeat as "wsq". Pick the
+        // first content word (skip "WSQ -" prefix) and preserve all-caps
+        // acronyms like "AI", "SQL", "AWS" rather than ucfirst-ing them
+        // into "Ai" / "Sql" / "Aws".
+        // Strip any leading "WSQ ", "WSQ - ", "WSQ: ", "WSQ – " so we
+        // pick the meaningful first word ("Python", not "WSQ").
+        $titleWords = preg_split('/\s+/', trim(preg_replace('/^WSQ\s*[-:–]?\s*/i', '', $name)));
+        $firstWord  = $titleWords[0] ?? $name;
+        if (!preg_match('/^[A-Z]{2,}$/', $firstWord)) {
+            $firstWord = ucfirst(strtolower($firstWord));
+        }
+        $kws = array();
+        if ($isWsq) $kws[] = 'WSQ ' . $firstWord . ' course Singapore';
+        $kws[] = $firstWord . ' training Singapore';
+        foreach ($topicWords as $w) $kws[] = ucfirst($w);
+        if ($isWsq) {
+            $kws[] = 'SkillsFuture credit eligible';
+            $kws[] = 'WSQ funded course';
+        } else {
+            $kws[] = 'professional training course';
+        }
+        $seen = array();
+        $deduped = array();
+        foreach ($kws as $k) {
+            $key = strtolower(trim($k));
+            if ($key === '' || isset($seen[$key])) continue;
+            $seen[$key] = true;
+            $deduped[] = $k;
+        }
+        $keywords = implode(', ', array_slice($deduped, 0, 10));
+
+        // ---------- Meta Description ----------
+        // Phrase varies by mode and references 1–2 topic words for
+        // specificity. Capped at 240 chars (Google snippets ~155 desktop,
+        // we keep slack for funding line).
+        $topicTail = '';
+        if (count($topicWords) >= 2) {
+            $topicTail = ' Covers ' . $topicWords[0] . ', ' . $topicWords[1] . '.';
+        } elseif (count($topicWords) === 1) {
+            $topicTail = ' Covers ' . $topicWords[0] . '.';
+        }
+        $desc = $isWsq
+            ? 'Learn ' . $name . ' through this WSQ-certified course in Singapore.' . $topicTail . ' Up to 70% WSQ funding subsidy available.'
+            : 'Master ' . $name . ' with hands-on training in Singapore.' . $topicTail . ' Practical skills for working professionals.';
+        if (strlen($desc) > 240) $desc = substr($desc, 0, 237) . '...';
+
+        return "**SEO Meta Title:** " . $title . "\n\n"
+             . "**SEO Meta Keywords:** " . $keywords . "\n\n"
+             . "**SEO Meta Description:** " . $desc . "\n";
+    }
+
+    /**
+     * Parse the WSQ/Non-WSQ markdown output from Claude into a flat map
+     * keyed by lowercased label slug. Mirrors course-helper's
+     * ui_helpers.split_sections() heuristic — splits on lines like
+     * "1. **SEO Meta Title:** ..." or "**Label:** ..." and collapses
+     * "SEO " prefix + Singapore suffix variants so meta_title resolves
+     * for both skills.
+     */
+    protected function _parseAiSeoSections($md)
+    {
+        $out = array();
+        $pattern = '/^\s*(?:\d+\.\s*)?\*\*([^*]+?)\*\*:?\s*(.*)$/mu';
+        if (!preg_match_all($pattern, $md, $matches, PREG_OFFSET_CAPTURE)) {
+            return $out;
+        }
+        $count = count($matches[0]);
+        for ($i = 0; $i < $count; $i++) {
+            $rawLabel = strtolower(trim($matches[1][$i][0]));
+            // Claude returns "**SEO Meta Title:**" with the colon INSIDE
+            // the asterisks, so it lands inside our captured label. Strip
+            // it (along with any stray punctuation) before slugifying,
+            // otherwise the key becomes "meta_title:" and the caller's
+            // `$sections['meta_title']` lookup misses.
+            $rawLabel = rtrim($rawLabel, " :.\t");
+            $rawLabel = preg_replace('/^seo\s+/', '', $rawLabel);
+            // "Meta Title for Singapore" → "meta_title"; everything else
+            // becomes its underscored form ("meta keywords" → "meta_keywords").
+            $rawLabel = preg_replace('/\s+for\s+singapore$/', '', $rawLabel);
+            $label    = preg_replace('/\s+/', '_', trim($rawLabel));
+
+            $start = $matches[2][$i][1];
+            $end   = ($i + 1 < $count)
+                ? $matches[0][$i + 1][1]
+                : strlen($md);
+            $value = trim(substr($md, $start, $end - $start));
+            // Strip bullet markers so keywords/description aren't littered
+            // with leading "- ".
+            $value = preg_replace('/^[\-\*]\s+/m', '', $value);
+            // Strip the trailing horizontal rule Claude likes to add
+            // between sections.
+            $value = preg_replace('/^-{3,}\s*$/m', '', $value);
+            $out[$label] = trim($value);
+        }
+        return $out;
+    }
+
     protected function _isAllowed()
     {
         // Course / class / enrolment / attendance management. Trainers

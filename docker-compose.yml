@@ -19,6 +19,15 @@ services:
       # copy (Git for Windows can rewrite line endings to CRLF, breaking the
       # shebang). Same restart semantics — no rebuild needed.
       - ./docker/entrypoint.sh:/usr/local/bin/entrypoint.sh
+      # Claude CLI credentials — mounted read-only from the host so the
+      # in-container `claude` binary (installed by Dockerfile) reuses the
+      # existing host login. Powers the admin "Generate SEO Meta with AI"
+      # button. ${USERPROFILE} resolves to e.g. C:\Users\alish on Windows.
+      # Need both: .claude/ (sessions, history) and .claude.json (account
+      # config). Without the .json, the CLI still works but spews a noisy
+      # "configuration file not found" warning on every invocation.
+      - "${USERPROFILE}/.claude:/root/.claude:ro"
+      - "${USERPROFILE}/.claude.json:/root/.claude.json:ro"
     tmpfs:
       # Move Magento's runtime caches off the Windows bind mount and into
       # in-container RAM. Bootstrap was reading ~5MB of small cache files

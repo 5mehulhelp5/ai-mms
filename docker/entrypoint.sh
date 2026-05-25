@@ -19,6 +19,25 @@ LOCAL_XML=/var/www/html/app/etc/local.xml
 # a cheap safety net that costs nothing on a healthy container.
 a2enmod headers expires brotli rewrite deflate >/dev/null 2>&1 || true
 
+# Mirror the `claude` CLI credentials from /root/.claude (mounted from the
+# host) into /var/www/.claude so Apache (running as www-data, HOME=/var/www)
+# can find them. /root is 0700 root-only so www-data can't read it directly;
+# without this copy, server-side claude calls (admin Course Edit > "Generate
+# SEO Meta with AI") hang at the auth prompt until our PHP timeout fires,
+# silently falling back to the deterministic stub.
+if [ -d /root/.claude ] && [ ! -d /var/www/.claude ]; then
+    cp -r /root/.claude /var/www/.claude 2>/dev/null \
+        && chown -R www-data:www-data /var/www/.claude \
+        && chmod 700 /var/www/.claude \
+        && chmod 600 /var/www/.claude/.credentials.json 2>/dev/null \
+        && echo "entrypoint: mirrored ~/.claude credentials to /var/www/ for Apache"
+fi
+if [ -f /root/.claude.json ] && [ ! -f /var/www/.claude.json ]; then
+    cp /root/.claude.json /var/www/.claude.json 2>/dev/null \
+        && chown www-data:www-data /var/www/.claude.json \
+        && chmod 600 /var/www/.claude.json
+fi
+
 if [ ! -f "$MIGRATION_RUNNER" ]; then
     echo "entrypoint: $MIGRATION_RUNNER not found, skipping migrations"
     exec apache2-foreground

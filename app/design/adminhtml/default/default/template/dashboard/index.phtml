@@ -3668,7 +3668,28 @@ function devSetView(view) {
         <!-- ===== Tab: Meta Information ===== -->
         <div class="dcf-tab-panel" data-tab="meta">
             <div class="dcf-mag">
-                <div class="dcf-mag-bar">SEO Meta</div>
+                <div class="dcf-mag-bar" style="display:flex;align-items:center;justify-content:space-between;">
+                    <span>SEO Meta</span>
+                    <span style="display:inline-flex;gap:8px;">
+                        <button type="button" class="ai-seo-btn" data-mode="wsq" style="background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.4);color:#22d3ee;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z"/></svg>
+                            WSQ
+                        </button>
+                        <button type="button" class="ai-seo-btn" data-mode="non_wsq" style="background:rgba(168,139,250,.1);border:1px solid rgba(168,139,250,.45);color:#a78bfa;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z"/></svg>
+                            Non-WSQ
+                        </button>
+                    </span>
+                </div>
+                <div id="ai-seo-progress-wrap" style="display:none;padding:10px 16px 8px;background:rgba(34,211,238,.04);border-bottom:1px solid var(--b1);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:11px;">
+                        <span style="color:var(--t2);">Generating SEO with AI…</span>
+                        <span id="ai-seo-progress-eta" style="color:var(--t1);font-weight:600;">~25s left</span>
+                    </div>
+                    <div style="height:5px;background:rgba(148,163,184,.18);border-radius:999px;overflow:hidden;">
+                        <div id="ai-seo-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#22d3ee,#258bb6);border-radius:999px;transition:width 0.4s linear;"></div>
+                    </div>
+                </div>
                 <div class="dcf-mag-body">
                     <div class="dcf-row">
                         <div class="dcf-row-label">Meta Title</div>
@@ -3690,6 +3711,147 @@ function devSetView(view) {
                     </div>
                 </div>
             </div>
+
+            <?php /* ===== AI SEO Meta: one-click direct-fill =====
+                  Click WSQ or Non-WSQ → POST course data → form fields
+                  meta_title / meta_keyword / meta_description populate
+                  themselves. No modal, no preview, no Apply step. */ ?>
+            <script>
+            (function() {
+                var OPEN_BTNS = document.querySelectorAll('.ai-seo-btn');
+                if (!OPEN_BTNS.length) return;
+                var FORM = document.getElementById('dcf-form');
+
+                // Map WSQ vs Non-WSQ → POST field names the controller expects.
+                var FIELD_MAP = {
+                    wsq: ['course_title', 'learning_outcomes', 'topics'],
+                    non_wsq: ['course_name', 'key_topics', 'course_highlights']
+                };
+
+                function stripHtml(s) {
+                    if (!s) return '';
+                    var tmp = document.createElement('div');
+                    tmp.innerHTML = s;
+                    return (tmp.textContent || tmp.innerText || '').trim();
+                }
+                function formVal(name) {
+                    var el = FORM && FORM.querySelector('[name="' + name + '"]');
+                    return el ? (el.value || '') : '';
+                }
+
+                var PROGRESS_WRAP = document.getElementById('ai-seo-progress-wrap');
+                var PROGRESS_BAR  = document.getElementById('ai-seo-progress-bar');
+                var PROGRESS_ETA  = document.getElementById('ai-seo-progress-eta');
+                var progressTimer = null;
+                function startProgress() {
+                    // Generation typically takes ~20s warm, ~30s cold.
+                    // Climb to 90% over 30s, then asymptote toward 98% so
+                    // the bar always shows motion even if Claude is slow.
+                    // The response handler jumps it to 100%.
+                    var EXPECTED_MS = 30000;
+                    var started = Date.now();
+                    PROGRESS_WRAP.style.display = 'block';
+                    PROGRESS_BAR.style.transition = 'width 0.4s linear';
+                    PROGRESS_BAR.style.width = '0%';
+                    if (progressTimer) clearInterval(progressTimer);
+                    progressTimer = setInterval(function() {
+                        var elapsed = Date.now() - started;
+                        var pct;
+                        if (elapsed < EXPECTED_MS) {
+                            pct = (elapsed / EXPECTED_MS) * 90;
+                        } else {
+                            var over = (elapsed - EXPECTED_MS) / 1000;
+                            pct = 90 + (1 - Math.exp(-over / 20)) * 8;
+                        }
+                        var remaining = Math.max(0, EXPECTED_MS - elapsed);
+                        var secs = Math.ceil(remaining / 1000);
+                        PROGRESS_BAR.style.width = pct.toFixed(1) + '%';
+                        PROGRESS_ETA.textContent = secs > 0
+                            ? '~' + secs + 's left'
+                            : 'Almost done…';
+                    }, 400);
+                }
+                function finishProgress() {
+                    if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
+                    PROGRESS_BAR.style.transition = 'width 0.25s ease-out';
+                    PROGRESS_BAR.style.width = '100%';
+                    PROGRESS_ETA.textContent = 'Done';
+                    setTimeout(function() {
+                        PROGRESS_WRAP.style.display = 'none';
+                        PROGRESS_BAR.style.width = '0%';
+                    }, 500);
+                }
+
+                function directGenerate(btn, mode) {
+                    var origHtml = btn.innerHTML;
+                    btn.disabled = true;
+                    btn.style.opacity = '.6';
+                    btn.style.cursor = 'wait';
+                    btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:ai-seo-spin 0.7s linear infinite;"></span> Generating…';
+                    startProgress();
+
+                    var productId = '<?php echo (int)($_selectedCourse["id"] ?? 0) ?>';
+                    var fd = new FormData();
+                    fd.append('form_key', window.FORM_KEY || '<?php echo Mage::getSingleton("core/session")->getFormKey() ?>');
+                    fd.append('product_id', productId);
+                    fd.append('mode', mode);
+                    var keys = FIELD_MAP[mode];
+                    var courseName  = formVal('general_course_name') || formVal('course_name') || '';
+                    var outcomes    = stripHtml(formVal('learning_outcomes'));
+                    var description = stripHtml(formVal('course_description'));
+                    fd.append(keys[0], courseName);
+                    fd.append(keys[1], outcomes);
+                    fd.append(keys[2], description);
+
+                    fetch('<?php echo Mage::helper("adminhtml")->getUrl("adminhtml/coursesave/aiSeo") ?>', {
+                        method: 'POST',
+                        body: fd,
+                        credentials: 'same-origin'
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(j) {
+                        btn.disabled = false;
+                        btn.style.opacity = '1';
+                        btn.style.cursor = 'pointer';
+                        btn.innerHTML = origHtml;
+                        finishProgress();
+                        if (!j || !j.success) {
+                            alert('SEO generation failed: ' + ((j && j.message) || 'unknown error'));
+                            return;
+                        }
+                        var setField = function(name, value) {
+                            var el = FORM.querySelector('[name="' + name + '"]');
+                            if (el && value != null && value !== '') el.value = value;
+                        };
+                        setField('meta_title',       j.meta_title);
+                        setField('meta_keyword',     j.meta_keyword);
+                        setField('meta_description', j.meta_description);
+                        if (j.stubbed) console.warn('SEO stub used: ' + j.stub_reason);
+                    })
+                    .catch(function(err) {
+                        btn.disabled = false;
+                        btn.style.opacity = '1';
+                        btn.style.cursor = 'pointer';
+                        btn.innerHTML = origHtml;
+                        finishProgress();
+                        alert('Network error: ' + err.message);
+                    });
+                }
+                for (var i = 0; i < OPEN_BTNS.length; i++) {
+                    (function(btn) {
+                        btn.addEventListener('click', function() {
+                            directGenerate(btn, btn.getAttribute('data-mode'));
+                        });
+                    })(OPEN_BTNS[i]);
+                }
+                if (!document.getElementById('ai-seo-spin-style')) {
+                    var st = document.createElement('style');
+                    st.id = 'ai-seo-spin-style';
+                    st.textContent = '@keyframes ai-seo-spin{to{transform:rotate(360deg);}}';
+                    document.head.appendChild(st);
+                }
+            })();
+            </script>
         </div>
 
         <!-- ===== Tab: Design ===== -->
