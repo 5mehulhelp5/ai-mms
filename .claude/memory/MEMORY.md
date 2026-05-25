@@ -1,0 +1,21 @@
+- [DB sync via migration scripts](feedback_db_sync_via_migration.md) — never propose dump/restore; always write a reviewable SQL migration
+- [Flat catalog must be reindexed after attribute writes](feedback_flat_catalog_reindex.md) — saveAttribute alone leaves storefront stale; reindex catalog_product_flat + flush block_html/FPC/collections
+- [Index Management + Cache Management row checkboxes are hidden](feedback_admin_hidden_row_checkboxes.md) — mass-action workflow does not work; provide a dedicated controller action instead
+- [HTTP 500 on every route after container restart → mod_headers dropped](feedback_apache_500_mod_headers.md) — diagnostic checklist; permanent fix lives in docker/entrypoint.sh
+- [Funding badges live in Magento tag system, not EAV](feedback_funding_badges_via_tags.md) — storefront chips read tag_relation; cover dialog writes via syncProductTags
+- [Custom email templates need a seeded core_email_template row](feedback_transactional_email_template_seeding.md) — config.xml file template alone is invisible in System → Transactional Emails; seed the DB row + config pointer
+- [apply.php splits .sql on semicolon-at-end-of-line](feedback_apply_php_sql_splitter.md) — multi-line string values must never have a content line ending in ";"; guard rewrites with MD5(value)
+- [Live contact form template](reference_contact_form_template.md) — it's recaptcha/contacts/form.phtml, not the decoy ultimo contacts/form.phtml (Google iframe)
+- [WSQ courses = TGS- SKU prefix](reference_wsq_course_tgs_sku.md) — the SKU is the SkillsFuture course reference; powers the lead auto-reply recommender
+- [short_description has Unicode whitespace](feedback_short_description_unicode_whitespace.md) — Microsoft-pasted markup contains U+202F / NBSP before close tags; use Unicode-aware whitespace class with /u, not bare \s
+- [Ultimo .box-additional clear policy](feedback_ultimo_box_additional_float_clear.md) — pick clear:both vs clear:none based on which product-view column is currently tallest (right-column dominant now → clear:none)
+- [Mobile box-additional hide must be direct child](feedback_mobile_box_additional_hide_must_be_direct_child.md) — `.product-view > .box-additional` for bottom-tabs hide; unqualified `.box-additional` also kills options + Register CTA in the right column
+- [phtml variable hoisting](feedback_phtml_variable_hoisting.md) — PHP 8 silently treats undefined vars as null in `if ($undef && …)`, so misordered phtml gates falsy-bypass without warning; hoist every referenced var above its first consumer
+- [Quote-item product is a lite load](feedback_quote_item_product_lite_load.md) — `$item->getProduct()->getData($customAttr)` returns NULL in cart/checkout; re-fetch via `getAttributeRawValue` instead
+- [Per-course course sections live in cms/block, not short_description regex or EAV](feedback_per_course_cms_block_sections.md) — id pattern `course_<sku>_<section>`; WSQ fees auto-calc, never enter manually
+- [CLI saveAttribute writes at SG scope, not admin](feedback_eav_save_attribute_scope.md) — bulk migrations must target store_id=0 and clear per-store overrides; localhost curl with Host header 301s to prod
+- [Migration generator skipped strip-SQL when local was already migrated](feedback_migration_generator_skipped_strip.md) — emit unconditional strip statements; use UNHEX() for REPLACE() to bypass MySQL backslash-escape ambiguity
+- [Varien mass-action needs checkbox.click()](feedback_varien_massaction_checkbox_click.md) — assigning .checked = true leaves the JS object at 0 selected; submit then alerts "no items selected"
+- [EAV multiselect needs source_model](feedback_eav_multiselect_source_model.md) — set source_model='eav/entity_attribute_source_table' or getSource() throws and admin dropdown is empty
+- ["Edit Course" page is NOT standard product-edit](feedback_dcf_editor_not_standard_product_edit.md) — dcf editor in dashboard/index.phtml hand-renders fields; EAV migration alone won't surface them
+- [Magento.md — site customization playbook](../../Magento.md) — repo-root field notebook on the non-obvious parts of this OpenMage install
