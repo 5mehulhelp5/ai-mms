@@ -24,17 +24,17 @@ Worst buckets: Crawled-not-indexed 6,450 / Page with redirect 1,227 / Excluded b
 
 ---
 
-## Week 1 — Quick wins (target ship: 2026-05-30)
+## Week 1 — Quick wins (shipped 2026-05-26)
 
 Owner: TBD. Low risk, each item is a 1-file or 1-template change.
 
 | # | Item | File(s) | Status |
 |---|------|---------|--------|
-| 1.1 | Remove `maximum-scale=1.0, user-scalable=no` from viewport meta (WCAG 1.4.4) | [head.phtml:33](app/design/frontend/ultimo/default/template/page/html/head.phtml#L33) | ☐ |
-| 1.2 | Add OG/Twitter card tags to head.phtml | [head.phtml](app/design/frontend/ultimo/default/template/page/html/head.phtml) (after hreflang block) | ☐ |
-| 1.3 | Fix product H1 to use `meta_title \|\| name + " Course in " + country` | [view.phtml:742](app/design/frontend/ultimo/default/template/catalog/product/view.phtml#L742) | ☐ |
-| 1.4 | Add `loading="lazy"` to non-hero images | category list, footer CMS blocks | ☐ |
-| 1.5 | Set `<html lang>` per store (en-SG / en-MY / en-GH / en-NG) | [1column.phtml:65](app/design/frontend/ultimo/default/template/page/1column.phtml#L65) + 2/3-column templates | ☐ |
+| 1.1 | Remove `maximum-scale=1.0, user-scalable=no` from viewport meta (WCAG 1.4.4) | [head.phtml](app/design/frontend/ultimo/default/template/page/html/head.phtml) | ✅ `2ad44b974` |
+| 1.2 | Add OG/Twitter card tags to head.phtml | [head.phtml](app/design/frontend/ultimo/default/template/page/html/head.phtml) | ✅ `2ad44b974` |
+| 1.3 | Fix product H1 to use `meta_title \|\| name + " Course in " + country` | [view.phtml:742](app/design/frontend/ultimo/default/template/catalog/product/view.phtml#L742) | ✅ `2ad44b974` |
+| 1.4 | Add `loading="lazy"` to catalog list images (6 templates) | list.phtml, related_multi/tabbed.phtml, upsell.phtml, new.phtml, list_featured_slider.phtml | ✅ `6d200a8c6` (Week 1.5) |
+| 1.5 | Set `<html lang>` per store (en-SG / en-MY / en-GH / en-NG / en-BT / en-IN) | 1column.phtml + 2/3-column templates | ✅ `2ad44b974` |
 
 **Validation after Week 1 ships:**
 ```bash
@@ -63,22 +63,59 @@ done
 
 ---
 
-## Week 2 — Schema + caching (target ship: 2026-06-06)
+## Week 2 — Schema + caching (shipped 2026-05-26)
 
 | # | Item | File(s) | Status |
 |---|------|---------|--------|
-| 2.1 | Add `Course` JSON-LD to product view (`name`, `description`, `provider`, `offers`, `hasCourseInstance`) | new partial included from view.phtml | ☐ |
-| 2.2 | Enable HSTS header (re-enable commented line in `.htaccess`) | [.htaccess:11](.htaccess#L11) | ☐ |
-| 2.3 | Set `Cache-Control: public, max-age=300` on catalog HTML (NOT on customer/checkout) | `.htaccess` LocationMatch OR Magento FPC config | ☐ |
-| 2.4 | Validate `Course` schema with Rich Results Test on 5 sample courses | manual | ☐ |
+| 2.1 | Add `Course` JSON-LD to product pages (`name`, `description`, `provider`, `offers`, `hasCourseInstance`, `image`) | [head.phtml](app/design/frontend/ultimo/default/template/page/html/head.phtml) (in `<head>`, conditional on $_product) | ✅ `142128b26` |
+| 2.2 | Enable HSTS header — **soft version**: `max-age=31536000`, no includeSubDomains, no preload | [.htaccess](.htaccess#L13-L25) | ✅ `9b4e39ecd` |
+| 2.3 | Set `Cache-Control: public, max-age=300` on catalog HTML | `.htaccess` LocationMatch OR Magento FPC config | ⏸️ **Deferred to backlog** — needs hole-punching design (cart badge / customer-group prices leak across cache) |
+| 2.4 | Validate `Course` schema with Rich Results Test on 5 sample courses | https://search.google.com/test/rich-results | ☐ Pending — run after Coolify deploy completes |
 
-**Risk note 2.2:** HSTS is a one-way street. Once a browser sees it, it refuses HTTP for a year. Confirm every subdomain serves HTTPS cleanly **before** enabling.
+**Risk note 2.2 — what we did:** HSTS deployed in `<IfModule mod_headers.c>` wrapper (matches existing defensive pattern from mod_headers incident). Only the bare host is locked — no includeSubDomains so e.g. `mail.tertiarycourses.com.sg` is safe even without TLS. After ≥3 months of clean operation we can escalate to `includeSubDomains; preload` if desired.
 
-**Risk note 2.3:** Changing Cache-Control to `public` means logged-in user state could leak via shared cache if Vary headers are wrong. Test logged-in vs logged-out view of the same product page returns the right cart state. Easier: keep no-store as default and add `Cache-Control: public` only on robot-detected user agents OR on routes that are demonstrably stateless.
+**Risk note 2.3 — why deferred:** Magento 1 emits user-specific HTML on catalog pages (cart count badge, "logged in as X" in header, customer-group pricing). Changing `Cache-Control` to `public` without hole-punching (or refactoring those fragments to AJAX) means proxy/CDN layers could serve one user's session to another. This is a multi-day refactor disguised as a 1-line change. Moved to backlog as B.7.
 
 ---
 
-## Week 3–4 — Structural (target ship: 2026-06-20)
+## Validation commands — Week 1 + 2 (run after Coolify rebuilds finish)
+
+```bash
+# Week 1.1 — viewport (no maximum-scale, no user-scalable=no)
+curl -sLS https://www.tertiarycourses.com.sg/ | grep -oE '<meta name="viewport"[^/]+'
+# Expected: width=device-width, initial-scale=1
+
+# Week 1.2 — OG / Twitter cards on a product page (≥9 lines)
+curl -sLS https://www.tertiarycourses.com.sg/notion-essential-training.html | grep -ciE 'og:|twitter:'
+
+# Week 1.3 — product H1 with country in title
+curl -sLS https://www.tertiarycourses.com.sg/notion-essential-training.html | grep -oE '<h1 itemprop="name">[^<]+'
+# Expected: contains "Tertiary Courses Singapore" (SG) or "Malaysia" (MY) etc.
+
+# Week 1.4 — lazy-loaded list images
+curl -sLS https://www.tertiarycourses.com.sg/programming-courses.html | grep -c 'loading="lazy"'
+# Expected: ≥15 (was 0)
+
+# Week 1.5 — per-store html lang
+for d in sg my ng gh; do
+  echo -n "  .com.$d → "; curl -sLS "https://www.tertiarycourses.com.$d/" | grep -oE '<html [^>]+lang="[^"]+"' | head -1
+done
+# Expected: en-SG / en-MY / en-NG / en-GH
+
+# Week 2.1 — Course JSON-LD validates
+curl -sLS https://www.tertiarycourses.com.sg/notion-essential-training.html \
+  | grep -oE '<script type="application/ld\+json">[^<]+</script>' \
+  | sed 's|</script>||;s|<script[^>]*>||' | python3 -m json.tool
+# Expected: { "@type": "Course", "name": "...", "provider": {...}, "offers": {...} }
+
+# Week 2.2 — HSTS header on every host
+for d in www.tertiarycourses.com.sg www.tertiarycourses.com.my www.tertiarycourses.com.ng www.tertiarycourses.com.gh www.tertiaryinfotech.edu.sg; do
+  echo -n "  $d → "; curl -sI "https://$d/" | grep -i strict-transport
+done
+# Expected: Strict-Transport-Security: max-age=31536000
+```
+
+## Week 3–4 — Structural (target ship: 2026-06-13)
 
 | # | Item | File(s) | Status |
 |---|------|---------|--------|
@@ -122,6 +159,8 @@ done
 | B.4 | Add FAQ schema to high-traffic course pages | Bigger content task — needs FAQs written per course. |
 | B.5 | Consolidate 32 inline `<style>` blocks on homepage into custom.css | CWV minor win; depends on CMS block audit. |
 | B.6 | Add `Organization` + `BreadcrumbList` JSON-LD globally (currently microdata only) | Microdata works; JSON-LD is cleaner but not urgent. |
+| B.7 | `Cache-Control: public, max-age=300` on catalog HTML (originally Week 2.3) | Hole-punching design required — cart badge / customer-group pricing leak across shared cache. Multi-day refactor. |
+| B.8 | Escalate HSTS to `includeSubDomains; preload` | Wait ≥3 months from 2026-05-26 with no incidents, then audit every subdomain for HTTPS readiness before flipping. |
 
 ---
 
