@@ -3784,17 +3784,36 @@ function devSetView(view) {
                     } catch (Exception $_seoLoadEx) {}
                 }
                 ?>
+                <?php
+                // Button set depends on the active country tab:
+                //   SG → WSQ + Non-WSQ        (WSQ is Singapore-only)
+                //   MY → HRDF + Non-WSQ        (HRD Corp Funded prefix)
+                //   Others (GH/NG/BT/IN) → Non-WSQ only
+                $_seoShowWsq    = ($_seoStoreId === 1);
+                $_seoShowHrdf   = ($_seoStoreId === 2);
+                $_seoShowNonWsq = true;   // always available
+                ?>
                 <div class="dcf-mag-bar" style="display:flex;align-items:center;justify-content:space-between;">
                     <span>SEO Meta</span>
                     <span style="display:inline-flex;gap:8px;align-items:center;">
+                        <?php if ($_seoShowWsq): ?>
                         <button type="button" class="ai-seo-btn" data-mode="wsq" style="background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.4);color:#22d3ee;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z"/></svg>
                             WSQ
                         </button>
+                        <?php endif; ?>
+                        <?php if ($_seoShowHrdf): ?>
+                        <button type="button" class="ai-seo-btn" data-mode="hrdf" style="background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.45);color:#fb923c;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="HRD Corp Funded — Malaysia">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z"/></svg>
+                            HRDF
+                        </button>
+                        <?php endif; ?>
+                        <?php if ($_seoShowNonWsq): ?>
                         <button type="button" class="ai-seo-btn" data-mode="non_wsq" style="background:rgba(168,139,250,.1);border:1px solid rgba(168,139,250,.45);color:#a78bfa;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z"/></svg>
                             Non-WSQ
                         </button>
+                        <?php endif; ?>
                     </span>
                 </div>
                 <div id="ai-seo-progress-wrap" style="display:none;padding:10px 16px 8px;background:rgba(34,211,238,.04);border-bottom:1px solid var(--b1);">
@@ -3845,7 +3864,8 @@ function devSetView(view) {
 
                 // Map WSQ vs Non-WSQ → POST field names the controller expects.
                 var FIELD_MAP = {
-                    wsq: ['course_title', 'learning_outcomes', 'topics'],
+                    wsq:     ['course_title', 'learning_outcomes', 'topics'],
+                    hrdf:    ['course_title', 'learning_outcomes', 'topics'],
                     non_wsq: ['course_name', 'key_topics', 'course_highlights']
                 };
 

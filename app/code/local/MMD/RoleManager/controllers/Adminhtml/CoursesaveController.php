@@ -1283,12 +1283,30 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 throw new Exception('Course not found');
             }
 
-            $mode  = (string) $this->getRequest()->getParam('mode');
-            $isWsq = ($mode === 'wsq');
+            // Mode → prompt template + input shape.
+            //   wsq    = SG WSQ-funded course (training/competency inputs)
+            //   hrdf   = MY HRD Corp Funded course (same input shape as
+            //            wsq, but title gets "HRD Corp Funded" prefix +
+            //            "| Tertiary Courses Malaysia" suffix)
+            //   non_wsq = generic Non-WSQ (course_name / key_topics /
+            //             course_highlights — used for SG non-funded, MY
+            //             non-funded, and all other countries)
+            $mode   = (string) $this->getRequest()->getParam('mode');
+            $tplMap = array(
+                'wsq'     => 'wsq.md',
+                'hrdf'    => 'hrdf.md',
+                'non_wsq' => 'non-wsq.md',
+            );
+            if (!isset($tplMap[$mode])) {
+                $mode = 'non_wsq';
+            }
+            $isWsq    = ($mode === 'wsq');
+            $isHrdf   = ($mode === 'hrdf');
+            $isWsqLike = $isWsq || $isHrdf;   // share input field shape
 
             $tplFile = Mage::getBaseDir('code')
                 . '/local/MMD/RoleManager/etc/ai-seo/'
-                . ($isWsq ? 'wsq.md' : 'non-wsq.md');
+                . $tplMap[$mode];
             if (!is_readable($tplFile)) {
                 throw new Exception('Prompt template missing: ' . basename($tplFile));
             }
@@ -1305,7 +1323,13 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $country = 'Singapore';
             }
 
-            $vals = $isWsq ? array(
+            // For HRDF the country is locked to Malaysia regardless of
+            // what the client sent — the template hardcodes the suffix.
+            if ($isHrdf) {
+                $country = 'Malaysia';
+            }
+
+            $vals = $isWsqLike ? array(
                 'course_title'      => (string) $this->getRequest()->getParam('course_title'),
                 'learning_outcomes' => (string) $this->getRequest()->getParam('learning_outcomes'),
                 'topics'            => (string) $this->getRequest()->getParam('topics'),
@@ -1461,13 +1485,13 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             if ($stdout === '') {
                 $stubbed = true;
                 if ($stubReason === '') $stubReason = 'no generator available';
-                $stdout  = $this->_buildAiSeoStub($isWsq, $vals, $product);
+                $stdout  = $this->_buildAiSeoStub($mode, $vals, $product);
             }
 
             $sections = $this->_parseAiSeoSections($stdout);
 
             $resp['success']          = true;
-            $resp['mode']             = $isWsq ? 'wsq' : 'non_wsq';
+            $resp['mode']             = $mode;
             $resp['meta_title']       = $sections['meta_title']       ?? '';
             $resp['meta_keyword']     = $sections['meta_keywords']    ?? '';
             $resp['meta_description'] = $sections['meta_description'] ?? '';
@@ -1490,25 +1514,34 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
      * Output mirrors what Claude would return so _parseAiSeoSections can
      * read it unchanged.
      */
-    protected function _buildAiSeoStub($isWsq, array $vals, $product)
+    protected function _buildAiSeoStub($mode, array $vals, $product)
     {
-        $name = $isWsq
+        $isWsq  = ($mode === 'wsq');
+        $isHrdf = ($mode === 'hrdf');
+        $isWsqLike = $isWsq || $isHrdf;
+
+        $name = $isWsqLike
             ? trim($vals['course_title'] ?? '')
             : trim($vals['course_name']  ?? '');
         if ($name === '') $name = (string) $product->getName();
         if ($name === '') $name = 'Course';
 
         // Country supplied by the caller (already whitelisted in aiSeoAction).
-        // Drives both the brand suffix and the geo-language in keywords/desc.
+        // Drives the brand suffix and geo-language. HRDF is Malaysia-only.
         $country = trim((string) ($vals['country'] ?? '')) ?: 'Singapore';
+        if ($isHrdf) $country = 'Malaysia';
 
         // ---------- Meta Title ----------
         // No truncation; Google trims SERP titles itself at ~60 chars and
         // word-boundary cuts are uglier than letting the browser tab show
         // the full name. Keep it human-readable.
-        $title = $isWsq
-            ? $name . ' | WSQ Course | Tertiary Courses ' . $country
-            : $name . ' | Tertiary Courses ' . $country;
+        if ($isWsq) {
+            $title = $name . ' | WSQ Course | Tertiary Courses ' . $country;
+        } elseif ($isHrdf) {
+            $title = 'HRD Corp Funded ' . $name . ' | Tertiary Courses Malaysia';
+        } else {
+            $title = $name . ' | Tertiary Courses ' . $country;
+        }
 
         // ---------- Meta Keywords ----------
         // Pull tokens from the user's typed inputs (learning outcomes,
@@ -1554,12 +1587,19 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $firstWord = ucfirst(strtolower($firstWord));
         }
         $kws = array();
-        if ($isWsq) $kws[] = 'WSQ ' . $firstWord . ' course ' . $country;
+        if ($isWsq) {
+            $kws[] = 'WSQ ' . $firstWord . ' course ' . $country;
+        } elseif ($isHrdf) {
+            $kws[] = 'HRD Corp Funded ' . $firstWord . ' course Malaysia';
+        }
         $kws[] = $firstWord . ' training ' . $country;
         foreach ($topicWords as $w) $kws[] = ucfirst($w);
         if ($isWsq) {
             $kws[] = 'SkillsFuture credit eligible';
             $kws[] = 'WSQ funded course';
+        } elseif ($isHrdf) {
+            $kws[] = 'HRDC claimable';
+            $kws[] = 'SBL Khas eligible';
         } else {
             $kws[] = 'professional training course';
         }
@@ -1583,9 +1623,13 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         } elseif (count($topicWords) === 1) {
             $topicTail = ' Covers ' . $topicWords[0] . '.';
         }
-        $desc = $isWsq
-            ? 'Learn ' . $name . ' through this WSQ-certified course in ' . $country . '.' . $topicTail . ' Up to 70% WSQ funding subsidy available.'
-            : 'Master ' . $name . ' with hands-on training in ' . $country . '.' . $topicTail . ' Practical skills for working professionals.';
+        if ($isWsq) {
+            $desc = 'Learn ' . $name . ' through this WSQ-certified course in ' . $country . '.' . $topicTail . ' Up to 70% WSQ funding subsidy available.';
+        } elseif ($isHrdf) {
+            $desc = 'Learn ' . $name . ' through this HRD Corp funded course in Malaysia.' . $topicTail . ' HRDC claimable under SBL Khas.';
+        } else {
+            $desc = 'Master ' . $name . ' with hands-on training in ' . $country . '.' . $topicTail . ' Practical skills for working professionals.';
+        }
         if (strlen($desc) > 240) $desc = substr($desc, 0, 237) . '...';
 
         return "**SEO Meta Title:** " . $title . "\n\n"
