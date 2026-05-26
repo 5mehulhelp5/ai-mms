@@ -1549,11 +1549,15 @@
 
 		
 
-		<!-- Remove currency switcher from sidebar -->
+		<!-- Remove currency switcher from sidebar, add layered nav for non-anchor categories -->
 
 		<reference name="left">
 
 			<action method="unsetChild"><name>currency</name></action>
+
+			<action method="unsetChild"><name>umm.sidemenu</name></action>
+
+			<block type="catalog/layer_view" name="catalog.leftnav.layered" template="catalog/layer/view.phtml"/>
 
 		</reference>
 
@@ -1611,11 +1615,13 @@
 
 		<reference name="left">
 
-			<action method="unsetChild"><name>currency</name></action>			
+			<action method="unsetChild"><name>currency</name></action>
+
+			<action method="unsetChild"><name>umm.sidemenu</name></action>
 
 		</reference>
 
-		
+
 
 	</catalog_category_layered>
 
