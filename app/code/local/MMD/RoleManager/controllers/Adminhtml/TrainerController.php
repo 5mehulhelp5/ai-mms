@@ -11,6 +11,105 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
     }
 
     /**
+     * Ensure a trainer with an email has a matching admin_user account
+     * (login = email, password = company default, role = trainer). Idempotent:
+     *  - If an admin_user already exists with this email, just makes sure the
+     *    trainer role is mapped (and adds it if it isn't).
+     *  - If no admin_user exists, creates one with the company default password
+     *    (mmd_company/admin/default_trainer_password, fallback 'Tertiary888'),
+     *    username = email (per the project's email-only admin-login convention).
+     *  - Mirrors the primary role into admin_role via applyRoleAcl so the new
+     *    user can actually log in (hasAssigned2Role requires the G-row).
+     *
+     * Returns the user_id (existing or newly created), or 0 on any failure.
+     * Silent on failure — trainer save still succeeds; only the optional
+     * account creation is skipped.
+     */
+    protected function _ensureTrainerAdminUser($email, $trainerName)
+    {
+        try {
+            $email = trim((string) $email);
+            $trainerName = trim((string) $trainerName);
+            if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                return 0;
+            }
+            $resource  = Mage::getSingleton('core/resource');
+            $read      = $resource->getConnection('core_read');
+            $write     = $resource->getConnection('core_write');
+            $userTable = $resource->getTableName('admin/user');
+            $roleTable = $resource->getTableName('mmd_user_role_map');
+
+            // 1. Try to find an existing admin_user by email.
+            $userId = (int) $read->fetchOne(
+                "SELECT user_id FROM {$userTable} WHERE email = ? LIMIT 1",
+                [$email]
+            );
+
+            // 2. No user yet — create one with the company-default password.
+            if (!$userId) {
+                $defaultPwd = 'Tertiary888';
+                try {
+                    $cfgTbl = $resource->getTableName('core/config_data');
+                    $cfgVal = $read->fetchOne(
+                        "SELECT value FROM {$cfgTbl} WHERE path = ? AND scope = 'default' AND scope_id = 0 LIMIT 1",
+                        ['mmd_company/admin/default_trainer_password']
+                    );
+                    if ($cfgVal !== false && $cfgVal !== '') { $defaultPwd = (string) $cfgVal; }
+                } catch (Exception $e) { /* fall through to fallback */ }
+
+                // Split the trainer's title into first/last by the first space.
+                $parts = preg_split('/\s+/', $trainerName, 2);
+                $firstname = isset($parts[0]) ? $parts[0] : $trainerName;
+                $lastname  = isset($parts[1]) ? $parts[1] : '';
+                if ($firstname === '') { $firstname = $email; }
+
+                $newUser = Mage::getModel('admin/user')->setData([
+                    'username'  => $email,   // email-only login (project convention)
+                    'firstname' => $firstname,
+                    'lastname'  => $lastname,
+                    'email'     => $email,
+                    'password'  => $defaultPwd,
+                    'is_active' => 1,
+                ])->save();
+                $userId = (int) $newUser->getId();
+            }
+
+            if (!$userId) { return 0; }
+
+            // 3. Ensure the trainer role is mapped. Don't blow away other roles
+            //    the user might already have — just add 'trainer' if missing.
+            $existingRoles = $read->fetchCol(
+                "SELECT role_code FROM {$roleTable} WHERE user_id = ?",
+                [$userId]
+            );
+            if (!in_array('trainer', $existingRoles, true)) {
+                $write->insert($roleTable, [
+                    'user_id'    => $userId,
+                    'role_code'  => 'trainer',
+                    'is_primary' => empty($existingRoles) ? 1 : 0,
+                    'created_at' => now(),
+                ]);
+            }
+
+            // 4. Mirror primary role into admin_role so the user can log in.
+            //    applyRoleAcl is the same helper Role Management uses.
+            try {
+                Mage::helper('mmd_rolemanager')->applyRoleAcl(
+                    $userId,
+                    empty($existingRoles) ? 'trainer' : $existingRoles[0]
+                );
+            } catch (Exception $_aclEx) {
+                Mage::logException($_aclEx);
+            }
+
+            return $userId;
+        } catch (Exception $e) {
+            Mage::logException($e);
+            return 0;
+        }
+    }
+
+    /**
      * Expects POST: email, full_name, status (1|0), telephone, trainer_type,
      * gender, linkedin_url, default_password (informational only).
      * Returns JSON: { success: bool, message: string, trainer_id?: int }
@@ -91,6 +190,13 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
 
             $write->insert($table, $row);
             $newId = (int) $write->lastInsertId($table);
+
+            // Auto-provision an admin_user (login=email, default password,
+            // trainer role) when the trainer was added with an email. Silent
+            // no-op if email is blank or anything goes wrong inside the helper.
+            if ($email !== '') {
+                $this->_ensureTrainerAdminUser($email, $name);
+            }
 
             $result['success']    = true;
             $result['trainer_id'] = $newId;
@@ -189,6 +295,26 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
                 }
             } catch (Exception $_mirrEx) {
                 Mage::logException($_mirrEx);
+            }
+
+            // Auto-provision an admin_user when the trainer now has an email
+            // (whether it was just added in this edit or was already there).
+            // _ensureTrainerAdminUser is idempotent: existing users get the
+            // trainer role added if missing, blank email is a no-op.
+            try {
+                $finalEmail = $email !== '' ? $email : (string) $write->fetchOne(
+                    "SELECT email FROM {$table} WHERE trainers_id = ?",
+                    [$trainerId]
+                );
+                $finalName  = $name !== '' ? $name : (string) $write->fetchOne(
+                    "SELECT title FROM {$table} WHERE trainers_id = ?",
+                    [$trainerId]
+                );
+                if ($finalEmail !== '') {
+                    $this->_ensureTrainerAdminUser($finalEmail, $finalName);
+                }
+            } catch (Exception $_provEx) {
+                Mage::logException($_provEx);
             }
 
             $result['success'] = true;
