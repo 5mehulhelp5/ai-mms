@@ -551,8 +551,15 @@ if (isset($_tnCols['trainer_type'])) {
 // the column; 161 backfilled from the legacy trainerprofile EAV blob).
 // Trainer-role admins editing My Profile sync into this column via
 // MMD_Adminhtml_System_AccountController::saveAction() (email match).
+//
+// No SQL LIMIT here — render every trainer, then let the client-side
+// trnFilter() + pagination (window._trnPerPage = 10) handle display.
+// Earlier the LIMIT 300 cap caused renamed-after-the-cutoff rows
+// (e.g. "ACTA Shawn Koh" → "Shawn Koh Boon Hiap") to silently vanish
+// from the table after save, since "S" sorts past row 300 in this
+// catalog. The grid is fast at the current ~500-row scale.
 $trainerRows = $read->fetchAll(
-    "SELECT * FROM {$trainersTable} ORDER BY title ASC LIMIT 300"
+    "SELECT * FROM {$trainersTable} ORDER BY title ASC"
 );
 endif; // end if (admin || training_provider)
 
