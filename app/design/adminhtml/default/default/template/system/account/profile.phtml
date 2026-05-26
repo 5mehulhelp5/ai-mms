@@ -231,7 +231,7 @@ $roleColors = array(
 <?php if ($isTrainer): ?>
 <!-- TRAINER PROFILE DESCRIPTION (read-only, trainer role only) -->
 <div class="bio-section" id="trainer-profile-section">
-    <h3 class="bio-title">Profile Description</h3>
+    <h3 class="bio-title">Trainer Profile</h3>
     <p class="trainer-profile-text"><?php echo $trainerDescription !== '' ? nl2br($this->escapeHtml($trainerDescription)) : '<span style="color:#94a3b8;">No profile description yet — click <strong>Edit Profile</strong> to add one.</span>'; ?></p>
 </div>
 <style>
@@ -344,7 +344,7 @@ $roleColors = array(
 
             <?php if ($isTrainer): ?>
             <div class="edit-field full-width">
-                <label for="pf-trainer-description">Profile Description</label>
+                <label for="pf-trainer-description">Trainer Profile</label>
                 <textarea id="pf-trainer-description" name="trainer_description" rows="6" placeholder="Tell learners about your background, teaching style, and the courses you specialise in."><?php echo $this->escapeHtml($trainerDescription); ?></textarea>
                 <p class="edit-note">Shown on your trainer card to learners.</p>
             </div>
