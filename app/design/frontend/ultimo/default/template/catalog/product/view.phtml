@@ -104,6 +104,13 @@
 	// independent of source.
 	$_wsqNarrativeHtml = '';
 	$_hasWsqFunding    = false;
+	// Non-WSQ courses in the SG store use SKU prefix "C" (WSQ courses use
+	// "TGS-"). For these, the funding card is informational only — no
+	// auto-calculated fee tiles, title renamed to "Funding Options", and any
+	// in-narrative "Funding and Grant Applications" heading is suppressed
+	// (we just want the no-funding sentence + WSQ link to render).
+	$_isNonWsqSgCourse = (strncasecmp((string) $_courseSku, 'C', 1) === 0)
+		&& (Mage::app()->getStore()->getCode() === 'singapore');
 	$_inner            = $_courseSectionHtml('funding_and_grant');
 	if ($_inner !== '') {
 		$_hasWsqFunding = true;
@@ -138,6 +145,14 @@
 			// Drop any <hr> separators inside the narrative — the per-scheme
 			// .wsq-sub cards below already supply visual separation.
 			$_inner = preg_replace('#<hr\b[^>]*/?>#siu', '', $_inner);
+
+			// Non-WSQ SG courses: strip ALL remaining headings so the
+			// preg_replace_callback below doesn't wrap them as .wsq-sub
+			// mini-cards (we don't want the "Funding and Grant Applications"
+			// pill above the no-funding sentence).
+			if ($_isNonWsqSgCourse) {
+				$_inner = preg_replace('#<h[1-6][^>]*>.*?</h[1-6]>#siu', '', $_inner);
+			}
 
 			// Wrap each remaining <h[1-6]>…(body until next h)…</h> into its
 			// own .wsq-sub block so the SFC / UTAP / PSEA / SFEC sub-sections
@@ -759,9 +774,10 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 						<span class="course-policy-card__icon" aria-hidden="true">
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
 						</span>
-						<h3 class="course-policy-card__title">WSQ Funding</h3>
+						<h3 class="course-policy-card__title"><?php echo $_isNonWsqSgCourse ? 'Funding Options' : 'WSQ Funding'; ?></h3>
 					</header>
 					<div class="course-policy-card__body">
+						<?php if (!$_isNonWsqSgCourse): ?>
 						<div class="wsq-fee-grid" role="table" aria-label="WSQ funding fee breakdown">
 							<div class="wsq-fee-tile wsq-fee-tile--full" role="row">
 								<span class="wsq-fee-tile__label">Full Fee</span>
@@ -784,6 +800,7 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 								<span class="wsq-fee-tile__hint">SG age 40+ · 70% funded</span>
 							</div>
 						</div>
+						<?php endif; ?>
 						<?php if ($_wsqNarrativeHtml !== ''): ?>
 							<div class="wsq-funding-narrative std"><?php echo $_wsqNarrativeHtml; ?></div>
 						<?php endif; ?>

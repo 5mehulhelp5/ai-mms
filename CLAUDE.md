@@ -20,6 +20,11 @@ OpenMage 1.x (Magento 1 LTS v20.12.3) customized as a Course Registration + LMS 
 - **No shipping cost, ever.** Shipping is disabled across all stores and there is no shipping line on any quote, order, invoice, or email template. If you see code that adds, calculates, or displays shipping_amount / shipping_method / shipping_tax_amount, treat it as legacy noise — leave it at zero or remove the surfacing.
 - **GST is non-standard for Singapore** and intentionally diverges from Magento's tax engine. SG GST is calculated on the **original course list price** (the catalog price before any discount), **not** the discounted subtotal and **not** any custom-option adjustments. Don't "fix" this to match Magento's stock behavior — the override is deliberate so funded learners (SkillsFuture / WSQ subsidies discount the fee but GST still settles on the pre-subsidy amount as the tax authority expects). Other countries (MY/NG/GH/BT/IN) use their own logic per their tax regimes.
 - **Country-specific funding hooks** matter for marketing & checkout: SG SkillsFuture / WSQ / IBF, MY HRDC. Don't strip these references when refactoring storefront templates.
+- **Course code (SKU) prefix conventions** — use these to gate per-segment storefront/template logic:
+  - 🇸🇬 SG **WSQ** courses: SKU starts with `TGS-` (the SKU *is* the SkillsFuture course reference).
+  - 🇸🇬 SG **non-WSQ** courses: SKU starts with `C` (e.g. `C6`, `C009`).
+  - 🌏 All **other stores** (MY/NG/GH/BT/IN): SKU starts with `M`.
+  When a feature should only fire for one segment (funding tiles, subsidy badges, WSQ-specific copy), key off the SKU prefix **and** `Mage::app()->getStore()->getCode()` together — never assume "all SG = WSQ" or "all C-prefix = SG".
 - **The admin panel is rebranded** as "Tertiary Infotech Academy — Magento Management System". Treat the admin as a TMS for instructors + operations staff, not a generic e-commerce backoffice.
 
 ## Pre-push verification (MANDATORY)
