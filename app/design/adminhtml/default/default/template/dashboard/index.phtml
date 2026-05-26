@@ -6858,7 +6858,7 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
                 </div>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px 24px;">
-                    <div><div class="trn-flbl">Email <span class="trn-req">*</span></div><input type="email" id="trnEmail" required class="trn-fld" /></div>
+                    <div><div class="trn-flbl">Email</div><input type="email" id="trnEmail" class="trn-fld" /></div>
                     <div><div class="trn-flbl">Full Name <span class="trn-req">*</span></div><input type="text" id="trnName" required class="trn-fld" /></div>
 
                     <?php
@@ -6880,19 +6880,19 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
                     } catch (Exception $e) {}
                     ?>
                     <div><div class="trn-flbl">Default Password</div><input type="text" id="trnPwd" value="<?php echo htmlspecialchars($_csTrnPwd, ENT_QUOTES) ?>" readonly class="trn-fld" style="opacity:.7;" /><div style="font-size:11px;color:#64748b;margin-top:4px;">Default password from Company Settings will be assigned to the new trainer</div></div>
-                    <div><div class="trn-flbl">Telephone <span class="trn-req">*</span></div><input type="tel" id="trnTel" required class="trn-fld" /></div>
+                    <div><div class="trn-flbl">Telephone</div><input type="tel" id="trnTel" class="trn-fld" /></div>
 
                     <div>
-                        <div class="trn-flbl">Trainer Type <span class="trn-req">*</span></div>
-                        <select id="trnType" required class="trn-fld">
+                        <div class="trn-flbl">Trainer Type</div>
+                        <select id="trnType" class="trn-fld">
                             <option value="">Select Trainer Type</option>
                             <option value="ACLP">ACLP</option>
                             <option value="non-ACLP">non-ACLP</option>
                         </select>
                     </div>
                     <div>
-                        <div class="trn-flbl">Status <span class="trn-req">*</span></div>
-                        <select id="trnStatus" required class="trn-fld">
+                        <div class="trn-flbl">Status</div>
+                        <select id="trnStatus" class="trn-fld">
                             <option value="">Select Status</option>
                             <option value="Active">Active</option>
                             <option value="Inactive">Inactive</option>
@@ -6900,8 +6900,8 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
                     </div>
 
                     <div>
-                        <div class="trn-flbl">Gender <span class="trn-req">*</span></div>
-                        <select id="trnGender" required class="trn-fld">
+                        <div class="trn-flbl">Gender</div>
+                        <select id="trnGender" class="trn-fld">
                             <option value="">Select Gender</option>
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
@@ -6988,6 +6988,13 @@ window.__trnDeleteUrl = <?php echo json_encode($trnDeleteUrl) ?>;
 window.__trnBulkUrl   = <?php echo json_encode($trnBulkUrl) ?>;
 window.__trnFormKey  = <?php echo json_encode($_adminFormKey) ?>;
 
+// Only Full Name is required (both Add and Edit modes). All other
+// fields are now optional at every layer — HTML attribute, JS check,
+// and server-side validation (see TrainerController::add/editAction).
+// Kept as a no-op for compatibility with old callers that may still
+// invoke window._trnSetRequiredForMode(...).
+window._trnSetRequiredForMode = function(_isEdit) { /* no-op */ };
+
 window.trnOpenAddModal = function() {
     // Reset to "Add" mode and clear all fields
     window._trnEditId = 0;
@@ -6998,7 +7005,7 @@ window.trnOpenAddModal = function() {
     var btn = document.getElementById('trnAddBtn');
     if (btn) { btn.textContent = 'Add Trainer'; btn.removeAttribute('data-mode'); }
     // Clear all inputs
-    var ids = ['trnEmail','trnName','trnTel','trnLinkedin'];
+    var ids = ['trnEmail','trnName','trnTel','trnLinkedin','trnDescription'];
     for (var i=0; i<ids.length; i++) { var el = document.getElementById(ids[i]); if (el) el.value = ''; }
     document.getElementById('trnPwd').value = 'Tertiary888';
     // Reset dropdowns to first option
@@ -7007,6 +7014,7 @@ window.trnOpenAddModal = function() {
     // Clear any error message
     var msg = document.getElementById('trnAddMsg');
     if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
+    window._trnSetRequiredForMode(false); // Add mode — restore required
     ov.style.display = 'flex';
 };
 window.trnCloseAddModal = function() {
@@ -7074,6 +7082,7 @@ window.trnOpenEditModal = function(id, data) {
     f('trnTel', data.phone);
     f('trnLinkedin', data.linkedin);
     f('trnDescription', data.description);
+    window._trnSetRequiredForMode(true); // Edit mode — Tel/Type/Status/Gender optional
     // Dropdowns
     var setSelect = function(id, val) { var el = document.getElementById(id); if (!el) return; for (var i=0; i<el.options.length; i++) { if (el.options[i].value === val) { el.selectedIndex = i; return; } } };
     setSelect('trnType', data.type);
@@ -7135,12 +7144,13 @@ window.trnSubmit = function(e) {
     var btn = document.getElementById('trnAddBtn');
     if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
 
-    // Light validation before optimistic close so we don't close on
-    // a clearly-broken submit.
+    // Only Full Name is required (both Add and Edit modes). All other
+    // fields can be left blank — the server treats blanks as "keep
+    // existing value" on Edit and applies sensible defaults on Add.
     var emailVal = document.getElementById('trnEmail').value.trim();
     var nameVal  = document.getElementById('trnName').value.trim();
-    if (!emailVal || !nameVal) {
-        if (msg) { msg.style.display = ''; msg.textContent = 'Email and Full Name are required'; }
+    if (!nameVal) {
+        if (msg) { msg.style.display = ''; msg.textContent = 'Full Name is required'; }
         return;
     }
 

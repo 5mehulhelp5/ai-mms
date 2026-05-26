@@ -35,13 +35,14 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
             $linkedin = trim((string) $this->getRequest()->getPost('linkedin_url'));
             $description = (string) $this->getRequest()->getPost('description');
 
-            // Required-field validation (matches the form's `required` markers)
-            if ($email === '' || $name === '' || $tel === '' || $type === '' || $statusIn === '' || $gender === '') {
-                $result['message'] = 'Email, Full Name, Telephone, Trainer Type, Status, and Gender are required';
+            // Only Full Name is required. Everything else is optional; sensible
+            // defaults are applied below (status=Active when not chosen).
+            if ($name === '') {
+                $result['message'] = 'Full Name is required';
                 $this->_sendJson($result);
                 return;
             }
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 $result['message'] = 'Invalid email address';
                 $this->_sendJson($result);
                 return;
@@ -51,12 +52,14 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
             $write    = $resource->getConnection('core_write');
             $table    = $resource->getTableName('courses_trainers');
 
-            // Reject duplicate email
-            $exists = $write->fetchOne("SELECT trainers_id FROM {$table} WHERE email = ?", array($email));
-            if ($exists) {
-                $result['message'] = 'A trainer with that email already exists';
-                $this->_sendJson($result);
-                return;
+            // Reject duplicate email only when an email was actually provided.
+            if ($email !== '') {
+                $exists = $write->fetchOne("SELECT trainers_id FROM {$table} WHERE email = ?", array($email));
+                if ($exists) {
+                    $result['message'] = 'A trainer with that email already exists';
+                    $this->_sendJson($result);
+                    return;
+                }
             }
 
             // Detect optional columns so we save into them only if they exist
@@ -65,11 +68,13 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
             $cols = $write->fetchCol("SHOW COLUMNS FROM {$table}");
             $colSet = array_flip($cols);
 
+            // Default status = Active (1) when the admin didn't pick one.
+            $statusVal = ($statusIn === 'Inactive' || $statusIn === '0') ? 0 : 1;
             $row = array(
                 'title'         => $name,
                 'email'         => $email,
                 'profile_image' => '',
-                'status'        => ($statusIn === 'Active' || $statusIn === '1') ? 1 : 0,
+                'status'        => $statusVal,
                 'created_time'  => date('Y-m-d H:i:s'),
                 'update_time'   => date('Y-m-d H:i:s'),
             );
@@ -120,6 +125,11 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
                 return;
             }
 
+            // Edit mode: every field is optional. A blank submission means
+            // "leave the existing value alone" — we only write fields the
+            // admin actually filled in, so accidental blanks don't overwrite
+            // good data. Required-field validation lives in addAction; edit
+            // assumes the row was already valid when it was created.
             $email    = trim((string) $this->getRequest()->getPost('email'));
             $name     = trim((string) $this->getRequest()->getPost('full_name'));
             $tel      = trim((string) $this->getRequest()->getPost('telephone'));
@@ -129,27 +139,24 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
             $linkedin = trim((string) $this->getRequest()->getPost('linkedin_url'));
             $description = (string) $this->getRequest()->getPost('description');
 
-            if ($email === '' || $name === '') {
-                $result['message'] = 'Email and Full Name are required';
-                $this->_sendJson($result);
-                return;
-            }
-
             $resource = Mage::getSingleton('core/resource');
             $write    = $resource->getConnection('core_write');
             $table    = $resource->getTableName('courses_trainers');
             $cols     = array_flip($write->fetchCol("SHOW COLUMNS FROM {$table}"));
 
-            $row = array(
-                'title'       => $name,
-                'email'       => $email,
-                'status'      => ($statusIn === 'Active' || $statusIn === '1') ? 1 : 0,
-                'update_time' => date('Y-m-d H:i:s'),
-            );
-            if (isset($cols['telephone']))    $row['telephone']    = $tel;
-            if (isset($cols['trainer_type'])) $row['trainer_type'] = $type;
-            if (isset($cols['gender']))       $row['gender']       = $gender;
-            if (isset($cols['linkedin_url'])) $row['linkedin_url'] = $linkedin;
+            $row = array('update_time' => date('Y-m-d H:i:s'));
+            if ($name  !== '') $row['title'] = $name;
+            if ($email !== '') $row['email'] = $email;
+            // Status select is always present in the POST when the form is
+            // submitted, so update only when the admin chose something explicit.
+            if ($statusIn === 'Active' || $statusIn === '1')   $row['status'] = 1;
+            elseif ($statusIn === 'Inactive' || $statusIn === '0') $row['status'] = 0;
+            if ($tel  !== '' && isset($cols['telephone']))    $row['telephone']    = $tel;
+            if ($type !== '' && isset($cols['trainer_type'])) $row['trainer_type'] = $type;
+            if ($gender !== '' && isset($cols['gender']))     $row['gender']       = $gender;
+            if ($linkedin !== '' && isset($cols['linkedin_url'])) $row['linkedin_url'] = $linkedin;
+            // Description is the one field where a blank submission *is*
+            // meaningful (clearing the bio is a normal edit), so always write it.
             if (isset($cols['description']))  $row['description']  = $description !== '' ? $description : null;
 
             $write->update($table, $row, array('trainers_id = ?' => $trainerId));
@@ -160,16 +167,25 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
             // kept as bidirectional siblings — see profile.phtml and the
             // AccountController's saveAction which writes in the other
             // direction). Silent no-op if no matching admin_user exists.
+            // Use whatever email actually lives on the trainer row now —
+            // the admin may have submitted a blank email (= no change),
+            // in which case the row's existing email is what we want to
+            // match against admin_user.email.
             try {
-                $auTable = $resource->getTableName('admin/user');
-                $auWrite = isset($write) ? $write : $resource->getConnection('core_write');
-                $auCols  = array_flip($auWrite->fetchCol("SHOW COLUMNS FROM {$auTable}"));
-                if (isset($auCols['trainer_description'])) {
-                    $auWrite->update(
-                        $auTable,
-                        ['trainer_description' => $description !== '' ? $description : null],
-                        ['email = ?' => $email]
-                    );
+                $mirrorEmail = $email !== '' ? $email : (string) $write->fetchOne(
+                    "SELECT email FROM {$table} WHERE trainers_id = ?",
+                    [$trainerId]
+                );
+                if ($mirrorEmail !== '') {
+                    $auTable = $resource->getTableName('admin/user');
+                    $auCols  = array_flip($write->fetchCol("SHOW COLUMNS FROM {$auTable}"));
+                    if (isset($auCols['trainer_description'])) {
+                        $write->update(
+                            $auTable,
+                            ['trainer_description' => $description !== '' ? $description : null],
+                            ['email = ?' => $mirrorEmail]
+                        );
+                    }
                 }
             } catch (Exception $_mirrEx) {
                 Mage::logException($_mirrEx);
