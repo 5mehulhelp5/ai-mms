@@ -665,46 +665,15 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 					<?php endif; ?>
 
 					<?php
-					/* MY store only: render the Additional Note card in the LEFT
-					   column directly under Certification. Other stores keep it in
-					   the right column next to Post-Course Support (rendered later).
-					   Mobile hides the .course-policy-card--note via custom.css.
-					   `$_isMyStore` / `$_extraHtml` are also referenced below by
-					   the legacy left-column extra-info card — we hoist their
-					   computation here so this section can use them too. Without
-					   this hoist the variables were undefined at this point and
-					   the card silently failed to render. */
+					/* Hoist `$_isMyStore` / `$_extraHtml` so the legacy left-column
+					   "Additional Information" card below and the right-column
+					   Additional Note (rendered later) can both reference them.
+					   The Additional Note card itself renders in the right column
+					   directly above Post-Course Support for ALL stores. */
 					$_isMyStore    = (Mage::app()->getStore()->getId() == 2);
 					$_extraBlockId = ($attributeSetId == 21) ? 'tour_info' : 'grant';
 					$_extraHtml    = trim($this->getLayout()->createBlock('cms/block')->setBlockId($_extraBlockId)->toHtml());
-					$_leftNote      = trim((string) $_product->getAdditional_note());
-					$_leftNoteExtra = ($_isMyStore && $_extraHtml !== '') ? $_extraHtml : '';
-					/* On MY, always render the card so the disclaimer/grant copy
-					   reaches every product page even when the per-product
-					   `additional_note` attribute is blank. */
-					if ($_isMyStore):
 					?>
-						<section class="course-policy-card course-policy-card--note">
-							<header class="course-policy-card__header">
-								<span class="course-policy-card__icon" aria-hidden="true">
-									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
-								</span>
-								<h3 class="course-policy-card__title">Additional Note</h3>
-							</header>
-							<div class="course-policy-card__body std">
-								<?php if ($_leftNote !== ''): ?>
-									<?php /* additional_note may contain admin-authored HTML
-									         (e.g. the CompTIA Exam Voucher block migrated out of
-									         short_description). Render raw and nl2br plain-text
-									         newlines so legacy plain notes still get line breaks. */ ?>
-									<?php echo nl2br($_leftNote); ?>
-								<?php endif; ?>
-								<?php if ($_leftNoteExtra !== ''): ?>
-									<?php echo $_leftNoteExtra; ?>
-								<?php endif; ?>
-							</div>
-						</section>
-					<?php endif; ?>
 
 					<?php /* Funding and Grant card was here previously — moved to the
 					          primary (center) column, next to the WSQ funding card, so
@@ -994,12 +963,12 @@ $_simpleProdPrice = (Mage::app()->getStore()->getId() == 1 || Mage::app()->getSt
 				// commitment moment.
 				$_supportHtml = trim($this->getLayout()->createBlock('cms/block')->setBlockId('post_course_support')->toHtml());
 				$_cancelHtml  = trim($this->getLayout()->createBlock('cms/block')->setBlockId('course_cancellation_policy')->toHtml());
-				/* MY store renders Additional Note in the LEFT column under
-				   Certification (see above), so suppress the right-column copy
-				   on MY to avoid showing it twice. Other stores keep the
-				   right-column card next to Post-Course Support. */
-				$_additionalNote     = $_isMyStore ? '' : trim((string) $_product->getAdditional_note());
-				$_noteExtraMergeHtml = '';
+				/* Additional Note renders in the right column directly above
+				   Post-Course Support for ALL stores. On MY, fold the grant /
+				   tour-info CMS block into the same card so the disclaimer +
+				   funding copy travels together. */
+				$_additionalNote     = trim((string) $_product->getAdditional_note());
+				$_noteExtraMergeHtml = ($_isMyStore && $_extraHtml !== '') ? $_extraHtml : '';
 				if ($_supportHtml !== '' || $_cancelHtml !== '' || $_additionalNote !== '' || $_noteExtraMergeHtml !== ''):
 				?>
 					<div class="inner course-side-policies">
