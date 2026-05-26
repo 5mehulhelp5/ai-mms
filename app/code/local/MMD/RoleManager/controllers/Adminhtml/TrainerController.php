@@ -133,6 +133,7 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
             $gender   = trim((string) $this->getRequest()->getPost('gender'));
             $linkedin = trim((string) $this->getRequest()->getPost('linkedin_url'));
             $description = (string) $this->getRequest()->getPost('description');
+            $areaExp = trim((string) $this->getRequest()->getPost('area_of_expertise'));
 
             // Only Full Name is required. Everything else is optional; sensible
             // defaults are applied below (status=Active when not chosen).
@@ -187,6 +188,7 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
             if (isset($colSet['linkedin_url']))$row['linkedin_url']= $linkedin;
             if (isset($colSet['linkedin']))    $row['linkedin']    = $linkedin;
             if (isset($colSet['description'])) $row['description'] = $description !== '' ? $description : null;
+            if (isset($colSet['area_of_expertise'])) $row['area_of_expertise'] = $areaExp !== '' ? $areaExp : null;
 
             $write->insert($table, $row);
             $newId = (int) $write->lastInsertId($table);
@@ -244,6 +246,7 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
             $gender   = trim((string) $this->getRequest()->getPost('gender'));
             $linkedin = trim((string) $this->getRequest()->getPost('linkedin_url'));
             $description = (string) $this->getRequest()->getPost('description');
+            $areaExp = trim((string) $this->getRequest()->getPost('area_of_expertise'));
 
             $resource = Mage::getSingleton('core/resource');
             $write    = $resource->getConnection('core_write');
@@ -261,9 +264,10 @@ class MMD_RoleManager_Adminhtml_TrainerController extends Mage_Adminhtml_Control
             if ($type !== '' && isset($cols['trainer_type'])) $row['trainer_type'] = $type;
             if ($gender !== '' && isset($cols['gender']))     $row['gender']       = $gender;
             if ($linkedin !== '' && isset($cols['linkedin_url'])) $row['linkedin_url'] = $linkedin;
-            // Description is the one field where a blank submission *is*
-            // meaningful (clearing the bio is a normal edit), so always write it.
+            // Description + Area of Expertise are fields where a blank submission
+            // *is* meaningful (clearing them is a normal edit), so always write.
             if (isset($cols['description']))  $row['description']  = $description !== '' ? $description : null;
+            if (isset($cols['area_of_expertise'])) $row['area_of_expertise'] = $areaExp !== '' ? $areaExp : null;
 
             $write->update($table, $row, array('trainers_id = ?' => $trainerId));
 

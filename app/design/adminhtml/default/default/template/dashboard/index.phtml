@@ -6798,7 +6798,8 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
                 </td>
                 <td><?php if ($nricDisplay): ?><span style="font-family:monospace;font-size:11px;color:var(--t2);"><?php echo $nricDisplay ?></span> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" style="cursor:pointer;vertical-align:middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><?php else: ?><span class="trn-na">NA</span> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" style="cursor:pointer;vertical-align:middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><?php endif; ?></td>
                 <td><?php if ($ttype === 'ACLP'): ?><span class="trn-pill trn-pill-aclp">ACLP</span><?php elseif ($ttype !== ''): ?><?php echo htmlspecialchars($ttype) ?><?php else: ?><span class="trn-na">N/A</span><?php endif; ?></td>
-                <td><span class="trn-na">N/A</span></td>
+                <?php $_areaExp = isset($tr['area_of_expertise']) ? trim((string) $tr['area_of_expertise']) : ''; ?>
+                <td><?php if ($_areaExp !== ''): ?><span title="<?php echo htmlspecialchars($_areaExp, ENT_QUOTES) ?>" style="display:inline-block;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;color:var(--t2);font-size:12px;"><?php echo htmlspecialchars($_areaExp) ?></span><?php else: ?><span class="trn-na">N/A</span><?php endif; ?></td>
                 <td><?php echo $isActive ? '<span class="trn-pill-active">Active</span>' : '<span style="color:#ef4444;">Inactive</span>' ?></td>
                 <td><?php echo $isActive ? '<span class="trn-pill-active">Active</span>' : '<span style="color:#ef4444;">Disabled</span>' ?></td>
                 <td><?php if ($tlinked !== ''): ?><a href="<?php echo htmlspecialchars($tlinked) ?>" target="_blank" class="trn-link" style="color:#0a66c2;"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 2h-17A1.5 1.5 0 002 3.5v17A1.5 1.5 0 003.5 22h17a1.5 1.5 0 001.5-1.5v-17A1.5 1.5 0 0020.5 2zM8 19H5v-9h3zM6.5 8.25A1.75 1.75 0 118.3 6.5a1.78 1.78 0 01-1.8 1.75zM19 19h-3v-4.74c0-1.42-.6-1.93-1.38-1.93A1.74 1.74 0 0013 14.19V19h-3v-9h2.9v1.3a3.11 3.11 0 012.7-1.4c1.55 0 3.36.86 3.36 3.66z"/></svg> View</a><?php else: ?><span class="trn-na">N/A</span><?php endif; ?></td>
@@ -6821,7 +6822,7 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
                     <?php endif; ?>
                 </td>
                 <td>
-                    <a href="#" class="trn-action" onclick="event.preventDefault();trnOpenEditModal(<?php echo $tid ?>,<?php echo htmlspecialchars(json_encode(array('email'=>$tr['email'],'name'=>$tr['title'],'phone'=>(isset($tr['telephone'])?$tr['telephone']:''),'type'=>$ttype,'status'=>($isActive?'Active':'Inactive'),'gender'=>$tgender,'linkedin'=>$tlinked,'description'=>$tDescription)), ENT_QUOTES) ?>)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</a>
+                    <a href="#" class="trn-action" onclick="event.preventDefault();trnOpenEditModal(<?php echo $tid ?>,<?php echo htmlspecialchars(json_encode(array('email'=>$tr['email'],'name'=>$tr['title'],'phone'=>(isset($tr['telephone'])?$tr['telephone']:''),'type'=>$ttype,'status'=>($isActive?'Active':'Inactive'),'gender'=>$tgender,'linkedin'=>$tlinked,'description'=>$tDescription,'area_of_expertise'=>$_areaExp)), ENT_QUOTES) ?>)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</a>
                     <a href="#" class="trn-action" onclick="event.preventDefault();"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sync Image</a>
                     <a href="#" class="trn-action <?php echo $isActive ? 'danger' : '' ?>" style="<?php echo $isActive ? '' : 'color:#10b981;' ?>" onclick="event.preventDefault();trnToggleStatus(<?php echo $tid ?>,'<?php echo $tname ?>',<?php echo $isActive ? 1 : 0 ?>)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?php if ($isActive): ?><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/><?php else: ?><polyline points="20 6 9 17 4 12"/><?php endif; ?></svg> <?php echo $isActive ? 'Deactivate' : 'Activate' ?></a>
                     <a href="#" class="trn-action danger" onclick="event.preventDefault();trnDelete(<?php echo $tid ?>,'<?php echo $tname ?>')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Delete</a>
@@ -6909,6 +6910,10 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
                         </select>
                     </div>
                     <div><div class="trn-flbl">LinkedIn Profile URL</div><input type="url" id="trnLinkedin" class="trn-fld" placeholder="https://linkedin.com/in/..." /></div>
+                    <div style="grid-column:1/-1;">
+                        <div class="trn-flbl">Area of Expertise</div>
+                        <input type="text" id="trnAreaExpertise" class="trn-fld" placeholder="e.g. Cybersecurity, Cloud Computing, AI (comma-separated)" />
+                    </div>
                     <div style="grid-column:1/-1;">
                         <div class="trn-flbl">Trainer Profile</div>
                         <textarea id="trnDescription" class="trn-fld" rows="6" placeholder="Bio shown to learners on courses this trainer teaches." style="resize:vertical;min-height:120px;font-family:inherit;"></textarea>
@@ -7005,7 +7010,7 @@ window.trnOpenAddModal = function() {
     var btn = document.getElementById('trnAddBtn');
     if (btn) { btn.textContent = 'Add Trainer'; btn.removeAttribute('data-mode'); }
     // Clear all inputs
-    var ids = ['trnEmail','trnName','trnTel','trnLinkedin','trnDescription'];
+    var ids = ['trnEmail','trnName','trnTel','trnLinkedin','trnDescription','trnAreaExpertise'];
     for (var i=0; i<ids.length; i++) { var el = document.getElementById(ids[i]); if (el) el.value = ''; }
     document.getElementById('trnPwd').value = 'Tertiary888';
     // Reset dropdowns to first option
@@ -7082,6 +7087,7 @@ window.trnOpenEditModal = function(id, data) {
     f('trnTel', data.phone);
     f('trnLinkedin', data.linkedin);
     f('trnDescription', data.description);
+    f('trnAreaExpertise', data.area_of_expertise);
     window._trnSetRequiredForMode(true); // Edit mode — Tel/Type/Status/Gender optional
     // Dropdowns
     var setSelect = function(id, val) { var el = document.getElementById(id); if (!el) return; for (var i=0; i<el.options.length; i++) { if (el.options[i].value === val) { el.selectedIndex = i; return; } } };
@@ -7164,6 +7170,7 @@ window.trnSubmit = function(e) {
     fd.append('gender',        document.getElementById('trnGender').value);
     fd.append('linkedin_url',  document.getElementById('trnLinkedin').value);
     fd.append('description',   document.getElementById('trnDescription').value);
+    fd.append('area_of_expertise', document.getElementById('trnAreaExpertise').value);
     fd.append('form_key',      window.__trnFormKey);
 
     // Optimistic UX — close modal immediately and show a toast so the
@@ -7181,6 +7188,21 @@ window.trnSubmit = function(e) {
             btn.disabled = false; btn.textContent = isEdit ? 'Save Changes' : 'Add Trainer';
             if (data.success) {
                 trnShowToast(isEdit ? 'Trainer updated' : 'Trainer added', 'success');
+                // Snapshot the current filter / search / page state so the
+                // reload lands the admin back exactly where they were —
+                // same search text, same dropdown filters, same pagination
+                // position. trnRestoreState() (further below) consumes
+                // and clears this on the next page-load.
+                try {
+                    var snap = {
+                        search   : (document.getElementById('trnSearch')         || {}).value || '',
+                        type     : (document.getElementById('trnFilterType')     || {}).value || '',
+                        status   : (document.getElementById('trnFilterStatus')   || {}).value || '',
+                        linkedin : (document.getElementById('trnFilterLinkedIn') || {}).value || '',
+                        page     : window._trnPage || 1
+                    };
+                    sessionStorage.setItem('_trnRestoreState', JSON.stringify(snap));
+                } catch (e) { /* sessionStorage disabled / private mode — silent */ }
                 // Brief delay so the user sees the success toast before
                 // the dashboard reload starts.
                 setTimeout(function(){ window.location.reload(); }, 600);
@@ -13527,7 +13549,43 @@ window.trnReset = function() {
         var el = document.getElementById(id);
         if (el) el.addEventListener('change', function(){ window.trnFilter(); });
     });
+
+    // Restore search/filter/page state after an Edit-Trainer save reload.
+    // The save handler snapshots state into sessionStorage just before
+    // window.location.reload(); we consume it here so the admin lands back
+    // on the same row they were editing, with the same filters applied.
+    var restored = null;
+    try {
+        var raw = sessionStorage.getItem('_trnRestoreState');
+        if (raw) {
+            restored = JSON.parse(raw);
+            sessionStorage.removeItem('_trnRestoreState');
+        }
+    } catch (e) { /* malformed JSON or storage disabled */ }
+    if (restored) {
+        var set = function(id, val) { var el = document.getElementById(id); if (el) el.value = val || ''; };
+        set('trnSearch',         restored.search);
+        set('trnFilterType',     restored.type);
+        set('trnFilterStatus',   restored.status);
+        set('trnFilterLinkedIn', restored.linkedin);
+        // Show the advanced-filters panel if any of those filters were active,
+        // so the admin sees the same UI they had open before saving.
+        if (restored.type || restored.status || restored.linkedin) {
+            var panel = document.getElementById('trnAdvPanel');
+            var btn   = document.getElementById('trnAdvBtn');
+            if (panel) panel.style.display = 'block';
+            if (btn)   btn.textContent = 'Hide Advanced Filters';
+        }
+    }
+
     if (typeof window.trnFilter === 'function') window.trnFilter();
+
+    // trnFilter() resets _trnPage to 1, so restore the page AFTER and
+    // re-render. The user lands on the exact page they were viewing.
+    if (restored && restored.page && window.trnRender) {
+        window._trnPage = parseInt(restored.page, 10) || 1;
+        window.trnRender();
+    }
 })();
 </script>
 
