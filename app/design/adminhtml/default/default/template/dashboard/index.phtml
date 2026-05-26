@@ -3690,9 +3690,96 @@ function devSetView(view) {
         <!-- ===== Tab: Meta Information ===== -->
         <div class="dcf-tab-panel" data-tab="meta">
             <div class="dcf-mag">
+                <?php
+                // Resolve which country the admin is editing this course
+                // for. The signal comes from the Manage Courses tab they
+                // clicked — but by the time they're on Course Edit the
+                // URL has dropped ?store=N, so we have to recover it from
+                // every place the user's intent could still be alive:
+                //
+                //   1. ?store=N in the current URL          (explicit)
+                //   2. ?dev_country=<Name> in current URL   (legacy alias)
+                //   3. dev_back query string from the link   (carries the
+                //      originating filter as dev_country=<Name>, see
+                //      $_devBackParams build at ~line 2035)
+                //   4. ?dev_country=<Name> inside dev_back   (URL-decoded)
+                //   5. ?store=N inside dev_back              (same)
+                //   6. admin session key Branchscope writes to on every
+                //      pill click via persistFromRequest()
+                //   7. fall back to Singapore (canonical default)
+                $_seoStoreToCountry = array(
+                    1 => 'Singapore', 2 => 'Malaysia', 3 => 'Ghana',
+                    4 => 'Nigeria',   5 => 'Bhutan',   6 => 'India',
+                );
+                $_seoCountryToStore = array_flip($_seoStoreToCountry);
+                $_seoStoreId = 0;
+                $_seoReq = Mage::app()->getRequest();
+
+                // 1. URL ?store=
+                $_seoUrlStore = $_seoReq->getParam('store', null);
+                if ($_seoUrlStore !== null && ctype_digit((string) $_seoUrlStore)) {
+                    $_seoStoreId = (int) $_seoUrlStore;
+                }
+                // 2. URL ?dev_country=
+                if (!isset($_seoStoreToCountry[$_seoStoreId])) {
+                    $_seoUrlCountry = (string) $_seoReq->getParam('dev_country', '');
+                    if (isset($_seoCountryToStore[$_seoUrlCountry])) {
+                        $_seoStoreId = $_seoCountryToStore[$_seoUrlCountry];
+                    }
+                }
+                // 3 / 4 / 5. dev_back parsing
+                if (!isset($_seoStoreToCountry[$_seoStoreId])) {
+                    $_seoDevBack = (string) $_seoReq->getParam('dev_back', '');
+                    if ($_seoDevBack !== '') {
+                        // dev_back was urlencoded by the link builder;
+                        // decode so we can match on plain key=value pairs.
+                        $_seoDecoded = urldecode($_seoDevBack);
+                        if (preg_match('/(?:^|&)dev_country=([^&]+)/', $_seoDecoded, $_seoM)) {
+                            $_seoBackCountry = urldecode($_seoM[1]);
+                            if (isset($_seoCountryToStore[$_seoBackCountry])) {
+                                $_seoStoreId = $_seoCountryToStore[$_seoBackCountry];
+                            }
+                        }
+                        if (!isset($_seoStoreToCountry[$_seoStoreId])
+                                && preg_match('/(?:^|&)store=(\d+)/', $_seoDecoded, $_seoM2)) {
+                            $_seoStoreId = (int) $_seoM2[1];
+                        }
+                    }
+                }
+                // 6. admin session
+                if (!isset($_seoStoreToCountry[$_seoStoreId])) {
+                    try {
+                        $_seoSession = Mage::getSingleton('admin/session');
+                        $_seoSessStore = $_seoSession ? (int) $_seoSession->getData('mmd_branchscope_current_store_id') : 0;
+                        if ($_seoSessStore > 0) $_seoStoreId = $_seoSessStore;
+                    } catch (Exception $_e) {}
+                }
+                $_seoActiveCountry = isset($_seoStoreToCountry[$_seoStoreId])
+                    ? $_seoStoreToCountry[$_seoStoreId]
+                    : 'Singapore';
+
+                // Per-country SEO Meta load: re-fetch the three meta fields
+                // at the active country's store view so the form shows
+                // THAT country's value (or the scope-0 default if no
+                // per-country override exists yet). Without this the inputs
+                // always show scope-0 and the admin can't see what was
+                // previously generated for Malaysia / Ghana / etc.
+                if ($_seoStoreId > 0 && !empty($_editCourseData) && isset($_selectedCourseId)) {
+                    try {
+                        $_seoProdAtCountry = Mage::getModel('catalog/product')
+                            ->setStoreId($_seoStoreId)
+                            ->load($_selectedCourseId);
+                        if ($_seoProdAtCountry && $_seoProdAtCountry->getId()) {
+                            $_editCourseData['meta_title']       = (string) ($_seoProdAtCountry->getMetaTitle()       ?: '');
+                            $_editCourseData['meta_description'] = (string) ($_seoProdAtCountry->getMetaDescription() ?: '');
+                            $_editCourseData['meta_keyword']     = (string) ($_seoProdAtCountry->getMetaKeyword()     ?: '');
+                        }
+                    } catch (Exception $_seoLoadEx) {}
+                }
+                ?>
                 <div class="dcf-mag-bar" style="display:flex;align-items:center;justify-content:space-between;">
                     <span>SEO Meta</span>
-                    <span style="display:inline-flex;gap:8px;">
+                    <span style="display:inline-flex;gap:8px;align-items:center;">
                         <button type="button" class="ai-seo-btn" data-mode="wsq" style="background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.4);color:#22d3ee;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z"/></svg>
                             WSQ
@@ -3713,6 +3800,11 @@ function devSetView(view) {
                     </div>
                 </div>
                 <div class="dcf-mag-body">
+                    <?php /* Tells CoursesaveController which store view to
+                          persist the three meta fields against, so each
+                          country keeps its own values without overwriting
+                          others. 0 = scope-0 default (existing behaviour). */ ?>
+                    <input type="hidden" name="seo_target_store_id" value="<?php echo (int) $_seoStoreId ?>" />
                     <div class="dcf-row">
                         <div class="dcf-row-label">Meta Title</div>
                         <div class="dcf-row-input"><input type="text" class="dcf-input" name="meta_title" value="<?php echo htmlspecialchars($_editCourseData['meta_title'] ?? '') ?>" /></div>
@@ -3813,10 +3905,16 @@ function devSetView(view) {
                     startProgress();
 
                     var productId = '<?php echo (int)($_selectedCourse["id"] ?? 0) ?>';
+                    var country = '<?php echo addslashes($_seoActiveCountry) ?>';
+                    // Temporary diagnostic — confirms the page resolved the
+                    // right country before sending. Remove once verified.
+                    console.log('[AI SEO] mode=' + mode + ' country=' + country
+                        + ' (resolved from store_id=<?php echo (int)$_seoStoreId ?>)');
                     var fd = new FormData();
                     fd.append('form_key', window.FORM_KEY || '<?php echo Mage::getSingleton("core/session")->getFormKey() ?>');
                     fd.append('product_id', productId);
                     fd.append('mode', mode);
+                    fd.append('country', country);
                     var keys = FIELD_MAP[mode];
                     var courseName  = formVal('general_course_name') || formVal('course_name') || '';
                     var outcomes    = stripHtml(formVal('learning_outcomes'));

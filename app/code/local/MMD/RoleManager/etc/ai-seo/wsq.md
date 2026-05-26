@@ -5,6 +5,7 @@ You will create keywords-rich SEO meta title, keywords, description, course desc
 Course Title: {course_title}
 Learning Outcomes: {learning_outcomes}
 Course Topics: {topics}
+Target Country: {country}
 
 Rules:
 - Your SEO meta description has to be less than 255 characters
@@ -17,9 +18,11 @@ Rules:
 - Please bold the headers
 - Do not put quotes on the sentences and meta, do not say paragraph 1 and 2
 - Format the output in clean Markdown
+- The meta title MUST end with the exact suffix "| Tertiary Courses {country}". Do NOT substitute another country name — use {country} verbatim, even if the course content sounds Singapore-specific.
+- Keywords and description should be oriented to the {country} market.
 
 Your output format is as follows:
-1. **SEO Meta Title:** WSQ .... | Tertiary Courses Singapore
+1. **SEO Meta Title:** WSQ .... | Tertiary Courses {country}
 2. **SEO Meta Keywords:**
 3. **SEO Meta Description:** (append "Enjoy up to 70% WSQ funding subsidy.")
 4. **SEO Course Description** in two paragraphs

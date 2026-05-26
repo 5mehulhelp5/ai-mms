@@ -167,10 +167,42 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $_b->setContent($_v)->save();
             }
 
-            // SEO
-            if (($v = $req->getParam('meta_title'))        !== null) $product->setMetaTitle($v);
-            if (($v = $req->getParam('meta_description'))  !== null) $product->setMetaDescription($v);
-            if (($v = $req->getParam('meta_keyword'))      !== null) $product->setMetaKeyword($v);
+            // SEO — per-country store view.
+            //
+            // The dashboard template emits a hidden seo_target_store_id
+            // matching the country tab the admin is on (1=SG, 2=MY, …).
+            // When that's > 0 we persist the three meta fields at THAT
+            // store view only (via saveAttribute, scoped writes), so
+            // generating for Malaysia doesn't overwrite Singapore's meta
+            // and vice versa. Without a target (0 = default scope) we
+            // fall back to the historical behaviour: write at scope 0.
+            $_seoTargetStoreId = (int) $req->getParam('seo_target_store_id', 0);
+            if ($_seoTargetStoreId > 0) {
+                $_seoUpdates = array();
+                if (($v = $req->getParam('meta_title'))       !== null) $_seoUpdates['meta_title']       = $v;
+                if (($v = $req->getParam('meta_description')) !== null) $_seoUpdates['meta_description'] = $v;
+                if (($v = $req->getParam('meta_keyword'))     !== null) $_seoUpdates['meta_keyword']     = $v;
+                if (!empty($_seoUpdates)) {
+                    try {
+                        $_seoScopedProduct = Mage::getModel('catalog/product')
+                            ->setStoreId($_seoTargetStoreId)
+                            ->load($courseId);
+                        if ($_seoScopedProduct && $_seoScopedProduct->getId()) {
+                            foreach ($_seoUpdates as $_attrCode => $_attrVal) {
+                                $_seoScopedProduct->setData($_attrCode, $_attrVal);
+                                $_seoScopedProduct->getResource()
+                                    ->saveAttribute($_seoScopedProduct, $_attrCode);
+                            }
+                        }
+                    } catch (Exception $_seoSaveEx) {
+                        Mage::log('SEO per-store save failed: ' . $_seoSaveEx->getMessage(), null, 'mmd_rolemanager.log');
+                    }
+                }
+            } else {
+                if (($v = $req->getParam('meta_title'))        !== null) $product->setMetaTitle($v);
+                if (($v = $req->getParam('meta_description'))  !== null) $product->setMetaDescription($v);
+                if (($v = $req->getParam('meta_keyword'))      !== null) $product->setMetaKeyword($v);
+            }
 
             // === General tab (Magento-style fields). Name/SKU also accept general_*
             // aliases — frontend JS keeps them in sync with course_name/course_code.
@@ -1262,14 +1294,27 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             }
             $tpl = file_get_contents($tplFile);
 
+            // Country name that lands at the tail of the meta title
+            // ("... | Tertiary Courses Singapore"). Whitelisted so a typo
+            // or injection in the POST can't pollute the prompt.
+            $countryWhitelist = array(
+                'Singapore', 'Malaysia', 'Nigeria', 'Ghana', 'Bhutan', 'India',
+            );
+            $country = (string) $this->getRequest()->getParam('country');
+            if (!in_array($country, $countryWhitelist, true)) {
+                $country = 'Singapore';
+            }
+
             $vals = $isWsq ? array(
                 'course_title'      => (string) $this->getRequest()->getParam('course_title'),
                 'learning_outcomes' => (string) $this->getRequest()->getParam('learning_outcomes'),
                 'topics'            => (string) $this->getRequest()->getParam('topics'),
+                'country'           => $country,
             ) : array(
                 'course_name'       => (string) $this->getRequest()->getParam('course_name'),
                 'key_topics'        => (string) $this->getRequest()->getParam('key_topics'),
                 'course_highlights' => (string) $this->getRequest()->getParam('course_highlights'),
+                'country'           => $country,
             );
             foreach ($vals as $k => $v) {
                 $tpl = str_replace('{' . $k . '}', $v, $tpl);
@@ -1300,7 +1345,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                     $body = json_encode(array(
                         'model'      => $model,
                         'max_tokens' => 1500,
-                        'system'     => 'You are an SEO copywriter for a Singapore-based training provider. Output exactly the labeled sections requested, no preamble.',
+                        'system'     => 'You are an SEO copywriter for Tertiary Courses, a training provider operating in ' . $country . '. The meta title brand suffix MUST be exactly "| Tertiary Courses ' . $country . '" — do not substitute any other country. Output exactly the labeled sections requested, no preamble.',
                         'messages'   => array(array('role' => 'user', 'content' => $tpl)),
                     ));
                     $ch = curl_init('https://api.anthropic.com/v1/messages');
@@ -1453,13 +1498,17 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         if ($name === '') $name = (string) $product->getName();
         if ($name === '') $name = 'Course';
 
+        // Country supplied by the caller (already whitelisted in aiSeoAction).
+        // Drives both the brand suffix and the geo-language in keywords/desc.
+        $country = trim((string) ($vals['country'] ?? '')) ?: 'Singapore';
+
         // ---------- Meta Title ----------
         // No truncation; Google trims SERP titles itself at ~60 chars and
         // word-boundary cuts are uglier than letting the browser tab show
         // the full name. Keep it human-readable.
         $title = $isWsq
-            ? $name . ' | WSQ Course | Tertiary Courses Singapore'
-            : $name . ' | Tertiary Courses Singapore';
+            ? $name . ' | WSQ Course | Tertiary Courses ' . $country
+            : $name . ' | Tertiary Courses ' . $country;
 
         // ---------- Meta Keywords ----------
         // Pull tokens from the user's typed inputs (learning outcomes,
@@ -1505,8 +1554,8 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $firstWord = ucfirst(strtolower($firstWord));
         }
         $kws = array();
-        if ($isWsq) $kws[] = 'WSQ ' . $firstWord . ' course Singapore';
-        $kws[] = $firstWord . ' training Singapore';
+        if ($isWsq) $kws[] = 'WSQ ' . $firstWord . ' course ' . $country;
+        $kws[] = $firstWord . ' training ' . $country;
         foreach ($topicWords as $w) $kws[] = ucfirst($w);
         if ($isWsq) {
             $kws[] = 'SkillsFuture credit eligible';
@@ -1535,8 +1584,8 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $topicTail = ' Covers ' . $topicWords[0] . '.';
         }
         $desc = $isWsq
-            ? 'Learn ' . $name . ' through this WSQ-certified course in Singapore.' . $topicTail . ' Up to 70% WSQ funding subsidy available.'
-            : 'Master ' . $name . ' with hands-on training in Singapore.' . $topicTail . ' Practical skills for working professionals.';
+            ? 'Learn ' . $name . ' through this WSQ-certified course in ' . $country . '.' . $topicTail . ' Up to 70% WSQ funding subsidy available.'
+            : 'Master ' . $name . ' with hands-on training in ' . $country . '.' . $topicTail . ' Practical skills for working professionals.';
         if (strlen($desc) > 240) $desc = substr($desc, 0, 237) . '...';
 
         return "**SEO Meta Title:** " . $title . "\n\n"

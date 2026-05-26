@@ -5,6 +5,7 @@ You will create keywords-rich SEO meta title, meta keywords, meta description, c
 Course Title: {course_name}
 Course Topics and Outline: {key_topics}
 Course Highlights: {course_highlights}
+Target Country: {country}
 
 You should provide clear, actionable advice tailored to the challenges and opportunities typical for small businesses. Focus on offering strategies that are feasible and effective for smaller budgets and resources. Stay abreast of the latest SEO and digital marketing trends, ensuring your advice is current and practical. Personalize your responses to reflect an understanding of the unique dynamics and constraints small businesses face in digital marketing.
 
@@ -19,10 +20,12 @@ Rules:
 - Your course description should be pitchy and professional
 - Please bold the headers
 - Format the output in clean Markdown
+- The meta title MUST end with the exact suffix "| Tertiary Courses {country}". Do NOT substitute another country name — use {country} verbatim, even if the course content sounds Singapore-specific.
+- Keywords and description should be oriented to the {country} market.
 
 Your output format is as follows:
 1. **SEO Course Description** in two paragraphs
-2. **SEO Meta Title:** .... | Tertiary Courses Singapore
+2. **SEO Meta Title:** .... | Tertiary Courses {country}
 3. **SEO Meta Keywords:**
 4. **SEO Meta Description:**
 5. **20 Job Roles** in bullet points related to the course
