@@ -201,7 +201,7 @@ if ($_product && $_product->getId()):
     $_jsonLd = [
         '@context' => 'https://schema.org',
         '@type'    => 'Course',
-        'name'     => (string) ($_product->getMetaTitle() ?: $_product->getName()),
+        'name'     => (string) $_product->getName(),
         'description' => trim((string) ($_product->getMetaDescription()
             ?: strip_tags((string) $_product->getShortDescription())
             ?: strip_tags((string) $_product->getDescription()))),
