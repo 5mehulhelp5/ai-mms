@@ -1,0 +1,464 @@
+<?php
+/**
+ * Compact A4 brochure — fits a typical course on one page, max two.
+ * Two-column body layout mirrors the storefront product page (Ultimo
+ * theme) where the Course Information / Skills Framework / Learning
+ * Outcomes stack on the left and the title / about / WSQ Funding /
+ * CTA stack on the right.
+ *
+ * Rendered by
+ * MMD_RoleManager_Adminhtml_CoursesaveController::generateBrochureAction()
+ * via PHP `include` with extract($context).
+ *
+ * No @page CSS rule — page format and margins are set in the Mpdf
+ * constructor. Past experiments showed @page combined with constructor
+ * margins ballooned the output to ~9 MB / 17 000 pages.
+ */
+
+$paraify = function ($text) {
+    $out = '';
+    foreach (preg_split('/\n\s*\n/', trim((string) $text)) as $p) {
+        $p = trim(preg_replace('/\s+/', ' ', $p));
+        if ($p !== '') $out .= '<p>' . htmlspecialchars($p) . '</p>';
+    }
+    return $out;
+};
+?><!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title><?php echo $title ?> &mdash; Course Brochure</title>
+<style>
+body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; line-height: 1.5; color: #1f2937; }
+
+/* ---- Cover header ---- */
+.cover-code { font-size: 9.5pt; color: #475569; margin: 0 0 4pt; }
+.cover-code strong { color: #0f172a; font-family: Courier, monospace; letter-spacing: 0.04em; }
+h1.title  { font-size: 18pt; margin: 0 0 6pt; line-height: 1.2; font-weight: 700; color: #0f172a; }
+
+/* ---- Funding Available badge row ---- */
+.funding-line { font-size: 9pt; color: #475569; margin: 0 0 10pt; }
+.funding-line strong { color: #0f172a; }
+.badges-row .b {
+    display: inline-block;
+    margin-right: 9pt;
+    color: #1f2937;
+    font-weight: 700;
+    font-size: 8.5pt;
+}
+.badges-row .b::before {
+    content: "\2022";
+    color: #2563eb;
+    font-weight: 900;
+    margin-right: 4pt;
+}
+
+/* ---- Card frame ---- */
+.card { border: 0.5pt solid #cbd5e1; margin: 0 0 10pt; page-break-inside: avoid; }
+.card-head {
+    background: #2563eb;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 9pt;
+    font-weight: 700;
+    padding: 5pt 10pt;
+}
+.card-body { padding: 9pt 11pt 10pt; background: #ffffff; font-size: 10pt; line-height: 1.5; }
+.card-body p { margin: 0 0 6pt; }
+.card-body p:last-child { margin-bottom: 0; }
+.card-body ul, .card-body ol { margin: 0 0 6pt 16pt; padding: 0; }
+.card-body li { margin: 0 0 4pt; line-height: 1.45; }
+
+/* Course Info — row of tiles. mPDF doesn't always honour
+   `display:block` on <span> inside <td>, so the tile uses two stacked
+   <div>s instead (forced block-level via the element type itself). */
+.ci-grid { width: 100%; border-collapse: separate; border-spacing: 5pt 5pt; }
+.ci-tile {
+    width: 25%;
+    background: #f1f5fb;
+    border: 0.5pt solid #dbeafe;
+    padding: 9pt 10pt;
+    vertical-align: top;
+}
+.ci-tile .label {
+    font-size: 9pt;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    font-weight: 700;
+    margin: 0 0 4pt;
+}
+.ci-tile .value {
+    font-size: 14pt;
+    color: #0f172a;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.ci-venue {
+    margin-top: 6pt;
+    padding: 7pt 9pt;
+    background: #f8fafc;
+    border: 0.5pt solid #e2e8f0;
+    font-size: 9.5pt;
+    line-height: 1.45;
+}
+.ci-venue .label {
+    display: block;
+    font-size: 7.5pt;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    font-weight: 700;
+    margin: 0 0 3pt;
+}
+.ci-venue p { margin: 0 0 3pt; }
+.ci-venue p:last-child { margin-bottom: 0; }
+
+/* Skills Framework rows */
+.sf-row { padding: 4pt 0; border-bottom: 0.4pt dotted #e2e8f0; }
+.sf-row:last-child { border-bottom: 0; }
+.sf-row .label {
+    display: inline-block;
+    width: 28%;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 8pt;
+    font-weight: 700;
+    vertical-align: middle;
+}
+.sf-row .value {
+    display: inline-block;
+    color: #0f172a;
+    font-weight: 700;
+    font-size: 10.5pt;
+}
+.sf-row .value.code {
+    font-family: Courier, monospace;
+    background: #f8fafc;
+    border: 0.5pt solid #e2e8f0;
+    padding: 1pt 6pt;
+    color: #1e3a8a;
+    font-size: 10pt;
+}
+
+/* WSQ Funding — 2x2 fee tile grid */
+.fee-grid { width: 100%; border-collapse: separate; border-spacing: 5pt 5pt; }
+.fee-tile {
+    width: 50%;
+    border: 0.5pt solid #e2e8f0;
+    padding: 7pt 9pt;
+    vertical-align: top;
+}
+.fee-tile.full     { background: #eff6ff; border-color: #bfdbfe; }
+.fee-tile.gst      { background: #fef9c3; border-color: #fde68a; }
+.fee-tile.baseline { background: #ecfdf5; border-color: #bbf7d0; }
+.fee-tile.mces     { background: #ede9fe; border-color: #ddd6fe; }
+.fee-tile .label {
+    display: block;
+    font-size: 7.5pt;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    font-weight: 700;
+    margin: 0 0 2pt;
+}
+.fee-tile .value {
+    display: block;
+    font-size: 13pt;
+    color: #0f172a;
+    font-weight: 700;
+    margin: 0 0 2pt;
+    line-height: 1.15;
+}
+.fee-tile .hint {
+    display: block;
+    font-size: 8pt;
+    color: #475569;
+    line-height: 1.3;
+}
+
+/* About / Learning Outcomes intro line */
+.lo-intro { color: #475569; font-style: italic; margin: 0 0 5pt; font-size: 9.5pt; }
+
+/* CTA box — Sign Up panel. Layout uses an outer 2-col table where the
+   right column is a FIXED 24mm wide (matching the QR + small margin)
+   so the QR can't overflow the box, and the left column expands. */
+.cta {
+    margin: 6pt 0 0;
+    border: 1pt solid #2563eb;
+    background: #eef2ff;
+    padding: 10pt 12pt;
+    page-break-inside: avoid;
+}
+.cta-tbl { width: 100%; border-collapse: collapse; }
+.cta-tbl td.cta-info { vertical-align: middle; padding-right: 8pt; }
+.cta-tbl td.cta-qr   { vertical-align: middle; text-align: center; width: 24mm; }
+.cta .cta-title {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #1e3a8a;
+    margin: 0 0 4pt;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.cta .cta-url {
+    font-family: Courier, monospace;
+    font-size: 8pt;
+    color: #1e3a8a;
+    word-break: break-all;
+    margin: 0 0 6pt;
+    line-height: 1.4;
+}
+.cta .cta-url a { color: #1e3a8a; text-decoration: underline; }
+.cta .cta-contact {
+    font-size: 9pt;
+    color: #1f2937;
+    line-height: 1.7;
+}
+.cta .cta-contact div { margin: 0 0 2pt; }
+.cta .cta-contact strong { color: #0f172a; }
+.cta .cta-qr-caption {
+    font-size: 7pt;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    margin: 3pt 0 0;
+}
+.barcode { width: 22mm; }
+
+/* Per-country brand logo at the top of page 1. Width set in mm so it
+   sizes consistently regardless of mPDF px-to-pt resolution. The
+   `display:none` belt-and-braces rule against stray content <img>
+   tags was dropped — it also hid this logo. Stray images from CMS
+   block content are already stripped server-side in
+   CoursesaveController::_sanitizeRichHtml(). */
+.brochure-logo {
+    width: 60mm;
+    margin: 0 0 8pt;
+}
+</style>
+</head>
+<body>
+
+<!-- Big brand logo top-left of page 1. Stays in the body (not the
+     page-header band) because mPDF's header renderer drops data: URIs
+     intermittently. -->
+<?php if (!empty($logo_uri)): ?>
+<img src="<?php echo htmlspecialchars($logo_uri) ?>" class="brochure-logo" alt="" />
+<?php endif; ?>
+
+<!-- ===== Cover header: code, title, badges ===== -->
+<div class="cover-code">Course Code: <strong><?php echo $sku ?></strong></div>
+<h1 class="title"><?php echo $title ?></h1>
+
+<?php if (!empty($badges)): ?>
+<div class="funding-line">
+    <strong>Funding Available:</strong>
+    <span class="badges-row">
+        <?php foreach ($badges as $b): ?>
+            <span class="b"><?php echo htmlspecialchars($b) ?></span>
+        <?php endforeach; ?>
+    </span>
+</div>
+<?php endif; ?>
+
+<!-- ===== Body: single-column, sections stacked in reading order ===== -->
+
+<!-- Course Information -->
+<div class="card">
+    <div class="card-head">Course Information</div>
+    <div class="card-body">
+        <table class="ci-grid" cellpadding="0" cellspacing="0">
+            <tr>
+                <td class="ci-tile">
+                    <div class="label">Sessions</div>
+                    <div class="value"><?php echo $sessions_fmt !== '' ? $sessions_fmt : '&mdash;' ?></div>
+                </td>
+                <td class="ci-tile">
+                    <div class="label">Duration</div>
+                    <div class="value"><?php echo $duration_fmt !== '' ? $duration_fmt : '&mdash;' ?></div>
+                </td>
+                <td class="ci-tile">
+                    <div class="label">Level</div>
+                    <div class="value"><?php echo $level !== '' ? $level : '&mdash;' ?></div>
+                </td>
+                <td class="ci-tile">
+                    <div class="label">Assessment</div>
+                    <div class="value"><?php echo $assessment_dur !== '' ? $assessment_dur : '&mdash;' ?></div>
+                </td>
+            </tr>
+        </table>
+
+        <?php if (trim($venue_html) !== '' || trim($store_address) !== ''): ?>
+        <div class="ci-venue">
+            <div class="label">Venue</div>
+            <?php if (trim($venue_html) !== ''): ?>
+                <?php echo $venue_html ?>
+            <?php else: ?>
+                <p><?php echo nl2br(htmlspecialchars($store_address)) ?></p>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- What's This Course About -->
+<?php if (trim($description) !== ''): ?>
+<div class="card">
+    <div class="card-head">What's This Course About</div>
+    <div class="card-body"><?php echo $paraify($description) ?></div>
+</div>
+<?php endif; ?>
+
+<!-- What You'll Learn -->
+<?php if (!empty($outcomes)): ?>
+<div class="card">
+    <div class="card-head">What You'll Learn</div>
+    <div class="card-body">
+        <p class="lo-intro">By end of the course, learners should be able to:</p>
+        <ul>
+            <?php foreach ($outcomes as $i => $o): if (trim($o) === '') continue; ?>
+            <li><strong>LO<?php echo $i + 1 ?>:</strong> <?php echo htmlspecialchars($o) ?></li>
+            <?php endforeach; ?>
+        </ul>
+    </div>
+</div>
+<?php endif; ?>
+
+<!-- Skills Framework -->
+<?php if ($skills_title !== '' || $skills_code !== ''): ?>
+<div class="card">
+    <div class="card-head">Skills Framework</div>
+    <div class="card-body">
+        <?php if ($skills_title !== ''): ?>
+        <div class="sf-row"><span class="label">TSC Title</span><span class="value"><?php echo $skills_title ?></span></div>
+        <?php endif; ?>
+        <?php if ($skills_code !== ''): ?>
+        <div class="sf-row"><span class="label">TSC Code</span><span class="value code"><?php echo $skills_code ?></span></div>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php /* Standalone Assessment card removed — the Assessment tile in
+        the Course Information card carries the duration on its own,
+        and the methods list isn't useful enough to deserve its own
+        section. */ ?>
+
+<!-- WSQ Funding -->
+<?php if (!empty($funded_tiers) && $price !== ''): ?>
+<div class="card">
+    <div class="card-head">WSQ Funding</div>
+    <div class="card-body">
+        <table class="fee-grid" cellpadding="0" cellspacing="0">
+            <tr>
+                <td class="fee-tile full">
+                    <span class="label">Full Fee</span>
+                    <span class="value"><?php echo $price ?></span>
+                    <span class="hint">Before GST</span>
+                </td>
+                <td class="fee-tile gst">
+                    <span class="label">GST</span>
+                    <span class="value"><?php echo $price_gst ?></span>
+                    <span class="hint"><?php echo (int) $gst_rate_pct ?>% of fee</span>
+                </td>
+            </tr>
+            <tr>
+                <?php
+                $tileClass = array('baseline', 'mces');
+                foreach ($funded_tiers as $i => $t):
+                    $cls = $tileClass[$i] ?? 'baseline';
+                ?>
+                <td class="fee-tile <?php echo $cls ?>">
+                    <span class="label"><?php echo htmlspecialchars($t['label']) ?></span>
+                    <span class="value"><?php echo htmlspecialchars($t['value']) ?></span>
+                    <span class="hint"><?php echo htmlspecialchars($t['hint']) ?></span>
+                </td>
+                <?php endforeach; ?>
+            </tr>
+        </table>
+    </div>
+</div>
+<?php elseif ($price !== ''): ?>
+<!-- Non-WSQ courses: simple Bef/Incl GST -->
+<div class="card">
+    <div class="card-head">Course Fee</div>
+    <div class="card-body">
+        <table class="fee-grid" cellpadding="0" cellspacing="0">
+            <tr>
+                <td class="fee-tile full">
+                    <span class="label">Full Fee</span>
+                    <span class="value"><?php echo $price ?></span>
+                    <span class="hint">Before GST</span>
+                </td>
+                <?php if ($price_gst !== ''): ?>
+                <td class="fee-tile gst">
+                    <span class="label">GST</span>
+                    <span class="value"><?php echo $price_gst ?></span>
+                    <span class="hint"><?php echo (int) $gst_rate_pct ?>% of fee</span>
+                </td>
+                <?php else: ?>
+                <td style="background:#ffffff;border:0;">&nbsp;</td>
+                <?php endif; ?>
+            </tr>
+            <?php if ($price_incl_gst !== '' && $price_gst !== ''): ?>
+            <tr>
+                <td colspan="2" class="fee-tile baseline">
+                    <span class="label">Total Payable</span>
+                    <span class="value"><?php echo $price_incl_gst ?></span>
+                    <span class="hint">Including GST</span>
+                </td>
+            </tr>
+            <?php endif; ?>
+        </table>
+    </div>
+</div>
+<?php endif; ?>
+
+<!-- Certification -->
+<?php if (trim($certificate_html) !== ''): ?>
+<div class="card">
+    <div class="card-head">Certification</div>
+    <div class="card-body"><?php echo $certificate_html ?></div>
+</div>
+<?php endif; ?>
+
+<!-- Funding & Grant narrative -->
+<?php if (trim($funding_html) !== ''): ?>
+<div class="card">
+    <div class="card-head">Funding &amp; Grant</div>
+    <div class="card-body"><?php echo $funding_html ?></div>
+</div>
+<?php endif; ?>
+
+<!-- Sign Up CTA — last so the eye finishes on the call to action.
+     The URL is wrapped in <a href> so the PDF reader makes it a
+     clickable link. -->
+<?php if ($registration_url !== ''): ?>
+<div class="cta">
+    <div class="cta-title">Sign Up for This Course</div>
+    <div class="cta-url">
+        <a href="<?php echo htmlspecialchars($registration_url) ?>"><?php echo htmlspecialchars($registration_url) ?></a>
+    </div>
+    <div class="cta-contact">
+        <?php if ($store_phone !== ''): ?>
+        <div><strong>Tel:</strong> <?php echo $store_phone ?></div>
+        <?php endif; ?>
+        <?php if ($store_email !== ''): ?>
+        <div><strong>Email:</strong> <?php echo $store_email ?></div>
+        <?php endif; ?>
+        <?php
+        $waDigits = preg_replace('/\D+/', '', (string) $whatsapp);
+        if ($waDigits !== ''):
+        ?>
+        <div><strong>WhatsApp:</strong> https://wa.me/<?php echo $waDigits ?></div>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
+
+</body>
+</html>

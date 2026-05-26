@@ -23,7 +23,15 @@ if ($_product->getDuration()) {
 if ($_product->getAttributeText('level')) {
     $_rows[] = array('label' => 'Level',          'value' => $_product->getAttributeText('level'), 'icon' => 'bar');
 }
-$_assessDur = $_product->getAttributeText('assessment_duration');
+// getAttributeText() calls $attribute->getSource()->getOptionText()
+// which TypeErrors when the attribute has no source model — happens
+// when assessment_duration was defined as a varchar without one. Fall
+// back to getData() so the storefront doesn't fatal in that state.
+try {
+    $_assessDur = $_product->getAttributeText('assessment_duration');
+} catch (Throwable $e) {
+    $_assessDur = $_product->getData('assessment_duration');
+}
 if ($_assessDur) {
     $_assessLabel = ($_assessDur === 'NA') ? 'NA' : $_assessDur . ' hr' . ($_assessDur === '1' ? '' : 's');
     $_rows[] = array('label' => 'Assessment',     'value' => $_assessLabel, 'icon' => 'clock');

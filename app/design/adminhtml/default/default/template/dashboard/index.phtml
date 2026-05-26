@@ -2777,9 +2777,175 @@ function devSetView(view) {
                 <?php if ($_pn['hint']): ?>
                 <div style="font-size:12px;color:#94a3b8;margin:0 0 6px;"><?php echo htmlspecialchars($_pn['hint']) ?></div>
                 <?php endif; ?>
+                <?php if ($_pn['code'] === 'brochure'):
+                    // First-cut scope: the brochure generator only supports
+                    // Singapore courses. The PDF layout, GST rate (9%), WSQ
+                    // fee tiles (Baseline 50% / MCES 70%), and venue CMS
+                    // block are all SG-specific. Show the button only when
+                    // the admin's active website is Singapore (id 1);
+                    // otherwise display a small note so other-country admins
+                    // know the feature exists but isn't ready for them yet.
+                    $_broWid = 0;
+                    try { $_broWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId(); }
+                    catch (Exception $e) { $_broWid = 0; }
+                    if ($_broWid <= 0) $_broWid = 1;
+                    $_broIsSg = ($_broWid === 1);
+                ?>
+                <?php if ($_broIsSg): ?>
+                <div style="display:flex;align-items:center;gap:12px;margin:0 0 8px;flex-wrap:wrap;">
+                    <button type="button" class="ai-brochure-btn" data-product-id="<?php echo (int) $_editProd->getId() ?>" data-sku="<?php echo htmlspecialchars($_cmsSku) ?>" style="background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.45);color:#fb923c;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        Generate Brochure
+                    </button>
+                    <a class="ai-brochure-preview-btn" href="#" target="_blank" rel="noopener" style="display:none;background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.45);color:#22d3ee;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;align-items:center;gap:6px;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        Preview
+                    </a>
+                    <span class="ai-brochure-status" style="font-size:11px;color:#94a3b8;"></span>
+                </div>
+                <div class="ai-brochure-progress-wrap" style="display:none;margin:0 0 8px;">
+                    <div style="height:5px;background:rgba(148,163,184,.18);border-radius:999px;overflow:hidden;">
+                        <div class="ai-brochure-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#fb923c,#c2410c);border-radius:999px;transition:width 0.4s linear;"></div>
+                    </div>
+                </div>
+                <?php else: ?>
+                <div style="font-size:11px;color:#94a3b8;background:rgba(148,163,184,.08);border:1px solid rgba(148,163,184,.2);padding:6px 10px;border-radius:6px;margin:0 0 8px;">
+                    Generate Brochure is available on Singapore courses only. Switch the admin "View As" to Singapore to enable it.
+                </div>
+                <?php endif; ?>
+                <?php endif; ?>
                 <textarea class="dcf-textarea dcf-textarea-rich" name="cms_block_<?php echo $_pn['code'] ?>" placeholder="<?php echo htmlspecialchars($_pn['placeholder']) ?>"><?php echo htmlspecialchars($_cmsBlockHtml($_pn['code'])) ?></textarea>
             </div>
             <?php endforeach; ?>
+
+            <?php /* ===== AI Brochure: one-click generate =====
+                 Mirrors the SEO Meta UX (one-click, no modal):
+                   1. POST product_id to adminhtml/coursesave/generateBrochure
+                   2. Controller assembles a text-only PDF (graphics stripped)
+                      from product EAV + per-course CMS blocks, with three-tier
+                      AI prose polishing.
+                   3. PDF lands at media/courses/brochures/<sku>.pdf.
+                   4. We drop a "Download Course Brochure" anchor into the
+                      cms_block_brochure textarea so it persists when the
+                      admin clicks Save Changes. */ ?>
+            <script>
+            (function() {
+                var BTN = document.querySelector('.ai-brochure-btn');
+                if (!BTN) return;
+                var PWRAP = document.querySelector('.ai-brochure-progress-wrap');
+                var PBAR  = document.querySelector('.ai-brochure-progress-bar');
+                var STATUS = document.querySelector('.ai-brochure-status');
+                var TEXTAREA = document.querySelector('textarea[name="cms_block_brochure"]');
+                var PREVIEW = document.querySelector('.ai-brochure-preview-btn');
+
+                // Pre-populate Preview from the existing textarea on page load
+                // so admins can open the current PDF without first regenerating.
+                // Match the href in any <a href="...courses/brochures/...pdf">.
+                function setPreviewUrl(url) {
+                    if (!PREVIEW || !url) return;
+                    PREVIEW.href = url;
+                    PREVIEW.style.display = 'inline-flex';
+                }
+                (function prefillPreviewFromTextarea() {
+                    if (!TEXTAREA || !PREVIEW) return;
+                    var v = (TEXTAREA.value || '');
+                    var m = v.match(/href=["']([^"']*courses\/brochures\/[^"']+\.pdf[^"']*)["']/i);
+                    if (m) setPreviewUrl(m[1]);
+                })();
+                var progressTimer = null;
+                var EXPECTED_MS = 25000;  // brochure is faster than SEO meta
+
+                function setStatus(txt, color) {
+                    STATUS.textContent = txt || '';
+                    STATUS.style.color = color || '#94a3b8';
+                }
+                function startProgress() {
+                    var started = Date.now();
+                    PWRAP.style.display = 'block';
+                    PBAR.style.transition = 'width 0.4s linear';
+                    PBAR.style.width = '0%';
+                    if (progressTimer) clearInterval(progressTimer);
+                    progressTimer = setInterval(function() {
+                        var elapsed = Date.now() - started;
+                        var pct = elapsed < EXPECTED_MS
+                            ? (elapsed / EXPECTED_MS) * 90
+                            : 90 + (1 - Math.exp(-(elapsed - EXPECTED_MS) / 20000)) * 8;
+                        PBAR.style.width = pct.toFixed(1) + '%';
+                    }, 400);
+                }
+                function finishProgress() {
+                    if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
+                    PBAR.style.transition = 'width 0.25s ease-out';
+                    PBAR.style.width = '100%';
+                    setTimeout(function() {
+                        PWRAP.style.display = 'none';
+                        PBAR.style.width = '0%';
+                    }, 500);
+                }
+
+                BTN.addEventListener('click', function() {
+                    var pid = parseInt(BTN.getAttribute('data-product-id'), 10) || 0;
+                    if (pid <= 0) {
+                        alert('No product_id on button — re-open the course edit page.');
+                        return;
+                    }
+                    var origHtml = BTN.innerHTML;
+                    BTN.disabled = true;
+                    BTN.style.opacity = '.6';
+                    BTN.style.cursor = 'wait';
+                    BTN.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:ai-seo-spin 0.7s linear infinite;"></span> Generating…';
+                    setStatus('Asking Claude to polish prose and rendering PDF…');
+                    startProgress();
+
+                    var fd = new FormData();
+                    fd.append('form_key', window.FORM_KEY || '<?php echo Mage::getSingleton("core/session")->getFormKey() ?>');
+                    fd.append('product_id', pid);
+
+                    fetch('<?php echo Mage::helper("adminhtml")->getUrl("adminhtml/coursesave/generateBrochure") ?>', {
+                        method: 'POST',
+                        body: fd,
+                        credentials: 'same-origin'
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(j) {
+                        BTN.disabled = false;
+                        BTN.style.opacity = '1';
+                        BTN.style.cursor = 'pointer';
+                        BTN.innerHTML = origHtml;
+                        finishProgress();
+                        if (!j || !j.success) {
+                            setStatus('Failed: ' + ((j && j.message) || 'unknown error'), '#f87171');
+                            return;
+                        }
+                        var html = '<a href="' + j.url + '" target="_blank">Download Course Brochure</a>';
+                        if (TEXTAREA) TEXTAREA.value = html;
+                        setPreviewUrl(j.url);
+                        var note = j.stubbed
+                            ? 'PDF generated (AI fallback used — click Save Changes to keep the link).'
+                            : 'PDF generated. Click Save Changes to keep the link.';
+                        setStatus(note, j.stubbed ? '#f59e0b' : '#22c55e');
+                        if (j.stubbed) console.warn('Brochure stub used: ' + j.stub_reason);
+                    })
+                    .catch(function(err) {
+                        BTN.disabled = false;
+                        BTN.style.opacity = '1';
+                        BTN.style.cursor = 'pointer';
+                        BTN.innerHTML = origHtml;
+                        finishProgress();
+                        setStatus('Network error: ' + err.message, '#f87171');
+                    });
+                });
+
+                // Re-use the SEO Meta spinner keyframes if already injected,
+                // else inject our own.
+                if (!document.getElementById('ai-seo-spin-style')) {
+                    var st = document.createElement('style');
+                    st.id = 'ai-seo-spin-style';
+                    st.textContent = '@keyframes ai-seo-spin{to{transform:rotate(360deg);}}';
+                    document.head.appendChild(st);
+                }
+            })();
+            </script>
 
             <?php /* Additional Documents section removed per request
                  (deleted from the course form / project website). The

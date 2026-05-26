@@ -220,6 +220,32 @@
 		$_clean               = trim(strip_tags($_bm[2]));
 		if ($_clean !== '') { $_courseBrochureLabel = $_clean; }
 	}
+	// Filesystem fallback: if no CMS-block URL was extracted but the
+	// admin's Generate Brochure flow has produced a PDF for this SKU
+	// (lands at media/courses/brochures/<sku>.pdf), surface it as the
+	// brochure link automatically. Means freshly-generated brochures
+	// appear on the storefront immediately, without the admin having
+	// to also click Save Changes on the Brochure CMS block textarea.
+	// `?v=<mtime>` busts any browser/CDN cache when the brochure is
+	// regenerated.
+	//
+	// SG-only — the Generate Brochure feature itself is gated to the
+	// Singapore admin scope (see CoursesaveController::generateBrochureAction
+	// + the dashboard button gate). The PDFs in media/courses/brochures/
+	// are SG-formatted (S$, 9% GST, WSQ tiers, SG venue block, English),
+	// so we must not surface them on MY/GH/NG/BT/IN storefronts. Other
+	// countries fall back to whatever was manually pasted into their
+	// brochure CMS block (which is the only path they have until their
+	// own generators are built).
+	if ($_courseBrochureUrl === '' && $_courseSku !== ''
+	    && (int) Mage::app()->getStore()->getId() === 1) {
+		$_brochureFile = Mage::getBaseDir('media') . '/courses/brochures/' . $_courseSku . '.pdf';
+		if (is_file($_brochureFile)) {
+			$_courseBrochureUrl = rtrim(Mage::getBaseUrl('media'), '/')
+				. '/courses/brochures/' . rawurlencode($_courseSku) . '.pdf'
+				. '?v=' . filemtime($_brochureFile);
+		}
+	}
 
 	// (4) Skills Framework — per-course cms/block first, regex fallback.
 	// Typical body shape:

@@ -1507,6 +1507,914 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
     }
 
     /**
+     * One-click brochure generator. Mirrors aiSeoAction's plumbing:
+     *
+     *   1. Collect course data verbatim from the product entity + the
+     *      per-course CMS blocks (`course_<sku>_<section>`).
+     *   2. Ask Claude to polish three prose fields (description,
+     *      learning outcomes, who-should-attend). Tier-1 direct API,
+     *      tier-2 `claude` CLI, tier-3 pass-through stub. AI never
+     *      touches factual fields (price, dates, SKUs, codes).
+     *   3. Render the brochure.phtml template (text-only A4, no images)
+     *      and pipe it through mPDF.
+     *   4. Write to media/courses/brochures/<sku>.pdf and return its URL
+     *      so the JS can drop a "Download Course Brochure" anchor into
+     *      the brochure CMS-block textarea.
+     */
+    public function generateBrochureAction()
+    {
+        $resp = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) {
+                throw new Exception('POST required');
+            }
+            $productId = (int) $this->getRequest()->getParam('product_id');
+            if ($productId <= 0) {
+                throw new Exception('product_id missing');
+            }
+            $product = Mage::getModel('catalog/product')->load($productId);
+            if (!$product->getId()) {
+                throw new Exception('Course not found');
+            }
+            if (!class_exists('\\Mpdf\\Mpdf')) {
+                throw new Exception('mPDF not installed — run composer require mpdf/mpdf');
+            }
+            // First-cut scope: brochure generator only supports Singapore
+            // courses (GST 9%, WSQ fee tiers, SG venue blocks, S$ currency
+            // are all SG-coupled). Match the dashboard UI gate so a
+            // non-SG admin can't bypass it via a direct POST.
+            $broWid = 0;
+            try { $broWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId(); }
+            catch (Exception $e) { $broWid = 0; }
+            if ($broWid <= 0) $broWid = 1;
+            if ($broWid !== 1) {
+                throw new Exception('Brochure generation is Singapore-only for now. Switch the admin "View As" to Singapore to use it.');
+            }
+
+            $context = $this->_collectBrochureContext($product);
+
+            $stubbed    = false;
+            $stubReason = '';
+            $polish     = $this->_polishBrochureProse($context, $stubbed, $stubReason);
+
+            // Merge polished prose back into context only when AI
+            // produced non-empty output — never overwrite real data
+            // with empty AI strings.
+            if (trim((string) $polish['description']) !== '') {
+                $context['description'] = $polish['description'];
+            }
+            if (!empty($polish['learning_outcomes'])) {
+                $context['outcomes'] = $polish['learning_outcomes'];
+            }
+            if (trim((string) $polish['who_should_attend']) !== '') {
+                $context['who_attend'] = $polish['who_should_attend'];
+            }
+
+            $url = $this->_renderBrochurePdf($product, $context);
+
+            $resp['success']    = true;
+            $resp['url']        = $url;
+            $resp['stubbed']    = $stubbed;
+            if ($stubbed) {
+                $resp['stub_reason'] = $stubReason;
+            }
+        } catch (Exception $e) {
+            $resp['message'] = $e->getMessage();
+        }
+        $this->getResponse()
+            ->setHeader('Content-Type', 'application/json', true)
+            ->setBody(Mage::helper('core')->jsonEncode($resp));
+    }
+
+    /**
+     * Walk the product entity and per-course CMS blocks to collect a
+     * flat $context array consumed by brochure.phtml. No AI; this is
+     * the source-of-truth snapshot.
+     *
+     * Resolves the admin's currently-active website (RoleManager "View
+     * As" scope) and pulls store_information / WhatsApp / price / GST
+     * from that scope so the brochure is country-correct — provider
+     * name, phone, currency, funding tiers all change to match.
+     */
+    protected function _collectBrochureContext($product)
+    {
+        $sku = (string) $product->getSku();
+
+        // ---- Active website / store scope ---------------------------
+        // RoleManager exposes the admin's currently-selected website
+        // via helper. Default to website_id=1 (Singapore) when no
+        // selection — mirrors the storefront default.
+        $activeWid = 0;
+        try {
+            $activeWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
+        } catch (Exception $e) {
+            $activeWid = 0;
+        }
+        if ($activeWid <= 0) $activeWid = 1;
+        $scopeStoreId = null;
+        try {
+            $website = Mage::app()->getWebsite($activeWid);
+            $group   = $website->getDefaultGroup();
+            if ($group) $scopeStoreId = (int) $group->getDefaultStoreId();
+        } catch (Exception $e) {
+            $scopeStoreId = null;
+        }
+
+        // Load product in the country's store scope so per-store EAV
+        // overrides (e.g. localised description) win over the default.
+        $admin = Mage::getModel('catalog/product')
+            ->setStoreId($scopeStoreId !== null ? $scopeStoreId : Mage_Core_Model_App::ADMIN_STORE_ID)
+            ->load($product->getId());
+
+        $self = $this;
+        $cmsHtml = function ($code) use ($sku, $self) {
+            if ($sku === '') return '';
+            $b = Mage::getModel('cms/block')->load('course_' . $sku . '_' . $code, 'identifier');
+            if (!$b->getId() || !$b->getIsActive()) return '';
+            return $self->_sanitizeRichHtml((string) $b->getContent());
+        };
+
+        // ---- Funding badges (plain text) ----------------------------
+        $badges = array();
+        try {
+            $h = Mage::helper('mmd_courseimage');
+            if ($h && is_callable(array($h, 'getProductBadges'))) {
+                $b = $h->getProductBadges($admin);
+                if (is_array($b)) $badges = array_values($b);
+            }
+        } catch (Exception $e) {
+            $badges = array();
+        }
+
+        // ---- Price + GST + WSQ funding tiers ------------------------
+        // SG: 9% GST on top of catalog price. WSQ funded tiers come
+        // from the same formulas used on the storefront
+        // (catalog/product/view.phtml around line 782):
+        //   Baseline Nett = price * 0.50 + GST   (SG/PR 21+, 50% funded)
+        //   MCES/SME Nett = price * 0.30 + GST   (SG 40+,    70% funded)
+        // Only emitted for Singapore + WSQ-coded SKUs (TGS-*); other
+        // stores get just bef-GST / incl-GST.
+        $rawPrice = (float) $admin->getPrice();
+        $isSg     = ($activeWid === 1);
+        $isWsq    = $isSg && (strpos(strtoupper($sku), 'TGS-') === 0);
+        $gstRate  = $isSg ? 0.09 : 0.0;
+        $cur      = $this->_currencySymbolForWebsite($activeWid);
+        $fmt      = function ($v) use ($cur) { return $cur . number_format((float) $v, 2); };
+
+        $price          = $rawPrice > 0 ? $fmt($rawPrice) : '';
+        $price_gst      = $rawPrice > 0 && $gstRate > 0 ? $fmt($rawPrice * $gstRate) : '';
+        $price_incl_gst = $rawPrice > 0 ? $fmt($rawPrice * (1 + $gstRate)) : '';
+
+        $funded_tiers = array();
+        if ($isWsq && $rawPrice > 0) {
+            $gst = $rawPrice * $gstRate;
+            $funded_tiers = array(
+                array(
+                    'label' => 'Baseline Nett',
+                    'value' => $fmt($rawPrice * 0.50 + $gst),
+                    'hint'  => 'SG/PR age 21+ · 50% funded · incl. GST',
+                ),
+                array(
+                    'label' => 'MCES / SME Nett',
+                    'value' => $fmt($rawPrice * 0.30 + $gst),
+                    'hint'  => 'SG age 40+ · 70% funded · incl. GST',
+                ),
+            );
+        }
+
+        // ---- Level (option label, not raw id) -----------------------
+        $level = '';
+        try {
+            $level = (string) $admin->getAttributeText('level');
+        } catch (Exception $e) {
+            $level = '';
+        }
+        if ($level === '') $level = (string) $admin->getData('level');
+
+        // ---- Store info (per active website) ------------------------
+        $store = Mage::getStoreConfig('general/store_information', $scopeStoreId);
+        if (!is_array($store)) $store = array();
+
+        // WhatsApp number — per-website config, set by migration 123.
+        $whatsapp = '';
+        try {
+            $whatsapp = (string) Mage::getStoreConfig('mmd_whatsapp/general/number', $scopeStoreId);
+        } catch (Exception $e) {
+            $whatsapp = '';
+        }
+        // Email override that the contacts CMS block uses — fall back
+        // to the generic Magento contact email if no merchant_email set.
+        $storeEmail = (string) ($store['merchant_email']
+            ?? Mage::getStoreConfig('trans_email/ident_general/email', $scopeStoreId));
+
+        // ---- Storefront product URL (registration link) ------------
+        $registrationUrl = '';
+        try {
+            $registrationUrl = (string) $admin->getProductUrl();
+        } catch (Exception $e) {
+            $registrationUrl = '';
+        }
+
+        $descRaw = (string) ($admin->getData('description') ?: $admin->getData('short_description'));
+
+        // ---- Storefront-style formatted facts -----------------------
+        $sessionsRaw = trim((string) $admin->getData('sessions'));
+        $sessionsFmt = $sessionsRaw !== ''
+            ? $sessionsRaw . ' day' . ((int) $sessionsRaw === 1 ? '' : 's') : '';
+        $durationRaw = trim((string) $admin->getData('duration'));
+        $durationFmt = $durationRaw !== '' ? $durationRaw . ' hrs' : '';
+
+        // assessment_duration attribute → "1 hr" / "2 hrs" / "NA". The
+        // attribute is a varchar (no source model), so getAttributeText
+        // would TypeError on getSource() — fall back to raw data via
+        // Throwable catch so a missing/misconfigured attribute doesn't
+        // sink the whole brochure render.
+        $assessDur = '';
+        try { $assessDur = (string) $admin->getAttributeText('assessment_duration'); }
+        catch (Throwable $e) { $assessDur = (string) $admin->getData('assessment_duration'); }
+        $assessDurFmt = '';
+        if ($assessDur !== '' && $assessDur !== false) {
+            $assessDurFmt = ($assessDur === 'NA') ? 'NA'
+                : ($assessDur . ' hr' . ($assessDur === '1' ? '' : 's'));
+        }
+        // WSQ default: every WSQ course has a Written + Practical
+        // assessment of ~1 hour by convention. If the admin hasn't
+        // filled the attribute yet (common for older SKUs), populate
+        // the tile with the standard 1 hr instead of an em-dash so
+        // the brochure doesn't ship a "—" where a real time should be.
+        if ($assessDurFmt === '' && $isWsq) {
+            $assessDurFmt = '1 hr';
+        }
+
+        // assessment_methods multiselect — list of method labels.
+        $assessMethods = array();
+        try {
+            $raw = $admin->getAttributeText('assessment_methods');
+            if (is_array($raw)) {
+                $assessMethods = array_values(array_filter(array_map('trim', $raw)));
+            } elseif (is_string($raw) && trim($raw) !== '') {
+                $assessMethods = array_values(array_filter(array_map('trim', explode(',', $raw))));
+            }
+        } catch (Throwable $e) {
+            $assessMethods = array();
+        }
+
+        // ---- Skills Framework extraction (TSC title + code) ---------
+        // Port of the storefront regex in view.phtml line 233. Looks
+        // for uppercase-dash-digits patterns inside the skills_framework
+        // CMS block body and pulls out the human title around it.
+        $sfRaw = $cmsHtml('skills_framework');
+        $skillsTitle = '';
+        $skillsCode  = '';
+        if ($sfRaw !== '') {
+            $hay = html_entity_decode(strip_tags($sfRaw), ENT_QUOTES, 'UTF-8');
+            $hay = preg_replace('#[\x{00A0}\x{2007}\x{202F}]#u', ' ', $hay);
+            $hay = preg_replace('#\s+#u', ' ', trim($hay));
+            $codeFull = '';
+            if (preg_match('#([A-Z]{2,}(?:-[A-Z][A-Z0-9]*)+(?:[-.][0-9][0-9.\-]*)?)\s+(T(?:SC)?)\b#u', $hay, $cm)) {
+                $skillsCode = trim($cm[1] . ' ' . $cm[2]);
+                $codeFull   = $cm[0];
+            } elseif (preg_match('#([A-Z]{2,}(?:-[A-Z][A-Z0-9]*)+(?:[-.][0-9][0-9.\-]*))#u', $hay, $cm)) {
+                $skillsCode = trim($cm[1]);
+                $codeFull   = $cm[0];
+            }
+            $titleSrc = $hay;
+            if ($codeFull !== '') {
+                $titleSrc = preg_replace('#\s*' . preg_quote($codeFull, '#') . '\s*#u', ' ', $titleSrc);
+            }
+            $titleSrc = preg_replace('#^.*?follows\s+the\s+guideline\s+of\s+#iu', '', $titleSrc);
+            $titleSrc = preg_replace('#\s+under\s+.*?Skills\s+Framework\s*\.?\s*$#iu', '', $titleSrc);
+            $skillsTitle = trim($titleSrc);
+        }
+
+        // ---- Standardised SG certification text ----------------------
+        // The storefront (view.phtml line 275) hardcodes the same two
+        // bullets for every SG course rather than reading the CMS
+        // block, because the legacy per-course descriptions had a dozen
+        // heading variants ("Certificate" / "Certification" / etc.)
+        // that wouldn't normalise. Mirror that logic here so the
+        // brochure carries the same official copy:
+        //   - All SG courses          → "Certificate of Completion …" bullet
+        //   - SG WSQ (TGS-* SKU) only → adds the OpenCerts bullet
+        //   - Other countries          → falls back to the CMS block
+        $certificateHtml = $cmsHtml('certification');
+        if ($isSg) {
+            $certificateHtml  = '<ul>';
+            $certificateHtml .= '<li><strong>Certificate of Completion from Tertiary Infotech</strong> - Upon meeting at least 75% attendance and passing the assessment(s), participants will receive a Certificate of Completion from Tertiary Infotech.</li>';
+            if ($isWsq) {
+                $certificateHtml .= '<li><strong>OpenCerts from SkillsFuture Singapore</strong> - After passing the assessment(s) and achieving at least 75% attendance, participants will receive an OpenCert (aka Statement of Achievement) from SkillsFuture Singapore, certifying that they have achieved the Competency Standard(s) in the above Skills Framework.</li>';
+            }
+            $certificateHtml .= '</ul>';
+            // Per-course supplement (e.g. CompTIA's "Certification Exam
+            // at Pearson Vue" block from migration 151). Mirror the
+            // storefront regex on view.phtml line 297 so we don't
+            // double-render the standard bullets.
+            $certBlock = $cmsHtml('certification');
+            if ($certBlock !== '' && preg_match('#<p>\s*<strong>\s*Certification Exam at Pearson Vue\s*</strong>\s*</p>.*$#siu', $certBlock, $pvMatch)) {
+                $certificateHtml .= $pvMatch[0];
+            }
+        }
+
+        // ---- Venue (per-store CMS block) ----------------------------
+        // Mirrors rightData.phtml line 68:
+        //   MY store          → my_venue_address
+        //   SG / hydroponics  → sg_venue_address_hydroponics
+        //   SG default        → sg_venue_address
+        $venueBlockId = 'sg_venue_address';
+        if ($activeWid === 2) {
+            $venueBlockId = 'my_venue_address';
+        } elseif ($sku === 'TGS-2025053916') {
+            $venueBlockId = 'sg_venue_address_hydroponics';
+        }
+        $venueHtml = '';
+        try {
+            $vb = Mage::getModel('cms/block')
+                ->setStoreId($scopeStoreId)
+                ->load($venueBlockId, 'identifier');
+            if ($vb->getId() && $vb->getIsActive()) {
+                $venueHtml = $this->_sanitizeRichHtml((string) $vb->getContent());
+            }
+        } catch (Exception $e) {
+            $venueHtml = '';
+        }
+
+        return array(
+            'title'              => (string) $admin->getName(),
+            'sku'                => $sku,
+            'price'              => $price,
+            'price_gst'          => $price_gst,
+            'price_incl_gst'     => $price_incl_gst,
+            'gst_rate_pct'       => $gstRate > 0 ? (int) round($gstRate * 100) : 0,
+            'funded_tiers'       => $funded_tiers,
+            'duration'           => $durationRaw,
+            'duration_fmt'       => $durationFmt,
+            'sessions'           => $sessionsRaw,
+            'sessions_fmt'       => $sessionsFmt,
+            'assessment_dur'     => $assessDurFmt,
+            'assessment_methods' => $assessMethods,
+            'skills_title'       => $skillsTitle,
+            'skills_code'        => $skillsCode,
+            'venue_html'         => $venueHtml,
+            'is_wsq'             => $isWsq,
+            'is_sg'              => $isSg,
+            'active_wid'         => $activeWid,
+            'level'              => trim($level),
+            'badges'             => $badges,
+            'description'        => $this->_truncateProse(trim($this->_htmlToText($descRaw)), 520),
+            // Cap outcomes at 6 so the 1-page layout doesn't overflow.
+            // The full list still ships on the storefront — the brochure
+            // is a recruiting handout, not the legal scope document.
+            'outcomes'           => array_slice(
+                $this->_extractOutcomesArray($admin, $cmsHtml('learning_outcomes')),
+                0, 6
+            ),
+            'who_attend'         => trim($this->_htmlToText((string) $admin->getData('whoshouldattend'))),
+            'prerequisite'       => trim($this->_htmlToText((string) $admin->getData('prerequisite'))),
+            'additional_note'    => trim($this->_htmlToText((string) $admin->getData('additional_note'))),
+            'outline_html'       => $cmsHtml('learning_outcomes'),
+            'assessment_html'    => $sfRaw,  // alias for back-compat
+            'skills_html'        => $sfRaw,
+            'certificate_html'   => $certificateHtml,
+            'funding_html'       => $cmsHtml('funding_and_grant'),
+            'trainer_html'       => $this->_sanitizeRichHtml((string) $admin->getData('trainerprofile')),
+            'store_name'         => (string) ($store['name'] ?: 'Tertiary Infotech Academy'),
+            'store_phone'        => (string) ($store['phone'] ?? ''),
+            'store_email'        => $storeEmail,
+            'store_address'      => (string) ($store['address'] ?? ''),
+            'whatsapp'           => $whatsapp,
+            'registration_url'   => $registrationUrl,
+            'generated_at'       => date('Y-m-d H:i'),
+        );
+    }
+
+    /**
+     * Map website_id → currency symbol used on its storefront. Magento
+     * stores currency_code per website (`currency/options/default`),
+     * but the symbol mapping is short enough to inline here. Returns
+     * the symbol with a non-breaking space afterwards so number_format
+     * output reads cleanly.
+     */
+    protected function _currencySymbolForWebsite($wid)
+    {
+        $map = array(
+            1 => 'S$',  // Singapore
+            2 => 'RM ', // Malaysia
+            3 => 'GHS ',// Ghana
+            4 => 'NGN ',// Nigeria
+            5 => 'Nu ', // Bhutan
+            6 => 'INR ',// India
+        );
+        return $map[(int) $wid] ?? '$';
+    }
+
+    /**
+     * Word-boundary truncate prose to keep the 1-page brochure layout
+     * from overflowing. Returns the input as-is when within limit;
+     * otherwise cuts at the nearest space before $max and appends "…".
+     */
+    protected function _truncateProse($text, $max)
+    {
+        $s = (string) $text;
+        if (strlen($s) <= $max) return $s;
+        $cut = substr($s, 0, $max);
+        $sp  = strrpos($cut, ' ');
+        if ($sp !== false && $sp > $max * 0.6) {
+            $cut = substr($cut, 0, $sp);
+        }
+        return rtrim($cut, ",;:.—-") . '…';
+    }
+
+    /**
+     * Sanitize CMS-block / trainer-profile HTML before it goes into
+     * mPDF. The TinyMCE-pasted content in our DB tends to have runaway
+     * <br><br><br><br> cascades and lots of empty <p>&nbsp;</p> blocks —
+     * mPDF treats those as real layout and (combined with our content
+     * volumes) generated a 17,000-page artefact. This trims the worst
+     * offenders without removing semantic structure.
+     *
+     * Must be public so the closure in _collectBrochureContext can call
+     * it through `$self->_sanitizeRichHtml(...)`.
+     */
+    public function _sanitizeRichHtml($html)
+    {
+        if ($html === '' || $html === null) return '';
+        $s = (string) $html;
+        // mPDF supports <img> but the brochure is graphics-free.
+        $s = preg_replace('#<img\b[^>]*>#i', '', $s);
+        // Drop inline style attributes — they can pull in fonts/colors
+        // that bloat the PDF and never look right at A4 scale anyway.
+        $s = preg_replace('/\sstyle\s*=\s*"[^"]*"/i', '', $s);
+        $s = preg_replace("/\sstyle\s*=\s*'[^']*'/i", '', $s);
+        // Collapse runaway <br> cascades to at most two (a paragraph
+        // break visually).
+        $s = preg_replace('#(?:<br\s*/?>\s*){3,}#i', '<br /><br />', $s);
+        // Strip empty paragraphs / list items.
+        $s = preg_replace('#<p[^>]*>(\s|&nbsp;|<br\s*/?>)*</p>#iu', '', $s);
+        $s = preg_replace('#<li[^>]*>(\s|&nbsp;|<br\s*/?>)*</li>#iu', '', $s);
+        // Collapse 3+ consecutive newlines.
+        $s = preg_replace("/(\r?\n){3,}/", "\n\n", $s);
+        return $s;
+    }
+
+    /**
+     * Turn HTML chunks (description, learning outcomes) into a plain
+     * string with paragraph breaks preserved. strip_tags loses block
+     * structure, so we map <br>, <p>, <li> to newlines first.
+     */
+    protected function _htmlToText($html)
+    {
+        if ($html === '' || $html === null) return '';
+        $s = (string) $html;
+        $s = preg_replace('#<br\s*/?>#i', "\n",  $s);
+        $s = preg_replace('#</p\s*>#i',    "\n\n", $s);
+        $s = preg_replace('#</li\s*>#i',   "\n",  $s);
+        $s = preg_replace('#</h[1-6]\s*>#i', "\n\n", $s);
+        $s = strip_tags($s);
+        $s = html_entity_decode($s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // Collapse runs of 3+ blank lines to 2.
+        $s = preg_replace("/\n{3,}/", "\n\n", $s);
+        return $s;
+    }
+
+    /**
+     * Best-effort outcome extraction. The site stores LOs across two
+     * places (the `learning_outcomes` EAV textarea + the `learning_outcomes`
+     * CMS block); pick whichever has content, split on <li>/newlines,
+     * and normalise into a flat array of clean strings. AI will then
+     * rewrite them; if AI is unavailable we ship these raw.
+     */
+    protected function _extractOutcomesArray($product, $cmsHtml)
+    {
+        $src = trim((string) $cmsHtml);
+        if ($src === '') {
+            $src = (string) $product->getData('learning_outcomes');
+        }
+        if ($src === '') return array();
+
+        // Pull <li> content if the source is a list, else split on newlines.
+        $out = array();
+        if (preg_match_all('#<li[^>]*>(.*?)</li>#is', $src, $m)) {
+            foreach ($m[1] as $item) {
+                $out[] = trim($this->_htmlToText($item));
+            }
+        } else {
+            foreach (preg_split('/[\r\n]+/', $this->_htmlToText($src)) as $line) {
+                $line = trim($line);
+                if ($line !== '') $out[] = $line;
+            }
+        }
+        // Strip leading "LO1:", "LO 2 -", "1.", "1)" prefixes.
+        $out = array_map(function ($s) {
+            $s = preg_replace('/^\s*(LO|L|O)\s*\d+\s*[:\-\.\)]\s*/i', '', $s);
+            $s = preg_replace('/^\s*\d+\s*[:\-\.\)]\s*/', '', $s);
+            return trim($s);
+        }, $out);
+        $out = array_values(array_filter($out, function ($s) { return $s !== ''; }));
+        return $out;
+    }
+
+    /**
+     * Ask Claude to polish description / outcomes / who-should-attend.
+     * Three-tier fallback mirroring aiSeoAction. Returns array with
+     * keys: description (string), learning_outcomes (array), who_should_attend (string).
+     * Sets $stubbed=true when we fell to the pass-through.
+     */
+    protected function _polishBrochureProse(array $ctx, &$stubbed, &$stubReason)
+    {
+        $tplFile = Mage::getBaseDir('code')
+            . '/local/MMD/RoleManager/etc/ai-brochure/brochure.md';
+        if (!is_readable($tplFile)) {
+            $stubbed = true;
+            $stubReason = 'prompt template missing';
+            return array(
+                'description'       => $ctx['description'],
+                'learning_outcomes' => $ctx['outcomes'],
+                'who_should_attend' => $ctx['who_attend'],
+            );
+        }
+        $tpl = file_get_contents($tplFile);
+        $outcomeText = '';
+        foreach ($ctx['outcomes'] as $i => $o) {
+            $outcomeText .= ($i + 1) . '. ' . $o . "\n";
+        }
+        $vals = array(
+            'course_title'      => $ctx['title'],
+            'course_sku'        => $ctx['sku'],
+            'duration'          => $ctx['duration'],
+            'level'             => $ctx['level'],
+            'description'       => $ctx['description'],
+            'learning_outcomes' => trim($outcomeText),
+            'who_should_attend' => $ctx['who_attend'],
+        );
+        foreach ($vals as $k => $v) {
+            $tpl = str_replace('{' . $k . '}', $v, $tpl);
+        }
+
+        $cfg     = Mage::helper('mmd_rolemanager')->getMarketingApiConfig();
+        $apiKey  = trim((string) ($cfg['anthropic_key']   ?? ''));
+        $model   = trim((string) ($cfg['anthropic_model'] ?? '')) ?: 'claude-sonnet-4-6';
+        $stdout  = '';
+        $stubbed = false;
+        $stubReason = '';
+
+        // Tier 1 — direct API (sk-ant-api* keys only).
+        if (stripos($apiKey, 'sk-ant-api') === 0) {
+            try {
+                $body = json_encode(array(
+                    'model'      => $model,
+                    'max_tokens' => 1800,
+                    'system'     => 'You are a brochure copywriter. Output ONLY the JSON object requested — no preamble, no markdown fence.',
+                    'messages'   => array(array('role' => 'user', 'content' => $tpl)),
+                ));
+                $ch = curl_init('https://api.anthropic.com/v1/messages');
+                curl_setopt_array($ch, array(
+                    CURLOPT_POST           => true,
+                    CURLOPT_POSTFIELDS     => $body,
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT        => 30,
+                    CURLOPT_CONNECTTIMEOUT => 10,
+                    CURLOPT_HTTPHEADER     => array(
+                        'anthropic-version: 2023-06-01',
+                        'content-type: application/json',
+                        'x-api-key: ' . $apiKey,
+                    ),
+                ));
+                $raw  = curl_exec($ch);
+                $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+                $rsp = json_decode($raw, true);
+                if ($code >= 400 || !isset($rsp['content'][0]['text'])) {
+                    $msg = $rsp['error']['message'] ?? substr((string) $raw, 0, 150);
+                    throw new Exception('API HTTP ' . $code . ': ' . $msg);
+                }
+                $stdout = (string) $rsp['content'][0]['text'];
+            } catch (Exception $e) {
+                $stubReason = $e->getMessage();
+            }
+        }
+
+        // Tier 2 — `claude` CLI piped over stdin (host's ~/.claude OAuth).
+        if ($stdout === '') {
+            $descriptors = array(
+                0 => array('pipe', 'r'),
+                1 => array('pipe', 'w'),
+                2 => array('pipe', 'w'),
+            );
+            $env = array();
+            foreach ($_ENV as $k => $v) {
+                if ($k !== 'CLAUDECODE') $env[$k] = $v;
+            }
+            foreach (array('PATH', 'HOME') as $k) {
+                if (!isset($env[$k]) && getenv($k) !== false) {
+                    $env[$k] = getenv($k);
+                }
+            }
+            if (is_dir('/var/www/.claude')) {
+                $env['HOME'] = '/var/www';
+            } elseif (is_dir('/root/.claude') && is_readable('/root')) {
+                $env['HOME'] = '/root';
+            }
+            $proc = @proc_open(
+                'timeout 100 claude -p --output-format text',
+                $descriptors, $pipes, null, $env
+            );
+            if (is_resource($proc)) {
+                fwrite($pipes[0], $tpl);
+                fclose($pipes[0]);
+                stream_set_blocking($pipes[1], false);
+                stream_set_blocking($pipes[2], false);
+                $deadline = time() + 105;
+                $cliOut = ''; $cliErr = '';
+                $finalExit = -1;
+                while (time() < $deadline) {
+                    $status = proc_get_status($proc);
+                    $cliOut .= stream_get_contents($pipes[1]);
+                    $cliErr .= stream_get_contents($pipes[2]);
+                    if (!$status['running']) {
+                        $finalExit = $status['exitcode'];
+                        break;
+                    }
+                    usleep(200000);
+                }
+                $status = proc_get_status($proc);
+                if ($status['running']) {
+                    proc_terminate($proc, 9);
+                    $finalExit = 137;
+                }
+                $cliOut .= stream_get_contents($pipes[1]);
+                $cliErr .= stream_get_contents($pipes[2]);
+                fclose($pipes[1]);
+                fclose($pipes[2]);
+                proc_close($proc);
+                if ($finalExit === 0 && trim($cliOut) !== '') {
+                    $stdout = $cliOut;
+                    $stubReason = '';
+                } elseif ($stubReason === '') {
+                    $stubReason = 'CLI exit ' . $finalExit . ': ' . trim($cliErr);
+                }
+            }
+        }
+
+        // Tier 3 — pass-through: ship the raw fields. Brochure still
+        // produces, just unpolished.
+        if ($stdout === '') {
+            $stubbed = true;
+            if ($stubReason === '') $stubReason = 'no generator available';
+            return array(
+                'description'       => $ctx['description'],
+                'learning_outcomes' => $ctx['outcomes'],
+                'who_should_attend' => $ctx['who_attend'],
+            );
+        }
+
+        // Claude sometimes wraps its JSON in a ```json fence even when
+        // told not to — strip it before decoding.
+        $clean = trim($stdout);
+        $clean = preg_replace('/^```(?:json)?\s*/i', '', $clean);
+        $clean = preg_replace('/```\s*$/', '', $clean);
+        // Some replies still have leading prose; grab the first {...} block.
+        if (preg_match('/\{.*\}/s', $clean, $m)) {
+            $clean = $m[0];
+        }
+        $decoded = json_decode($clean, true);
+        if (!is_array($decoded)) {
+            // Parse failed — pass through raw data so the PDF still ships.
+            $stubbed = true;
+            $stubReason = 'AI output not parseable as JSON';
+            return array(
+                'description'       => $ctx['description'],
+                'learning_outcomes' => $ctx['outcomes'],
+                'who_should_attend' => $ctx['who_attend'],
+            );
+        }
+        return array(
+            'description'       => (string) ($decoded['description']       ?? ''),
+            'learning_outcomes' => is_array($decoded['learning_outcomes'] ?? null)
+                                    ? array_map('strval', $decoded['learning_outcomes'])
+                                    : array(),
+            'who_should_attend' => (string) ($decoded['who_should_attend'] ?? ''),
+        );
+    }
+
+    /**
+     * Per-page brochure header — logo on the left, provider name on the
+     * right, thin brand-blue rule below the row. Rendered into a single
+     * <table> because mPDF's flow inside SetHTMLHeader is finicky about
+     * float/flex; tables are the supported layout primitive for headers.
+     */
+    protected function _buildBrochureHeader(array $ctx)
+    {
+        // Page-header band: only used on continuation pages (page 2+).
+        // The big logo + tagline ships in the BODY of page 1 instead
+        // (see brochure.phtml) because mPDF's SetHTMLHeader context
+        // refuses to render data: URIs reliably — they intermittently
+        // show as broken images. Continuation pages get a thin
+        // brand-blue rule + small "Tertiary Courses Singapore" caption
+        // so the document still feels branded without depending on the
+        // image pipeline.
+        $name = htmlspecialchars((string) ($ctx['store_name'] ?: 'Tertiary Courses Singapore'));
+        return '<table width="100%" cellpadding="0" cellspacing="0" '
+             . 'style="border-bottom:0.5pt solid #2563eb;font-family:Helvetica,Arial,sans-serif;">'
+             . '<tr>'
+             .   '<td align="left" style="padding:0 0 2pt;'
+             .     'font-size:9pt;color:#1e3a8a;letter-spacing:0.06em;'
+             .     'text-transform:uppercase;font-weight:700;vertical-align:bottom;">' . $name . '</td>'
+             . '</tr>'
+             . '</table>';
+    }
+
+    /**
+     * Per-page brochure footer — contact strip on the left, page number
+     * on the right. {PAGENO} / {nbpg} are mPDF page-counter placeholders
+     * resolved at render time.
+     */
+    protected function _buildBrochureFooter(array $ctx)
+    {
+        $phone = trim((string) ($ctx['store_phone'] ?? ''));
+        $email = trim((string) ($ctx['store_email'] ?? ''));
+        $bits = array();
+        if ($phone !== '') $bits[] = htmlspecialchars($phone);
+        if ($email !== '') $bits[] = htmlspecialchars($email);
+        $contact = implode('   |   ', $bits);
+        return '<table width="100%" cellpadding="0" cellspacing="0" '
+             . 'style="border-top:0.4pt solid #cbd5e1;font-family:Helvetica,Arial,sans-serif;font-size:8.5pt;color:#94a3b8;">'
+             . '<tr>'
+             .   '<td width="70%" align="left"  style="padding:4pt 0 0;">' . $contact . '</td>'
+             .   '<td width="30%" align="right" style="padding:4pt 0 0;">Page {PAGENO} of {nbpg}</td>'
+             . '</tr>'
+             . '</table>';
+    }
+
+    /**
+     * Replace unicode chars that core (Type 1) PDF fonts can't render
+     * with their nearest ASCII equivalents. Only invoked when we use
+     * `useCoreFontsOnly => true` in mPDF — otherwise the multi-script
+     * fonts handle them natively (at the cost of a 9 MB output).
+     *
+     * Anything still outside WinAnsi after this pass gets dropped by
+     * mPDF, which prints "?" — that's a deliberate trade for the
+     * 100× smaller artefact.
+     */
+    protected function _normaliseUnicodeForCore($s)
+    {
+        if ($s === '' || $s === null) return '';
+        $map = array(
+            "\xe2\x80\x94" => '--',  // em dash
+            "\xe2\x80\x93" => '-',   // en dash
+            "\xe2\x80\x98" => "'",   // left single quote
+            "\xe2\x80\x99" => "'",   // right single quote / apostrophe
+            "\xe2\x80\x9c" => '"',   // left double quote
+            "\xe2\x80\x9d" => '"',   // right double quote
+            "\xe2\x80\xa6" => '...', // ellipsis
+            "\xe2\x80\xa2" => '*',   // bullet
+            "\xc2\xa0"     => ' ',   // nbsp
+            "\xe2\x86\x92" => '->',  // right arrow
+            "\xe2\x86\x90" => '<-',  // left arrow
+            "\xe2\x88\x92" => '-',   // minus
+        );
+        return strtr((string) $s, $map);
+    }
+
+    /**
+     * Render brochure.phtml into a string, hand to mPDF, write to
+     * media/courses/brochures/<safe-sku>.pdf. Returns the public URL
+     * (with a cache-bust query string keyed off mtime so the storefront
+     * picks up regenerations immediately).
+     */
+    protected function _renderBrochurePdf($product, array $context)
+    {
+        // Pick a per-country logo from the Ultimo skin dir so the
+        // brochure header always carries the right brand mark. Falls
+        // back to the legacy logo.png if the country-specific file is
+        // missing (e.g. a new market that hasn't been branded yet).
+        //
+        // Embed via base64 data: URI — mPDF's SetHTMLHeader() context
+        // is sandboxed and won't reliably read filesystem paths even
+        // for files in the same container. The data URI ships the
+        // bytes inline so mPDF can decode them directly.
+        $logoBase  = Mage::getBaseDir() . DS . 'skin' . DS . 'frontend'
+                   . DS . 'ultimo' . DS . 'default' . DS . 'images' . DS;
+        $logoByWid = array(
+            1 => 'TertiaryCoursesSingapore.png',
+            2 => 'TertiaryCoursesMalaysia.png',
+        );
+        $candidates = array(
+            $logoBase . ($logoByWid[(int) ($context['active_wid'] ?? 1)] ?? ''),
+            $logoBase . 'TertiaryCoursesSingapore.png',
+            $logoBase . 'logo.png',
+        );
+        $context['logo_uri'] = '';
+        foreach ($candidates as $logoFile) {
+            if ($logoFile !== '' && is_readable($logoFile)) {
+                $context['logo_uri'] = 'data:image/png;base64,'
+                                     . base64_encode((string) file_get_contents($logoFile));
+                break;
+            }
+        }
+
+        // Render the template with extract() — flat partial, no Magento block.
+        ob_start();
+        $__tpl = Mage::getBaseDir('code')
+            . '/local/MMD/RoleManager/etc/ai-brochure/brochure.phtml';
+        if (!is_readable($__tpl)) {
+            ob_end_clean();
+            throw new Exception('Brochure template missing: ' . basename($__tpl));
+        }
+        // Escape fields the template echoes raw (title, sku, etc.).
+        // Multi-line / HTML fields stay un-escaped because they intentionally
+        // carry markup (outline_html, trainer_html, …).
+        $renderCtx = $context;
+        foreach (array('title', 'sku', 'price', 'price_gst', 'price_incl_gst',
+                       'duration', 'duration_fmt', 'sessions', 'sessions_fmt',
+                       'assessment_dur', 'skills_title', 'skills_code',
+                       'level', 'store_name', 'store_phone', 'store_email') as $k) {
+            $renderCtx[$k] = htmlspecialchars((string) ($renderCtx[$k] ?? ''));
+        }
+        extract($renderCtx, EXTR_SKIP);
+        include $__tpl;
+        $html = ob_get_clean();
+
+        // Where to write — make sure the dir exists.
+        $sku       = (string) $product->getSku();
+        $safeSku   = preg_replace('/[^A-Za-z0-9._-]/', '_', $sku !== '' ? $sku : ('product-' . $product->getId()));
+        // Output dir — same dual-owner concern as tempDir above. The
+        // CLI smoke-test runs as root, Apache as www-data; both need to
+        // be able to write the per-course PDF. Force 0777 on create AND
+        // on every run so a previously-root-owned dir self-heals once
+        // the controller fires.
+        $brochureDir = Mage::getBaseDir('media') . DS . 'courses' . DS . 'brochures';
+        $oldUmask = umask(0);
+        if (!is_dir($brochureDir)) {
+            @mkdir($brochureDir, 0777, true);
+        }
+        @chmod($brochureDir, 0777);
+        umask($oldUmask);
+        $absPath = $brochureDir . DS . $safeSku . '.pdf';
+
+        // mPDF tempDir — keep it under var/ so it survives container
+        // rebuilds. We create it 0777 (and umask 0) because the same dir
+        // gets used by both CLI smoke-tests (root) and Apache (www-data),
+        // and a 0775 dir made by root would fail "not writable" for the
+        // www-data web request. mPDF appends its own `mpdf` subdir, so
+        // the parent has to allow that mkdir from either user.
+        $tempDir = Mage::getBaseDir('var') . DS . 'tmp' . DS . 'mpdf';
+        $oldUmask = umask(0);
+        if (!is_dir($tempDir)) {
+            @mkdir($tempDir, 0777, true);
+        }
+        @chmod($tempDir, 0777);
+        umask($oldUmask);
+
+        // Use core (Type 1) fonts only — Helvetica/Times/Courier are
+        // built into every PDF reader so no font embedding happens. This
+        // takes the artefact from ~9 MB (full DejaVu subset, ~50s render)
+        // down to ~30 KB (~1 s render). The trade-off is core fonts are
+        // WinAnsi-only — em-dashes, curly quotes, ellipses etc. get
+        // replaced via _normaliseUnicodeForCore() before WriteHTML.
+        // Margins: compact, to fit the brochure on a single A4 page
+        // where possible. `margin_header` / `margin_footer` set where
+        // the band STARTS from the page edge; `margin_top` / `_bottom`
+        // are where body content begins/ends. Trimmed from 26/22 to
+        // 18/14 to give content more vertical room.
+        $mpdf = new \Mpdf\Mpdf(array(
+            'mode'             => 'c',
+            'format'           => 'A4',
+            'tempDir'          => $tempDir,
+            'useCoreFontsOnly' => true,
+            'default_font'     => 'helvetica',
+            'margin_left'      => 12,
+            'margin_right'     => 12,
+            'margin_top'       => 16,
+            'margin_bottom'    => 14,
+            'margin_header'    => 6,
+            'margin_footer'    => 6,
+        ));
+        $mpdf->SetTitle($this->_normaliseUnicodeForCore($context['title']) . ' - Course Brochure');
+        $mpdf->SetAuthor($this->_normaliseUnicodeForCore($context['store_name']));
+
+        // Per-page header band — logo on the left, provider name on the
+        // right, thin brand-blue rule below. Renders on every page.
+        $mpdf->SetHTMLHeader($this->_normaliseUnicodeForCore($this->_buildBrochureHeader($context)));
+        // Per-page footer band — contact info on the left, page number
+        // on the right, thin rule above.
+        $mpdf->SetHTMLFooter($this->_normaliseUnicodeForCore($this->_buildBrochureFooter($context)));
+
+        $mpdf->WriteHTML($this->_normaliseUnicodeForCore($html));
+        $mpdf->Output($absPath, \Mpdf\Output\Destination::FILE);
+        // Same dual-owner concern as the dir mkdir above: the CLI
+        // smoke-test runs as root and a 0644 file it created earlier
+        // would lock out Apache (www-data) on the next regenerate. Force
+        // world-writable so either user can overwrite. The file is a
+        // public artefact in media/ anyway — no auth/secret in it.
+        @chmod($absPath, 0666);
+
+        $url = rtrim((string) Mage::getBaseUrl('media'), '/')
+             . '/courses/brochures/' . rawurlencode($safeSku) . '.pdf'
+             . '?v=' . (int) @filemtime($absPath);
+        return $url;
+    }
+
+    /**
      * Deterministic SEO stub used when no Anthropic key is configured or
      * the upstream call fails (e.g. 429 rate limit on the OAuth token).
      * Pulls the course name + keywords from the supplied form inputs so

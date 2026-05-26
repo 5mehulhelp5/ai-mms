@@ -30,6 +30,8 @@
         "ezyang/htmlpurifier": "^4.17",
         "magento-hackathon/magento-composer-installer": "^4.0",
         "mklkj/tinymce-i18n": "^24.11",
+        "mpdf/mpdf": "^8.2",
+        "mpdf/qrcode": "^1.2",
         "openmage/composer-plugin": "^3.0",
         "pelago/emogrifier": "^7.0",
         "phpseclib/mcrypt_compat": "^2.0.3",
