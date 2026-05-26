@@ -10,6 +10,81 @@ Worst buckets: Crawled-not-indexed 6,450 / Page with redirect 1,227 / Excluded b
 
 ---
 
+## 🚫 Hard constraints (do not violate)
+
+These are absolute invariants. **No SEO change may break any of these.** If a
+proposed change would require breaking one, escalate instead of implementing.
+
+### 1. The product `name` attribute is immutable — templates must never modify it
+
+The `<h1>`, the JSON-LD `name`, the breadcrumb leaf, the category list
+tile title, the related/upsell tile title, and every other place the
+rendered course title appears **must equal `$_product->getName()`
+verbatim**. No suffixes ("Course in Singapore"), no prefixes ("WSQ
+Funded"), no concatenation with country / brand / funding / duration /
+anything. **No fallback to `meta_title` for the H1 when the product name
+is short** — `meta_title` carries SEO suffixes and re-introduces them
+through the back door.
+
+**Why this rule exists:** Course names are an editorial decision the
+admin team controls. We tried `<name> Course in <country>` as an H1
+fallback (commit `2ad44b974`, 2026-05-26) and a meta_title-based H1, and
+had to revert both the same day. **Any template change that alters the
+displayed product name is a bug**, no matter how SEO-friendly it looks.
+
+**Where this applies (template files that render the course name):**
+- [view.phtml:742](app/design/frontend/ultimo/default/template/catalog/product/view.phtml) — product H1
+- [head.phtml](app/design/frontend/ultimo/default/template/page/html/head.phtml) — JSON-LD `name` field
+- Category listing tiles, related/upsell/featured templates, breadcrumbs
+- Any future schema (FAQPage, ItemList, etc.) that emits a product name
+
+**Validation after any template change:**
+```bash
+# H1 + JSON-LD name must equal product name on SG AND MY stores
+curl -sLS http://localhost:8080/notion-essential-training.html \
+  | grep -oE '<h1 itemprop="name">[^<]+</h1>'
+# Compare against $_product->getName() — must match exactly.
+```
+
+### 2. `meta_title` is allowed to carry SEO suffixes — that's its job
+
+`meta_title` is **not** the product name. It feeds the `<title>` tag and
+SERP snippet, and per-store overrides intentionally carry funding/brand
+suffixes ("HRD Corp Funded ... | Tertiary Courses Malaysia"). This is
+correct SEO behaviour — the rich SERP snippet pulls keyword-rich context
+without contaminating the visible H1 or any rendered title that human
+visitors see on the page.
+
+Same applies to `og:title` and `twitter:title` (social previews) — those
+use `$this->getTitle()` which mirrors `meta_title`, and that's fine.
+
+**Inventory of fields and their rules:**
+
+| Field | Source | Carries brand/funding suffix? | Where it shows |
+|-------|--------|-------------------------------|-----------------|
+| `$_product->getName()` | EAV `name` attr | **No — never** | H1, JSON-LD name, breadcrumbs, list tiles |
+| `$_product->getMetaTitle()` / `$this->getTitle()` | EAV `meta_title` | Yes — per-store admin choice | `<title>`, `og:title`, `twitter:title` |
+| `$_product->getMetaDescription()` | EAV `meta_description` | Yes (sometimes) | `<meta description>`, `og:description`, JSON-LD description fallback |
+
+### 3. Course titles must be identical on every store
+
+Product `name` at default scope is the single source of truth. Per-store
+overrides of `name` exist in the EAV and should generally **stay
+identical to default** — different by `meta_title`, `url_key`, prices,
+and `short_description`, but the same `name`. As of 2026-05-26 audit:
+**0 products carry per-store name overrides** containing brand/funding
+suffixes; **547 products carry `HRD Corp Funded` in MY meta_title** (✅
+correct location).
+
+If a store legitimately needs a different course `name` (rare — e.g. a
+country-specific course variant that doesn't exist elsewhere), it's an
+admin task on a separate product record, not a per-store name override
+on a shared product.
+
+---
+
+---
+
 ## ✅ Completed (Week 0, shipped 2026-05-26)
 
 | # | Item | Commit | Validation |
