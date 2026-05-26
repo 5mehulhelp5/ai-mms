@@ -7126,6 +7126,24 @@ window.trnCloseAddModal = function() {
     var msg = document.getElementById('trnAddMsg');
     if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
 };
+// Snapshot the current search / filter / page state so the next
+// window.location.reload() can restore them. Used by edit-save, delete,
+// and toggle-status — anything that mutates the grid and reloads it.
+// trnRestoreState (in the init IIFE near the bottom of this file) is
+// the consumer; it removes the key after reading.
+window._trnSnapshotStateBeforeReload = function() {
+    try {
+        var snap = {
+            search   : (document.getElementById('trnSearch')         || {}).value || '',
+            type     : (document.getElementById('trnFilterType')     || {}).value || '',
+            status   : (document.getElementById('trnFilterStatus')   || {}).value || '',
+            linkedin : (document.getElementById('trnFilterLinkedIn') || {}).value || '',
+            page     : window._trnPage || 1
+        };
+        sessionStorage.setItem('_trnRestoreState', JSON.stringify(snap));
+    } catch (e) { /* sessionStorage disabled — silent */ }
+};
+
 // ---- Toggle trainer status (Deactivate / Activate) ----
 window.trnToggleStatus = function(id, name, currentActive) {
     var action = currentActive ? 'deactivate' : 'activate';
@@ -7139,6 +7157,7 @@ window.trnToggleStatus = function(id, name, currentActive) {
         .then(function(r){ return r.json(); })
         .then(function(data){
             if (data.success) {
+                window._trnSnapshotStateBeforeReload();
                 window.location.reload();
             } else {
                 alert(data.message || 'Failed to ' + action + ' trainer');
@@ -7159,6 +7178,7 @@ window.trnDelete = function(id, name) {
         .then(function(r){ return r.json(); })
         .then(function(data){
             if (data.success) {
+                window._trnSnapshotStateBeforeReload();
                 window.location.reload();
             } else {
                 alert(data.message || 'Failed to delete trainer');
@@ -7286,21 +7306,10 @@ window.trnSubmit = function(e) {
             btn.disabled = false; btn.textContent = isEdit ? 'Save Changes' : 'Add Trainer';
             if (data.success) {
                 trnShowToast(isEdit ? 'Trainer updated' : 'Trainer added', 'success');
-                // Snapshot the current filter / search / page state so the
-                // reload lands the admin back exactly where they were —
-                // same search text, same dropdown filters, same pagination
-                // position. trnRestoreState() (further below) consumes
-                // and clears this on the next page-load.
-                try {
-                    var snap = {
-                        search   : (document.getElementById('trnSearch')         || {}).value || '',
-                        type     : (document.getElementById('trnFilterType')     || {}).value || '',
-                        status   : (document.getElementById('trnFilterStatus')   || {}).value || '',
-                        linkedin : (document.getElementById('trnFilterLinkedIn') || {}).value || '',
-                        page     : window._trnPage || 1
-                    };
-                    sessionStorage.setItem('_trnRestoreState', JSON.stringify(snap));
-                } catch (e) { /* sessionStorage disabled / private mode — silent */ }
+                // Snapshot grid state so the reload lands back where the
+                // admin was (same search / filters / page). The restore
+                // happens in the init IIFE near the bottom of this file.
+                window._trnSnapshotStateBeforeReload();
                 // Brief delay so the user sees the success toast before
                 // the dashboard reload starts.
                 setTimeout(function(){ window.location.reload(); }, 600);
