@@ -131,6 +131,22 @@ foreach ($rows as $r) {
 $helper = Mage::helper('mmd_rolemanager');
 $allRoles = $helper->getAllRoles();
 $preselectRole = (string) Mage::app()->getRequest()->getParam('role');
+
+// Branch pill filtering. The global MMD_Branchscope pills (Singapore /
+// Malaysia / Ghana / ...) set Mage::app()->getStore() via the ?___store URL
+// param. We read the active store code and use it to filter the Users
+// table — but the policy differs per page:
+//
+//   - Users page (no role filter)  → respect the active branch.
+//     Default state is Singapore because that's the default store of this
+//     install, so first-load behaviour matches the user's expectation.
+//   - Admin Users page (?role=admin) → ALWAYS show all admins regardless
+//     of which branch is selected. Operators are a small global pool; the
+//     branch pill above the table is global navigation, not a per-page
+//     filter for this view.
+$_activeBranch = strtoupper((string) Mage::app()->getStore()->getCode());
+if ($_activeBranch === 'DEFAULT' || $_activeBranch === 'ADMIN') $_activeBranch = 'SG';
+$rmApplyBranchFilter = ($preselectRole !== 'admin');
 // "Admin Users" entry point: keep the page title in sync with the filter so
 // the sidebar label and H1 match.
 if ($preselectRole === 'admin') {
@@ -202,6 +218,9 @@ $badgeColors = array(
             $fullName = htmlspecialchars($r['firstname'] . ' ' . $r['lastname']);
             $createdDate = $r['created'] ? date('d M Y', strtotime($r['created'])) : '—';
             $storeCode = rm_inferStoreFromEmail($r['email']);
+            // Server-side branch filter: skip rows that don't match the active
+            // branch on the Users page. Admin Users page always shows all.
+            if ($rmApplyBranchFilter && $storeCode !== $_activeBranch) continue;
             $storeStyle = isset($storeColors[$storeCode]) ? $storeColors[$storeCode] : array('bg'=>'rgba(100,116,139,.12)','color'=>'#94a3b8');
             $telDisplay = trim((string)$r['tel']) !== '' ? htmlspecialchars($r['tel']) : '<span style="color:#475569">—</span>';
         ?>
@@ -275,6 +294,11 @@ $badgeColors = array(
             if ($fullName === '') $fullName = '(no name)';
             $createdDate = $cust['created_at'] ? date('d M Y', strtotime($cust['created_at'])) : '—';
             $sCode = isset($storeIdToCode[(int)$cust['store_id']]) ? $storeIdToCode[(int)$cust['store_id']] : rm_inferStoreFromEmail($cust['email']);
+            // Server-side branch filter: Users page only renders learners
+            // whose store matches the active branch (default SG). Admin
+            // Users page skips this whole foreach via preselectRole==='admin'
+            // since learners aren't admins — but defensive check anyway.
+            if ($rmApplyBranchFilter && $sCode !== $_activeBranch) continue;
             $sStyle = isset($storeColors[$sCode]) ? $storeColors[$sCode] : array('bg'=>'rgba(100,116,139,.12)','color'=>'#94a3b8');
             $isActive = (int)$cust['is_active'];
             $editUrl = str_replace('___ID___', (int)$cust['customer_id'], $learnerEditUrlBase);
