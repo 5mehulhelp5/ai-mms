@@ -1,0 +1,245 @@
+<?php
+/** @var MMD_Adminhtml_Block_Catalog_Search_Spam $this */
+$helper  = $this->getSpamHelper();
+$buckets = $helper->getBuckets();
+$active  = $this->getActiveStoreFilter();
+$total   = $this->getTotalRows();
+?>
+<div class="content-header">
+    <h3 class="icon-head head-search-terms">
+        <?php echo $this->__('Clean Spam Search Terms'); ?>
+    </h3>
+    <p style="margin:6px 2px 0;color:#9aa4b2;">
+        <?php echo $this->__('Identify and bulk-delete junk rows from the Search Terms table.'); ?>
+        <strong><?php echo $this->__('Curated rows (with a Synonym For or Redirect set) are never deletable.'); ?></strong>
+    </p>
+</div>
+
+<div class="mmd-store-tabs" role="tablist" aria-label="Filter by branch" style="margin-top:10px;">
+    <?php foreach ($this->getStoreTabs() as $tab): ?>
+        <a href="<?php echo $this->escapeHtml($this->getStoreTabUrl($tab['id'])); ?>"
+           class="mmd-store-tab<?php echo $active === (int) $tab['id'] ? ' is-active' : ''; ?>"
+           role="tab"
+           aria-selected="<?php echo $active === (int) $tab['id'] ? 'true' : 'false'; ?>">
+            <?php echo $this->escapeHtml($tab['label']); ?>
+        </a>
+    <?php endforeach; ?>
+</div>
+
+<p style="margin:14px 2px;color:#cbd5e1;">
+    <?php echo $this->__('Total rows in scope: <strong>%s</strong>', number_format($total)); ?>
+</p>
+
+<form id="mmd-spam-form"
+      method="post"
+      action="<?php echo $this->escapeHtml($this->getDeleteUrl()); ?>"
+      onsubmit="return mmdConfirmSpamDelete();">
+    <?php echo $this->getBlockHtml('formkey'); ?>
+    <input type="hidden" name="store_id" value="<?php echo (int) $active; ?>"/>
+
+    <div class="mmd-spam-grid">
+        <?php
+        $totalSpam = 0;
+        foreach ($buckets as $bucket):
+            $stats = $this->getBucketStats($bucket);
+            $totalSpam += $stats['count'];
+        ?>
+            <div class="mmd-spam-card">
+                <label class="mmd-spam-card__head">
+                    <input type="checkbox"
+                           name="buckets[]"
+                           value="<?php echo $this->escapeHtml($bucket['id']); ?>"
+                           class="mmd-spam-checkbox"
+                           data-count="<?php echo (int) $stats['count']; ?>"
+                           <?php echo $stats['count'] === 0 ? 'disabled' : ''; ?>/>
+                    <span class="mmd-spam-card__title">
+                        <?php echo $this->escapeHtml($bucket['label']); ?>
+                    </span>
+                    <span class="mmd-spam-card__count <?php echo $stats['count'] === 0 ? 'is-empty' : ''; ?>">
+                        <?php echo number_format($stats['count']); ?>
+                    </span>
+                </label>
+                <p class="mmd-spam-card__desc">
+                    <?php echo $this->escapeHtml($bucket['description']); ?>
+                </p>
+                <?php if (!empty($stats['samples'])): ?>
+                    <div class="mmd-spam-card__samples">
+                        <div class="mmd-spam-card__samples-title">
+                            <?php echo $this->__('Sample matches:'); ?>
+                        </div>
+                        <ul>
+                            <?php foreach ($stats['samples'] as $s): ?>
+                                <li>
+                                    <code><?php echo $this->escapeHtml(
+                                        mb_strlen($s['query_text']) > 80
+                                            ? mb_substr($s['query_text'], 0, 80) . '…'
+                                            : $s['query_text']
+                                    ); ?></code>
+                                    <span class="mmd-spam-card__meta">
+                                        pop <?php echo (int) $s['popularity']; ?>,
+                                        results <?php echo (int) $s['num_results']; ?>
+                                    </span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
+            </div>
+        <?php endforeach; ?>
+    </div>
+
+    <div class="mmd-spam-footer">
+        <div class="mmd-spam-footer__summary">
+            <span><?php echo $this->__('Spam candidates across all buckets:'); ?></span>
+            <strong><?php echo number_format($totalSpam); ?></strong>
+            <span id="mmd-spam-selected-count" style="margin-left:14px;color:#9aa4b2;">
+                <?php echo $this->__('0 selected'); ?>
+            </span>
+        </div>
+        <div class="mmd-spam-footer__actions">
+            <a class="button" href="<?php echo $this->escapeHtml($this->getBackUrl()); ?>">
+                <span><span><?php echo $this->__('Back to Search Terms'); ?></span></span>
+            </a>
+            <button type="button" class="button" onclick="mmdSelectAllSpam(true);">
+                <span><span><?php echo $this->__('Select all'); ?></span></span>
+            </button>
+            <button type="button" class="button" onclick="mmdSelectAllSpam(false);">
+                <span><span><?php echo $this->__('Clear'); ?></span></span>
+            </button>
+            <button type="submit" class="button scalable delete" id="mmd-spam-delete-btn" disabled>
+                <span><span><?php echo $this->__('Delete selected buckets'); ?></span></span>
+            </button>
+        </div>
+    </div>
+</form>
+
+<style>
+.mmd-spam-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 14px;
+    margin: 18px 0;
+}
+.mmd-spam-card {
+    background: #1c2532;
+    border: 1px solid #2c3849;
+    border-radius: 10px;
+    padding: 14px 16px;
+    transition: border-color 0.15s, background 0.15s;
+}
+.mmd-spam-card:has(input:checked) {
+    border-color: #ef4444;
+    background: #2a1c20;
+}
+.mmd-spam-card__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    margin: 0 0 6px;
+}
+.mmd-spam-card__head input[disabled] { cursor: not-allowed; }
+.mmd-spam-card__title {
+    flex: 1;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+.mmd-spam-card__count {
+    background: #ef4444;
+    color: #fff;
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-weight: 600;
+    font-size: 12px;
+    min-width: 36px;
+    text-align: center;
+}
+.mmd-spam-card__count.is-empty { background: #334155; color: #94a3b8; }
+.mmd-spam-card__desc {
+    color: #94a3b8;
+    font-size: 12px;
+    line-height: 1.4;
+    margin: 0 0 10px;
+}
+.mmd-spam-card__samples-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    margin-bottom: 4px;
+}
+.mmd-spam-card__samples ul { list-style: none; padding: 0; margin: 0; }
+.mmd-spam-card__samples li {
+    font-size: 12px;
+    color: #cbd5e1;
+    padding: 2px 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+.mmd-spam-card__samples code {
+    background: #0f172a;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.mmd-spam-card__meta {
+    color: #64748b;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+.mmd-spam-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    background: #1c2532;
+    border: 1px solid #2c3849;
+    border-radius: 10px;
+    padding: 14px 18px;
+    position: sticky;
+    bottom: 0;
+}
+.mmd-spam-footer__summary { color: #e2e8f0; font-size: 13px; }
+.mmd-spam-footer__summary strong { color: #ef4444; font-size: 16px; margin: 0 4px; }
+.mmd-spam-footer__actions { display: flex; gap: 8px; }
+</style>
+
+<script>
+function mmdSpamCheckboxes() {
+    return document.querySelectorAll('.mmd-spam-checkbox:not([disabled])');
+}
+function mmdSelectAllSpam(checked) {
+    mmdSpamCheckboxes().forEach(function(cb){ cb.checked = checked; });
+    mmdUpdateSpamSummary();
+}
+function mmdUpdateSpamSummary() {
+    var total = 0, buckets = 0;
+    mmdSpamCheckboxes().forEach(function(cb){
+        if (cb.checked) { total += parseInt(cb.getAttribute('data-count'), 10) || 0; buckets++; }
+    });
+    var summary = document.getElementById('mmd-spam-selected-count');
+    var btn = document.getElementById('mmd-spam-delete-btn');
+    summary.textContent = buckets === 0
+        ? '0 selected'
+        : buckets + ' bucket(s), ' + total.toLocaleString() + ' row(s) selected';
+    btn.disabled = (buckets === 0);
+}
+function mmdConfirmSpamDelete() {
+    var total = 0;
+    mmdSpamCheckboxes().forEach(function(cb){
+        if (cb.checked) { total += parseInt(cb.getAttribute('data-count'), 10) || 0; }
+    });
+    if (total === 0) { return false; }
+    return confirm('Permanently delete ' + total.toLocaleString() + ' search term row(s)? This cannot be undone.');
+}
+document.addEventListener('change', function(e){
+    if (e.target && e.target.classList && e.target.classList.contains('mmd-spam-checkbox')) {
+        mmdUpdateSpamSummary();
+    }
+});
+</script>
