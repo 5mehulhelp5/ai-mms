@@ -147,6 +147,29 @@ Current state: all roles temporarily inherit the "Administrators" ACL group (ful
 - Role-selection page: `app/design/adminhtml/default/default/template/rolemanager/role-select.phtml`
 - Gotcha: legacy `boxes.css` has high-specificity `#page-login` rules; use ID selectors to override.
 
+### Admin CSS — known traps
+
+These are non-obvious lessons from real incidents. Read before editing any admin-theme CSS.
+
+**Cascade order matters: `sidebar-nav.css` loads AFTER `dark-theme.css`.** Both files declare `!important` rules for the same selectors (`.admin-main`, `.admin-main .middle`, `.admin-main .main-col-inner`). Because they have equal specificity, the later file wins. Edits to dark-theme.css that look correct will silently lose to sidebar-nav.css. When overriding admin-shell layout rules, put the override in `sidebar-nav.css` itself (preferred) or use body-prefixed selectors at the end of the file. Incident: a "flush-left" override added to dark-theme.css had zero visible effect for the entire session until the actual rules in sidebar-nav.css were edited.
+
+**Never extract page-scoped inline CSS into a shared admin stylesheet without re-scoping global selectors (`body`, `html`, `*`).** `rolemanager.css` is loaded on FOUR admin pages via `layout/rolemanager.xml` (`adminhtml_rolemanagement_index`, `_roleselect_index`, `_cpgenerator_index`, `_seometadata_index`). When `role-select.phtml`'s inline `<style>` was extracted into rolemanager.css, its `body { display: flex; justify-content: center; ... }` and `* { margin:0; padding:0 }` rules lost their natural page-scope and bled onto every page that loaded the file. The body flex-center pushed `.admin-sidebar-layout` into the viewport middle, producing a "huge dead space" between the sidebar and the content that no `.admin-main` padding override could ever fix. Always scope extracted rules with `body:has(.<page-marker>)` or a unique parent class. Incident: hours of chasing phantom padding while the real centerer was 100 lines above in the same file.
+
+**Diagnose layout bugs by computed style, not source grep.** Source-grepping CSS files misses three categories: rules added by merged bundles, body-class-specific rules at the bottom of large files, and rules in files the page actually loads but you didn't search. Use playwright (`browser_evaluate`) to dump computed `marginLeft`/`paddingLeft`/`width`/`left` for every ancestor of the offending element, AND list every matched CSS rule from `document.styleSheets`. That found the role-select bleed in 60 seconds after hours of `grep`. Pattern: walk up `el.parentElement`, log each ancestor's box geometry, then enumerate `[...document.styleSheets].flatMap(s => [...s.cssRules]).filter(r => r.selectorText matches target)`.
+
+### Storefront — banner / theme media
+
+**`.dockerignore` for `media/` must use negation patterns.** A blanket `media/` exclusion fixes Coolify build timeouts (350MB+ context was failing the build with silent `build.sh` exit 255) but silently breaks theme-baked assets — banner images, certification logos, transactional email logo. The repo commits ~358MB under `media/`, of which:
+- `media/wysiwyg/` (~1MB) — banners, cert logos, theme decorations. **Required in image.**
+- `media/email/`, `media/favicon/`, `media/whatsapp.png` — small, required.
+- `media/catalog/category/` (~250MB), `media/catalog/product/` (~107MB) — user-uploaded galleries; served from Cloudflare R2 at runtime, **must stay excluded**.
+
+Current `.dockerignore` excludes `media/` then re-includes the small theme dirs by negation. Don't revert to a blanket exclusion — it'll restore the build OOM. Don't revert to no exclusion — it'll restore the 350MB-context-timeout. The negation form is the only correct shape.
+
+**Magento CSS/JS merge bundles need their target dirs to exist and be www-data-writable on every container start.** `docker/entrypoint.sh` clears `media/css/*`, `media/css_secure/*`, `media/js/*` so deploys pick up new CSS. But on a fresh Coolify volume (or one where the volume was mounted root-owned), Magento's first-request bundle write fails silently — `<link href="/media/css/<hash>.css">` then 404s and the whole admin renders as unstyled HTML. Entrypoint now `mkdir -p` and `chown -R www-data` those three dirs on every boot. If you ever see the storefront or admin lose all styling after a deploy, check those dirs first (`ls -la /var/www/html/media/css/`).
+
+**Storefront banners use Ultimo's `.owl-wrapper-outer.autoHeight` — pin a fixed height in `custom.css`.** Without it, a slow/broken/swapped banner image collapses the slideshow row and reflows the whole homepage. The current rule (`custom.css`, search for "Storefront homepage banner") locks the slide AND `<img>` to 404px with `object-fit:cover` so any image state preserves the layout band.
+
 ### Database Migrations
 
 - Repo dirs:
@@ -165,7 +188,7 @@ Current state: all roles temporarily inherit the "Administrators" ACL group (ful
   3. `exec apache2-foreground`.
 - If migrations fail after retries, the container exits non-zero so Coolify keeps the previous container — never serve traffic against a stale schema.
 - Build timestamp written to `version.txt` at build time; visible at `/version.txt` and in the admin footer.
-- `.dockerignore` excludes `.git` and `media/` — media is volume-mounted, not baked.
+- `.dockerignore` excludes `.git` and the bulk of `media/`. Small theme-baked subdirs (`media/wysiwyg/`, `media/email/`, `media/favicon/`, `media/whatsapp.png`, `media/.htaccess`) are re-included by negation so banners + cert logos + transactional email logo are present at the served path. User-uploaded `catalog/product` and `catalog/category` galleries stay excluded (R2-served).
 
 ### Key Config
 
