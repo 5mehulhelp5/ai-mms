@@ -400,6 +400,19 @@ body .header-top {
 /* Page container */
 #page\:main-container { padding: 16px 10px 16px 8px !important; }
 
+/* === Global left-margin reset for admin pages ===
+   Three nested wrappers were each adding their own horizontal padding,
+   stacking to ~68px before content started:
+       .admin-main          padding-left: 24px
+       .admin-main .middle  padding: 24px (all sides)
+       .admin-main .main-col-inner  padding: 20px (all sides)
+   Collapse every layer's LEFT padding to 8px so the title, search bar,
+   and table on every backend page sit flush with the sidebar edge.
+   Vertical padding is preserved per layer (no regression to row heights). */
+.admin-main { padding-left: 8px !important; }
+.admin-main .middle { padding-left: 8px !important; padding-right: 12px !important; }
+.admin-main .main-col-inner { padding-left: 8px !important; padding-right: 8px !important; }
+
 /* === 5b. Sidebar === */
 /* Side column for legacy admin pages (Categories tree, Reviews ratings, etc.).
    Legacy float-based width was being collapsed by the dashboard wrapper —
