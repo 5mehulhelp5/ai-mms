@@ -65,15 +65,36 @@ foreach ($storeRows as $sr) {
 $learnerEditUrlBase = Mage::helper('adminhtml')->getUrl('adminhtml/customer/edit', array('id' => '___ID___'));
 
 /**
- * Infer the operator's home store from their email domain. We don't store
- * a store_id on admin_user (Magento 1 admin users are not store-scoped) but
- * the LMS convention is one country = one email domain, so the inference is
- * deterministic for known domains. Returns a 2-letter country code or empty
- * string when it cannot be inferred (gmail, yahoo, etc.).
+ * Infer the operator's home store from their email. We don't store a
+ * store_id on admin_user (Magento 1 admin users are not store-scoped) but
+ * the LMS convention is one country = one email domain (and sometimes one
+ * country = one local-part keyword, e.g. info.tertiarycourses.ng@gmail.com
+ * where the country code is embedded in the local-part, not the TLD).
+ *
+ * Resolution order:
+ *   1. Country embedded anywhere in the email near "tertiarycourses.<cc>"
+ *      — catches both proper TLD addresses and gmail/yahoo aliases that
+ *      stuff the country code into the local part.
+ *   2. Standard TLD ending (.com.my / .co.in / .bt / etc.)
+ *   3. Default to SG. The LMS HQ is Singapore — operators without a
+ *      country-explicit email are assumed to belong to the SG store
+ *      rather than rendered as a dash.
  */
 function rm_inferStoreFromEmail($email) {
     $email = strtolower(trim((string)$email));
-    if ($email === '') return '';
+    if ($email === '') return 'SG';
+
+    // 1. Country-coded LMS branding pattern: matches both
+    //    "saeid@tertiarycourses.com.my" and "info.tertiarycourses.ng@gmail.com".
+    //    The ".com" between brand and cc is optional; the ".<cc>" must be
+    //    followed by either "@" or end-of-string so we don't match e.g.
+    //    "ngugi@tertiaryinfotech.com" as NG.
+    $brandPattern = '/tertiarycourses(?:\.com)?\.(my|gh|ng|in|bt|sg)(?:@|$)/';
+    if (preg_match($brandPattern, $email, $m)) {
+        return strtoupper($m[1]);
+    }
+
+    // 2. TLD ending fallback (handles non-tertiarycourses domains).
     $tldMap = array(
         '.com.sg' => 'SG',
         '.com.my' => 'MY',
@@ -83,12 +104,11 @@ function rm_inferStoreFromEmail($email) {
         '.bt'     => 'BT',
     );
     foreach ($tldMap as $needle => $code) {
-        // Match TLD at the end of the email (no path; emails don't have paths).
         if (substr($email, -strlen($needle)) === $needle) return $code;
     }
-    // Parent-company domain → SG (Tertiary Infotech is the Singapore HQ).
-    if (substr($email, -strlen('@tertiaryinfotech.com')) === '@tertiaryinfotech.com') return 'SG';
-    return '';
+
+    // 3. Default: SG (LMS HQ).
+    return 'SG';
 }
 $storeColors = array(
     'SG' => array('bg' => 'rgba(59,130,246,.12)', 'color' => '#60a5fa'),
