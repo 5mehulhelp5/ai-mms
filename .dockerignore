@@ -4,13 +4,25 @@
 Dockerfile
 docker-compose.yml
 docs/
-# Exclude ALL of media/ — it's volume-mounted at runtime, not baked into
-# the image. Without this exclusion the 800MB+ course image library ships
-# as docker build context on every push, blowing past Coolify's build
-# limits and failing the deploy (silent build.sh exit 255). The previous
-# narrower exclusions (media/catalog/product/cache/ etc.) only saved a
-# few MB and never matched CLAUDE.md's stated intent.
+# Exclude the bulk of media/ — user-uploaded course / category galleries
+# get to ~350MB+ committed and used to ship as docker build context on
+# every push, failing the deploy (silent build.sh exit 255). All catalog
+# product/category images are served from Cloudflare R2 at runtime so
+# they don't need to be in the image.
+#
+# Re-include the small theme-baked subdirs (wysiwyg banners, email logo,
+# favicon, root .htaccess) via negation — these are referenced by static
+# templates/CMS blocks and must be present at /media/ path on the
+# webserver. Total re-included: ~1MB.
 media/
+!media/.htaccess
+!media/wysiwyg/
+!media/wysiwyg/**
+!media/email/
+!media/email/**
+!media/favicon/
+!media/favicon/**
+!media/whatsapp.png
 
 # IDE and OS files
 .idea/
