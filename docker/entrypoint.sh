@@ -90,6 +90,18 @@ rm -rf /var/www/html/var/cache/* \
        /var/www/html/media/css_secure/* \
        /var/www/html/media/js/* 2>/dev/null || true
 
+# Guarantee the merge-bundle directories exist AND are writable by Apache.
+# Required because:
+#   - .dockerignore excludes the whole `media/` tree from the image, so a
+#     fresh Coolify volume can start without any of these subdirs.
+#   - Even when they exist on the volume, Coolify sometimes mounts them
+#     owned by root, which makes Magento's first-request bundle write fail
+#     silently — admin pages then load with NO styles (the merge URL 404s).
+# Idempotent on healthy volumes; fixes broken ones.
+mkdir -p /var/www/html/media/css /var/www/html/media/css_secure /var/www/html/media/js
+chown -R www-data:www-data /var/www/html/media/css /var/www/html/media/css_secure /var/www/html/media/js
+chmod -R u+rwX,g+rwX /var/www/html/media/css /var/www/html/media/css_secure /var/www/html/media/js
+
 # Seed transactional-email logo into media/email/logo/default/.
 # The `media/` directory is Coolify-volume-mounted in production, so baked
 # COPY assets get shadowed — seed at runtime so the unified logo referenced
