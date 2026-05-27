@@ -4,9 +4,13 @@
 Dockerfile
 docker-compose.yml
 docs/
-media/catalog/product/cache/
-media/tmp/
-media/captcha/
+# Exclude ALL of media/ — it's volume-mounted at runtime, not baked into
+# the image. Without this exclusion the 800MB+ course image library ships
+# as docker build context on every push, blowing past Coolify's build
+# limits and failing the deploy (silent build.sh exit 255). The previous
+# narrower exclusions (media/catalog/product/cache/ etc.) only saved a
+# few MB and never matched CLAUDE.md's stated intent.
+media/
 
 # IDE and OS files
 .idea/
