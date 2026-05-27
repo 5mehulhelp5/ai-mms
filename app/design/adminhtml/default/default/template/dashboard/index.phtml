@@ -1321,6 +1321,61 @@ try {
     // course_run_registry migration not yet applied
 }
 
+// ---- Page-level store scope (Magento-style store switcher) ----
+// Resolved once here so every store-scoped field below loads at the
+// active store view. Resolution order:
+//   1. URL ?store=N   (canonical Magento style)
+//   2. URL ?dev_country=Singapore (legacy bookmarks)
+//   3. dev_back URL  (preserves switcher across View → Edit → Save)
+//   4. admin session key written by the Branchscope pills
+//   5. Singapore default
+// The existing $_seoStoreId block further down re-derives the same
+// resolution for SEO Meta; once this rolls out we can drop that.
+$_pageStoreToCountry = array(
+    1 => 'Singapore', 2 => 'Malaysia', 3 => 'Ghana',
+    4 => 'Nigeria',   5 => 'Bhutan',   6 => 'India',
+);
+$_pageCountryToStore = array_flip($_pageStoreToCountry);
+$_pageStoreId = 0;
+$_pageReq     = Mage::app()->getRequest();
+$_pageUrlStore = $_pageReq->getParam('store', null);
+if ($_pageUrlStore !== null && ctype_digit((string) $_pageUrlStore)) {
+    $_pageStoreId = (int) $_pageUrlStore;
+}
+if (!isset($_pageStoreToCountry[$_pageStoreId])) {
+    $_pageUrlCountry = (string) $_pageReq->getParam('dev_country', '');
+    if (isset($_pageCountryToStore[$_pageUrlCountry])) {
+        $_pageStoreId = $_pageCountryToStore[$_pageUrlCountry];
+    }
+}
+if (!isset($_pageStoreToCountry[$_pageStoreId])) {
+    $_pageDevBack = (string) $_pageReq->getParam('dev_back', '');
+    if ($_pageDevBack !== '') {
+        $_pageDecoded = urldecode($_pageDevBack);
+        if (preg_match('/(?:^|&)dev_country=([^&]+)/', $_pageDecoded, $_pageM)) {
+            $_pageBackCountry = urldecode($_pageM[1]);
+            if (isset($_pageCountryToStore[$_pageBackCountry])) {
+                $_pageStoreId = $_pageCountryToStore[$_pageBackCountry];
+            }
+        }
+        if (!isset($_pageStoreToCountry[$_pageStoreId])
+                && preg_match('/(?:^|&)store=(\d+)/', $_pageDecoded, $_pageM2)) {
+            $_pageStoreId = (int) $_pageM2[1];
+        }
+    }
+}
+if (!isset($_pageStoreToCountry[$_pageStoreId])) {
+    try {
+        $_pageSess = Mage::getSingleton('admin/session');
+        $_pageSessStore = $_pageSess ? (int) $_pageSess->getData('mmd_branchscope_current_store_id') : 0;
+        if ($_pageSessStore > 0) $_pageStoreId = $_pageSessStore;
+    } catch (Exception $_pageE) {}
+}
+if (!isset($_pageStoreToCountry[$_pageStoreId])) {
+    $_pageStoreId = 1;  // Singapore default
+}
+$_pageStoreCountry = $_pageStoreToCountry[$_pageStoreId];
+
 // Selected course detail (if course_id param)
 $_selectedCourseId = (int) Mage::app()->getRequest()->getParam('course_id');
 $_selectedCourse = null;
@@ -1383,7 +1438,15 @@ $_devBackSuffix = $_devBack !== '' ? '?dev_back=' . urlencode($_devBack) : '';
 $_editCourseData = array();
 if ($_editMode) {
     try {
-        $_editProd = Mage::getModel('catalog/product')->load($_selectedCourseId);
+        // Load at the active page store so store-scoped fields (description,
+        // short_description, prerequisite, whoshouldattend, trainerprofile,
+        // meta_*, etc.) return THAT store's value — not the admin/default
+        // scope. EAV's standard scope fallback still kicks in for stores
+        // that don't have a per-store override, so the SG default is
+        // preserved where no override exists.
+        $_editProd = Mage::getModel('catalog/product')
+            ->setStoreId($_pageStoreId)
+            ->load($_selectedCourseId);
         // Explicitly load multiselect/text attributes (default 0 store_id + fallback to any
         // other store where the value is actually populated — some courses store trainerprofile
         // under a specific store_view instead of the admin scope)
@@ -2482,6 +2545,61 @@ function devSetView(view) {
 
 <?php /* ===== DEVELOPER EDIT MODE ===== */ ?>
 <?php if ($_editingMode): ?>
+<?php
+// Resolve the country (store view) this edit applies to BEFORE the form
+// renders, so the active-store banner and every per-row scope label can
+// surface the same value. Lookup precedence mirrors the SEO Meta block:
+//   1. ?store=N    2. ?dev_country=<Name>    3. dev_back's dev_country/store
+//   4. admin session branchscope    5. fall back to Singapore.
+$_seoStoreToCountry = array(
+    1 => 'Singapore', 2 => 'Malaysia', 3 => 'Ghana',
+    4 => 'Nigeria',   5 => 'Bhutan',   6 => 'India',
+);
+$_seoCountryToStore = array_flip($_seoStoreToCountry);
+$_seoStoreId = 0;
+$_seoReq = Mage::app()->getRequest();
+$_seoUrlStore = $_seoReq->getParam('store', null);
+if ($_seoUrlStore !== null && ctype_digit((string) $_seoUrlStore)) {
+    $_seoStoreId = (int) $_seoUrlStore;
+}
+if (!isset($_seoStoreToCountry[$_seoStoreId])) {
+    $_seoUrlCountry = (string) $_seoReq->getParam('dev_country', '');
+    if (isset($_seoCountryToStore[$_seoUrlCountry])) {
+        $_seoStoreId = $_seoCountryToStore[$_seoUrlCountry];
+    }
+}
+if (!isset($_seoStoreToCountry[$_seoStoreId])) {
+    $_seoDevBack = (string) $_seoReq->getParam('dev_back', '');
+    if ($_seoDevBack !== '') {
+        $_seoDecoded = urldecode($_seoDevBack);
+        if (preg_match('/(?:^|&)dev_country=([^&]+)/', $_seoDecoded, $_seoM)) {
+            $_seoBackCountry = urldecode($_seoM[1]);
+            if (isset($_seoCountryToStore[$_seoBackCountry])) {
+                $_seoStoreId = $_seoCountryToStore[$_seoBackCountry];
+            }
+        }
+        if (!isset($_seoStoreToCountry[$_seoStoreId])
+                && preg_match('/(?:^|&)store=(\d+)/', $_seoDecoded, $_seoM2)) {
+            $_seoStoreId = (int) $_seoM2[1];
+        }
+    }
+}
+if (!isset($_seoStoreToCountry[$_seoStoreId])) {
+    try {
+        $_seoSession = Mage::getSingleton('admin/session');
+        $_seoSessStore = $_seoSession ? (int) $_seoSession->getData('mmd_branchscope_current_store_id') : 0;
+        if ($_seoSessStore > 0) $_seoStoreId = $_seoSessStore;
+    } catch (Exception $_e) {}
+}
+$_seoActiveCountry = isset($_seoStoreToCountry[$_seoStoreId])
+    ? $_seoStoreToCountry[$_seoStoreId]
+    : 'Singapore';
+$_dcfStoreFlag = array(
+    'Singapore' => 'SG', 'Malaysia' => 'MY', 'Ghana' => 'GH',
+    'Nigeria'   => 'NG', 'Bhutan'   => 'BT', 'India'  => 'IN',
+);
+$_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
+?>
 <div id="dash-panel-course-edit">
 <form id="dcf-form" method="post" enctype="multipart/form-data" action="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/save') ?>">
 <input type="hidden" name="form_key" value="<?php echo Mage::getSingleton('core/session')->getFormKey() ?>" />
@@ -2507,10 +2625,120 @@ function devSetView(view) {
         </div>
     </div>
 
-    <div class="dcf-edit-notice">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        You are in edit mode. Make your changes and click Save Changes.
+    <?php
+    // ---- Store-view switcher (Magento-style tabs) ----
+    // Clickable strip that scopes the whole Edit Course form to one
+    // country store view at a time. Click → page reload with ?store=N
+    // appended; preserves course_id, mode, and dev_back so the back-link
+    // and edit mode survive the switch. Every store-scoped field below
+    // (description, short_description, meta_*, prerequisite, design
+    // overrides, etc.) re-reads the new store's EAV value because the
+    // initial product load now uses setStoreId($_pageStoreId).
+    //
+    // Why visible inline here instead of relying on MMD_Branchscope's
+    // global pill strip: that strip is intentionally suppressed for the
+    // Developer role on the dashboard layout (branchscope.xml), so a
+    // dev opening Edit Course wouldn't otherwise see a switcher.
+    $_dcfCurrentUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard/index', array(
+        'course_id' => (int) $_selectedCourseId,
+        'mode'      => $_editingMode ? 'editing' : 'edit',
+    ));
+    if ($_devBack !== '') {
+        $_dcfCurrentUrl .= (strpos($_dcfCurrentUrl, '?') === false ? '?' : '&')
+            . 'dev_back=' . urlencode($_devBack);
+    }
+    ?>
+    <div class="dcf-store-switcher" role="tablist" aria-label="Store view">
+        <span class="dcf-store-switcher-label">Store View:</span>
+        <?php foreach ($_pageStoreToCountry as $_swStoreId => $_swCountry):
+            $_swActive = ((int) $_swStoreId === (int) $_pageStoreId);
+            $_swHref = $_dcfCurrentUrl
+                . (strpos($_dcfCurrentUrl, '?') === false ? '?' : '&')
+                . 'store=' . (int) $_swStoreId;
+        ?>
+        <a class="dcf-store-tab<?php echo $_swActive ? ' is-active' : '' ?>"
+           href="<?php echo htmlspecialchars($_swHref) ?>"
+           role="tab" aria-selected="<?php echo $_swActive ? 'true' : 'false' ?>"
+           title="Switch to <?php echo htmlspecialchars($_swCountry) ?> store view">
+            <span class="dcf-store-tab-flag"><?php echo htmlspecialchars($_dcfStoreFlag[$_swCountry] ?? '') ?></span>
+            <span class="dcf-store-tab-name"><?php echo htmlspecialchars($_swCountry) ?></span>
+        </a>
+        <?php endforeach; ?>
+        <span class="dcf-store-switcher-hint" title="Global-scope fields (SKU, price, dates) save the same value across all stores regardless of which tab is active. Store-view fields (titles, meta, descriptions, design overrides) save to the active store only.">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>Scope</span>
+        </span>
     </div>
+    <style>
+        .dcf-store-switcher{
+            display:flex;align-items:center;gap:4px;flex-wrap:wrap;
+            padding:6px 10px;margin-bottom:10px;
+            background:var(--b0);border:1px solid var(--b1);border-radius:8px;
+        }
+        .dcf-store-switcher-label{
+            font-size:11px;font-weight:600;letter-spacing:.4px;
+            text-transform:uppercase;color:var(--t2);
+            padding-right:8px;margin-right:4px;border-right:1px solid var(--b1);
+        }
+        .dcf-store-tab{
+            display:inline-flex;align-items:center;gap:6px;
+            padding:5px 11px;border-radius:6px;
+            font-size:12px;font-weight:500;color:var(--t2);
+            text-decoration:none;border:1px solid transparent;
+            transition:background .12s, color .12s, border-color .12s;
+        }
+        .dcf-store-tab:hover{
+            background:rgba(148,163,184,.1);color:var(--t1);text-decoration:none;
+        }
+        .dcf-store-tab.is-active{
+            background:rgba(34,211,238,.14);
+            border-color:rgba(34,211,238,.5);color:#22d3ee;
+        }
+        .dcf-store-tab-flag{
+            font-weight:700;font-size:10px;letter-spacing:.5px;
+            padding:1px 5px;border-radius:3px;
+            background:rgba(148,163,184,.18);color:var(--t1);
+        }
+        .dcf-store-tab.is-active .dcf-store-tab-flag{
+            background:rgba(34,211,238,.25);color:#22d3ee;
+        }
+        .dcf-store-switcher-hint{
+            margin-left:auto;display:inline-flex;align-items:center;gap:5px;
+            font-size:11px;color:var(--t2);cursor:help;
+        }
+    </style>
+
+    <div class="dcf-edit-notice" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <span style="display:inline-flex;align-items:center;gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            You are in edit mode. Make your changes and click Save Changes.
+        </span>
+        <span class="dcf-active-store-pill" title="Store-view-scoped fields (SEO Meta, Design overrides, etc.) on this page will be saved against this country's store view. Switch country via the Store View tabs above.">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            Editing for: <strong><?php echo htmlspecialchars($_pageStoreCountry) ?></strong>
+            <span class="dcf-active-store-code"><?php echo htmlspecialchars($_dcfStoreFlag[$_pageStoreCountry] ?? '') ?></span>
+        </span>
+    </div>
+    <style>
+        .dcf-active-store-pill{
+            display:inline-flex;align-items:center;gap:8px;
+            padding:4px 12px;border-radius:999px;
+            background:rgba(34,211,238,.12);
+            border:1px solid rgba(34,211,238,.45);
+            color:#22d3ee;font-size:12px;font-weight:600;
+            letter-spacing:.2px;
+        }
+        .dcf-active-store-pill strong{color:#e0f7fb;font-weight:700;}
+        .dcf-active-store-pill .dcf-active-store-code{
+            padding:1px 7px;border-radius:6px;
+            background:rgba(34,211,238,.25);color:#e0f7fb;
+            font-size:11px;letter-spacing:.6px;
+        }
+        .dcf-row-scope.dcf-row-scope-store{
+            color:#22d3ee;border-color:rgba(34,211,238,.45);
+            background:rgba(34,211,238,.08);
+        }
+    </style>
 
     <!-- Course Information sidebar — fixed-position, replaces the role
          sidebar in editing mode. Uses the same .lms-nav-item style as
@@ -2624,7 +2852,7 @@ function devSetView(view) {
                                 Create Permanent Redirect for old URL
                             </label>
                         </div>
-                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                        <div class="dcf-row-scope dcf-row-scope-store" title="Scope: store view — saved against the active country (<?php echo htmlspecialchars($_seoActiveCountry) ?>)."><?php echo htmlspecialchars($_dcfScopeLabel) ?></div>
                     </div>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Visibility <span class="dcf-required">*</span></div>
@@ -2636,7 +2864,7 @@ function devSetView(view) {
                                 <option value="4" selected>Catalog, Search</option>
                             </select>
                         </div>
-                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                        <div class="dcf-row-scope dcf-row-scope-store" title="Scope: store view — saved against the active country (<?php echo htmlspecialchars($_seoActiveCountry) ?>)."><?php echo htmlspecialchars($_dcfScopeLabel) ?></div>
                     </div>
 
                     <?php
@@ -3864,73 +4092,11 @@ function devSetView(view) {
         <div class="dcf-tab-panel" data-tab="meta">
             <div class="dcf-mag">
                 <?php
-                // Resolve which country the admin is editing this course
-                // for. The signal comes from the Manage Courses tab they
-                // clicked — but by the time they're on Course Edit the
-                // URL has dropped ?store=N, so we have to recover it from
-                // every place the user's intent could still be alive:
+                // $_seoStoreId / $_seoActiveCountry / $_seoStoreToCountry are
+                // resolved once at the top of the form (just before <form id="dcf-form">)
+                // so the active-store banner and every per-row [COUNTRY STORE]
+                // label share one source of truth with this block.
                 //
-                //   1. ?store=N in the current URL          (explicit)
-                //   2. ?dev_country=<Name> in current URL   (legacy alias)
-                //   3. dev_back query string from the link   (carries the
-                //      originating filter as dev_country=<Name>, see
-                //      $_devBackParams build at ~line 2035)
-                //   4. ?dev_country=<Name> inside dev_back   (URL-decoded)
-                //   5. ?store=N inside dev_back              (same)
-                //   6. admin session key Branchscope writes to on every
-                //      pill click via persistFromRequest()
-                //   7. fall back to Singapore (canonical default)
-                $_seoStoreToCountry = array(
-                    1 => 'Singapore', 2 => 'Malaysia', 3 => 'Ghana',
-                    4 => 'Nigeria',   5 => 'Bhutan',   6 => 'India',
-                );
-                $_seoCountryToStore = array_flip($_seoStoreToCountry);
-                $_seoStoreId = 0;
-                $_seoReq = Mage::app()->getRequest();
-
-                // 1. URL ?store=
-                $_seoUrlStore = $_seoReq->getParam('store', null);
-                if ($_seoUrlStore !== null && ctype_digit((string) $_seoUrlStore)) {
-                    $_seoStoreId = (int) $_seoUrlStore;
-                }
-                // 2. URL ?dev_country=
-                if (!isset($_seoStoreToCountry[$_seoStoreId])) {
-                    $_seoUrlCountry = (string) $_seoReq->getParam('dev_country', '');
-                    if (isset($_seoCountryToStore[$_seoUrlCountry])) {
-                        $_seoStoreId = $_seoCountryToStore[$_seoUrlCountry];
-                    }
-                }
-                // 3 / 4 / 5. dev_back parsing
-                if (!isset($_seoStoreToCountry[$_seoStoreId])) {
-                    $_seoDevBack = (string) $_seoReq->getParam('dev_back', '');
-                    if ($_seoDevBack !== '') {
-                        // dev_back was urlencoded by the link builder;
-                        // decode so we can match on plain key=value pairs.
-                        $_seoDecoded = urldecode($_seoDevBack);
-                        if (preg_match('/(?:^|&)dev_country=([^&]+)/', $_seoDecoded, $_seoM)) {
-                            $_seoBackCountry = urldecode($_seoM[1]);
-                            if (isset($_seoCountryToStore[$_seoBackCountry])) {
-                                $_seoStoreId = $_seoCountryToStore[$_seoBackCountry];
-                            }
-                        }
-                        if (!isset($_seoStoreToCountry[$_seoStoreId])
-                                && preg_match('/(?:^|&)store=(\d+)/', $_seoDecoded, $_seoM2)) {
-                            $_seoStoreId = (int) $_seoM2[1];
-                        }
-                    }
-                }
-                // 6. admin session
-                if (!isset($_seoStoreToCountry[$_seoStoreId])) {
-                    try {
-                        $_seoSession = Mage::getSingleton('admin/session');
-                        $_seoSessStore = $_seoSession ? (int) $_seoSession->getData('mmd_branchscope_current_store_id') : 0;
-                        if ($_seoSessStore > 0) $_seoStoreId = $_seoSessStore;
-                    } catch (Exception $_e) {}
-                }
-                $_seoActiveCountry = isset($_seoStoreToCountry[$_seoStoreId])
-                    ? $_seoStoreToCountry[$_seoStoreId]
-                    : 'Singapore';
-
                 // Per-country SEO Meta load: re-fetch the three meta fields
                 // at the active country's store view so the form shows
                 // THAT country's value (or the scope-0 default if no
@@ -4013,12 +4179,12 @@ function devSetView(view) {
                     <div class="dcf-row">
                         <div class="dcf-row-label">Meta Title</div>
                         <div class="dcf-row-input"><input type="text" class="dcf-input" name="meta_title" value="<?php echo htmlspecialchars($_editCourseData['meta_title'] ?? '') ?>" /></div>
-                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                        <div class="dcf-row-scope dcf-row-scope-store" title="Scope: store view — saved against the active country (<?php echo htmlspecialchars($_seoActiveCountry) ?>)."><?php echo htmlspecialchars($_dcfScopeLabel) ?></div>
                     </div>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Meta Keywords</div>
                         <div class="dcf-row-input"><textarea class="dcf-textarea" name="meta_keyword" style="height:120px;"><?php echo htmlspecialchars($_editCourseData['meta_keyword'] ?? '') ?></textarea></div>
-                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                        <div class="dcf-row-scope dcf-row-scope-store" title="Scope: store view — saved against the active country (<?php echo htmlspecialchars($_seoActiveCountry) ?>)."><?php echo htmlspecialchars($_dcfScopeLabel) ?></div>
                     </div>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Meta Description</div>
@@ -4026,7 +4192,7 @@ function devSetView(view) {
                             <textarea class="dcf-textarea" name="meta_description" maxlength="255" style="height:140px;"><?php echo htmlspecialchars($_editCourseData['meta_description'] ?? '') ?></textarea>
                             <div class="dcf-row-help">Maximum 255 chars</div>
                         </div>
-                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                        <div class="dcf-row-scope dcf-row-scope-store" title="Scope: store view — saved against the active country (<?php echo htmlspecialchars($_seoActiveCountry) ?>)."><?php echo htmlspecialchars($_dcfScopeLabel) ?></div>
                     </div>
                 </div>
             </div>
@@ -4289,32 +4455,32 @@ function devSetView(view) {
                     <div class="dcf-row">
                         <div class="dcf-row-label">Custom Design</div>
                         <div class="dcf-row-input"><select class="dcf-select" name="design_custom_design"><option value="">-- Please Select --</option><option>default</option><option>infortis/ultimo</option></select></div>
-                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                        <div class="dcf-row-scope dcf-row-scope-store" title="Scope: store view — saved against the active country (<?php echo htmlspecialchars($_seoActiveCountry) ?>)."><?php echo htmlspecialchars($_dcfScopeLabel) ?></div>
                     </div>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Active From</div>
                         <div class="dcf-row-input"><input type="date" class="dcf-input" name="design_custom_design_from" /></div>
-                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                        <div class="dcf-row-scope dcf-row-scope-store" title="Scope: store view — saved against the active country (<?php echo htmlspecialchars($_seoActiveCountry) ?>)."><?php echo htmlspecialchars($_dcfScopeLabel) ?></div>
                     </div>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Active To</div>
                         <div class="dcf-row-input"><input type="date" class="dcf-input" name="design_custom_design_to" /></div>
-                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                        <div class="dcf-row-scope dcf-row-scope-store" title="Scope: store view — saved against the active country (<?php echo htmlspecialchars($_seoActiveCountry) ?>)."><?php echo htmlspecialchars($_dcfScopeLabel) ?></div>
                     </div>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Custom Layout Update</div>
                         <div class="dcf-row-input"><textarea class="dcf-textarea" name="design_custom_layout_update" style="height:160px;font-family:monospace;font-size:13px;"></textarea></div>
-                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                        <div class="dcf-row-scope dcf-row-scope-store" title="Scope: store view — saved against the active country (<?php echo htmlspecialchars($_seoActiveCountry) ?>)."><?php echo htmlspecialchars($_dcfScopeLabel) ?></div>
                     </div>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Page Layout</div>
                         <div class="dcf-row-input"><select class="dcf-select" name="design_page_layout"><option value="">No layout updates</option><option>1 column</option><option>2 columns with left bar</option><option>2 columns with right bar</option><option>3 columns</option></select></div>
-                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                        <div class="dcf-row-scope dcf-row-scope-store" title="Scope: store view — saved against the active country (<?php echo htmlspecialchars($_seoActiveCountry) ?>)."><?php echo htmlspecialchars($_dcfScopeLabel) ?></div>
                     </div>
                     <div class="dcf-row">
                         <div class="dcf-row-label">Display Product Options In</div>
                         <div class="dcf-row-input"><select class="dcf-select" name="design_options_container"><option value="container2" selected>Block after Info Column</option><option value="container1">Product Info Column</option></select></div>
-                        <div class="dcf-row-scope">[STORE VIEW]</div>
+                        <div class="dcf-row-scope dcf-row-scope-store" title="Scope: store view — saved against the active country (<?php echo htmlspecialchars($_seoActiveCountry) ?>)."><?php echo htmlspecialchars($_dcfScopeLabel) ?></div>
                     </div>
                 </div>
             </div>
@@ -4644,6 +4810,14 @@ function devSetView(view) {
                                     'reg_course' => $_regIso,
                                 );
                             }
+                            // Order values by sort_order so the user sees their saved
+                            // sort positions reflected in the row order — matches stock
+                            // Magento behavior where option_type_value.sort_order drives
+                            // the dropdown display order. Tie-break on id for stability.
+                            usort($_vals, function($a, $b) {
+                                if ($a['sort'] === $b['sort']) return $a['id'] - $b['id'];
+                                return $a['sort'] - $b['sort'];
+                            });
                             $_csOptions[] = array(
                                 'id'        => (int) $_o->getId(),
                                 'title'     => (string) $_o->getTitle(),
