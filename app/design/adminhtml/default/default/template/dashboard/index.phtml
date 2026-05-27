@@ -3952,34 +3952,47 @@ function devSetView(view) {
                 ?>
                 <?php
                 // Button set depends on the active country tab:
-                //   SG → WSQ + Non-WSQ        (WSQ is Singapore-only)
-                //   MY → HRDF + Non-WSQ        (HRD Corp Funded prefix)
-                //   Others (GH/NG/BT/IN) → Non-WSQ only
-                $_seoShowWsq    = ($_seoStoreId === 1);
-                $_seoShowHrdf   = ($_seoStoreId === 2);
-                $_seoShowNonWsq = true;   // always available
+                //
+                //   Buttons are now ALWAYS visible regardless of the
+                //   current store-view tab — the admin clicks the one
+                //   matching the course's segment + country. Each button
+                //   carries its own target-store-id so the save lands at
+                //   the correct EAV scope, independent of $_seoStoreId.
+                //
+                //   Layout:
+                //     [SG-WSQ] [SG-NonWSQ] [MY-HRDF] [Others] | [All Stores]
+                //
+                //   "All Stores" = single AI call (multi-store prompt)
+                //   that produces 6 country titles + shared keywords +
+                //   2 description variants, persisted to all 6 store
+                //   scopes server-side. See aiSeoAllStoresAction.
+                $_seoOtherStoreId = in_array($_seoStoreId, array(3,4,5,6), true) ? $_seoStoreId : 3;
+                $_seoOtherCountry = $_seoStoreToCountry[$_seoOtherStoreId] ?? 'Ghana';
                 ?>
-                <div class="dcf-mag-bar" style="display:flex;align-items:center;justify-content:space-between;">
+                <div class="dcf-mag-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
                     <span>SEO Meta</span>
-                    <span style="display:inline-flex;gap:8px;align-items:center;">
-                        <?php if ($_seoShowWsq): ?>
-                        <button type="button" class="ai-seo-btn" data-mode="wsq" style="background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.4);color:#22d3ee;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z"/></svg>
-                            WSQ
+                    <span style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                        <button type="button" class="ai-seo-btn" data-mode="wsq" data-country="Singapore" data-target-store="1" style="background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.4);color:#22d3ee;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="WSQ-funded course (SG only). Writes to Singapore store.">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z"/></svg>
+                            SG-WSQ
                         </button>
-                        <?php endif; ?>
-                        <?php if ($_seoShowHrdf): ?>
-                        <button type="button" class="ai-seo-btn" data-mode="hrdf" style="background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.45);color:#fb923c;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="HRD Corp Funded — Malaysia">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z"/></svg>
-                            HRDF
+                        <button type="button" class="ai-seo-btn" data-mode="non_wsq" data-country="Singapore" data-target-store="1" style="background:rgba(168,139,250,.1);border:1px solid rgba(168,139,250,.45);color:#a78bfa;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="Non-WSQ course for Singapore. Writes to Singapore store.">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z"/></svg>
+                            SG-NonWSQ
                         </button>
-                        <?php endif; ?>
-                        <?php if ($_seoShowNonWsq): ?>
-                        <button type="button" class="ai-seo-btn" data-mode="non_wsq" style="background:rgba(168,139,250,.1);border:1px solid rgba(168,139,250,.45);color:#a78bfa;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z"/></svg>
-                            Non-WSQ
+                        <button type="button" class="ai-seo-btn" data-mode="hrdf" data-country="Malaysia" data-target-store="2" style="background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.45);color:#fb923c;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="HRD Corp Funded course (Malaysia). Writes to Malaysia store.">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z"/></svg>
+                            MY-HRDF
                         </button>
-                        <?php endif; ?>
+                        <button type="button" class="ai-seo-btn" data-mode="non_wsq" data-country="<?php echo htmlspecialchars($_seoOtherCountry) ?>" data-target-store="<?php echo (int) $_seoOtherStoreId ?>" style="background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.4);color:#94a3b8;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="Other countries (GH/NG/BT/IN). Writes to the currently-active country's store (defaults to Ghana).">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l2.4 6.4L21 11l-6.6 2.6L12 20l-2.4-6.4L3 11l6.6-2.6z"/></svg>
+                            Others (<?php echo htmlspecialchars($_seoOtherCountry) ?>)
+                        </button>
+                        <span style="width:1px;height:22px;background:var(--b1);margin:0 4px;"></span>
+                        <button type="button" id="ai-seo-all-stores-btn" style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.5);color:#22c55e;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="Generate SEO for this course across ALL 6 country stores in one click. Single multi-store AI prompt.">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+                            All Stores (this course)
+                        </button>
                     </span>
                 </div>
                 <div id="ai-seo-progress-wrap" style="display:none;padding:10px 16px 8px;background:rgba(34,211,238,.04);border-bottom:1px solid var(--b1);">
@@ -4098,16 +4111,21 @@ function devSetView(view) {
                     startProgress();
 
                     var productId = '<?php echo (int)($_selectedCourse["id"] ?? 0) ?>';
-                    var country = '<?php echo addslashes($_seoActiveCountry) ?>';
-                    // Temporary diagnostic — confirms the page resolved the
-                    // right country before sending. Remove once verified.
-                    console.log('[AI SEO] mode=' + mode + ' country=' + country
-                        + ' (resolved from store_id=<?php echo (int)$_seoStoreId ?>)');
+                    // Per-button country + target store. Each segment button
+                    // carries its own (e.g. SG-WSQ → Singapore / 1, MY-HRDF →
+                    // Malaysia / 2) so the save lands at the right EAV scope
+                    // regardless of which store-view tab the admin is on.
+                    var country       = btn.getAttribute('data-country') || 'Singapore';
+                    var targetStoreId = btn.getAttribute('data-target-store') || '0';
+                    console.log('[AI SEO] mode=' + mode + ' country=' + country + ' target_store=' + targetStoreId);
+
                     var fd = new FormData();
                     fd.append('form_key', window.FORM_KEY || '<?php echo Mage::getSingleton("core/session")->getFormKey() ?>');
                     fd.append('product_id', productId);
                     fd.append('mode', mode);
                     fd.append('country', country);
+                    fd.append('seo_target_store_id', targetStoreId);
+                    fd.append('save', '1');   // persist immediately to that store scope
                     var keys = FIELD_MAP[mode];
                     var courseName  = formVal('general_course_name') || formVal('course_name') || '';
                     var outcomes    = stripHtml(formVal('learning_outcomes'));
@@ -4132,13 +4150,33 @@ function devSetView(view) {
                             alert('SEO generation failed: ' + ((j && j.message) || 'unknown error'));
                             return;
                         }
-                        var setField = function(name, value) {
-                            var el = FORM.querySelector('[name="' + name + '"]');
-                            if (el && value != null && value !== '') el.value = value;
-                        };
-                        setField('meta_title',       j.meta_title);
-                        setField('meta_keyword',     j.meta_keyword);
-                        setField('meta_description', j.meta_description);
+                        // Only repopulate the form when the generated values
+                        // were written to the store currently displayed in
+                        // the form (the hidden seo_target_store_id input).
+                        // Otherwise we'd flash MY/GH copy into the SG form.
+                        var displayedStore = (FORM.querySelector('[name="seo_target_store_id"]') || {}).value || '0';
+                        if (String(displayedStore) === String(targetStoreId)) {
+                            var setField = function(name, value) {
+                                var el = FORM.querySelector('[name="' + name + '"]');
+                                if (el && value != null && value !== '') el.value = value;
+                            };
+                            setField('meta_title',       j.meta_title);
+                            setField('meta_keyword',     j.meta_keyword);
+                            setField('meta_description', j.meta_description);
+                        }
+                        if (j.saved) {
+                            // Subtle confirmation in the panel header so admin
+                            // knows the data is already persisted (no Save
+                            // Changes needed for the SEO fields specifically).
+                            var bar = btn.closest('.dcf-mag-bar');
+                            if (bar) {
+                                var note = document.createElement('span');
+                                note.textContent = '✓ saved to store ' + j.saved_store_id;
+                                note.style.cssText = 'color:#22c55e;font-size:11px;font-weight:500;margin-left:8px;';
+                                bar.appendChild(note);
+                                setTimeout(function() { note.remove(); }, 4000);
+                            }
+                        }
                         if (j.stubbed) console.warn('SEO stub used: ' + j.stub_reason);
                     })
                     .catch(function(err) {
@@ -4150,12 +4188,88 @@ function devSetView(view) {
                         alert('Network error: ' + err.message);
                     });
                 }
+
+                function generateAllStores(btn) {
+                    if (!confirm('Generate SEO meta across all 6 country stores for this course?\n\nThis runs one multi-store AI prompt and writes the result to SG, MY, GH, NG, BT, IN scope. Existing meta on those stores will be replaced.')) return;
+                    var origHtml = btn.innerHTML;
+                    btn.disabled = true;
+                    btn.style.opacity = '.6';
+                    btn.style.cursor = 'wait';
+                    btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:ai-seo-spin 0.7s linear infinite;"></span> Generating for 6 stores…';
+                    startProgress();
+
+                    var fd = new FormData();
+                    fd.append('form_key', window.FORM_KEY || '<?php echo Mage::getSingleton("core/session")->getFormKey() ?>');
+                    fd.append('product_id', '<?php echo (int)($_selectedCourse["id"] ?? 0) ?>');
+                    fd.append('course_title',      formVal('general_course_name') || formVal('course_name') || '');
+                    fd.append('learning_outcomes', stripHtml(formVal('learning_outcomes')));
+                    fd.append('course_highlights', stripHtml(formVal('course_description')));
+
+                    fetch('<?php echo Mage::helper("adminhtml")->getUrl("adminhtml/coursesave/aiSeoAllStores") ?>', {
+                        method: 'POST',
+                        body: fd,
+                        credentials: 'same-origin'
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(j) {
+                        btn.disabled = false;
+                        btn.style.opacity = '1';
+                        btn.style.cursor = 'pointer';
+                        btn.innerHTML = origHtml;
+                        finishProgress();
+                        if (!j || !j.success) {
+                            alert('All-Stores SEO failed: ' + ((j && j.message) || 'unknown error'));
+                            return;
+                        }
+                        if (j.stubbed) {
+                            alert('AI generator unavailable (' + (j.stub_reason || '') + '). No changes saved.');
+                            return;
+                        }
+                        var stores = Object.keys(j.per_store || {});
+                        var bar = btn.closest('.dcf-mag-bar');
+                        if (bar) {
+                            var note = document.createElement('span');
+                            note.textContent = '✓ saved to ' + stores.length + ' stores: ' + stores.join(', ');
+                            note.style.cssText = 'color:#22c55e;font-size:11px;font-weight:500;margin-left:8px;';
+                            bar.appendChild(note);
+                            setTimeout(function() { note.remove(); }, 6000);
+                        }
+                        // Repopulate the visible form with the value for the
+                        // currently-displayed store, if present.
+                        var displayedStore = (FORM.querySelector('[name="seo_target_store_id"]') || {}).value || '0';
+                        var row = j.per_store && j.per_store[displayedStore];
+                        if (row) {
+                            var setField = function(name, value) {
+                                var el = FORM.querySelector('[name="' + name + '"]');
+                                if (el && value != null && value !== '') el.value = value;
+                            };
+                            setField('meta_title',       row.meta_title);
+                            setField('meta_keyword',     row.meta_keyword);
+                            setField('meta_description', row.meta_description);
+                        }
+                    })
+                    .catch(function(err) {
+                        btn.disabled = false;
+                        btn.style.opacity = '1';
+                        btn.style.cursor = 'pointer';
+                        btn.innerHTML = origHtml;
+                        finishProgress();
+                        alert('Network error: ' + err.message);
+                    });
+                }
+
                 for (var i = 0; i < OPEN_BTNS.length; i++) {
                     (function(btn) {
                         btn.addEventListener('click', function() {
                             directGenerate(btn, btn.getAttribute('data-mode'));
                         });
                     })(OPEN_BTNS[i]);
+                }
+                var ALL_STORES_BTN = document.getElementById('ai-seo-all-stores-btn');
+                if (ALL_STORES_BTN) {
+                    ALL_STORES_BTN.addEventListener('click', function() {
+                        generateAllStores(ALL_STORES_BTN);
+                    });
                 }
                 if (!document.getElementById('ai-seo-spin-style')) {
                     var st = document.createElement('style');

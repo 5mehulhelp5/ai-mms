@@ -1498,6 +1498,23 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $resp['raw']              = $stdout;
             $resp['stubbed']          = $stubbed;
             if ($stubbed) $resp['stub_reason'] = $stubReason;
+
+            // When the client passes save=1 + seo_target_store_id we
+            // persist the generated meta to that store scope immediately
+            // (skip on stubbed output — we don't want to overwrite real
+            // editorial content with a deterministic fallback).
+            $saveStoreId = (int) $this->getRequest()->getParam('seo_target_store_id', 0);
+            if ($this->getRequest()->getParam('save') && $saveStoreId > 0 && !$stubbed) {
+                Mage::getModel('mmd_rolemanager/aiSeo')->persistToStore(
+                    $productId,
+                    $saveStoreId,
+                    $resp['meta_title'],
+                    $resp['meta_keyword'],
+                    $resp['meta_description']
+                );
+                $resp['saved']          = true;
+                $resp['saved_store_id'] = $saveStoreId;
+            }
         } catch (Exception $e) {
             $resp['message'] = $e->getMessage();
         }
@@ -1505,6 +1522,61 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             ->setHeader('Content-Type', 'application/json', true)
             ->setBody(Mage::helper('core')->jsonEncode($resp));
     }
+
+    /**
+     * Generate SEO meta for ONE course across ALL country store views in a
+     * single AI call (the multi-store prompt produces 6 country titles +
+     * shared keywords + 2 description variants), then persist each piece
+     * to the appropriate store scope.
+     *
+     * Cost: 1 Claude call per product instead of 6.
+     */
+    public function aiSeoAllStoresAction()
+    {
+        $resp = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) {
+                throw new Exception('POST required');
+            }
+            $productId = (int) $this->getRequest()->getParam('product_id');
+            if ($productId <= 0) {
+                throw new Exception('product_id missing');
+            }
+            $product = Mage::getModel('catalog/product')->load($productId);
+            if (!$product->getId()) {
+                throw new Exception('Course not found');
+            }
+
+            $aiSeo = Mage::getModel('mmd_rolemanager/aiSeo');
+            $result = $aiSeo->generateMultiStore(
+                $product,
+                (string) $this->getRequest()->getParam('course_title'),
+                (string) $this->getRequest()->getParam('learning_outcomes'),
+                (string) $this->getRequest()->getParam('course_highlights')
+            );
+
+            if (!$result['stubbed']) {
+                foreach ($result['per_store'] as $storeId => $row) {
+                    $aiSeo->persistToStore(
+                        $productId, $storeId,
+                        $row['meta_title'], $row['meta_keyword'], $row['meta_description']
+                    );
+                }
+            }
+
+            $resp['success']     = true;
+            $resp['stubbed']     = $result['stubbed'];
+            if ($result['stubbed']) $resp['stub_reason'] = $result['stub_reason'];
+            $resp['per_store']   = $result['per_store'];
+            $resp['raw']         = $result['raw'];
+        } catch (Exception $e) {
+            $resp['message'] = $e->getMessage();
+        }
+        $this->getResponse()
+            ->setHeader('Content-Type', 'application/json', true)
+            ->setBody(Mage::helper('core')->jsonEncode($resp));
+    }
+
 
     /**
      * One-click brochure generator. Mirrors aiSeoAction's plumbing:
@@ -2570,9 +2642,24 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             // `$sections['meta_title']` lookup misses.
             $rawLabel = rtrim($rawLabel, " :.\t");
             $rawLabel = preg_replace('/^seo\s+/', '', $rawLabel);
-            // "Meta Title for Singapore" → "meta_title"; everything else
-            // becomes its underscored form ("meta keywords" → "meta_keywords").
+            // "Meta Title for Singapore" collapses to "meta_title" — SG is
+            // the default scope so callers can keep using $sections['meta_title']
+            // unconditionally. Other countries keep the "for <country>"
+            // suffix and slugify to "meta_title_for_malaysia" etc.
             $rawLabel = preg_replace('/\s+for\s+singapore$/', '', $rawLabel);
+            // Strip parens-wrapped country variants like "Meta Title (Default)"
+            // → "meta_title", and "Meta Description (Malaysia)" →
+            // "meta_description_for_malaysia" to share the same downstream
+            // key shape regardless of which prompt produced the output.
+            if (preg_match('/^(.*?)\s*\(([^)]+)\)\s*$/u', $rawLabel, $pm)) {
+                $base = trim($pm[1]);
+                $var  = strtolower(trim($pm[2]));
+                if ($var === 'default' || $var === 'singapore') {
+                    $rawLabel = $base;
+                } else {
+                    $rawLabel = $base . ' for ' . $var;
+                }
+            }
             $label    = preg_replace('/\s+/', '_', trim($rawLabel));
 
             $start = $matches[2][$i][1];
