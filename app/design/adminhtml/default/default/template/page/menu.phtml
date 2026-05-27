@@ -83,13 +83,31 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         <span>Manage Categories</span>
     </a>
+    <?php
+        // Users sidebar entries — pre-filter via ?role= query param picked up
+        // by management.phtml's role filter dropdown.
+        $_usersUrl     = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/index');
+        $_adminUsersUrl = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/index', array('_query' => array('role' => 'admin')));
+        $_roleParam    = (string) $_req->getParam('role');
+        $_isUsersList  = ($_ctrl === 'rolemanagement');
+        $_usersActive  = ($_isUsersList && $_roleParam === '') ? ' active' : '';
+        $_adminActive  = ($_isUsersList && $_roleParam === 'admin') ? ' active' : '';
+    ?>
+    <a href="<?php echo $_usersUrl ?>" class="lms-nav-item<?php echo $_usersActive ?>">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Users</span>
+    </a>
+    <a href="<?php echo $_adminUsersUrl ?>" class="lms-nav-item<?php echo $_adminActive ?>">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+        <span>Admin Users</span>
+    </a>
     <!-- Sales group removed from Super Admin sidebar — already shown under
          the Admin role; super-admin's job is configuration, not order ops. -->
     <!-- Super Admin sidebar trimmed 2026-05-06: Class Management,
          Marketing Management, View Learners (whole menu) and CMS were
          removed per product decision. Super Admin now sees only
          Dashboard, Course Registration, Company Setting, Role Management. -->
-    <div class="tools-group<?php echo _so(array('system_config','permissions','cache','system_store','system_currency','system_currencysymbol','process','system_email_template','sales_order_status','rolemanagement')) ?>">
+    <div class="tools-group<?php echo _so(array('system_config','permissions','cache','system_store','system_currency','system_currencysymbol','process','system_email_template','sales_order_status')) ?>">
         <div class="tools-group-toggle" onclick="toggleToolGroup(this)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             <span>System</span>
@@ -109,7 +127,6 @@
                 </div>
             </div>
             <a href="<?php echo $sysEmailUrl ?>" class="tools-sub-item"><span>Transaction Emails</span></a>
-            <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement') ?>" class="tools-sub-item"><span>Users</span></a>
             <a href="<?php echo $sysStoresUrl ?>" class="tools-sub-item"><span>Manage Stores</span></a>
             <a href="<?php echo $sysOrderStatusUrl ?>" class="tools-sub-item"><span>Order Statuses</span></a>
             <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/tax_rule') ?>" class="tools-sub-item"><span>GST</span></a>

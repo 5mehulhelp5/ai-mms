@@ -4,8 +4,9 @@
    interpolation so a single static file is safe. */
 
 /* --- management.phtml --- */
-.rm-wrap{padding:0}
-.rm-title{font-size:28px;font-weight:700;color:var(--t1);margin:0 0 28px;line-height:1.2}
+.rm-wrap{padding:0;margin:0;max-width:none;width:100%;text-align:left}
+.rm-wrap > *{margin-left:0 !important;margin-right:0 !important}
+.rm-title{font-size:24px;font-weight:700;color:var(--t1);margin:0 0 20px;line-height:1.2;text-align:left}
 .rm-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px}
 .rm-kpi-card{background:#1f2937;border:1px solid var(--b1);border-radius:12px;padding:28px 24px;text-align:center}
 .rm-kpi-num{font-size:40px;font-weight:700;line-height:1.1;margin-bottom:6px}
@@ -18,15 +19,15 @@
 .rm-search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#64748b}
 .rm-select{padding:10px 14px;background:#1f2937;border:1px solid #374151;border-radius:10px;color:#f1f5f9;font-size:13px;outline:none;min-width:140px}
 .rm-table{width:100%;border-collapse:separate;border-spacing:0}
-.rm-table th{text-align:left;padding:12px 16px;color:#64748b;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #1f2937;white-space:nowrap}
-.rm-table td{padding:12px 16px;border-bottom:1px solid #1f2937;vertical-align:middle;white-space:nowrap}
+.rm-table th{text-align:left;padding:8px 12px;color:#64748b;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #1f2937;white-space:nowrap}
+.rm-table td{padding:7px 12px;border-bottom:1px solid #1f2937;vertical-align:middle;white-space:nowrap;line-height:1.3}
 .rm-table tr:hover td{background:rgba(30,41,59,.5)}
-.rm-name{color:#f1f5f9;font-weight:500;font-size:14px}
-.rm-email{color:#94a3b8;font-size:13px}
-.rm-roles{display:flex;flex-wrap:nowrap;gap:5px}
-.rm-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:12px;font-size:10px;font-weight:600;white-space:nowrap}
+.rm-name{color:#f1f5f9;font-weight:500;font-size:13px}
+.rm-email{color:#94a3b8;font-size:12.5px}
+.rm-roles{display:flex;flex-wrap:nowrap;gap:4px}
+.rm-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap;line-height:1.4}
 .rm-badge-dot{width:5px;height:5px;border-radius:50%;display:inline-block;flex-shrink:0}
-.rm-status{padding:4px 12px;border-radius:12px;font-size:11px;font-weight:600}
+.rm-status{padding:2px 10px;border-radius:10px;font-size:10.5px;font-weight:600}
 .rm-status-active{background:rgba(34,197,94,.15);color:#22c55e}
 .rm-status-disabled{background:rgba(239,68,68,.15);color:#ef4444}
 .rm-actions{display:flex;gap:6px;white-space:nowrap}
@@ -43,8 +44,38 @@ button.rm-btn-enable,.rm-btn-enable.rm-btn-enable{color:#22c55e !important;borde
 button.rm-btn-enable:hover,.rm-btn-enable.rm-btn-enable:hover{background:rgba(34,197,94,.1) !important;color:#22c55e !important;transform:none !important;box-shadow:none !important}
 button.rm-btn-delete,.rm-btn-delete.rm-btn-delete{color:#ef4444 !important;border-color:#ef4444 !important}
 button.rm-btn-delete:hover,.rm-btn-delete.rm-btn-delete:hover{background:rgba(239,68,68,.1) !important;color:#ef4444 !important;transform:none !important;box-shadow:none !important}
-.rm-actions{display:inline-flex;gap:6px;flex-wrap:nowrap}
-.rm-self{color:#4b5563;font-size:12px;font-style:italic}
+.rm-actions{display:inline-flex;gap:4px;flex-wrap:nowrap;align-items:center}
+.rm-self{color:#4b5563;font-size:11.5px;font-style:italic}
+
+/* Minimalist icon-only action buttons. Selectors doubled to defeat the global
+   admin button rule in dark-theme.css that ships gradient/!important primary styling. */
+button.rm-icon,
+.rm-icon.rm-icon{
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    width:26px !important;
+    height:26px !important;
+    padding:0 !important;
+    border:none !important;
+    border-radius:6px !important;
+    background:transparent !important;
+    background-image:none !important;
+    color:#64748b !important;
+    cursor:pointer !important;
+    transition:background .15s, color .15s !important;
+    box-shadow:none !important;
+    text-shadow:none !important;
+    line-height:1 !important;
+    letter-spacing:0 !important;
+    min-width:0 !important;
+    transform:none !important;
+}
+button.rm-icon svg,.rm-icon.rm-icon svg{display:block}
+button.rm-icon-edit:hover,.rm-icon-edit.rm-icon-edit:hover{color:#3b82f6 !important;background:rgba(59,130,246,.1) !important;transform:none !important;box-shadow:none !important}
+button.rm-icon-disable:hover,.rm-icon-disable.rm-icon-disable:hover{color:#f59e0b !important;background:rgba(245,158,11,.1) !important;transform:none !important;box-shadow:none !important}
+button.rm-icon-enable:hover,.rm-icon-enable.rm-icon-enable:hover{color:#22c55e !important;background:rgba(34,197,94,.1) !important;transform:none !important;box-shadow:none !important}
+button.rm-icon-delete:hover,.rm-icon-delete.rm-icon-delete:hover{color:#ef4444 !important;background:rgba(239,68,68,.1) !important;transform:none !important;box-shadow:none !important}
 
 /* Edit modal */
 .rm-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;justify-content:center;align-items:center}

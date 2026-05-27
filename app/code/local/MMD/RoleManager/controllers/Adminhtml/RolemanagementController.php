@@ -5,7 +5,7 @@ class MMD_RoleManager_Adminhtml_RolemanagementController extends Mage_Adminhtml_
     {
         $this->loadLayout();
         $this->_setActiveMenu('system');
-        $this->_title('Role Management');
+        $this->_title('Users');
 
         $block = $this->getLayout()->createBlock('core/template')
             ->setTemplate('rolemanager/management.phtml');
