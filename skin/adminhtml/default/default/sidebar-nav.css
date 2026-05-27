@@ -4410,3 +4410,17 @@ body div.grid.tier.form-list,
 /* Canonical branch-pill strip lives in admin-dashboard.css
    (.dev-country-tabs / .dev-country-btn). The Search Terms templates
    now use that markup directly — no per-page CSS needed. */
+
+/* === FINAL OVERRIDE — flush-left content on every admin page ===
+   Body-level specificity so no later rule (per-controller body class,
+   merge-bundle re-order, third-party module CSS) can re-introduce the
+   ~68px of nested wrapper padding. Cap every wrapper layer's LEFT
+   horizontal space to 4px before content starts.
+*/
+body .admin-main { padding-left: 4px !important; }
+body .admin-main .middle { padding-left: 0 !important; }
+body .admin-main #page\:main-container { padding-left: 0 !important; padding-right: 0 !important; }
+body .admin-main .columns { gap: 0 !important; padding-left: 0 !important; }
+body .admin-main .main-col { padding-left: 0 !important; margin-left: 0 !important; }
+body .admin-main .main-col-inner { padding-left: 0 !important; }
+body .admin-main #anchor-content { padding-left: 0 !important; }
