@@ -19,10 +19,13 @@ $rows = $read->fetchAll("
 // customer_entity (EAV) — pull firstname/lastname via the two customer_entity_varchar
 // rows whose attribute_codes are 'firstname'/'lastname'. Sorted by created_at DESC
 // so the most recent learners appear first; pagination handles the long tail.
-$customerTable = $resource->getTableName('customer/entity');
-$customerVarchar = $resource->getTableName('customer/entity_varchar');
-$eavAttr = $resource->getTableName('eav/attribute');
-$eavType = $resource->getTableName('eav/entity_type');
+// Use literal table names — customer EAV doesn't expose a 'customer/entity_varchar'
+// model alias in this OpenMage install (only 'customer/entity'). getTableName()
+// passes literal strings through unchanged so this is portable and prefix-safe.
+$customerTable = $resource->getTableName('customer_entity');
+$customerVarchar = $resource->getTableName('customer_entity_varchar');
+$eavAttr = $resource->getTableName('eav_attribute');
+$eavType = $resource->getTableName('eav_entity_type');
 $attrFirstId = (int) $read->fetchOne(
     "SELECT a.attribute_id FROM {$eavAttr} a INNER JOIN {$eavType} t ON t.entity_type_id=a.entity_type_id WHERE t.entity_type_code='customer' AND a.attribute_code='firstname'"
 );
