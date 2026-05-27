@@ -223,12 +223,6 @@ function rmEyeToggle(inputId, btn) {
         : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
 }
 
-// Auto-apply preselected role filter from query string (?role=admin).
-document.addEventListener('DOMContentLoaded', function() {
-    var rf = document.getElementById('rm-role-filter');
-    if (rf && rf.value) rmFilter();
-});
-
 function rmFilter() {
     var q = document.getElementById('rm-search').value.toLowerCase();
     var rf = document.getElementById('rm-role-filter').value;
@@ -237,7 +231,13 @@ function rmFilter() {
     for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
         var matchQ = !q || r.getAttribute('data-name').indexOf(q) >= 0 || r.getAttribute('data-email').indexOf(q) >= 0;
-        var matchR = !rf || (r.getAttribute('data-roles') || '').indexOf(rf) >= 0;
+        // Exact-token match against the comma-separated role list, so filtering
+        // by "admin" does not accidentally also match "super_admin" via substring.
+        var tokens = (r.getAttribute('data-roles') || '').split(',');
+        var matchR = !rf;
+        if (!matchR) {
+            for (var j = 0; j < tokens.length; j++) { if (tokens[j] === rf) { matchR = true; break; } }
+        }
         var matchS = sf === '' || r.getAttribute('data-active') === sf;
         r.style.display = (matchQ && matchR && matchS) ? '' : 'none';
     }
@@ -343,4 +343,13 @@ function rmDelete(uid) {
     xhr.onload = function() { window.location.reload(); };
     xhr.send('user_id=' + uid + '&form_key=' + RM_FORM_KEY);
 }
+
+// Apply the preselected role filter immediately on first render. Runs inline
+// at the end of the <body> so the DOM is guaranteed ready — using
+// DOMContentLoaded is unreliable here because Magento admin loads other
+// scripts that may have already fired the event.
+(function() {
+    var rf = document.getElementById('rm-role-filter');
+    if (rf && rf.value) { rmFilter(); }
+})();
 </script>
