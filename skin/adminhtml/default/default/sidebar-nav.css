@@ -23,7 +23,7 @@
     top: 56px;
     left: 0;
     bottom: 0;
-    width: 250px;
+    width: 200px;
     background: var(--d2) !important;
     border-right: 1px solid var(--b1) !important;
     display: flex;
@@ -60,8 +60,8 @@
 }
 
 .admin-main {
-    margin-left: 250px;
-    padding-left: 8px;
+    margin-left: 200px;
+    padding-left: 4px;
     flex: 1;
     min-width: 0;
     transition: margin-left 0.25s ease;
@@ -757,7 +757,7 @@ li.submenu-open > .submenu-toggle-btn::after {
 /* === 11. Content Area Containment === */
 .admin-main {
     overflow-x: hidden;
-    max-width: calc(100vw - 260px);
+    max-width: calc(100vw - 210px);
 }
 body.sidebar-collapsed .admin-main {
     max-width: calc(100vw - 60px);
