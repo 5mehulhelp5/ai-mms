@@ -16,6 +16,11 @@
             <action method="addCss"><name>rolemanager.css</name></action>
         </reference>
     </adminhtml_rolemanagement_index>
+    <adminhtml_classes_index>
+        <reference name="head">
+            <action method="addCss"><name>rolemanager.css</name></action>
+        </reference>
+    </adminhtml_classes_index>
     <adminhtml_roleselect_index>
         <reference name="head">
             <action method="addCss"><name>rolemanager.css</name></action>
