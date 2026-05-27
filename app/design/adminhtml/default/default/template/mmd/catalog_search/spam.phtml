@@ -15,12 +15,13 @@ $total   = $this->getTotalRows();
     </p>
 </div>
 
-<div class="mmd-store-tabs" role="tablist" aria-label="Filter by branch" style="margin-top:10px;">
+<div class="dev-country-tabs" role="tablist" aria-label="Filter by branch" style="margin-top:10px;">
     <?php foreach ($this->getStoreTabs() as $tab): ?>
         <a href="<?php echo $this->escapeHtml($this->getStoreTabUrl($tab['id'])); ?>"
-           class="mmd-store-tab<?php echo $active === (int) $tab['id'] ? ' is-active' : ''; ?>"
+           class="dev-country-btn<?php echo $active === (int) $tab['id'] ? ' active' : ''; ?>"
            role="tab"
-           aria-selected="<?php echo $active === (int) $tab['id'] ? 'true' : 'false'; ?>">
+           aria-selected="<?php echo $active === (int) $tab['id'] ? 'true' : 'false'; ?>"
+           data-store-id="<?php echo (int) $tab['id']; ?>">
             <?php echo $this->escapeHtml($tab['label']); ?>
         </a>
     <?php endforeach; ?>

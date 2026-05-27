@@ -4407,44 +4407,6 @@ body div.grid.tier.form-list,
    actual WYSIWYG narrowing issue; the parent containers should stay
    at their normal layout widths. */
 
-/* ============================================================
-   Search Terms — branch tab strip above the grid.
-   Rendered by app/design/adminhtml/default/default/template/mmd/catalog_search/container.phtml
-   ============================================================ */
-.admin-main .mmd-store-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin: 12px 0 14px;
-    padding: 4px 0 2px;
-    border-bottom: 1px solid var(--slate-700, #334155);
-}
-.admin-main .mmd-store-tabs .mmd-store-tab {
-    display: inline-flex;
-    align-items: center;
-    padding: 8px 16px;
-    border-radius: 8px 8px 0 0;
-    color: var(--slate-300, #cbd5e1);
-    background: transparent;
-    font-size: 13px;
-    font-weight: 500;
-    text-decoration: none;
-    border: 1px solid transparent;
-    border-bottom: none;
-    transition: background-color .15s ease, color .15s ease;
-}
-.admin-main .mmd-store-tabs .mmd-store-tab:hover {
-    color: #fff;
-    background: rgba(59, 130, 246, 0.10);
-}
-.admin-main .mmd-store-tabs .mmd-store-tab.is-active {
-    color: #1e3a8a;
-    background: #e2e8f0;
-    border-color: #64748b;
-    font-weight: 600;
-}
-:root[data-theme="light"] .admin-main .mmd-store-tabs .mmd-store-tab.is-active {
-    color: #ffffff;
-    background: #334155;
-    border-color: #334155;
-}
+/* Canonical branch-pill strip lives in admin-dashboard.css
+   (.dev-country-tabs / .dev-country-btn). The Search Terms templates
+   now use that markup directly — no per-page CSS needed. */

@@ -1,28 +1,22 @@
 <?php
 /** @var MMD_Adminhtml_Block_Catalog_Search $this */
 $active = $this->getActiveStoreFilter();
-$cleanSpamUrl = $this->getUrl('*/catalog_search_spam/index');
 ?>
 <div class="content-header">
     <table cellspacing="0">
         <tr>
             <td style="<?php echo $this->getHeaderWidth() ?>"><?php echo $this->getHeaderHtml() ?></td>
-            <td class="form-buttons">
-                <a class="button" href="<?php echo $this->escapeHtml($cleanSpamUrl); ?>"
-                   style="margin-right:6px;">
-                    <span><span><?php echo $this->__('Clean Spam'); ?></span></span>
-                </a>
-                <?php echo $this->getButtonsHtml() ?>
-            </td>
+            <td class="form-buttons"><?php echo $this->getButtonsHtml() ?></td>
         </tr>
     </table>
 </div>
-<div class="mmd-store-tabs" role="tablist" aria-label="Filter by branch">
+<div class="dev-country-tabs" role="tablist" aria-label="Filter by branch">
     <?php foreach ($this->getStoreTabs() as $tab): ?>
         <a href="<?php echo $this->escapeHtml($this->getStoreTabUrl($tab['id'])) ?>"
-           class="mmd-store-tab<?php echo $active === (int) $tab['id'] ? ' is-active' : '' ?>"
+           class="dev-country-btn<?php echo $active === (int) $tab['id'] ? ' active' : '' ?>"
            role="tab"
-           aria-selected="<?php echo $active === (int) $tab['id'] ? 'true' : 'false' ?>">
+           aria-selected="<?php echo $active === (int) $tab['id'] ? 'true' : 'false' ?>"
+           data-store-id="<?php echo (int) $tab['id'] ?>">
             <?php echo $this->escapeHtml($tab['label']) ?>
         </a>
     <?php endforeach; ?>

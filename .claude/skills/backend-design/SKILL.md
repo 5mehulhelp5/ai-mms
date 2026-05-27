@@ -10,6 +10,44 @@ new colors, paddings, or button styles per-page.** Everything routes through one
 token set and a small number of component rules. New admin UI must reuse them so
 the panel stays consistent.
 
+## Hard rule: ONE global design system, no per-page ad-hoc components
+
+Every admin page — core Magento, MMD module, custom dashboard, role-manager,
+search-spam cleanup, anything new — must look like part of the same product.
+That means:
+
+- **One typography system.** Body text inherits the admin font stack and base
+  size from `dark-theme.css`. New templates do NOT set their own `font-family`,
+  do NOT override the base `font-size`, and do NOT introduce display fonts.
+  Section labels, headings, and body all flow from §"Density preference"
+  defaults below — pick the matching role, don't reinvent the scale.
+- **One color palette.** Every color is a CSS custom property declared in
+  `:root` (`--d*`, `--b*`, `--t*`, `--brand`, `--blue`, etc.). No new raw hex
+  in a template, phtml, or inline `style=""`. If the shade you need isn't a
+  token, add the token to `:root` first.
+- **One component library.** Tabs, buttons, tables, pagers, checkboxes,
+  badges, action icons, branch-pill strips, modals — each has exactly one
+  canonical implementation referenced below. New code reuses the class names
+  (`.dev-country-btn`, `.mm-btn-primary`, `.mm-table`, `.mmd-grid-actions`,
+  etc.); new code does NOT clone the markup into a per-feature class
+  (`.my-feature-tab`, `.spam-pill`, `.search-btn`).
+- **One button registration pattern.** Page-level action buttons (Save / Add
+  New / "Clean Spam" / etc.) are registered via `$this->_addButton()` on the
+  block (so they flow through `Mage_Adminhtml_Block_Widget_Container::getButtonsHtml()`
+  and inherit §18 styling). Templates do NOT emit raw `<a class="button">` or
+  `<button>` markup for page-level actions — that path produces a visually
+  smaller, inconsistent control. The exception is a button rendered *inside*
+  a form row or card body, where `.mm-btn` / `.mm-btn-primary` is used.
+- **No "this page is special" exemption.** If a new feature seems to need a
+  bespoke component, the answer is almost always to extend an existing one or
+  to file the gap as a new entry in this skill — not to drop a one-off into
+  the template.
+
+When reviewing or writing admin code, the test is: *would a screenshot of this
+page look indistinguishable from a screenshot of the Search Terms / Cache /
+Catalog grid in terms of typography, spacing, and control style?* If not,
+that's the bug.
+
 ## Density preference — compact, not airy
 
 Strongly prefer **compact** layouts. Admin users are power users who want
@@ -345,6 +383,81 @@ Rules:
   `sidebar-nav.css` §header (`.entry-edit-head, .box-head, .head` → transparent).
   If you spot a new gray strip, patch at source — don't layer overrides.
 
+## Branch / store filter pills (admin-wide — `admin-dashboard.css`)
+
+When a page lets the admin filter by country / store view (Search Terms,
+Search Spam cleanup, Marketing Dashboard, Registrations, etc.) the strip is
+**always** the canonical pill component. Defined in
+`skin/adminhtml/default/default/admin-dashboard.css` (`.dev-country-tabs` +
+`.dev-country-btn`). Default state = ghost (transparent + slate border),
+active state = solid `--brand` (`#2563eb`) fill with white text.
+
+Markup (use this exact class set — no per-page CSS):
+
+```html
+<div class="dev-country-tabs" role="tablist" aria-label="Filter by branch">
+    <a class="dev-country-btn active" href="?store=0"
+       role="tab" aria-selected="true"  data-store-id="0">All</a>
+    <a class="dev-country-btn"        href="?store=1"
+       role="tab" aria-selected="false" data-store-id="1">Singapore</a>
+    <!-- … one per store … -->
+</div>
+```
+
+Hard rules:
+
+- **Never invent a parallel class** (`.mmd-store-tabs`, `.search-tabs`,
+  `.country-filter`, etc.). That was the v1 mistake on Search Terms; the
+  retired `.mmd-store-tabs` block in `sidebar-nav.css` was deleted so the
+  alternative no longer exists.
+- **Never style "connected tab" markup** (shared bottom border, no gap
+  between tabs, rounded only on the top corners). The canonical pill is a
+  separated rounded rectangle with `gap: 6px`.
+- The active pill is the **brand blue solid**, not a tinted hover state, not
+  a darker gray — the contrast is intentional so admins can spot which scope
+  they're in at a glance.
+- The strip wraps on narrow viewports (already in the canonical rule); don't
+  set `flex-wrap: nowrap` or a fixed width per-page.
+- Branchscope (`MMD_Branchscope_Block_Store_Switcher`) already emits this
+  exact markup on every standard Magento admin page — your new feature
+  inherits the same look automatically just by reusing the class names.
+
+Reference rendering: branch pills above the Marketing Dashboard, Lead
+Manager, Registrations grid, and Search Terms page.
+
+## Page-level button registration (admin-wide — Mage_Adminhtml_Block_Widget_Container)
+
+Page-level action buttons in the `.content-header` toolbar (Add New, Save,
+Delete, "Clean Spam", "Export CSV", etc.) are registered on the container
+block via `_addButton()`, **not** emitted as raw markup in the template.
+
+```php
+// In a container block constructor or _prepareLayout():
+$this->_addButton('clean_spam', array(
+    'label'   => Mage::helper('catalog')->__('Clean Spam'),
+    'onclick' => "setLocation('" . $this->getUrl('mmd/catalog_search_spam/index') . "')",
+    'class'   => '',          // empty = default page-action style
+), 0, 5);
+```
+
+The container's `getButtonsHtml()` renders all registered buttons through
+the same `Mage_Adminhtml_Block_Widget_Button` pipeline — so they share the
+exact §18 size, padding, border-radius, font weight, and hover state with
+every other page-action button in the admin.
+
+Hard rules:
+
+- **Never write `<a class="button">…</a>` in a phtml** to add a new
+  page-action button — that path produces a noticeably smaller, visually
+  inconsistent control (the link doesn't inherit the §18 button block).
+  That was the v1 mistake on Search Terms / Clean Spam.
+- **Never duplicate `Add New …` markup** with a hand-rolled `<button>`
+  alongside it — call `_addButton()` for both so they render identically.
+- For in-form / in-card buttons (Save inside a fieldset, "Add Row" inside
+  a sub-grid), use the `.mm-btn` / `.mm-btn-primary` family from the
+  Minimalist button section above. Container `_addButton()` is *only* for
+  the page-level toolbar.
+
 ## Per-page overrides
 
 When a core Magento admin page needs different behavior from the global
@@ -364,3 +477,6 @@ Keep overrides in a clearly commented, numbered section at the end of
 6. New override is body-class/id scoped and won't leak to other grids.
 7. **No gray backgrounds** on `<input>`, `<textarea>`, or `<td>` — transparent + border only. (See "Hard rule" section above.)
 8. Verified in the dark theme at the actual page. CSS/JS merging is on in admin — after editing `sidebar-nav.css`, flush **System → Cache Management → JavaScript/CSS Cache** before hard-refresh, or the bundled `media/css/HASH.css` will still serve the old rules.
+9. **Branch / store filter pills** use the canonical `.dev-country-tabs` + `.dev-country-btn` markup — no per-page tab class, no connected-tab look, active state = solid `--brand` blue.
+10. **Page-level action buttons** are registered via `_addButton()` on the container block — no raw `<a class="button">` or `<button>` markup in templates for toolbar actions.
+11. Typography inherits from `dark-theme.css` — no per-page `font-family` or base `font-size` overrides; new headings/labels reuse the density-preference scale at the top of this doc.
