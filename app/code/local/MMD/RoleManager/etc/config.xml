@@ -124,4 +124,18 @@
             </updates>
         </layout>
     </adminhtml>
+
+    <!-- Class formation cron — backend-only worker that materialises
+         course_runs + course_run_enrolments from sales_flat_order. Runs
+         every minute. Reads sales tables only; never written by storefront
+         code paths. See Model/Cron/ClassFormation.php for the full
+         frontend-invariant contract. -->
+    <crontab>
+        <jobs>
+            <mmd_rolemanager_class_formation>
+                <schedule><cron_expr>* * * * *</cron_expr></schedule>
+                <run><model>mmd_rolemanager/cron_classFormation::run</model></run>
+            </mmd_rolemanager_class_formation>
+        </jobs>
+    </crontab>
 </config>
