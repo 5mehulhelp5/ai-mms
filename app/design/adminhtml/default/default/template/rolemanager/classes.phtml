@@ -25,6 +25,10 @@ $nameAttrId = (int) $read->fetchOne("
      WHERE t.entity_type_code = 'catalog_product' AND a.attribute_code = 'name'
 ");
 
+// Scope: show only classes scheduled to run in 2026 or later. Older
+// classes are historical and live in the existing Completed Classes
+// dashboard panel; this grid is the operational view of "what classes
+// exist right now and going forward".
 $rows = array();
 if ($nameAttrId) {
     $rows = $read->fetchAll("
@@ -44,6 +48,8 @@ if ($nameAttrId) {
                 FROM `$enrolTbl`
                GROUP BY run_id
           ) en ON en.run_id = cr.run_id
+         WHERE cr.course_start_date IS NOT NULL
+           AND cr.course_start_date >= '2026-01-01'
          ORDER BY cr.course_start_date DESC, cr.course_start_time DESC
     ");
 }
@@ -92,9 +98,8 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
         </div>
         <select class="rm-select" id="rm-state-filter" onchange="rmFilter()">
             <option value="">All States</option>
-            <option value="upcoming">Upcoming</option>
-            <option value="ongoing">Ongoing</option>
-            <option value="completed">Completed</option>
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
         </select>
     </div>
 
@@ -125,14 +130,15 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
                 $timeStr = date('H:i', strtotime($r['course_start_time'])) . '–' . date('H:i', strtotime($r['course_end_time']));
             }
             $trainerName = isset($trainerMap[(int)$r['trainer_option_id']]) ? $trainerMap[(int)$r['trainer_option_id']] : '';
-            // State: upcoming if start > today, completed if end < today, else ongoing.
-            $state = 'upcoming';
-            if ($r['course_end_date'] && $r['course_end_date'] < $today) $state = 'completed';
-            elseif ($r['course_start_date'] && $r['course_start_date'] <= $today && (!$r['course_end_date'] || $r['course_end_date'] >= $today)) $state = 'ongoing';
+            // State: every class starts Pending. It becomes Confirmed the
+            // moment a trainer is assigned (trainer_option_id > 0). The
+            // upcoming/ongoing/completed date-bucket lives in the existing
+            // dashboard panels; this grid focuses on the operational
+            // readiness question — "is this class ready to run?".
+            $state = ((int)$r['trainer_option_id'] > 0) ? 'confirmed' : 'pending';
             $stateColor = array(
-                'upcoming'  => array('bg'=>'rgba(59,130,246,.15)','color'=>'#60a5fa'),
-                'ongoing'   => array('bg'=>'rgba(34,197,94,.15)', 'color'=>'#22c55e'),
-                'completed' => array('bg'=>'rgba(100,116,139,.15)','color'=>'#94a3b8'),
+                'pending'   => array('bg'=>'rgba(245,158,11,.15)', 'color'=>'#f59e0b'),
+                'confirmed' => array('bg'=>'rgba(34,197,94,.15)',  'color'=>'#22c55e'),
             );
             $sc = $stateColor[$state];
             $editUrl = $assignBase . '#class-' . $classId;
@@ -169,7 +175,7 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
         <?php endforeach; ?>
         <?php if (empty($rows)): ?>
             <tr><td colspan="10" style="padding:48px 12px;text-align:center;color:#64748b">
-                No classes yet. Classes will appear once orders are placed (auto-formed by the cron worker).
+                No classes scheduled for 2026 or later yet. New classes appear here automatically once orders are placed (the cron worker materialises them from sales_flat_order every minute).
             </td></tr>
         <?php endif; ?>
         </tbody>
