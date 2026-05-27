@@ -15,6 +15,52 @@ $rows = $read->fetchAll("
     ORDER BY u.firstname
 ");
 
+// Storefront-registered customers also surface here as learners. They live in
+// customer_entity (EAV) — pull firstname/lastname via the two customer_entity_varchar
+// rows whose attribute_codes are 'firstname'/'lastname'. Sorted by created_at DESC
+// so the most recent learners appear first; pagination handles the long tail.
+$customerTable = $resource->getTableName('customer/entity');
+$customerVarchar = $resource->getTableName('customer/entity_varchar');
+$eavAttr = $resource->getTableName('eav/attribute');
+$eavType = $resource->getTableName('eav/entity_type');
+$attrFirstId = (int) $read->fetchOne(
+    "SELECT a.attribute_id FROM {$eavAttr} a INNER JOIN {$eavType} t ON t.entity_type_id=a.entity_type_id WHERE t.entity_type_code='customer' AND a.attribute_code='firstname'"
+);
+$attrLastId = (int) $read->fetchOne(
+    "SELECT a.attribute_id FROM {$eavAttr} a INNER JOIN {$eavType} t ON t.entity_type_id=a.entity_type_id WHERE t.entity_type_code='customer' AND a.attribute_code='lastname'"
+);
+$customers = array();
+if ($attrFirstId && $attrLastId) {
+    $customers = $read->fetchAll("
+        SELECT ce.entity_id AS customer_id,
+               fn.value AS firstname,
+               ln.value AS lastname,
+               ce.email,
+               ce.created_at,
+               ce.is_active,
+               ce.store_id
+        FROM {$customerTable} ce
+        LEFT JOIN {$customerVarchar} fn ON fn.entity_id = ce.entity_id AND fn.attribute_id = {$attrFirstId}
+        LEFT JOIN {$customerVarchar} ln ON ln.entity_id = ce.entity_id AND ln.attribute_id = {$attrLastId}
+        ORDER BY ce.created_at DESC
+    ");
+}
+
+// Map store_id → country code in one shot so the per-row lookup stays cheap.
+$storeRows = $read->fetchAll("SELECT store_id, code FROM " . $resource->getTableName('core/store'));
+$storeIdToCode = array();
+foreach ($storeRows as $sr) {
+    // Magento store codes here are like 'default','sg','my','gh','ng','bt','in'.
+    // Normalise to upper-case 2-letter country code. The default SG store is
+    // commonly code='default' in this install.
+    $c = strtoupper((string)$sr['code']);
+    if ($c === 'DEFAULT' || $c === 'SG') $c = 'SG';
+    if (in_array($c, array('SG','MY','GH','NG','BT','IN'), true)) {
+        $storeIdToCode[(int)$sr['store_id']] = $c;
+    }
+}
+$learnerEditUrlBase = Mage::helper('adminhtml')->getUrl('adminhtml/customer/edit', array('id' => '___ID___'));
+
 /**
  * Infer the operator's home store from their email domain. We don't store
  * a store_id on admin_user (Magento 1 admin users are not store-scoped) but
@@ -189,6 +235,58 @@ $badgeColors = array(
                         </button>
                     </div>
                     <?php endif; ?>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+
+        <?php
+        // Storefront-registered customers → rendered as Learner rows. Same
+        // markup as admin rows so the existing search / role-filter /
+        // pagination JS handles them without changes. data-uid is prefixed
+        // with 'c' so it can't collide with an admin_user.user_id and so the
+        // Edit action knows to use the customer URL.
+        $learnerBc = isset($badgeColors['learner']) ? $badgeColors['learner'] : array('bg'=>'#1f2937','color'=>'#94a3b8','dot'=>'#64748b');
+        $learnerLabel = htmlspecialchars($helper->getRoleLabel('learner'));
+        foreach ($customers as $cust):
+            $fullName = htmlspecialchars(trim($cust['firstname'] . ' ' . $cust['lastname']));
+            if ($fullName === '') $fullName = '(no name)';
+            $createdDate = $cust['created_at'] ? date('d M Y', strtotime($cust['created_at'])) : '—';
+            $sCode = isset($storeIdToCode[(int)$cust['store_id']]) ? $storeIdToCode[(int)$cust['store_id']] : rm_inferStoreFromEmail($cust['email']);
+            $sStyle = isset($storeColors[$sCode]) ? $storeColors[$sCode] : array('bg'=>'rgba(100,116,139,.12)','color'=>'#94a3b8');
+            $isActive = (int)$cust['is_active'];
+            $editUrl = str_replace('___ID___', (int)$cust['customer_id'], $learnerEditUrlBase);
+        ?>
+            <tr class="rm-row" data-uid="c<?php echo (int)$cust['customer_id'] ?>"
+                data-name="<?php echo strtolower($fullName) ?>"
+                data-email="<?php echo strtolower((string)$cust['email']) ?>"
+                data-roles="learner"
+                data-active="<?php echo $isActive ?>">
+                <td><span class="rm-name"><?php echo $fullName ?></span></td>
+                <td><span class="rm-email"><?php echo htmlspecialchars((string)$cust['email']) ?></span></td>
+                <td><span style="color:#475569">—</span></td>
+                <td>
+                    <?php if ($sCode !== ''): ?>
+                        <span class="rm-badge" style="background:<?php echo $sStyle['bg'] ?>;color:<?php echo $sStyle['color'] ?>;"><?php echo $sCode ?></span>
+                    <?php else: ?>
+                        <span style="color:#475569">—</span>
+                    <?php endif; ?>
+                </td>
+                <td><span class="rm-email" style="font-variant-numeric:tabular-nums"><?php echo $createdDate ?></span></td>
+                <td>
+                    <div class="rm-roles">
+                        <span class="rm-badge" style="background:<?php echo $learnerBc['bg'] ?>;color:<?php echo $learnerBc['color'] ?>;">
+                            <span class="rm-badge-dot" style="background:<?php echo $learnerBc['dot'] ?>;"></span>
+                            <?php echo $learnerLabel ?>
+                        </span>
+                    </div>
+                </td>
+                <td><span class="rm-status <?php echo $isActive ? 'rm-status-active' : 'rm-status-disabled' ?>"><?php echo $isActive ? 'Active' : 'Disabled' ?></span></td>
+                <td>
+                    <div class="rm-actions">
+                        <a href="<?php echo $editUrl ?>" class="rm-icon rm-icon-edit" title="Edit Learner" aria-label="Edit Learner">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                        </a>
+                    </div>
                 </td>
             </tr>
         <?php endforeach; ?>

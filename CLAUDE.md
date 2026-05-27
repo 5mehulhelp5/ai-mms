@@ -27,6 +27,15 @@ OpenMage 1.x (Magento 1 LTS v20.12.3) customized as a Course Registration + LMS 
   When a feature should only fire for one segment (funding tiles, subsidy badges, WSQ-specific copy), key off the SKU prefix **and** `Mage::app()->getStore()->getCode()` together — never assume "all SG = WSQ" or "all C-prefix = SG".
 - **The admin panel is rebranded** as "Tertiary Infotech Academy — Magento Management System". Treat the admin as a TMS for instructors + operations staff, not a generic e-commerce backoffice.
 
+### Learners — who they are and how classes form
+
+This is an **LMS**, not a generic e-commerce store. The customer-facing storefront is a **course registration portal**, not a shopping mall:
+
+- **Every storefront-registered account is a Learner.** When someone signs up via the frontend (`tertiarycourses.com.sg/customer/account/create` and the equivalent under MY/GH/NG/BT/IN domains) they go into `customer_entity` like a normal Magento customer, but conceptually they are a *Learner*. Anywhere the UI talks about "Users" it should treat these rows as the Learner cohort and never as "shoppers". The Users page under Role Management (`adminhtml/rolemanagement/index`) explicitly UNIONs `admin_user` (operators) with `customer_entity` (learners) so both populations appear in one paginated list — operators carry their Role Manager role(s), learners are tagged with the `learner` role badge automatically (no row in `mmd_user_role_map` required).
+- **Learners register for courses, not products.** A "product" (course) has scheduled run-dates set up in the admin. When a learner completes the registration flow for a course on a specific date, that pair of `(learner, course_run_date)` is what eventually composes a *class roster*.
+- **Class formation = the set of learners who registered for the same course on the same date.** Trainers see the resulting roster on their dashboard; ops staff see it under Course Management. Don't model classes as a separate noun in admin UI — they emerge from the (course, date) join across learner registrations. Any feature that adds "create class" UI should default to picking a course + date + auto-pulling the registered learners, never asking the operator to hand-enter the roster.
+- **Implications for admin features**: when surfacing learners (autocompletes, pickers, lookup grids) always pull from `customer_entity` filtered by the relevant `store_id` for that country. Never invent a separate "learner" table — that data lives in `customer_entity` and breaking it would cascade through orders, registrations, certificates, and email templates.
+
 ## Pre-push verification (MANDATORY)
 
 **Never `git push` until localhost is verified error-free.** Production redeploys
