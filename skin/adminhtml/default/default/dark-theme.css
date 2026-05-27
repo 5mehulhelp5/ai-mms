@@ -398,7 +398,7 @@ body .header-top {
     line-height: 1.2 !important;
 }
 /* Page container */
-#page\:main-container { padding: 16px 22px !important; }
+#page\:main-container { padding: 16px 10px 16px 8px !important; }
 
 /* === 5b. Sidebar === */
 /* Side column for legacy admin pages (Categories tree, Reviews ratings, etc.).
@@ -2161,15 +2161,18 @@ html.is-order-view .content-header {
     padding: 6px 11px !important;
     font-size: 12px !important;
 }
-/* Header buttons grouped on the right. */
+/* Header buttons grouped on the right. Keep Reset / Delete / Save (and any
+   additional buttons like "Sort Courses") on a single row — without this
+   nowrap the category-edit Save button drops to a second line below
+   Reset+Delete on narrow viewports. */
 #adminActionsRow .form-buttons,
 #adminActionsRow .content-buttons {
     display: flex !important;
-    flex-wrap: wrap !important;
+    flex-wrap: nowrap !important;
     gap: 6px !important;
     margin: 0 0 4px 0 !important;
     padding: 0 !important;
-    white-space: normal !important;
+    white-space: nowrap !important;
     text-align: right !important;
     flex: 0 0 auto !important;
 }
