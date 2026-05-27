@@ -2535,3 +2535,30 @@ li.level2 > a > span > .cat-label,
 }
 .trainer-card__body p { margin: 0 0 10px; }
 .trainer-card__body p:last-child { margin-bottom: 0; }
+
+/* === Storefront homepage banner: lock to fixed height ===
+   Ultimo's slideshow uses .owl-wrapper-outer.autoHeight which sizes
+   itself to the loaded image's intrinsic height. If the image is
+   slow / broken / still loading (or the user deploys a new asset
+   that hasn't been pushed to R2 yet), the slide collapses, the
+   pagination dots jump up, and the page content reflows below.
+   Pin both the slide row AND its <img> to a fixed 404px so the
+   layout is stable regardless of asset state. object-fit:cover
+   crops oversized assets without stretching. */
+.the-slideshow .owl-wrapper-outer,
+.the-slideshow .owl-wrapper-outer.autoHeight {
+    height: 404px !important;
+    min-height: 404px !important;
+    max-height: 404px !important;
+    overflow: hidden !important;
+}
+.the-slideshow .owl-wrapper, .the-slideshow .owl-item, .the-slideshow .owl-item > div {
+    height: 404px !important;
+}
+.the-slideshow .owl-item img, .the-slideshow .slides img {
+    width: 100% !important;
+    height: 404px !important;
+    object-fit: cover !important;
+    object-position: center center !important;
+    display: block !important;
+}
