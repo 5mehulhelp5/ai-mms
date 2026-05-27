@@ -148,6 +148,8 @@ Current state: all roles temporarily inherit the "Administrators" ACL group (ful
 
 ### Admin Theme
 
+**MANDATORY: every admin page must follow the `backend-design` skill.** When building or modifying any adminhtml UI — new modules, dashboards, grids, modals, buttons, badges, pagers — load the `backend-design` skill first and align to its design tokens (color palette, button styles, grid density, badge shapes, pagination treatment). The skill encodes the visual conventions of this dark admin theme; ignoring it produces pages that look like third-party Magento modules instead of part of the LMS. This applies even for tiny additions like a new pagination strip or a single button — small components that drift quickly turn into visual noise across screens. If a design decision isn't covered by the skill, propose the addition there first rather than ad-libbing.
+
 - Dark theme: `skin/adminhtml/default/default/dark-theme.css`
 - Role Management grid + modal: `app/design/adminhtml/default/default/template/rolemanager/management.phtml` (styles are inline; iterates roles by `getAllRoles()` order — edit `_roleLabels` in Helper/Data.php to reorder everywhere)
 - Custom header (role switcher + avatar menu): `app/design/adminhtml/default/default/template/page/header.phtml`

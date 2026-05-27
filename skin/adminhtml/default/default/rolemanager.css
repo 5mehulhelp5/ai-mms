@@ -253,7 +253,11 @@ body:has(.role-select-card) {
 .cp-add-item:hover{border-color:#22d3ee}
 @media (max-width:900px){.cp-wrap{grid-template-columns:1fr}.cp-side{position:static}}
 
-/* === Users page pagination (minimalist) === */
+/* === Users page pagination (minimalist) ===
+   Plain text numbers, no borders or filled buttons. Active page is just
+   bold + slightly brighter; hover dims into a softer blue. Matches the
+   visual weight of other backend secondary controls so the table is the
+   focus, not the pager. */
 .rm-pagination{
     display:flex;
     align-items:center;
@@ -264,16 +268,30 @@ body:has(.role-select-card) {
     font-size:12px;
 }
 .rm-pagination-summary{color:#64748b;font-size:12px}
-.rm-pagination-controls{display:inline-flex;align-items:center;gap:4px}
-.rm-pagination-btn{
-    display:inline-flex;align-items:center;justify-content:center;
-    min-width:28px;height:26px;padding:0 8px;
-    border:1px solid #334155;border-radius:6px;
-    background:transparent;color:#cbd5e1;font-size:12px;font-weight:500;
-    cursor:pointer;transition:background .12s, color .12s, border-color .12s;
-    user-select:none;
+.rm-pagination-controls{display:inline-flex;align-items:center;gap:2px}
+button.rm-pagination-btn,
+.rm-pagination-btn.rm-pagination-btn{
+    display:inline-flex !important;align-items:center !important;justify-content:center !important;
+    min-width:24px !important;height:24px !important;padding:0 6px !important;
+    border:none !important;border-radius:0 !important;
+    background:transparent !important;background-image:none !important;
+    color:#94a3b8 !important;font-size:12px !important;font-weight:400 !important;
+    cursor:pointer !important;transition:color .12s !important;
+    user-select:none !important;
+    box-shadow:none !important;text-shadow:none !important;
+    line-height:1 !important;letter-spacing:0 !important;
+    transform:none !important;
 }
-.rm-pagination-btn:hover:not(:disabled){background:rgba(59,130,246,.08);color:#60a5fa;border-color:#60a5fa}
-.rm-pagination-btn:disabled{opacity:.35;cursor:not-allowed}
-.rm-pagination-btn.active{background:#2563eb;color:#fff;border-color:#2563eb}
-.rm-pagination-ellipsis{padding:0 4px;color:#64748b}
+button.rm-pagination-btn:hover:not(:disabled),
+.rm-pagination-btn.rm-pagination-btn:hover:not(:disabled){
+    color:#60a5fa !important;background:transparent !important;transform:none !important;box-shadow:none !important;
+}
+button.rm-pagination-btn:disabled,
+.rm-pagination-btn.rm-pagination-btn:disabled{
+    opacity:.3 !important;cursor:not-allowed !important;
+}
+button.rm-pagination-btn.active,
+.rm-pagination-btn.rm-pagination-btn.active{
+    color:#f1f5f9 !important;font-weight:600 !important;background:transparent !important;
+}
+.rm-pagination-ellipsis{padding:0 4px;color:#475569}
