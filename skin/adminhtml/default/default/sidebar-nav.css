@@ -61,7 +61,7 @@
 
 .admin-main {
     margin-left: 250px;
-    padding-left: 4px;
+    padding-left: 20px;
     flex: 1;
     min-width: 0;
     transition: margin-left 0.25s ease;
@@ -4417,7 +4417,7 @@ body div.grid.tier.form-list,
    ~68px of nested wrapper padding. Cap every wrapper layer's LEFT
    horizontal space to 4px before content starts.
 */
-body .admin-main { padding-left: 4px !important; }
+body .admin-main { padding-left: 20px !important; }
 body .admin-main .middle { padding-left: 0 !important; }
 body .admin-main #page\:main-container { padding-left: 0 !important; padding-right: 0 !important; }
 body .admin-main .columns { gap: 0 !important; padding-left: 0 !important; }
