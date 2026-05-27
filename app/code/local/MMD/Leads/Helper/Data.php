@@ -129,6 +129,35 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Per-store brand name used in the auto-reply header/signature.
+     * Resolved from the store code so it is immune to missing
+     * `general/store_information/name` overrides in core_config_data
+     * (which silently fall back to the default-scope "Tertiary Infotech
+     * Academy" — see feedback_auto_reply_per_store memory).
+     */
+    public function getStoreBrandName($storeId)
+    {
+        static $map = array(
+            'singapore' => 'Tertiary Courses Singapore',
+            'malaysia'  => 'Tertiary Courses Malaysia',
+            'ghana'     => 'Tertiary Courses Ghana',
+            'nigeria'   => 'Tertiary Courses Nigeria',
+            'bhutan'    => 'Tertiary Courses Bhutan',
+            'india'     => 'Tertiary Courses India',
+        );
+        try {
+            $code = Mage::app()->getStore($storeId)->getCode();
+            if (isset($map[$code])) {
+                return $map[$code];
+            }
+            $frontendName = (string) Mage::app()->getStore($storeId)->getFrontendName();
+            return $frontendName !== '' ? $frontendName : 'Tertiary Infotech Academy';
+        } catch (Exception $e) {
+            return 'Tertiary Infotech Academy';
+        }
+    }
+
+    /**
      * Resolve recipient + sender for the auto-reply. We send FROM the
      * source store's "General Contact" identity (the Reply-To observer in
      * MMD_Email also kicks in here, so customer replies route correctly).
@@ -180,6 +209,7 @@ class MMD_Leads_Helper_Data extends Mage_Core_Helper_Abstract
                 'course_info_html' => $this->buildCourseInfoHtml($lead),
                 'contact_html'     => $this->buildContactHtml($lead),
                 'store'            => Mage::app()->getStore($storeId),
+                'store_brand'      => $this->getStoreBrandName($storeId),
             );
             $ccList = $this->_getAutoReplyCc($storeId);
 
