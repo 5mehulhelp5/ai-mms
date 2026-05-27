@@ -81,6 +81,79 @@ country-specific course variant that doesn't exist elsewhere), it's an
 admin task on a separate product record, not a per-store name override
 on a shared product.
 
+### 4. Every course must carry customised meta_title, meta_description, meta_keyword — per store, per funding segment
+
+No course may ship to the storefront with empty / default / auto-generated
+SEO meta. The three EAV fields (`meta_title`, `meta_description`,
+`meta_keyword`) are **mandatory editorial content**, and the right copy
+depends on **which store the course is being viewed under** *and* **which
+funding segment the SKU belongs to**. A single "global" meta override at
+default scope (store_id=0) is not acceptable for the funded segments —
+the funding language is store-specific and a SG learner searching for
+"SkillsFuture Notion course" needs different keywords than a MY learner
+searching for "HRD Corp Notion training".
+
+**Required per-segment customisation:**
+
+| Segment | SKU prefix | Store(s) | Meta copy must reference |
+|---------|------------|----------|--------------------------|
+| 🇸🇬 SG **WSQ** | `TGS-` | SG | WSQ, SkillsFuture Credit, SSG funding, PSEA, UTAP, IBF / SFEC / Absentee Payroll as applicable, "Singapore" |
+| 🇸🇬 SG **non-WSQ** | `C…` | SG | "Singapore", course topic + role keywords (no WSQ/SkillsFuture claims — these courses are not funded) |
+| 🇲🇾 Malaysia | `M…` | MY | HRD Corp Claimable, HRDF, "Malaysia" / "Kuala Lumpur" |
+| 🇳🇬 / 🇬🇭 / 🇧🇹 / 🇮🇳 | `M…` | NG / GH / BT / IN | country name + role/topic keywords; **no SG/MY funding claims** |
+
+Rules:
+
+- **No empty meta on any active course in any store it's visible in.** A
+  product with `status=enabled` for a store view must have non-empty
+  `meta_title`, `meta_description`, `meta_keyword` *at that store's
+  scope* (or inherited from default scope only if the default copy is
+  segment-appropriate — i.e. fine for non-WSQ SG carrying into other
+  stores only if those keywords still apply, which is rarely true).
+- **WSQ funding language belongs only on SG / TGS- SKUs.** Never write
+  "WSQ", "SkillsFuture", "SSG", "PSEA", "UTAP" into MY/NG/GH/BT/IN
+  meta_title or meta_description. Conversely, never write "HRD Corp" or
+  "HRDF" into SG meta.
+- **Don't auto-generate from `name`.** Copying the product name into
+  meta_title with no suffix wastes the SERP snippet — the whole point
+  of `meta_title` per [Constraint 2](#2-meta_title-is-allowed-to-carry-seo-suffixes--thats-its-job)
+  is to add keyword-rich context the H1 can't carry.
+- **Length budgets:** `meta_title` ≤ 60 chars rendered (Google truncates
+  ~580px). `meta_description` 140–160 chars. `meta_keyword` is not used
+  by Google but is still indexed by our internal catalog search — keep
+  it populated with 5–15 comma-separated topic keywords.
+
+**Where this rule kicks in:**
+
+- New course creation flow (admin "Edit Course" page) — meta fields must
+  be required-on-save for the SG default scope at minimum, and the admin
+  must be nudged to fill MY scope if the course is enabled there.
+- Bulk import / migration scripts that create products — must not leave
+  meta blank; either populate from a per-segment template or block the
+  import.
+- Audits — `scripts/maintenance/*` should include a periodic SEO-meta
+  completeness check per store/segment.
+
+**Validation query** (run before treating any SEO ship as done):
+
+```sql
+-- Active courses missing meta_title at SG store scope (1)
+SELECT cpe.entity_id, cpe.sku
+FROM catalog_product_entity cpe
+LEFT JOIN catalog_product_entity_varchar mt
+  ON mt.entity_id = cpe.entity_id
+ AND mt.store_id IN (0,1)
+ AND mt.attribute_id = (SELECT attribute_id FROM eav_attribute
+                        WHERE attribute_code='meta_title'
+                          AND entity_type_id=(SELECT entity_type_id FROM eav_entity_type
+                                              WHERE entity_type_code='catalog_product'))
+WHERE (mt.value IS NULL OR mt.value='')
+  AND cpe.sku LIKE 'TGS-%';   -- repeat for C%, M% segments and other stores
+```
+
+The expected result on a healthy catalog is **zero rows**. Any non-empty
+result is an editorial backlog item, not an acceptable state.
+
 ---
 
 ---
