@@ -61,7 +61,7 @@
 
 .admin-main {
     margin-left: 250px;
-    padding-left: 24px;
+    padding-left: 8px;
     flex: 1;
     min-width: 0;
     transition: margin-left 0.25s ease;
@@ -763,7 +763,7 @@ body.sidebar-collapsed .admin-main {
     max-width: calc(100vw - 60px);
 }
 .admin-main .middle {
-    padding: 24px !important;
+    padding: 16px 12px 16px 0 !important;
     min-width: 0;
 }
 .admin-main #page\:main-container {
@@ -1859,7 +1859,7 @@ body .admin-main [id$="_massaction"] button span span span {
     padding: 0 !important;
 }
 .admin-main .main-col-inner {
-    padding: 20px !important;
+    padding: 12px 8px 12px 0 !important;
 }
 
 /* === 22. Notifications within sidebar layout === */
