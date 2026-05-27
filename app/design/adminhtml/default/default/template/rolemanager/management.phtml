@@ -27,6 +27,15 @@ foreach ($rows as $r) {
 $helper = Mage::helper('mmd_rolemanager');
 $allRoles = $helper->getAllRoles();
 $preselectRole = (string) Mage::app()->getRequest()->getParam('role');
+// "Admin Users" entry point: keep the page title in sync with the filter so
+// the sidebar label and H1 match.
+if ($preselectRole === 'admin') {
+    $pageTitle = 'Admin Users';
+} elseif ($preselectRole !== '' && isset($allRoles[$preselectRole])) {
+    $pageTitle = $allRoles[$preselectRole] . ' Users';
+} else {
+    $pageTitle = 'Users';
+}
 $saveUrl = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/save');
 $toggleUrl = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/toggle');
 $deleteUrl = Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement/delete');
@@ -44,7 +53,7 @@ $badgeColors = array(
 
 <div class="rm-wrap">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
-        <h2 class="rm-title" style="margin:0">Users</h2>
+        <h2 class="rm-title" style="margin:0"><?php echo htmlspecialchars($pageTitle) ?></h2>
         <button type="button" onclick="rmNew()" style="padding:8px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">+ Add User</button>
     </div>
 

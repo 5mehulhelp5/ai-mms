@@ -19,15 +19,15 @@
 .rm-search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#64748b}
 .rm-select{padding:10px 14px;background:#1f2937;border:1px solid #374151;border-radius:10px;color:#f1f5f9;font-size:13px;outline:none;min-width:140px}
 .rm-table{width:100%;border-collapse:separate;border-spacing:0}
-.rm-table th{text-align:left;padding:8px 12px;color:#64748b;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #1f2937;white-space:nowrap}
-.rm-table td{padding:7px 12px;border-bottom:1px solid #1f2937;vertical-align:middle;white-space:nowrap;line-height:1.3}
+.rm-table th{text-align:left;padding:5px 10px;color:#64748b;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #1f2937;white-space:nowrap;line-height:1.2}
+.rm-table td{padding:3px 10px;border-bottom:1px solid #1f2937;vertical-align:middle;white-space:nowrap;line-height:1.2}
 .rm-table tr:hover td{background:rgba(30,41,59,.5)}
-.rm-name{color:#f1f5f9;font-weight:500;font-size:13px}
-.rm-email{color:#94a3b8;font-size:12.5px}
+.rm-name{color:#f1f5f9;font-weight:500;font-size:12.5px;line-height:1.2}
+.rm-email{color:#94a3b8;font-size:12px;line-height:1.2}
 .rm-roles{display:flex;flex-wrap:nowrap;gap:4px}
-.rm-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap;line-height:1.4}
+.rm-badge{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:9px;font-size:10px;font-weight:600;white-space:nowrap;line-height:1.4}
 .rm-badge-dot{width:5px;height:5px;border-radius:50%;display:inline-block;flex-shrink:0}
-.rm-status{padding:2px 10px;border-radius:10px;font-size:10.5px;font-weight:600}
+.rm-status{padding:1px 8px;border-radius:9px;font-size:10.5px;font-weight:600;line-height:1.5}
 .rm-status-active{background:rgba(34,197,94,.15);color:#22c55e}
 .rm-status-disabled{background:rgba(239,68,68,.15);color:#ef4444}
 .rm-actions{display:flex;gap:6px;white-space:nowrap}
@@ -54,8 +54,8 @@ button.rm-icon,
     display:inline-flex !important;
     align-items:center !important;
     justify-content:center !important;
-    width:26px !important;
-    height:26px !important;
+    width:22px !important;
+    height:22px !important;
     padding:0 !important;
     border:none !important;
     border-radius:6px !important;
