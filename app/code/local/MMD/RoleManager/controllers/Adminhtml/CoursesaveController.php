@@ -2700,4 +2700,139 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             'training_provider', 'admin', 'developer', 'trainer',
         ));
     }
+
+    /**
+     * Bulk-renumber the SORT positions of every product's "Course Date"
+     * custom-option in date order, in steps of 10.
+     *
+     * Scope:
+     *   - scope=store   : products visible on the website that owns the
+     *                     given store_id (catalog_product_website join)
+     *   - scope=global  : every product, regardless of store
+     *
+     * "Course Date" option = any catalog_product_option whose admin-scope
+     * (store_id=0) title OR description equals "course date"
+     * (case-insensitive). Matches the same heuristic used by the per-row
+     * "Delete Past Dates" feature.
+     *
+     * Returns JSON { success, scope, products_processed, values_renumbered,
+     *                products_skipped_no_dates }.
+     */
+    public function bulkRenumberAction()
+    {
+        $resp = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $req     = $this->getRequest();
+            $scope   = (string) $req->getParam('scope');
+            if (!in_array($scope, array('store', 'global'), true)) {
+                throw new Exception('scope must be "store" or "global"');
+            }
+            $storeId = (int) $req->getParam('store_id');
+
+            $resource = Mage::getSingleton('core/resource');
+            $r        = $resource->getConnection('core_read');
+            $w        = $resource->getConnection('core_write');
+            $tOpt     = $resource->getTableName('catalog/product_option');
+            $tTitle   = $resource->getTableName('catalog/product_option_title');
+            $tVal     = $resource->getTableName('catalog/product_option_type_value');
+
+            // 1. Find every option_id whose admin-scope title is "Course Date".
+            //    description column lives in the custom_options_option_description
+            //    table (added by MMD_CustomOptions); join LEFT so missing-row
+            //    products still match on title.
+            $tDesc = 'custom_options_option_description';
+            $sql = "SELECT o.option_id, o.product_id
+                    FROM {$tOpt} o
+                    JOIN {$tTitle} t ON t.option_id = o.option_id AND t.store_id = 0
+                    LEFT JOIN {$tDesc} d ON d.option_id = o.option_id
+                    WHERE LOWER(TRIM(t.title)) = 'course date'
+                       OR LOWER(TRIM(COALESCE(d.description, ''))) = 'course date'";
+
+            $params = array();
+            if ($scope === 'store') {
+                if ($storeId <= 0) throw new Exception('store_id required for scope=store');
+                $websiteId = (int) Mage::app()->getStore($storeId)->getWebsiteId();
+                $sql .= " AND o.product_id IN (SELECT product_id FROM " .
+                        $resource->getTableName('catalog/product_website') .
+                        " WHERE website_id = ?)";
+                $params[] = $websiteId;
+            }
+
+            $optionRows = $r->fetchAll($sql, $params);
+
+            $productsSeen      = array();
+            $productsProcessed = 0;
+            $productsSkipped   = 0;
+            $valuesRenumbered  = 0;
+
+            foreach ($optionRows as $row) {
+                $optionId = (int) $row['option_id'];
+                $pid      = (int) $row['product_id'];
+                $vals = $r->fetchAll(
+                    "SELECT option_type_id, reg_course
+                     FROM {$tVal}
+                     WHERE option_id = ?",
+                    array($optionId)
+                );
+                if (empty($vals)) continue;
+
+                // Parse reg_course (m/d/y, e.g. "5/29/26") into timestamps.
+                // Rows with blank / unparseable dates are pushed to the end and
+                // keep their existing sort_order untouched.
+                $dated   = array();
+                foreach ($vals as $v) {
+                    $raw = (string) $v['reg_course'];
+                    if ($raw === '') continue;
+                    $dt = DateTime::createFromFormat('n/j/y', $raw);
+                    if (!($dt instanceof DateTime)) continue;
+                    $dated[] = array(
+                        'id' => (int) $v['option_type_id'],
+                        'ts' => (int) $dt->getTimestamp(),
+                    );
+                }
+                if (empty($dated)) { $productsSkipped++; continue; }
+                usort($dated, function($a, $b){
+                    if ($a['ts'] === $b['ts']) return $a['id'] - $b['id'];
+                    return $a['ts'] - $b['ts'];
+                });
+
+                $sort = 10;
+                foreach ($dated as $item) {
+                    $w->update(
+                        $tVal,
+                        array('sort_order' => $sort),
+                        array('option_type_id = ?' => $item['id'])
+                    );
+                    $sort += 10;
+                    $valuesRenumbered++;
+                }
+                if (!isset($productsSeen[$pid])) {
+                    $productsSeen[$pid] = true;
+                    $productsProcessed++;
+                }
+            }
+
+            Mage::app()->cleanCache();
+
+            Mage::log(sprintf(
+                'bulkRenumber scope=%s storeId=%d optionRows=%d productsProcessed=%d productsSkippedNoDates=%d valuesRenumbered=%d',
+                $scope, $storeId, count($optionRows), $productsProcessed, $productsSkipped, $valuesRenumbered
+            ), null, 'mmd_schedule_save.log', true);
+
+            $resp = array(
+                'success'                   => true,
+                'scope'                     => $scope,
+                'store_id'                  => $storeId,
+                'products_processed'        => $productsProcessed,
+                'products_skipped_no_dates' => $productsSkipped,
+                'values_renumbered'         => $valuesRenumbered,
+            );
+        } catch (Exception $e) {
+            $resp['message'] = $e->getMessage();
+        }
+        $this->getResponse()
+            ->setHeader('Content-Type', 'application/json', true)
+            ->setBody(json_encode($resp));
+    }
 }

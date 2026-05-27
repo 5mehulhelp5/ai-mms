@@ -4879,9 +4879,13 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
-                        <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
+                        <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;">
                             <button type="button" class="cs-add-btn" title="Add session" aria-label="Add session" onclick="csAddRow(<?php echo $_oid ?>)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-                            <button type="button" class="cs-renumber-btn" onclick="csRenumberByDate(<?php echo $_oid ?>)" title="Rewrite SORT values to 10, 20, 30 … in date order. Click Save to persist.">Renumber sort by date (×10)</button>
+                            <button type="button" class="cs-renumber-btn" onclick="csRenumberByDate(<?php echo $_oid ?>)" title="This course only — rewrite SORT to 10, 20, 30 … in date order. Click Save to persist.">Renumber sort by date (×10) — this course</button>
+                            <span style="flex:0 0 auto;width:1px;height:18px;background:var(--b1,#384a60);margin:0 4px;"></span>
+                            <button type="button" class="cs-renumber-btn cs-renumber-bulk" data-scope="store" onclick="csBulkRenumber('store', this)" title="All products in the current store — rewrite SORT to 10, 20, 30 … in date order. Saves immediately.">Apply to all products in this store</button>
+                            <button type="button" class="cs-renumber-btn cs-renumber-bulk" data-scope="global" onclick="csBulkRenumber('global', this)" title="Every product across every store — rewrite SORT to 10, 20, 30 … in date order. Saves immediately.">Apply globally (all stores)</button>
+                            <span id="cs-bulk-status" style="color:var(--t4,#94a3b8);font-size:11px;"></span>
                         </div>
                         </div><!-- /.cs-opt-body -->
                     </div>
@@ -5000,6 +5004,47 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                                 head.style.color = 'var(--green,#22c55e)';
                                 setTimeout(function(){ head.style.color = ''; }, 600);
                             }
+                        };
+
+                        /* Server-side bulk renumber: rewrites SORT for every product's
+                           "Course Date" option in date order (×10). scope='store' uses
+                           the storefront the admin is currently editing under;
+                           scope='global' targets every product. Persists immediately —
+                           no Save & Continue needed. */
+                        window.csBulkRenumber = function(scope, btn) {
+                            var label = scope === 'store' ? 'every product in THIS STORE' : 'EVERY PRODUCT across ALL STORES';
+                            if (!confirm('Renumber the Course Date sort order for ' + label +
+                                ' in steps of 10 (earliest date = 10)?\n\n' +
+                                'This writes directly to the DB and cannot be undone.')) return;
+                            var status = document.getElementById('cs-bulk-status');
+                            if (status) status.textContent = 'Working…';
+                            if (btn) btn.disabled = true;
+                            var fd = new FormData();
+                            fd.append('form_key', '<?php echo Mage::getSingleton("core/session")->getFormKey() ?>');
+                            fd.append('scope', scope);
+                            fd.append('store_id', '<?php echo (int) Mage::app()->getStore()->getId() ?>');
+                            fetch('<?php echo Mage::helper("adminhtml")->getUrl("adminhtml/coursesave/bulkRenumber") ?>', {
+                                method: 'POST', body: fd, credentials: 'same-origin'
+                            })
+                            .then(function(r){ return r.json(); })
+                            .then(function(j){
+                                if (btn) btn.disabled = false;
+                                if (!j || !j.success) {
+                                    if (status) status.textContent = '';
+                                    alert('Renumber failed: ' + ((j && j.message) || 'unknown error'));
+                                    return;
+                                }
+                                var msg = 'Done. Products renumbered: ' + j.products_processed +
+                                          ' · values updated: ' + j.values_renumbered +
+                                          (j.products_skipped_no_dates ? ' · skipped (no dates): ' + j.products_skipped_no_dates : '');
+                                if (status) status.textContent = msg;
+                                alert(msg + '\n\nReload the page to see updated sort positions on this course.');
+                            })
+                            .catch(function(e){
+                                if (btn) btn.disabled = false;
+                                if (status) status.textContent = '';
+                                alert('Renumber failed: ' + e);
+                            });
                         };
 
                         window.csToggleRemove = function(btn, valueId) {
