@@ -4855,11 +4855,11 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                         <table class="cs-tbl">
                             <thead>
                                 <tr>
-                                    <th style="width:60px;">ID</th>
-                                    <th>Title</th>
-                                    <th style="width:140px;">Date</th>
-                                    <th style="width:110px;">Price</th>
-                                    <th style="width:80px;">Sort</th>
+                                    <th style="width:60px;"><span class="cs-sort-h" data-sort="id">ID <span class="cs-sort-arrow"></span></span></th>
+                                    <th><span class="cs-sort-h" data-sort="title">Title <span class="cs-sort-arrow"></span></span></th>
+                                    <th style="width:140px;"><span class="cs-sort-h" data-sort="date">Date <span class="cs-sort-arrow"></span></span></th>
+                                    <th style="width:110px;"><span class="cs-sort-h" data-sort="price">Price <span class="cs-sort-arrow"></span></span></th>
+                                    <th style="width:80px;"><span class="cs-sort-h cs-sort-active" data-sort="sort" data-dir="asc">Sort <span class="cs-sort-arrow">&#9650;</span></span></th>
                                     <th style="width:90px;">Action</th>
                                 </tr>
                             </thead>
@@ -4879,7 +4879,10 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
-                        <button type="button" class="cs-add-btn" title="Add session" aria-label="Add session" onclick="csAddRow(<?php echo $_oid ?>)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                        <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
+                            <button type="button" class="cs-add-btn" title="Add session" aria-label="Add session" onclick="csAddRow(<?php echo $_oid ?>)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                            <button type="button" class="cs-renumber-btn" onclick="csRenumberByDate(<?php echo $_oid ?>)" title="Rewrite SORT values to 10, 20, 30 … in date order. Click Save to persist.">Renumber sort by date (×10)</button>
+                        </div>
                         </div><!-- /.cs-opt-body -->
                     </div>
                     <?php endforeach; endif; ?>
@@ -4910,6 +4913,95 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                             tbody.appendChild(tr);
                             tr.querySelector('input').focus();
                         };
+                        /* Column header click — toggle asc/desc and reorder rows in
+                           place. Pure DOM reorder, does NOT touch sort_order values;
+                           if the user wants to persist a new order they edit the SORT
+                           inputs and click Save. Date/Price/Sort sort numeric, Title
+                           sorts case-insensitive locale, ID sorts numeric. */
+                        function csCmpVal(td, key) {
+                            if (key === 'id') return parseInt(td.textContent.trim(), 10) || 0;
+                            if (key === 'title') return (td.querySelector('input') || {}).value || '';
+                            if (key === 'date')  return (td.querySelector('input[type=date]') || {}).value || '';
+                            if (key === 'price') return parseFloat((td.querySelector('input') || {}).value || '0') || 0;
+                            if (key === 'sort')  return parseInt((td.querySelector('input') || {}).value || '0', 10) || 0;
+                            return '';
+                        }
+                        var colIndex = { id:0, title:1, date:2, price:3, sort:4 };
+                        document.addEventListener('click', function(e) {
+                            var head = e.target.closest('.cs-sort-h');
+                            if (!head) return;
+                            var key = head.getAttribute('data-sort');
+                            var tbl = head.closest('table');
+                            if (!tbl || !key) return;
+                            /* Cycle: not-active → asc; asc → desc; desc → asc */
+                            var dir = head.getAttribute('data-dir') === 'asc' ? 'desc' : 'asc';
+                            /* Reset siblings in same header row */
+                            tbl.querySelectorAll('thead .cs-sort-h').forEach(function(h){
+                                h.classList.remove('cs-sort-active');
+                                h.removeAttribute('data-dir');
+                                var a = h.querySelector('.cs-sort-arrow');
+                                if (a) a.innerHTML = '';
+                            });
+                            head.classList.add('cs-sort-active');
+                            head.setAttribute('data-dir', dir);
+                            var arrow = head.querySelector('.cs-sort-arrow');
+                            if (arrow) arrow.innerHTML = dir === 'asc' ? '▲' : '▼';
+
+                            var tbody = tbl.querySelector('tbody');
+                            if (!tbody) return;
+                            var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+                            var ci = colIndex[key];
+                            rows.sort(function(a, b){
+                                var av = csCmpVal(a.children[ci], key);
+                                var bv = csCmpVal(b.children[ci], key);
+                                if (typeof av === 'string' || typeof bv === 'string') {
+                                    av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
+                                    if (av < bv) return dir === 'asc' ? -1 : 1;
+                                    if (av > bv) return dir === 'asc' ?  1 : -1;
+                                    return 0;
+                                }
+                                return dir === 'asc' ? (av - bv) : (bv - av);
+                            });
+                            rows.forEach(function(r){ tbody.appendChild(r); });
+                        });
+
+                        /* Renumber the SORT inputs in this option's table to 10, 20,
+                           30 … in ascending Date order. Skips rows marked for removal
+                           and rows with a blank date (those keep their existing sort).
+                           Pure DOM mutation — Save & Continue persists it. */
+                        window.csRenumberByDate = function(optionId) {
+                            var tbody = document.getElementById('cs-rows-' + optionId);
+                            if (!tbody) return;
+                            var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+                            var dated = [], undated = [];
+                            rows.forEach(function(tr){
+                                if (tr.classList.contains('cs-marked-remove')) return;
+                                var dInp = tr.querySelector('input[type=date]');
+                                var sInp = tr.querySelector('input.cs-w-sort');
+                                if (!sInp) return;
+                                var d = dInp ? dInp.value : '';
+                                (d ? dated : undated).push({tr:tr, date:d, sortInp:sInp});
+                            });
+                            dated.sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+                            var step = 10;
+                            dated.forEach(function(item, i){
+                                item.sortInp.value = (i + 1) * step;
+                            });
+                            /* Reorder rows in the DOM to match the new sort, so the
+                               user immediately sees the dated-row order. Undated rows
+                               keep their previous position at the bottom. */
+                            dated.forEach(function(item){ tbody.appendChild(item.tr); });
+                            undated.forEach(function(item){ tbody.appendChild(item.tr); });
+                            /* Flash the Sort header so the user knows the click did
+                               something even when values were already sequential. */
+                            var head = tbody.closest('table').querySelector('.cs-sort-h[data-sort="sort"]');
+                            if (head) {
+                                head.style.transition = 'color .25s';
+                                head.style.color = 'var(--green,#22c55e)';
+                                setTimeout(function(){ head.style.color = ''; }, 600);
+                            }
+                        };
+
                         window.csToggleRemove = function(btn, valueId) {
                             var tr = btn.closest('tr');
                             var hidden = tr.querySelector('input[name="schedule_remove[' + valueId + ']"]');

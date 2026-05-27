@@ -449,9 +449,11 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 //    the owned set after deletion to skip rows the user removed.
                 $_remainingValueIds = array_diff($_ownedValueIds, array_map('intval', array_keys(array_filter($_removeMap, function($v){ return $v === '1'; }))));
                 $_valueMap = (array) $req->getParam('schedule_value', array());
+                $_writeCount = 0;
                 foreach ($_valueMap as $_vid => $_fields) {
                     $_vid = (int) $_vid;
                     if ($_vid <= 0 || !in_array($_vid, $_remainingValueIds, true)) continue;
+                    $_writeCount++;
                     $_title = isset($_fields['title']) ? trim((string) $_fields['title']) : null;
                     $_priceRaw = isset($_fields['price']) ? trim((string) $_fields['price']) : null;
                     $_sort  = isset($_fields['sort'])  ? (int) $_fields['sort']  : null;
@@ -551,6 +553,17 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                         }
                     }
                 }
+
+                Mage::log(sprintf(
+                    'coursesave/schedule pid=%d ownedOpts=%d ownedVals=%d postedRemove=%d postedValueRows=%d updatedRows=%d postedNewGroups=%d',
+                    $courseId,
+                    count($_ownedOptionIds),
+                    count($_ownedValueIds),
+                    count(array_filter($_removeMap, function($v){ return $v === '1'; })),
+                    count($_valueMap),
+                    $_writeCount,
+                    count($_newMap)
+                ), null, 'mmd_schedule_save.log', true);
 
                 Mage::app()->cleanCache();
             }
