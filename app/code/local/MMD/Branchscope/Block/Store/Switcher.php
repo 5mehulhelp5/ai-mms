@@ -30,8 +30,9 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
         //    cross-country; the operator doesn't pick a branch here.
         // Other roles (admin, training_provider, super admin) still see
         // the pills.
+        $_activeRole = '';
         try {
-            $_activeRole = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
+            $_activeRole = (string) Mage::helper('mmd_rolemanager')->getActiveRoleCode();
             if (in_array($_activeRole, array('learner', 'trainer', 'developer', 'marketing'), true)) {
                 return '';
             }
@@ -41,24 +42,37 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
         /** @var MMD_Branchscope_Helper_Data $helper */
         $helper = Mage::helper('branchscope');
 
+        // Admin (role_code 'admin') and Super Admin ('training_provider')
+        // see the pill strip on EVERY standard Magento admin page so they
+        // can flip the active store anywhere — bypass both the
+        // store-scoped-route allow-list and the dashboard/category
+        // suppressions. All other roles fall through to the original
+        // store-scoped gating below.
+        $isFullAdmin = in_array($_activeRole, array('admin', 'training_provider'), true);
+
         // The block is injected into the <default> layout handle so it
         // would otherwise render on every adminhtml page. Suppress on
         // non-store-scoped routes (Permissions, System → Cache, etc.).
         // Blocks placed explicitly by core layout XML (Catalog product
         // grid's nested store_switcher) still render — those callers
         // already opted in by including the block in their layout.
-        if ($this->getNameInLayout() === 'mmd.branch.pills.global'
+        if (!$isFullAdmin
+            && $this->getNameInLayout() === 'mmd.branch.pills.global'
             && !$helper->isStoreScopedRoute()) {
             return '';
         }
 
         // Dashboard "Manage Courses" panel (?panel=courses) renders its
-        // own inline country-pill strip inside the panel template, so the
-        // global strip on top would just duplicate it. Suppress it there.
+        // own inline country-pill strip inside the panel template (which
+        // doubles as the page's filter — clicking a pill narrows the
+        // course catalog list). Suppress the global strip here for ALL
+        // roles, otherwise admins see duplicate pill rows.
+        //
         // Manage Categories (catalog_category): catalog is shared across
-        // all countries, the per-store category tree fetch already keys off
-        // the native store switcher, and the extra pill row on top of the
-        // tree was creating visual noise. Suppress it.
+        // all countries, the per-store category tree fetch already keys
+        // off the native store switcher, and the extra pill row on top
+        // of the tree was creating visual noise. Suppress for non-admin
+        // roles (admins keep it as a global navigation aid).
         if ($this->getNameInLayout() === 'mmd.branch.pills.global') {
             $_req = Mage::app()->getRequest();
             if ($_req->getRouteName() === 'adminhtml'
@@ -66,7 +80,8 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
                 && $_req->getParam('panel') === 'courses') {
                 return '';
             }
-            if ($_req->getRouteName() === 'adminhtml'
+            if (!$isFullAdmin
+                && $_req->getRouteName() === 'adminhtml'
                 && $_req->getControllerName() === 'catalog_category') {
                 return '';
             }
