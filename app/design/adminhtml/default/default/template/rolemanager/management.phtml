@@ -32,6 +32,11 @@ $attrFirstId = (int) $read->fetchOne(
 $attrLastId = (int) $read->fetchOne(
     "SELECT a.attribute_id FROM {$eavAttr} a INNER JOIN {$eavType} t ON t.entity_type_id=a.entity_type_id WHERE t.entity_type_code='customer' AND a.attribute_code='lastname'"
 );
+// Per-customer aggregate from sales_flat_order: store_id of the most recent
+// order = home store (where they actually trained), MIN(created_at) =
+// "joined the LMS" date. Customers with zero orders fall back to
+// customer_entity.created_at and store_id via the LEFT JOIN.
+$orderTable = $resource->getTableName('sales_flat_order');
 $customers = array();
 if ($attrFirstId && $attrLastId) {
     $customers = $read->fetchAll("
@@ -39,13 +44,23 @@ if ($attrFirstId && $attrLastId) {
                fn.value AS firstname,
                ln.value AS lastname,
                ce.email,
-               ce.created_at,
+               COALESCE(ord.first_order_at, ce.created_at) AS created_at,
                ce.is_active,
-               ce.store_id
+               COALESCE(ord.last_store_id, ce.store_id) AS store_id,
+               ord.order_count
         FROM {$customerTable} ce
         LEFT JOIN {$customerVarchar} fn ON fn.entity_id = ce.entity_id AND fn.attribute_id = {$attrFirstId}
         LEFT JOIN {$customerVarchar} ln ON ln.entity_id = ce.entity_id AND ln.attribute_id = {$attrLastId}
-        ORDER BY ce.created_at DESC
+        LEFT JOIN (
+            SELECT o.customer_id,
+                   MIN(o.created_at)  AS first_order_at,
+                   COUNT(*)           AS order_count,
+                   SUBSTRING_INDEX(GROUP_CONCAT(o.store_id ORDER BY o.created_at DESC), ',', 1) AS last_store_id
+              FROM {$orderTable} o
+             WHERE o.customer_id IS NOT NULL
+             GROUP BY o.customer_id
+        ) ord ON ord.customer_id = ce.entity_id
+        ORDER BY COALESCE(ord.first_order_at, ce.created_at) DESC
     ");
 }
 
