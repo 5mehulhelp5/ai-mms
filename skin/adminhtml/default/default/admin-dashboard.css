@@ -3432,3 +3432,13 @@ button.hsp-btn-submit{
 .mmd-auto-card-actions input[type="submit"] {
     margin: 0 !important;
 }
+
+/* Belt-and-suspenders for wrapMmdGridInCard() — once the JS lifts a
+   page's .content-header into the .dcf-mag-bar, the original
+   content-header row must collapse fully. sidebar-nav.css §12 sets
+   display:flex !important on .admin-main .content-header, which an
+   inline style.display='none' can't beat — so the JS also adds this
+   class and the rule below pins display:none with !important. */
+.admin-main .content-header.mmd-content-header-hidden {
+    display: none !important;
+}

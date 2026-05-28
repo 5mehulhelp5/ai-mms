@@ -2196,7 +2196,13 @@ document.observe('dom:loaded', function() {
         }
         body.appendChild(gridWrapper);
 
-        contentHeader.style.display = 'none';
+        // sidebar-nav.css §12 declares .admin-main .content-header
+        // { display:flex !important }. A bare inline style.display
+        // can't beat that — use setProperty with the 'important'
+        // priority so the original page-title row actually
+        // disappears instead of stacking above the new card.
+        contentHeader.style.setProperty('display', 'none', 'important');
+        contentHeader.classList.add('mmd-content-header-hidden');
     }
 
     // Apply all grid enhancements
