@@ -64,8 +64,4 @@ class MMD_Leads_Block_Adminhtml_Leads extends Mage_Adminhtml_Block_Template
         return $this->getUrl('*/*/index', $params);
     }
 
-    public function getBackUrl()
-    {
-        return $this->getUrl('adminhtml/dashboard');
-    }
 }
