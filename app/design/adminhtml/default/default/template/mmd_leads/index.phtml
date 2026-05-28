@@ -57,13 +57,12 @@ $_active = $this->getActiveFilter();
         background: rgba(37,139,182,.22) !important;
         color: #258bb6 !important;
     }
-    /* Push the wrap right of the fixed .dcf-edit-sidebar (250px + gap)
-       directly on the wrap itself — :has() body-scoping turned out to
-       be unreliable here and the sidebar was overlapping the table's
-       leftmost column (the checkbox), so the boxes were drawn but
-       physically covered. */
-    .mmd-leads-wrap {
-        margin-left: 270px !important;
+    /* Push the wrap right of the fixed .dcf-edit-sidebar via the
+       admin shell's main column. Same pattern the Edit Course page
+       uses to clear its sidebar. */
+    body:has(.mmd-leads-sidebar) .admin-main .main-col-inner,
+    body:has(.mmd-leads-sidebar) .admin-main .middle {
+        padding-left: 270px !important;
     }
     /* Grid sits inside .dcf-mag-body — strip the grid's own margin/border
        so the header bar above it reads as the section bar. */
