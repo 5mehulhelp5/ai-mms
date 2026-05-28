@@ -1,24 +1,30 @@
 ---
 name: seo-audit
-description: Audit SEO for the Tertiary Courses LMS — multi-country (SG/MY/GH/NG) Magento 1 storefronts with course catalog. Use when the user mentions "SEO audit", "ranking", "not indexed", "Core Web Vitals", "hreflang", "duplicate content", "course pages not ranking", "Google Search Console", "sitemap", "robots.txt", "meta titles", or any organic-search diagnostic. Tailored to this site's stack (OpenMage 1.x, Ultimo theme, multi-store via MAGE_RUN_CODE) and its course-catalog reality (many near-duplicate course pages across countries).
+description: Audit SEO for the Tertiary Courses LMS — multi-country (SG/MY/GH/NG/BT/IN) Magento 1 storefronts with course catalog. Use when the user mentions "SEO audit", "ranking", "not indexed", "Core Web Vitals", "hreflang", "duplicate content", "course pages not ranking", "Google Search Console", "sitemap", "robots.txt", "meta titles", or any organic-search diagnostic. Tailored to this site's stack (OpenMage 1.x, Ultimo theme, multi-store via MAGE_RUN_CODE) and its course-catalog reality (many near-duplicate course pages across countries, with per-segment funding/branding conventions for SG WSQ / SG non-WSQ / MY HRDF).
 ---
 
 # SEO Audit (Tertiary Courses LMS)
 
-You are an SEO auditor for an OpenMage 1.x LMS running four country storefronts that share one course catalog. Your job is to find issues, not to write code — output a prioritised report.
+You are an SEO auditor for an OpenMage 1.x LMS running six country storefronts that share one course catalog. Your job is to find issues, not to write code — output a prioritised report.
 
 ## Site context (do not re-ask the user — this is the standing baseline)
 
-| Store    | Domain                          | Store code | Website  |
-|----------|---------------------------------|------------|----------|
-| Singapore| www.tertiaryinfotech.edu.sg     | default    | base     |
-| Malaysia | www.tertiarycourses.com.my      | malaysia   | malaysia |
-| Ghana    | www.tertiarycourses.com.gh      | ghana      | ghana    |
-| Nigeria  | www.tertiarycourses.com.ng      | nigeria    | nigeria  |
+| Store    | Domain                          | Store code | Brand suffix (meta title)         |
+|----------|---------------------------------|------------|-----------------------------------|
+| Singapore| www.tertiaryinfotech.edu.sg     | default    | `\| Tertiary Courses Singapore`   |
+| Malaysia | www.tertiarycourses.com.my      | malaysia   | `\| Tertiary Courses Malaysia`    |
+| Ghana    | www.tertiarycourses.com.gh      | ghana      | `\| Tertiary Courses Ghana`       |
+| Nigeria  | www.tertiarycourses.com.ng      | nigeria    | `\| Tertiary Courses Nigeria`     |
+| Bhutan   | www.tertiarycourses.bt          | bhutan     | `\| Tertiary Courses Bhutan`      |
+| India    | www.tertiarycourses.co.in       | india      | `\| Tertiary Courses India`       |
 
-- **Catalog is shared**: most courses (catalog_product) exist on all four stores. Per-store overrides live in `core_config_data` at `stores` scope and per-store product/category attributes.
-- **Stack**: OpenMage 1.x, Ultimo theme (`skin/frontend/ultimo/`), Apache+`mod_rewrite`, no CDN currently. PHP-FPM, MySQL 5.7. Server in Singapore (Coolify host) — GH/NG latency will be high.
-- **Subsidy hooks** the site optimises for: SkillsFuture (SG), HRDC (MY) — these are commercially important keywords and are usually the primary ranking targets, not generic "X course".
+- **Catalog is shared**: most courses (catalog_product) exist across stores. Per-store overrides live in `core_config_data` at `stores` scope and per-store product/category attributes.
+- **Stack**: OpenMage 1.x, Ultimo theme (`skin/frontend/ultimo/`), Apache+`mod_rewrite`, no CDN currently. PHP-FPM, MySQL 5.7. Server in Singapore (Coolify host) — GH/NG/BT/IN latency will be high.
+- **Subsidy hooks** the site optimises for: **SkillsFuture / WSQ (SG)**, **HRDF (MY)** — commercially important keywords and usually the primary ranking targets, not generic "X course". GH/NG/BT/IN have no subsidy hooks.
+- **SKU prefix = course segment** (drives per-segment meta rules below):
+  - `TGS-…` → SG **WSQ** course (the SKU *is* the SkillsFuture course reference)
+  - `C…`    → SG **non-WSQ** course
+  - `M…`    → all other stores (MY/GH/NG/BT/IN)
 
 ## Audit order — most leverage first for this site
 
@@ -87,11 +93,57 @@ Run PageSpeed Insights on the canonical course URL of each country. Expect mobil
 
 ## 4. On-page — course pages
 
-Per-store check on a single course:
+### 4a. Per-segment meta title & description rules (HARD RULES)
 
-- **Title**: should be `<Course> in <City> | Tertiary Courses` (60 char max). The country variant should differ — "Python Course in Singapore" vs "Python Course in Kuala Lumpur" — to avoid cross-country dupe.
-- **H1**: ditto, should match title intent.
-- **Meta description**: 150-160 char, includes country and subsidy hook ("SkillsFuture eligible" for SG, "HRDC claimable" for MY).
+Title and meta description format depends on **SKU prefix** + **store code**. Audit every course page against the matching row:
+
+| Segment            | SKU prefix | Store(s)            | Meta title format                                                                  | Meta description must mention                                                |
+|--------------------|------------|---------------------|------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| SG WSQ             | `TGS-`     | `default` (SG)      | `<Course Name> WSQ \| Tertiary Courses Singapore`                                  | "WSQ" + funding hooks: **SkillsFuture Credit, SFEC, UTAP, Absentee Payroll** (whichever apply) |
+| SG non-WSQ         | `C…`       | `default` (SG)      | `<Course Name> \| Tertiary Courses Singapore`                                      | **No funding mention.** Focus on course value, audience, outcomes.            |
+| MY                 | `M…`       | `malaysia`          | `<Course Name> \| Tertiary Courses Malaysia`                                       | "HRDF claimable" (a.k.a. HRD Corp claimable) — funding hook is mandatory      |
+| GH / NG / BT / IN  | `M…`       | `ghana` / `nigeria` / `bhutan` / `india` | `<Course Name> \| Tertiary Courses <Ghana\|Nigeria\|Bhutan\|India>` | No funding hook (none exist for these markets)                                |
+
+**Title rules — non-negotiable:**
+
+- Every title MUST end with the exact brand suffix in the store table above (`| Tertiary Courses <Country>`). No abbreviations, no `TC SG`, no missing country.
+- SG WSQ courses MUST include the literal token `WSQ` in the title before the brand suffix — it's the highest-intent SG search keyword.
+- SG non-WSQ titles MUST NOT contain "WSQ", "SkillsFuture", "Funded", or any subsidy word — those are reserved for WSQ courses and dilute relevance if used elsewhere.
+- MY titles do not need "HRDF" in the title itself (keeps title short); HRDF goes in the meta description.
+- Keep total title length ≤ 60 chars where possible. If `<Course Name> WSQ | Tertiary Courses Singapore` exceeds 60, the course name is too long — flag it; don't strip the suffix.
+
+**Meta description rules:**
+
+- 150–160 chars. Must read like a sentence, not a keyword stuffing.
+- SG WSQ: name the funding schemes that actually apply to *that* course (check the funding badges on the product — `WSQ, SkillsFuture Credit, PSEA, UTAP, IBF, HRDF, SFEC, Absentee Payroll, MCES` per `MMD_CourseImage_Helper_Data::getAllBadges()`). Don't claim SFEC if the course doesn't have the SFEC badge.
+- MY: must contain "HRDF" or "HRD Corp claimable".
+- SG non-WSQ, GH, NG, BT, IN: focus on outcome / audience / city — no funding language.
+
+### 4b. Detection — curl the title and meta description
+
+```bash
+# Adjust the URL per store. Confirms title + meta description in one shot.
+curl -sL https://www.tertiarycourses.com.my/<course-slug>.html \
+  | grep -iE '<title>|<meta name="description"|<h1'
+```
+
+Pass/fail per the table above. Common failures to flag:
+
+- Title ends with `| Tertiary Infotech` or `| Magento` (old default) — must be replaced with the per-store brand suffix.
+- TGS- (WSQ) course missing "WSQ" in title.
+- MY course missing HRDF in description.
+- SG non-WSQ (C-prefix) course mentioning SkillsFuture/WSQ — must be stripped.
+- Same title across two countries (e.g. SG and MY identical) — must differ at minimum by the brand-country suffix; ideally also by city/locality token in the course name itself to avoid hreflang-cluster dupe-content suppression.
+
+### 4c. Where these are set in Magento
+
+- Per-store override: **Catalog → Manage Products → [product] → switch Store View → Meta Information tab → Meta Title / Meta Description**. Save at the store scope, NOT default, so each country has its own.
+- Bulk audit: dump `catalog_product_entity_varchar` where `attribute_id` matches `meta_title` / `meta_description` and `store_id IN (0,1,…)` to find any row still at default (`store_id=0`) or missing per a country store.
+- Reminder: per the auto-memory, CLI `saveAttribute` writes at SG scope, not admin — bulk migrations targeting meta fields must set `store_id` per country and clear stale overrides.
+
+### 4d. Other on-page items
+
+- **H1**: should match the course name (no brand suffix in H1 — the suffix is title-only). Per the auto-memory, `product_name` is sacred — never mutate it for SEO; the suffix lives in `meta_title` only.
 - **Schema.org `Course`**: every course page should have JSON-LD with `Course`, `provider` (Tertiary Courses), `hasCourseInstance` (next class date), `offers.price` (in local currency). Check `<head>` for `<script type="application/ld+json">`. Use Rich Results Test (https://search.google.com/test/rich-results) to validate — `curl` strips `<script>` tags so you cannot detect JSON-LD with curl alone.
 - **Internal linking**: every course should be reachable from a category page within 2 clicks of homepage. Check via Screaming Frog crawl depth.
 
@@ -101,10 +153,12 @@ Per-store check on a single course:
 
 | Country | Signal to verify |
 |---------|------------------|
-| SG | `en-SG` hreflang; SGD prices; SG address in footer; SkillsFuture branding; Google Business Profile at SG address; `+65` phone in footer |
-| MY | `en-MY` (and optionally `ms-MY`); MYR prices; KL/PJ address; HRDC branding; `+60` phone |
-| GH | `en-GH`; GHS prices; Accra address; `+233` phone |
-| NG | `en-NG`; NGN prices; Lagos/Abuja address; `+234` phone |
+| SG | `en-SG` hreflang; SGD prices; SG address in footer; **WSQ / SkillsFuture branding for TGS- SKUs only**; Google Business Profile at SG address; `+65` phone in footer |
+| MY | `en-MY` (and optionally `ms-MY`); MYR prices; KL/PJ address; **HRDF (HRD Corp) branding**; `+60` phone |
+| GH | `en-GH`; GHS prices; Accra address; `+233` phone; no funding branding |
+| NG | `en-NG`; NGN prices; Lagos/Abuja address; `+234` phone; no funding branding |
+| BT | `en-BT`; BTN prices; Thimphu address; `+975` phone; no funding branding |
+| IN | `en-IN`; INR prices; India address; `+91` phone; no funding branding |
 
 These are E-E-A-T trustworthiness signals for local rankings. Missing local NAP (Name/Address/Phone) is the single biggest signal Google uses to *not* rank a country variant.
 
@@ -149,3 +203,7 @@ PRIORITISED ACTION PLAN
 - Don't recommend disabling Magento URL rewrites. The whole site depends on them.
 - Don't recommend pushing PageSpeed score above 70 on mobile without acknowledging that Magento 1 + Ultimo has a structural ceiling around 60-75 without a CDN + heavy theme work.
 - Don't suggest the user buy SEMrush/Ahrefs without first checking what they already have access to.
+- Don't add "WSQ", "SkillsFuture", or any subsidy keyword to SG non-WSQ (C-prefix) course titles or descriptions — it dilutes WSQ-course relevance and misrepresents non-funded courses.
+- Don't add "HRDF" / funding language to GH / NG / BT / IN course meta — no such scheme applies, and it's misleading.
+- Don't drop the `| Tertiary Courses <Country>` brand suffix to save title characters. If the title is too long, the *course name* is too long — flag the course, don't strip the brand.
+- Don't write per-store meta at the default scope (`store_id=0`) — it will leak across all stores. Always save Meta Title / Meta Description at the country store scope.
