@@ -242,12 +242,13 @@
                     <span>Classes</span>
                     <svg class="tools-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
                 </div>
+                <?php $_classesBucket = ($_ctrl === 'classes') ? (string) $_req->getParam('bucket', 'all') : ''; ?>
                 <div class="tools-group-items">
-                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/classes/index') ?>" class="tools-sub-item<?php echo ($_ctrl === 'classes') ? ' active' : '' ?>"><span>All Classes</span></a>
+                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/classes/index', array('bucket' => 'all')) ?>" class="tools-sub-item<?php echo ($_classesBucket === 'all') ? ' active' : '' ?>"><span>All Classes</span></a>
                     <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'create_class'))) ?>" class="tools-sub-item"><span>Create New Class</span></a>
-                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('dash_filter' => 'ongoing'))) ?>" class="tools-sub-item"><span>Ongoing Classes</span></a>
-                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('dash_filter' => 'upcoming'))) ?>" class="tools-sub-item"><span>Upcoming Classes</span></a>
-                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('dash_filter' => 'completed'))) ?>" class="tools-sub-item"><span>Completed Classes</span></a>
+                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/classes/index', array('bucket' => 'ongoing')) ?>" class="tools-sub-item<?php echo ($_classesBucket === 'ongoing') ? ' active' : '' ?>"><span>Ongoing Classes</span></a>
+                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/classes/index', array('bucket' => 'upcoming')) ?>" class="tools-sub-item<?php echo ($_classesBucket === 'upcoming') ? ' active' : '' ?>"><span>Upcoming Classes</span></a>
+                    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/classes/index', array('bucket' => 'completed')) ?>" class="tools-sub-item<?php echo ($_classesBucket === 'completed') ? ' active' : '' ?>"><span>Completed Classes</span></a>
                 </div>
             </div>
             <div class="tools-group tools-subgroup">

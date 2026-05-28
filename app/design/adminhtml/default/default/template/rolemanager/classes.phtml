@@ -2,22 +2,26 @@
 /**
  * Admin "Classes" grid — first-class view over course_runs.
  *
- * Each row = one class = one (course, date, time) materialised from the
- * existing CourseRunEnrolmentService when an order is placed. Reuses the
- * Users page's .rm-* table CSS so density / pagination / badges follow
- * the backend-design conventions.
+ * Supports four buckets via the 'bucket' block data key:
+ *   all       — every class with a start date (default)
+ *   ongoing   — start_date <= today AND (end_date IS NULL OR end_date >= today)
+ *   upcoming  — start_date > today, sorted nearest first
+ *   completed — end_date < today, sorted newest first
  *
  * Drill-in (Edit) deep-links to the existing dashboard ?panel=assignlearner
- * panel where roster CRUD already lives — no duplicate roster UI here.
+ * panel where roster CRUD already lives.
  */
-$resource = Mage::getSingleton('core/resource');
-$read = $resource->getConnection('core_read');
+$_bucket = (string) $this->getData('bucket');
+if (!in_array($_bucket, array('all', 'ongoing', 'upcoming', 'completed'), true)) {
+    $_bucket = 'all';
+}
+
+$resource   = Mage::getSingleton('core/resource');
+$read       = $resource->getConnection('core_read');
 $runsTbl    = $resource->getTableName('course_runs');
 $enrolTbl   = $resource->getTableName('course_run_enrolments');
-$productTbl = $resource->getTableName('catalog_product_entity');
 $pVarchar   = $resource->getTableName('catalog_product_entity_varchar');
 
-// Product name lives in EAV varchar under attribute_code='name'.
 $nameAttrId = (int) $read->fetchOne("
     SELECT a.attribute_id
       FROM " . $resource->getTableName('eav_attribute') . " a
@@ -25,10 +29,36 @@ $nameAttrId = (int) $read->fetchOne("
      WHERE t.entity_type_code = 'catalog_product' AND a.attribute_code = 'name'
 ");
 
-// Scope: show only classes scheduled to run in 2026 or later. Older
-// classes are historical and live in the existing Completed Classes
-// dashboard panel; this grid is the operational view of "what classes
-// exist right now and going forward".
+$today = Mage::getModel('core/date')->date('Y-m-d');
+
+switch ($_bucket) {
+    case 'ongoing':
+        $_whereBucket = "cr.course_start_date <= '$today'
+            AND (cr.course_end_date IS NULL OR cr.course_end_date >= '$today')";
+        $_orderBy   = 'cr.course_start_date ASC, cr.course_start_time ASC';
+        $_pageTitle = 'Ongoing Classes';
+        $_emptyMsg  = 'No classes are currently ongoing.';
+        break;
+    case 'upcoming':
+        $_whereBucket = "cr.course_start_date > '$today'";
+        $_orderBy   = 'cr.course_start_date ASC, cr.course_start_time ASC';
+        $_pageTitle = 'Upcoming Classes';
+        $_emptyMsg  = 'No upcoming classes scheduled.';
+        break;
+    case 'completed':
+        $_whereBucket = "cr.course_end_date < '$today'";
+        $_orderBy   = 'cr.course_end_date DESC, cr.course_start_date DESC';
+        $_pageTitle = 'Completed Classes';
+        $_emptyMsg  = 'No completed classes found.';
+        break;
+    default:
+        $_whereBucket = 'cr.course_start_date IS NOT NULL';
+        $_orderBy   = 'cr.course_start_date DESC, cr.course_start_time DESC';
+        $_pageTitle = 'All Classes';
+        $_emptyMsg  = 'No classes found.';
+        break;
+}
+
 $rows = array();
 if ($nameAttrId) {
     $rows = $read->fetchAll("
@@ -49,14 +79,11 @@ if ($nameAttrId) {
                GROUP BY run_id
           ) en ON en.run_id = cr.run_id
          WHERE cr.course_start_date IS NOT NULL
-           AND cr.course_start_date >= '2026-01-01'
-         ORDER BY cr.course_start_date DESC, cr.course_start_time DESC
+           AND $_whereBucket
+         ORDER BY $_orderBy
     ");
 }
 
-// Resolve trainer_option_id → trainer name. trainer_option_id points at
-// eav_attribute_option for the 'trainers' multiselect; the value label
-// in eav_attribute_option_value matches the title in courses_trainers.
 $trainerMap = array();
 try {
     $trainerRows = $read->fetchAll("
@@ -69,7 +96,6 @@ try {
     }
 } catch (Exception $e) { /* non-fatal */ }
 
-// Country-pill colours — same palette used by the Users page Store badge.
 $storeColors = array(
     'SG' => array('bg' => 'rgba(59,130,246,.12)',  'color' => '#60a5fa'),
     'MY' => array('bg' => 'rgba(245,158,11,.12)',  'color' => '#f59e0b'),
@@ -79,27 +105,43 @@ $storeColors = array(
     'BT' => array('bg' => 'rgba(236,72,153,.12)',  'color' => '#ec4899'),
 );
 
-$today = date('Y-m-d');
-$activeBranch = strtoupper((string) Mage::app()->getStore()->getCode());
-if ($activeBranch === 'DEFAULT' || $activeBranch === 'ADMIN') $activeBranch = 'SG';
 $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'assign_learner')));
 ?>
 <div class="rm-wrap">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-        <h2 class="rm-title" style="margin:0">Classes</h2>
+    <!-- Page header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 class="rm-title" style="margin:0"><?php echo $this->__($_pageTitle) ?></h2>
         <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'create_class'))) ?>"
            style="padding:8px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;">+ Create Class</a>
     </div>
 
+    <!-- Bucket tabs -->
+    <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:1px solid #1e293b;">
+        <?php
+        $tabs = array(
+            'all'       => 'All Classes',
+            'ongoing'   => 'Ongoing',
+            'upcoming'  => 'Upcoming',
+            'completed' => 'Completed',
+        );
+        foreach ($tabs as $_tb => $_tl):
+            $_isActive = ($_tb === $_bucket);
+        ?>
+        <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/classes/index', array('bucket' => $_tb)) ?>"
+           style="padding:8px 16px;font-size:13px;font-weight:<?php echo $_isActive ? '600' : '400' ?>;color:<?php echo $_isActive ? '#60a5fa' : '#64748b' ?>;border-bottom:2px solid <?php echo $_isActive ? '#60a5fa' : 'transparent' ?>;text-decoration:none;margin-bottom:-1px;display:inline-block;"><?php echo $this->__($_tl) ?></a>
+        <?php endforeach; ?>
+    </div>
+
+    <!-- Filters -->
     <div class="rm-filters">
         <div class="rm-search">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             <input type="text" id="rm-search" placeholder="Search class ID, SKU, or course title..." oninput="rmFilter()" />
         </div>
         <select class="rm-select" id="rm-state-filter" onchange="rmFilter()">
-            <option value="">All States</option>
+            <option value="" <?php echo ($_bucket !== 'ongoing') ? 'selected' : '' ?>>All States</option>
             <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
+            <option value="confirmed" <?php echo ($_bucket === 'ongoing') ? 'selected' : '' ?>>Confirmed</option>
         </select>
     </div>
 
@@ -111,7 +153,8 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
                 <th>Course</th>
                 <th>SKU</th>
                 <th>Store</th>
-                <th>Date</th>
+                <th>Start Date</th>
+                <th>End Date</th>
                 <th>Time</th>
                 <th>Trainer</th>
                 <th>Enrolled</th>
@@ -121,26 +164,22 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
         </thead>
         <tbody>
         <?php foreach ($rows as $r):
-            $classId = (string) $r['class_id'];
+            $classId   = (string) $r['class_id'];
             $storeCode = substr($classId, 0, 2);
-            $sStyle = isset($storeColors[$storeCode]) ? $storeColors[$storeCode] : array('bg'=>'rgba(100,116,139,.12)','color'=>'#94a3b8');
-            $dateStr = $r['course_start_date'] ? date('d M Y', strtotime($r['course_start_date'])) : '—';
-            $timeStr = '';
+            $sStyle    = isset($storeColors[$storeCode]) ? $storeColors[$storeCode] : array('bg'=>'rgba(100,116,139,.12)','color'=>'#94a3b8');
+            $startStr  = $r['course_start_date'] ? date('d M Y', strtotime($r['course_start_date'])) : '—';
+            $endStr    = $r['course_end_date']   ? date('d M Y', strtotime($r['course_end_date']))   : '—';
+            $timeStr   = '';
             if (!empty($r['course_start_time']) && !empty($r['course_end_time'])) {
                 $timeStr = date('H:i', strtotime($r['course_start_time'])) . '–' . date('H:i', strtotime($r['course_end_time']));
             }
             $trainerName = isset($trainerMap[(int)$r['trainer_option_id']]) ? $trainerMap[(int)$r['trainer_option_id']] : '';
-            // State: every class starts Pending. It becomes Confirmed the
-            // moment a trainer is assigned (trainer_option_id > 0). The
-            // upcoming/ongoing/completed date-bucket lives in the existing
-            // dashboard panels; this grid focuses on the operational
-            // readiness question — "is this class ready to run?".
             $state = ((int)$r['trainer_option_id'] > 0) ? 'confirmed' : 'pending';
             $stateColor = array(
                 'pending'   => array('bg'=>'rgba(245,158,11,.15)', 'color'=>'#f59e0b'),
                 'confirmed' => array('bg'=>'rgba(34,197,94,.15)',  'color'=>'#22c55e'),
             );
-            $sc = $stateColor[$state];
+            $sc      = $stateColor[$state];
             $editUrl = $assignBase . '#class-' . $classId;
         ?>
             <tr class="rm-row"
@@ -159,7 +198,8 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
                         <span style="color:#475569">—</span>
                     <?php endif; ?>
                 </td>
-                <td><span class="rm-email" style="font-variant-numeric:tabular-nums"><?php echo $dateStr ?></span></td>
+                <td><span class="rm-email" style="font-variant-numeric:tabular-nums"><?php echo $startStr ?></span></td>
+                <td><span class="rm-email" style="font-variant-numeric:tabular-nums"><?php echo $endStr ?></span></td>
                 <td><span class="rm-email" style="font-variant-numeric:tabular-nums"><?php echo $timeStr ?: '—' ?></span></td>
                 <td><span class="rm-email"><?php echo $trainerName !== '' ? htmlspecialchars($trainerName) : '<span style="color:#475569">—</span>' ?></span></td>
                 <td><span class="rm-name" style="font-variant-numeric:tabular-nums"><?php echo (int)$r['enrolled'] ?></span></td>
@@ -174,8 +214,8 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
             </tr>
         <?php endforeach; ?>
         <?php if (empty($rows)): ?>
-            <tr><td colspan="10" style="padding:48px 12px;text-align:center;color:#64748b">
-                No classes scheduled for 2026 or later yet. New classes appear here automatically once orders are placed (the cron worker materialises them from sales_flat_order every minute).
+            <tr><td colspan="11" style="padding:48px 12px;text-align:center;color:#64748b">
+                <?php echo htmlspecialchars($_emptyMsg) ?>
             </td></tr>
         <?php endif; ?>
         </tbody>
@@ -194,7 +234,7 @@ var rmCurrentPage = 1;
 
 function rmFilter(resetPage) {
     if (resetPage !== false) rmCurrentPage = 1;
-    var q = document.getElementById('rm-search').value.toLowerCase();
+    var q  = document.getElementById('rm-search').value.toLowerCase();
     var sf = document.getElementById('rm-state-filter').value;
     var rows = document.querySelectorAll('.rm-row');
     var matched = [];
@@ -208,11 +248,11 @@ function rmFilter(resetPage) {
         if (matchQ && matchS) matched.push(r);
         else r.style.display = 'none';
     }
-    var total = matched.length;
-    var pages = Math.max(1, Math.ceil(total / RM_PAGE_SIZE));
+    var total  = matched.length;
+    var pages  = Math.max(1, Math.ceil(total / RM_PAGE_SIZE));
     if (rmCurrentPage > pages) rmCurrentPage = pages;
     var start = (rmCurrentPage - 1) * RM_PAGE_SIZE;
-    var end = start + RM_PAGE_SIZE;
+    var end   = start + RM_PAGE_SIZE;
     for (var k = 0; k < matched.length; k++) {
         matched[k].style.display = (k >= start && k < end) ? '' : 'none';
     }
@@ -227,15 +267,15 @@ function rmRenderPagination(total, pages) {
     if (!sum || !ctl) return;
     if (total === 0) { sum.textContent = 'No classes'; ctl.innerHTML = ''; return; }
     var firstOfPage = (rmCurrentPage - 1) * RM_PAGE_SIZE + 1;
-    var lastOfPage = Math.min(rmCurrentPage * RM_PAGE_SIZE, total);
+    var lastOfPage  = Math.min(rmCurrentPage * RM_PAGE_SIZE, total);
     sum.textContent = 'Showing ' + firstOfPage + '–' + lastOfPage + ' of ' + total;
     var html = '';
-    var prevDisabled = rmCurrentPage <= 1 ? ' disabled' : '';
+    var prevDisabled = rmCurrentPage <= 1     ? ' disabled' : '';
     var nextDisabled = rmCurrentPage >= pages ? ' disabled' : '';
     html += '<button class="rm-pagination-btn" onclick="rmGoToPage(' + (rmCurrentPage - 1) + ')"' + prevDisabled + '>&#8249;</button>';
     var shown = {};
-    var toShow = [1, pages, rmCurrentPage, rmCurrentPage - 1, rmCurrentPage + 1].filter(function(n){return n >= 1 && n <= pages;});
-    toShow.sort(function(a,b){return a-b;});
+    var toShow = [1, pages, rmCurrentPage, rmCurrentPage - 1, rmCurrentPage + 1].filter(function(n){ return n >= 1 && n <= pages; });
+    toShow.sort(function(a, b){ return a - b; });
     var last = 0;
     for (var i = 0; i < toShow.length; i++) {
         var n = toShow[i];

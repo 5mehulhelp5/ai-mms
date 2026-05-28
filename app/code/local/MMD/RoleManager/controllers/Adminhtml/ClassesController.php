@@ -8,6 +8,7 @@
  * Backend-only. The storefront never hits this controller.
  *
  * Lives at adminhtml/classes/index → /tigerdragon/adminhtml/classes/index.
+ * Bucket URLs: adminhtml/classes/index/bucket/all|ongoing|upcoming|completed
  *
  * Note: routed as "classes" (plural) — `class` would clash with PHP's
  * reserved keyword when Magento's router constructs the controller class
@@ -18,12 +19,25 @@ class MMD_RoleManager_Adminhtml_ClassesController extends Mage_Adminhtml_Control
 {
     public function indexAction()
     {
+        $bucket = (string) $this->getRequest()->getParam('bucket', 'all');
+        if (!in_array($bucket, array('all', 'ongoing', 'upcoming', 'completed'), true)) {
+            $bucket = 'all';
+        }
+
+        $titles = array(
+            'all'       => 'All Classes',
+            'ongoing'   => 'Ongoing Classes',
+            'upcoming'  => 'Upcoming Classes',
+            'completed' => 'Completed Classes',
+        );
+
         $this->loadLayout();
         $this->_setActiveMenu('catalog');
-        $this->_title('Classes');
+        $this->_title($titles[$bucket]);
 
         $block = $this->getLayout()->createBlock('core/template')
-            ->setTemplate('rolemanager/classes.phtml');
+            ->setTemplate('rolemanager/classes.phtml')
+            ->setData('bucket', $bucket);
         $this->getLayout()->getBlock('content')->append($block);
         $this->renderLayout();
     }
