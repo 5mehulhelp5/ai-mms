@@ -3400,17 +3400,12 @@ button.hsp-btn-submit{
 }
 
 /* ===== MMD Leads grid — checkbox column legibility =====
-   Force the auto-injected mass-select column to actually render as a
-   visible left-column on the table. We've seen the column drop to 0
-   width in production despite the <col width="44"> hint — the parent
-   .admin-main .grid table rule sets table-layout:auto, which lets a
-   16x16 checkbox squeeze the cell down to ~8px and tuck behind the
-   panel's left padding. Pin width + min-width + max-width on the
-   th/td:first-child so nothing can collapse it, with body-prefixed
-   specificity so it wins against the .admin-main grid rules. */
-body .admin-main #mmdLeadsGrid_table {
-    table-layout: auto !important;
-}
+   Pin the auto-injected mass-select column so it stays visible —
+   .admin-main .grid table is table-layout:auto, and without an
+   explicit width on the first cell the 16x16 checkbox was being
+   squeezed behind the panel's left padding. Checkbox styling itself
+   is intentionally inherited from dark-theme.css so the Leads row
+   selector looks identical to checkboxes on Course Edit etc. */
 body .admin-main #mmdLeadsGrid_table > colgroup > col:first-child {
     width: 48px !important;
 }
@@ -3423,30 +3418,4 @@ body .admin-main #mmdLeadsGrid_table > tfoot > tr > td:first-child {
     padding: 8px 6px 8px 14px !important;
     text-align: center !important;
     vertical-align: middle !important;
-    display: table-cell !important;
-    visibility: visible !important;
-}
-body .admin-main #mmdLeadsGrid_table input.massaction-checkbox {
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    width: 18px !important;
-    height: 18px !important;
-    min-width: 18px !important;
-    min-height: 18px !important;
-    margin: 0 !important;
-    display: inline-block !important;
-    visibility: visible !important;
-    border: 1.5px solid #64748b !important;
-    border-radius: 4px !important;
-    background: #0f172a !important;
-    cursor: pointer !important;
-    vertical-align: middle !important;
-}
-body .admin-main #mmdLeadsGrid_table input.massaction-checkbox:checked {
-    background: #2563eb !important;
-    border-color: #2563eb !important;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='3.5 8.5 6.5 11.5 12.5 5'/></svg>") !important;
-    background-size: 14px 14px !important;
-    background-position: center !important;
-    background-repeat: no-repeat !important;
 }
