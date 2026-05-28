@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<!--
+  MMD_Seoaudit — admin-only SEO Audit panel.
+
+  Renders a store-scoped, comprehensive SEO audit page for the Marketing
+  role (Meta · Sitemap · Robots · Content · In-page). Read-only — never
+  writes back to product / config tables. Audit logic lives in the helper.
+
+  Route: /<adminFrontName>/adminhtml/seoaudit/
+  Sidebar entry: Marketing sidebar, after "Promotions".
+-->
+<config>
+    <modules>
+        <MMD_Seoaudit>
+            <version>1.0.0</version>
+        </MMD_Seoaudit>
+    </modules>
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <mmd_seoaudit after="Mage_Adminhtml">MMD_Seoaudit_Adminhtml</mmd_seoaudit>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+    <adminhtml>
+        <layout>
+            <updates>
+                <mmd_seoaudit>
+                    <file>mmd_seoaudit.xml</file>
+                </mmd_seoaudit>
+            </updates>
+        </layout>
+    </adminhtml>
+    <global>
+        <helpers>
+            <mmd_seoaudit>
+                <class>MMD_Seoaudit_Helper</class>
+            </mmd_seoaudit>
+        </helpers>
+        <blocks>
+            <mmd_seoaudit>
+                <class>MMD_Seoaudit_Block</class>
+            </mmd_seoaudit>
+        </blocks>
+    </global>
+</config>

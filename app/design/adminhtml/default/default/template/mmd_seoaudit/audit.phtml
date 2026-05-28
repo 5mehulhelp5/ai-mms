@@ -1,0 +1,302 @@
+<?php
+/**
+ * SEO Audit panel — store-scoped.
+ *
+ * Reads results from MMD_Seoaudit_Block_Adminhtml_Audit::getResult().
+ * Active store id is taken from `?store=` (the global Branchscope
+ * Store View bar sits above this content via the <default> layout
+ * handle, so switching stores triggers a fresh URL load).
+ *
+ * Visual language follows the .dash-summary-* tokens shared with the
+ * Marketing Dashboard / Edit Course page (admin-dashboard.css).
+ */
+/** @var MMD_Seoaudit_Block_Adminhtml_Audit $this */
+$r = $this->getResult();
+$store   = $r['store'];
+$meta    = $r['meta'];
+$sitemap = $r['sitemap'];
+$robots  = $r['robots'];
+$content = $r['content'];
+$inpage  = $r['inpage'];
+
+$pillOk   = '<span class="seo-pill seo-pill-ok">OK</span>';
+$pillWarn = '<span class="seo-pill seo-pill-warn">Warn</span>';
+$pillFail = '<span class="seo-pill seo-pill-fail">Fail</span>';
+?>
+<style>
+.seo-audit-wrap{padding:18px 22px 36px}
+.seo-audit-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+.seo-audit-head h1{font-size:20px;color:#e2e8f0;margin:0;font-weight:600}
+.seo-audit-head .seo-scope{color:#94a3b8;font-size:13px}
+.seo-audit-head .seo-scope strong{color:#22d3ee}
+.seo-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:18px}
+.seo-kpi-card{background:#1f2937;border:1px solid var(--b1,#384a60);border-radius:10px;padding:14px 16px}
+.seo-kpi-num{font-size:24px;font-weight:600;color:#e2e8f0;line-height:1.1}
+.seo-kpi-num.is-bad{color:#f87171}
+.seo-kpi-num.is-warn{color:#fbbf24}
+.seo-kpi-num.is-ok{color:#34d399}
+.seo-kpi-lbl{font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+.seo-section{background:#1f2937;border:1px solid var(--b1,#384a60);border-radius:10px;margin-bottom:14px;overflow:hidden}
+.seo-section-head{padding:11px 16px;border-bottom:1px solid var(--b1,#384a60);font-size:12px;font-weight:600;color:#cbd5e1;text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.seo-section-head .seo-sub{font-size:10.5px;color:#64748b;font-weight:500;text-transform:none;letter-spacing:0}
+.seo-section-body{padding:12px 16px}
+.seo-rule-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.seo-rule-table th{text-align:left;padding:7px 10px;color:#94a3b8;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--b1,#384a60);white-space:nowrap}
+.seo-rule-table td{padding:7px 10px;color:#e2e8f0;border-bottom:1px solid rgba(56,74,96,.4);vertical-align:top}
+.seo-rule-table tr:last-child td{border-bottom:0}
+.seo-rule-table td.seo-count{text-align:right;width:80px;font-variant-numeric:tabular-nums}
+.seo-rule-table td.seo-count.is-bad{color:#f87171;font-weight:600}
+.seo-rule-table td.seo-count.is-ok{color:#34d399}
+.seo-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.seo-pill-ok{background:rgba(52,211,153,.12);color:#34d399;border:1px solid rgba(52,211,153,.3)}
+.seo-pill-warn{background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.3)}
+.seo-pill-fail{background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)}
+.seo-examples{margin-top:6px;font-size:11.5px;color:#64748b}
+.seo-examples ul{margin:4px 0 0 16px;padding:0}
+.seo-examples li{margin:2px 0}
+.seo-examples .sku{color:#22d3ee;font-family:"SF Mono",ui-monospace,monospace;font-size:11px}
+.seo-kv{display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;font-size:12.5px;color:#e2e8f0}
+.seo-kv .k{color:#94a3b8}
+.seo-kv .v code{background:#0f172a;border:1px solid #334155;padding:1px 6px;border-radius:4px;color:#22d3ee;font-size:11.5px}
+.seo-snippet{background:#0f172a;border:1px solid #334155;border-radius:6px;padding:10px 12px;font-family:"SF Mono",ui-monospace,monospace;font-size:11.5px;color:#cbd5e1;white-space:pre-wrap;max-height:180px;overflow:auto;margin-top:6px}
+.seo-inpage-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:900px){.seo-inpage-grid{grid-template-columns:1fr}}
+.seo-inpage-card{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px 14px}
+.seo-inpage-card h4{margin:0 0 6px;font-size:12px;color:#22d3ee;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.seo-inpage-card .seo-kv{font-size:12px}
+.seo-meta-rules{margin:0 0 10px;padding:10px 12px;background:rgba(34,211,238,.05);border:1px solid rgba(34,211,238,.2);border-radius:6px;color:#cbd5e1;font-size:12px;line-height:1.5}
+.seo-meta-rules strong{color:#22d3ee}
+</style>
+
+<div class="seo-audit-wrap">
+    <div class="seo-audit-head">
+        <h1>SEO Audit</h1>
+        <span class="seo-scope">
+            Scope: <strong><?php echo $this->escapeHtml($store['country']) ?></strong>
+            (store code <code><?php echo $this->escapeHtml($store['code']) ?></code>)
+            — base URL <code><?php echo $this->escapeHtml($store['baseUrl']) ?></code>.
+            Switch country via the Store View tabs above.
+        </span>
+    </div>
+
+    <?php // ====== Top-line KPIs ====== ?>
+    <div class="seo-kpi-grid">
+        <div class="seo-kpi-card">
+            <div class="seo-kpi-num <?php echo $meta['violations'] > 0 ? 'is-bad' : 'is-ok' ?>">
+                <?php echo (int) $meta['violations'] ?>
+            </div>
+            <div class="seo-kpi-lbl">Meta rule violations</div>
+        </div>
+        <div class="seo-kpi-card">
+            <div class="seo-kpi-num">
+                <?php echo (int) $meta['sampleSize'] ?> / <?php echo (int) $meta['limit'] ?>
+            </div>
+            <div class="seo-kpi-lbl">Products audited</div>
+        </div>
+        <div class="seo-kpi-card">
+            <div class="seo-kpi-num <?php echo ($sitemap['stale'] + $sitemap['missingFile']) > 0 ? 'is-warn' : 'is-ok' ?>">
+                <?php echo (int) $sitemap['count'] ?>
+            </div>
+            <div class="seo-kpi-lbl">Sitemap rows</div>
+        </div>
+        <div class="seo-kpi-card">
+            <div class="seo-kpi-num <?php echo $robots['live'] === '' ? 'is-bad' : ($robots['blocksAdmin'] && $robots['hasSitemap'] ? 'is-ok' : 'is-warn') ?>">
+                <?php
+                if ($robots['live'] === '') { echo '404'; }
+                elseif ($robots['blocksAdmin'] && $robots['hasSitemap']) { echo 'OK'; }
+                else { echo 'Warn'; }
+                ?>
+            </div>
+            <div class="seo-kpi-lbl">robots.txt</div>
+        </div>
+        <div class="seo-kpi-card">
+            <?php $ip = $inpage['product'] ?: $inpage['home']; ?>
+            <div class="seo-kpi-num <?php echo (!$ip || !$ip['fetched']) ? 'is-bad' : (count($ip['hreflangs']) >= 2 ? 'is-ok' : 'is-warn') ?>">
+                <?php echo $ip ? count($ip['hreflangs']) : 0 ?>
+            </div>
+            <div class="seo-kpi-lbl">Hreflang entries (sample)</div>
+        </div>
+    </div>
+
+    <?php // ====== Section 1 — Meta titles & descriptions ====== ?>
+    <div class="seo-section">
+        <div class="seo-section-head">
+            <span>1 · Meta titles & descriptions</span>
+            <span class="seo-sub">Sample of up to <?php echo (int) $meta['limit'] ?> enabled, visible products</span>
+        </div>
+        <div class="seo-section-body">
+            <div class="seo-meta-rules">
+                Per-segment rules enforced (see <strong>.claude/skills/seo-audit/SKILL.md §4a</strong>):
+                <strong>SG WSQ</strong> (TGS-) titles must include <em>WSQ</em> + brand suffix and mention funding.
+                <strong>SG non-WSQ</strong> (C-prefix) must end with brand suffix and must <em>not</em> mention WSQ/SkillsFuture.
+                <strong>MY</strong> descriptions must mention <em>HRDF / HRD Corp claimable</em>.
+                All titles must end with <code><?php echo $this->escapeHtml($store['suffix']) ?></code>.
+            </div>
+            <table class="seo-rule-table">
+                <thead>
+                    <tr><th>Rule</th><th class="seo-count">Hits</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                <?php foreach ($meta['byRule'] as $key => $rule): ?>
+                    <?php $n = (int) $rule['count']; ?>
+                    <tr>
+                        <td>
+                            <?php echo $this->escapeHtml($rule['label']) ?>
+                            <?php if (!empty($rule['examples'])): ?>
+                                <div class="seo-examples">
+                                    <ul>
+                                    <?php foreach ($rule['examples'] as $ex): ?>
+                                        <li>
+                                            <span class="sku"><?php echo $this->escapeHtml($ex['sku']) ?></span>
+                                            — <?php echo $this->escapeHtml($ex['name']) ?>
+                                            <?php if (!empty($ex['note'])): ?>
+                                                <em>(<?php echo $this->escapeHtml($ex['note']) ?>)</em>
+                                            <?php endif; ?>
+                                        </li>
+                                    <?php endforeach; ?>
+                                    </ul>
+                                </div>
+                            <?php endif; ?>
+                        </td>
+                        <td class="seo-count <?php echo $n > 0 ? 'is-bad' : 'is-ok' ?>"><?php echo $n ?></td>
+                        <td><?php echo $n === 0 ? $pillOk : ($n < 5 ? $pillWarn : $pillFail) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <?php // ====== Section 2 — Sitemap ====== ?>
+    <div class="seo-section">
+        <div class="seo-section-head"><span>2 · Sitemap</span><span class="seo-sub">Catalog → XML Sitemap rows scoped to this store</span></div>
+        <div class="seo-section-body">
+            <?php if ($sitemap['count'] === 0): ?>
+                <?php echo $pillFail ?> No sitemap configured for this store. Create one at <code>Catalog → Google Sitemap → Add Sitemap</code> (store view scope).
+            <?php else: ?>
+                <table class="seo-rule-table">
+                    <thead><tr><th>Filename</th><th>Path</th><th>Last generated</th><th>Age (days)</th><th>File present</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($sitemap['rows'] as $row): ?>
+                        <tr>
+                            <td><?php echo $this->escapeHtml($row['filename']) ?></td>
+                            <td><code><?php echo $this->escapeHtml($row['path']) ?></code></td>
+                            <td><?php echo $this->escapeHtml($row['lastGen'] ?: 'never') ?></td>
+                            <td>
+                                <?php if ($row['ageDays'] === null): ?>
+                                    <?php echo $pillFail ?> never
+                                <?php elseif ($row['ageDays'] > 7): ?>
+                                    <?php echo $pillWarn ?> <?php echo (int) $row['ageDays'] ?>
+                                <?php else: ?>
+                                    <?php echo $pillOk ?> <?php echo (int) $row['ageDays'] ?>
+                                <?php endif; ?>
+                            </td>
+                            <td><?php echo $row['exists'] ? $pillOk : $pillFail ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <?php // ====== Section 3 — robots.txt ====== ?>
+    <div class="seo-section">
+        <div class="seo-section-head"><span>3 · robots.txt</span><span class="seo-sub">Live fetch of <code><?php echo $this->escapeHtml($robots['url']) ?></code></span></div>
+        <div class="seo-section-body">
+            <?php if ($robots['live'] === ''): ?>
+                <?php echo $pillFail ?> Could not fetch robots.txt — <?php echo $this->escapeHtml($robots['liveError'] ?: 'no response') ?>.
+                Without a robots.txt search engines apply default crawling. Add a minimal one with admin disallow + sitemap URL.
+            <?php else: ?>
+                <div class="seo-kv">
+                    <span class="k">Has <code>Sitemap:</code> directive</span>
+                    <span class="v"><?php echo $robots['hasSitemap'] ? $pillOk : $pillFail ?></span>
+                    <span class="k">Disallow <code>/tigerdragon</code> (admin)</span>
+                    <span class="v"><?php echo $robots['blocksAdmin'] ? $pillOk : $pillFail ?></span>
+                    <span class="k">Disallow <code>/customer</code></span>
+                    <span class="v"><?php echo $robots['blocksCustomer'] ? $pillOk : $pillWarn ?></span>
+                    <span class="k">Disallow <code>/checkout</code></span>
+                    <span class="v"><?php echo $robots['blocksCheckout'] ? $pillOk : $pillWarn ?></span>
+                </div>
+                <div class="seo-snippet"><?php echo $this->escapeHtml($robots['live']) ?></div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <?php // ====== Section 4 — Content quality ====== ?>
+    <div class="seo-section">
+        <div class="seo-section-head"><span>4 · Content quality</span><span class="seo-sub">Same sample as section 1</span></div>
+        <div class="seo-section-body">
+            <table class="seo-rule-table">
+                <thead><tr><th>Check</th><th class="seo-count">Count</th><th>Status</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td>Products with empty short description</td>
+                        <td class="seo-count <?php echo $content['missingShort'] > 0 ? 'is-bad' : 'is-ok' ?>"><?php echo (int) $content['missingShort'] ?></td>
+                        <td><?php echo $content['missingShort'] === 0 ? $pillOk : ($content['missingShort'] < 5 ? $pillWarn : $pillFail) ?></td>
+                    </tr>
+                    <tr>
+                        <td>Products with empty long description</td>
+                        <td class="seo-count <?php echo $content['missingLong'] > 0 ? 'is-bad' : 'is-ok' ?>"><?php echo (int) $content['missingLong'] ?></td>
+                        <td><?php echo $content['missingLong'] === 0 ? $pillOk : ($content['missingLong'] < 5 ? $pillWarn : $pillFail) ?></td>
+                    </tr>
+                    <?php if ($content['defaultScopeOnly'] !== null): ?>
+                        <tr>
+                            <td>
+                                <code>meta_title</code> inherited from SG default scope (no per-store override)
+                                <div class="seo-examples">Per the <em>EAV save scope</em> memory: bulk imports that wrote at default scope leak SG copy onto MY/GH/NG/BT/IN. Should be 0 for a properly localised store.</div>
+                            </td>
+                            <td class="seo-count <?php echo $content['defaultScopeOnly'] > 0 ? 'is-bad' : 'is-ok' ?>"><?php echo (int) $content['defaultScopeOnly'] ?></td>
+                            <td><?php echo $content['defaultScopeOnly'] === 0 ? $pillOk : $pillFail ?></td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <?php // ====== Section 5 — In-page (live HTTP) ====== ?>
+    <div class="seo-section">
+        <div class="seo-section-head"><span>5 · In-page (live)</span><span class="seo-sub">HTTP fetch of homepage + one sample course</span></div>
+        <div class="seo-section-body">
+            <div class="seo-inpage-grid">
+                <?php foreach (array('home' => 'Homepage', 'product' => 'Sample course') as $key => $label):
+                    $page = $inpage[$key];
+                    if (!$page) continue; ?>
+                    <div class="seo-inpage-card">
+                        <h4><?php echo $this->escapeHtml($label) ?></h4>
+                        <div class="seo-kv">
+                            <span class="k">URL</span>
+                            <span class="v"><a href="<?php echo $this->escapeHtml($page['url']) ?>" target="_blank" rel="noopener"><?php echo $this->escapeHtml($page['url']) ?></a></span>
+                            <span class="k">HTTP status</span>
+                            <span class="v"><?php echo $page['fetched'] ? ($page['status'] === 200 ? $pillOk : $pillWarn) . ' ' . (int) $page['status'] : $pillFail . ' ' . $this->escapeHtml($page['error']) ?></span>
+                            <span class="k"><code>&lt;title&gt;</code></span>
+                            <span class="v"><?php echo $page['title'] !== '' ? $this->escapeHtml(mb_strimwidth($page['title'], 0, 90, '…')) : $pillFail . ' missing' ?></span>
+                            <span class="k"><code>&lt;h1&gt;</code></span>
+                            <span class="v"><?php echo $page['h1'] !== '' ? $this->escapeHtml(mb_strimwidth($page['h1'], 0, 90, '…')) : $pillFail . ' missing' ?></span>
+                            <span class="k">Canonical</span>
+                            <span class="v"><?php echo $page['canonical'] !== '' ? $this->escapeHtml($page['canonical']) : $pillFail . ' missing' ?></span>
+                            <span class="k">Meta description</span>
+                            <span class="v"><?php echo $page['metaDesc'] !== '' ? $this->escapeHtml(mb_strimwidth($page['metaDesc'], 0, 140, '…')) : $pillFail . ' missing' ?></span>
+                            <span class="k">Hreflang entries</span>
+                            <span class="v">
+                                <?php if (empty($page['hreflangs'])): ?>
+                                    <?php echo $pillFail ?> none — cross-store cluster not present
+                                <?php else: ?>
+                                    <?php echo $pillOk ?> <?php echo count($page['hreflangs']) ?>
+                                    (<?php
+                                        $codes = array();
+                                        foreach ($page['hreflangs'] as $hl) { $codes[] = $hl['hreflang']; }
+                                        echo $this->escapeHtml(implode(', ', $codes));
+                                    ?>)
+                                <?php endif; ?>
+                            </span>
+                            <span class="k">JSON-LD scripts</span>
+                            <span class="v"><?php echo $page['jsonLd'] > 0 ? $pillOk : $pillWarn ?> <?php echo (int) $page['jsonLd'] ?></span>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+</div>

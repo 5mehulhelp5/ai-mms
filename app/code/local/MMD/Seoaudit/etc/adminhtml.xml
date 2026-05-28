@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<config>
+    <acl>
+        <resources>
+            <admin>
+                <children>
+                    <mmd_seoaudit translate="title" module="mmd_seoaudit">
+                        <title>SEO Audit</title>
+                        <sort_order>75</sort_order>
+                    </mmd_seoaudit>
+                </children>
+            </admin>
+        </resources>
+    </acl>
+</config>
