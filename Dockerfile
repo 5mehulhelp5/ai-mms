@@ -75,8 +75,18 @@ WORKDIR /var/www/html
 # Copy application files
 COPY . /var/www/html/
 
-# Install Composer dependencies
-RUN composer install --no-dev --no-interaction --optimize-autoloader
+# Install Composer dependencies.
+#
+# --ignore-platform-req=php: composer.json pins config.platform.php=7.4
+# for tooling determinism (phpstan/rector resolve as if 7.4) but the
+# container actually runs 8.2.31 and google/apiclient 2.15+ requires
+# PHP 8+. Without this flag the install aborts with "Your requirements
+# could not be resolved" → exit code 2 → failed Coolify build.
+#
+# COMPOSER_PROCESS_TIMEOUT=0: google/apiclient-services ships a large
+# zip (every Google API's PHP classes) and the unzip can take 5+ min
+# on slower runners. Default 300s timeout would kill it mid-extract.
+RUN COMPOSER_PROCESS_TIMEOUT=0 composer install --no-dev --no-interaction --optimize-autoloader --ignore-platform-req=php
 
 # Disable Cm_RedisSession AFTER composer install. The magento-composer-installer
 # uses copy + magento-force, so the vendor package overwrites our git-tracked
