@@ -99,9 +99,15 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
         $options  = $helper->getCountryStorePillOptions();
 
         $pills = '';
+        $activeName = '';
+        $activeCode = '';
         foreach ($options as $opt) {
             $url   = $helper->buildPillUrl($opt['id']);
             $isAct = ((int) $opt['id'] === $activeId);
+            if ($isAct) {
+                $activeName = $opt['name'];
+                $activeCode = $opt['code'];
+            }
             $pills .= '<a class="dcf-store-tab' . ($isAct ? ' is-active' : '') . '"'
                    .  ' href="' . $this->escapeHtml($url) . '"'
                    .  ' role="tab" aria-selected="' . ($isAct ? 'true' : 'false') . '"'
@@ -112,7 +118,7 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
                    .  '</a>';
         }
 
-        return '<div class="dcf-store-switcher mmd-branchscope-pills"'
+        $bar = '<div class="dcf-store-switcher mmd-branchscope-pills"'
             . ' role="tablist" aria-label="Store view">'
             . '<span class="dcf-store-switcher-label">Store View:</span>'
             . $pills
@@ -123,5 +129,39 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
             . '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>'
             . '<line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>Scope</span></span>'
             . '</div>';
+
+        // "Editing for: <Country> XX" notice band — renders right under the
+        // Store View bar on every store-scoped admin page so operators
+        // always see which country's data they are looking at, regardless
+        // of role (developer / marketing / admin / super admin). Same
+        // visual treatment as the Edit Course inline notice; styles live
+        // in admin-dashboard.css (.dcf-edit-notice / .dcf-active-store-pill).
+        // Label: "Editing for" on record-edit / record-new pages, "Viewing"
+        // on listing / grid / dashboard pages. Keeps the band honest —
+        // operators on a list page aren't editing anything store-scoped.
+        $req       = Mage::app()->getRequest();
+        $actionN   = strtolower((string) $req->getActionName());
+        $editActs  = array('edit', 'new', 'save', 'editpost', 'newpost');
+        $isEditing = in_array($actionN, $editActs, true)
+            || $req->getParam('course_id')
+            || in_array((string) $req->getParam('mode'), array('edit', 'editing'), true);
+        $label     = $isEditing ? 'Editing for:' : 'Viewing:';
+
+        $notice = '';
+        if ($activeName !== '') {
+            $notice = '<div class="dcf-edit-notice mmd-branchscope-notice"'
+                . ' style="display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;margin-top:10px;">'
+                . '<span class="dcf-active-store-pill"'
+                . ' title="Store-view-scoped fields on this page apply to this country. Switch via the Store View tabs above.">'
+                . '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
+                . '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/>'
+                . '<path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>'
+                . $this->escapeHtml($label) . ' <strong>' . $this->escapeHtml($activeName) . '</strong>'
+                . '<span class="dcf-active-store-code">' . $this->escapeHtml($activeCode) . '</span>'
+                . '</span>'
+                . '</div>';
+        }
+
+        return $bar . $notice;
     }
 }
