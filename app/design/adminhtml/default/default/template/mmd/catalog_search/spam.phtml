@@ -15,18 +15,6 @@ $total   = $this->getTotalRows();
     </p>
 </div>
 
-<div class="dev-country-tabs" role="tablist" aria-label="Filter by branch" style="margin-top:10px;">
-    <?php foreach ($this->getStoreTabs() as $tab): ?>
-        <a href="<?php echo $this->escapeHtml($this->getStoreTabUrl($tab['id'])); ?>"
-           class="dev-country-btn<?php echo $active === (int) $tab['id'] ? ' active' : ''; ?>"
-           role="tab"
-           aria-selected="<?php echo $active === (int) $tab['id'] ? 'true' : 'false'; ?>"
-           data-store-id="<?php echo (int) $tab['id']; ?>">
-            <?php echo $this->escapeHtml($tab['label']); ?>
-        </a>
-    <?php endforeach; ?>
-</div>
-
 <p style="margin:14px 2px;color:#cbd5e1;">
     <?php echo $this->__('Total rows in scope: <strong>%s</strong>', number_format($total)); ?>
 </p>

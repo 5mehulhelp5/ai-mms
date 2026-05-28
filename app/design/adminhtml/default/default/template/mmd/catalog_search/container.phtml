@@ -1,6 +1,5 @@
 <?php
 /** @var MMD_Adminhtml_Block_Catalog_Search $this */
-$active = $this->getActiveStoreFilter();
 ?>
 <div class="content-header">
     <table cellspacing="0">
@@ -9,17 +8,6 @@ $active = $this->getActiveStoreFilter();
             <td class="form-buttons"><?php echo $this->getButtonsHtml() ?></td>
         </tr>
     </table>
-</div>
-<div class="dev-country-tabs" role="tablist" aria-label="Filter by branch">
-    <?php foreach ($this->getStoreTabs() as $tab): ?>
-        <a href="<?php echo $this->escapeHtml($this->getStoreTabUrl($tab['id'])) ?>"
-           class="dev-country-btn<?php echo $active === (int) $tab['id'] ? ' active' : '' ?>"
-           role="tab"
-           aria-selected="<?php echo $active === (int) $tab['id'] ? 'true' : 'false' ?>"
-           data-store-id="<?php echo (int) $tab['id'] ?>">
-            <?php echo $this->escapeHtml($tab['label']) ?>
-        </a>
-    <?php endforeach; ?>
 </div>
 <div>
     <?php echo $this->getGridHtml() ?>

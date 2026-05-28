@@ -3,8 +3,9 @@
  * Search-Spam cleanup preview block. Renders bucket cards with live
  * row counts + sample query_texts pulled from catalogsearch_query.
  *
- * All counts respect the same store-filter session key used by the
- * Search Terms grid (MMD_Adminhtml_Block_Catalog_Search::SESSION_KEY).
+ * Store scope follows the universal Store View bar's ?store=N — same
+ * mechanism as every other admin grid (see backend-design skill,
+ * "Filtering contract").
  */
 class MMD_Adminhtml_Block_Catalog_Search_Spam extends Mage_Adminhtml_Block_Template
 {
@@ -22,31 +23,10 @@ class MMD_Adminhtml_Block_Catalog_Search_Spam extends Mage_Adminhtml_Block_Templ
         return Mage::helper('mmd/searchSpam');
     }
 
-    /** @return int */
+    /** @return int Active store id from the universal Store View bar (0 = all). */
     public function getActiveStoreFilter()
     {
-        return (int) Mage::getSingleton('adminhtml/session')
-            ->getData(MMD_Adminhtml_Block_Catalog_Search::SESSION_KEY);
-    }
-
-    /**
-     * @return array<int, array{id:int,label:string}>
-     */
-    public function getStoreTabs()
-    {
-        $tabs = array(array('id' => 0, 'label' => 'All Branches'));
-        foreach (Mage::app()->getStores() as $store) {
-            $label = preg_replace('/\s*Store View\s*$/i', '', $store->getName());
-            $tabs[] = array('id' => (int) $store->getId(), 'label' => $label);
-        }
-        return $tabs;
-    }
-
-    public function getStoreTabUrl($storeId)
-    {
-        return $this->getUrl('*/catalog_search_spam/index', array(
-            MMD_Adminhtml_Block_Catalog_Search::REQUEST_PARAM => (int) $storeId,
-        ));
+        return (int) Mage::app()->getRequest()->getParam('store', 0);
     }
 
     public function getBackUrl()
@@ -57,22 +37,6 @@ class MMD_Adminhtml_Block_Catalog_Search_Spam extends Mage_Adminhtml_Block_Templ
     public function getDeleteUrl()
     {
         return $this->getUrl('*/catalog_search_spam/delete');
-    }
-
-    /**
-     * Capture store filter from the request (mirrors the Search Terms grid).
-     */
-    protected function _beforeToHtml()
-    {
-        $req = Mage::app()->getRequest();
-        $param = MMD_Adminhtml_Block_Catalog_Search::REQUEST_PARAM;
-        if ($req->getParam($param, null) !== null) {
-            Mage::getSingleton('adminhtml/session')->setData(
-                MMD_Adminhtml_Block_Catalog_Search::SESSION_KEY,
-                (int) $req->getParam($param)
-            );
-        }
-        return parent::_beforeToHtml();
     }
 
     /**
