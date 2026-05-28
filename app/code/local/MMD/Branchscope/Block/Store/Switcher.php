@@ -40,13 +40,17 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
         /** @var MMD_Branchscope_Helper_Data $helper */
         $helper = Mage::helper('branchscope');
 
-        // Admin (role_code 'admin') and Super Admin ('training_provider')
-        // see the pill strip on EVERY standard Magento admin page so they
-        // can flip the active store anywhere — bypass both the
+        // All four operator roles (developer, marketing, admin, super-admin
+        // a.k.a. 'training_provider') see the Store View bar + Editing/Viewing
+        // notice on EVERY standard Magento admin page so the top chrome is
+        // standardized across the whole backend — bypass both the
         // store-scoped-route allow-list and the dashboard/category
-        // suppressions. All other roles fall through to the original
-        // store-scoped gating below.
-        $isFullAdmin = in_array($_activeRole, array('admin', 'training_provider'), true);
+        // suppressions. Learner and trainer are already excluded above.
+        $isFullAdmin = in_array(
+            $_activeRole,
+            array('developer', 'marketing', 'admin', 'training_provider'),
+            true
+        );
 
         // The block is injected into the <default> layout handle so it
         // would otherwise render on every adminhtml page. Suppress on
