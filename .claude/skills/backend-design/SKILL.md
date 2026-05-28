@@ -358,6 +358,25 @@ How the renderer maps captions to icons:
 - Anything unmatched falls back to the raw caption text inside the same
   styled anchor, so a new uncategorised action stays clickable.
 
+**JS-injected per-row icons (mass-action mirror)** — grids without an
+explicit `type => 'action'` column (Magento Tag, Tag Customer, etc.)
+still get one icon per mass-action via
+`sidebar-nav-v2.js::injectRowActions()`. It reads the mass-action
+`<select>` options and emits an `.mmd-grid-actions` cell per row with
+one `.mmd-grid-action--{kind}` button per option. The label → icon
+mapping (`mmdMapActionIcon`) mirrors the PHP renderer's
+`guessIconKey()` (view / edit / delete / cancel / print / send) and
+adds `check` (approve / activate / enable / publish) and `more`
+(everything unmatched). Clicking an icon checks only that row, sets
+the mass-action select value, and submits — same semantics as the
+old "Actions ▾" dropdown, only the trigger looks like every other
+admin grid now.
+
+When you add a new mass-action label that doesn't fit the existing
+icons, extend BOTH the PHP `guessIconKey()` AND the JS
+`mmdMapActionIcon()` so the icon column reads consistently whether
+the grid declared a PHP action column or the JS injected one.
+
 Per-row markup (auto-emitted):
 ```html
 <div class="mmd-grid-actions">

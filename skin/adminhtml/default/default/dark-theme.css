@@ -4347,6 +4347,11 @@ body[class*="customoptions-options-index"] #customoptionsOptionsGrid table.massa
 .mmd-grid-action--view:hover   { color: #60a5fa !important; border-color: #60a5fa !important; }
 .mmd-grid-action--edit:hover   { color: #60a5fa !important; border-color: #60a5fa !important; }
 .mmd-grid-action--delete:hover { color: #f87171 !important; border-color: #f87171 !important; }
+.mmd-grid-action--cancel:hover { color: #f87171 !important; border-color: #f87171 !important; }
+.mmd-grid-action--print:hover  { color: #60a5fa !important; border-color: #60a5fa !important; }
+.mmd-grid-action--send:hover   { color: #60a5fa !important; border-color: #60a5fa !important; }
+.mmd-grid-action--check:hover  { color: #34d399 !important; border-color: #34d399 !important; }
+.mmd-grid-action--more:hover   { color: #60a5fa !important; border-color: #60a5fa !important; }
 /* Hide the legacy " | " separators emitted by some custom Actionlinks renderers
    when they fall inside an .mmd-grid-actions wrapper (icons handle separation). */
 .mmd-grid-actions { line-height: 1 !important; }

@@ -1096,6 +1096,36 @@ document.observe('dom:loaded', function() {
         });
     }
 
+    // Label → icon mapping for per-row action buttons. Mirrors
+    // MMD_Adminhtml_Block_Widget_Grid_Column_Renderer_Action::guessIconKey()
+    // so JS-injected per-row icons read identically to the ones the
+    // PHP renderer emits for native 'type' => 'action' columns.
+    var MMD_ACTION_ICONS = {
+        view:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+        edit:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+        delete: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>',
+        cancel: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+        print:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+        send:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+        check:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+        more:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>'
+    };
+    function mmdMapActionIcon(label) {
+        var c = (label || '').toString().toLowerCase().replace(/<[^>]*>/g, '');
+        if (c.indexOf('view') !== -1 || c.indexOf('show') !== -1) return { kind: 'view',   svg: MMD_ACTION_ICONS.view };
+        if (c.indexOf('edit') !== -1)                              return { kind: 'edit',   svg: MMD_ACTION_ICONS.edit };
+        if (c.indexOf('delete') !== -1 || c.indexOf('remove') !== -1) return { kind: 'delete', svg: MMD_ACTION_ICONS.delete };
+        if (c.indexOf('cancel') !== -1)                            return { kind: 'cancel', svg: MMD_ACTION_ICONS.cancel };
+        if (c.indexOf('print') !== -1 || c.indexOf('pdf') !== -1)  return { kind: 'print',  svg: MMD_ACTION_ICONS.print };
+        if (c.indexOf('send') !== -1 || c.indexOf('email') !== -1) return { kind: 'send',   svg: MMD_ACTION_ICONS.send };
+        if (c.indexOf('approve') !== -1 || c.indexOf('activate') !== -1 || c.indexOf('enable') !== -1 || c.indexOf('publish') !== -1) {
+            return { kind: 'check', svg: MMD_ACTION_ICONS.check };
+        }
+        // Unmatched action — fall back to a generic "more" dot icon
+        // with the label as the tooltip / aria-label.
+        return { kind: 'more', svg: MMD_ACTION_ICONS.more };
+    }
+
     function injectRowActions() {
         var massSelect = document.querySelector('.massaction select');
         if (!massSelect) {
@@ -1177,50 +1207,45 @@ document.observe('dom:loaded', function() {
                 var wrap = document.createElement('div');
                 wrap.className = 'row-action-wrap';
 
-                var btn = document.createElement('button');
-                btn.className = 'row-action-btn';
-                btn.type = 'button';
-                btn.innerHTML = 'Actions <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
-                btn.onclick = function(e) {
-                    e.stopPropagation();
-                    // Close all other menus
-                    document.querySelectorAll('.row-action-wrap.open').forEach(function(w) { w.classList.remove('open'); });
-                    this.parentNode.classList.toggle('open');
-                };
-
-                var menu = document.createElement('div');
-                menu.className = 'row-action-menu';
+                // Render each mass-action as a .mmd-grid-action icon
+                // button (canonical pattern, matches the global
+                // MMD_Adminhtml_Block_Widget_Grid_Column_Renderer_Action
+                // output). Label → icon mapping mirrors that renderer
+                // exactly: view / edit / delete / cancel / print / send.
+                wrap.classList.add('mmd-grid-actions');
+                wrap.classList.remove('row-action-wrap');
 
                 for (var a = 0; a < actions.length; a++) {
                     (function(action, checkbox) {
-                        var item = document.createElement('div');
-                        item.className = 'row-action-item';
-                        item.textContent = action.label;
-                        item.onclick = function(e) {
+                        var icon = mmdMapActionIcon(action.label);
+                        var btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'mmd-grid-action mmd-grid-action--' + icon.kind;
+                        btn.title = action.label;
+                        btn.setAttribute('aria-label', action.label);
+                        btn.innerHTML = icon.svg;
+                        btn.onclick = function(e) {
                             e.stopPropagation();
+                            e.preventDefault();
                             // Uncheck all, check only this row
                             table.querySelectorAll('input[type="checkbox"]').forEach(function(c) { c.checked = false; });
                             checkbox.checked = true;
                             // Set the mass action value and submit
                             massSelect.value = action.value;
-                            // Find and click the submit button
                             var submitBtn = document.querySelector('.massaction button[onclick]') ||
                                            document.querySelector('.massaction button[title="Submit"]') ||
                                            document.querySelector('.massaction .entry-edit button');
                             if (submitBtn) {
                                 submitBtn.click();
                             } else {
-                                // Fallback: trigger the form
                                 var form = massSelect.closest('form') || document.querySelector('#sales_order_grid_massaction-form');
                                 if (form) form.submit();
                             }
                         };
-                        menu.appendChild(item);
+                        wrap.appendChild(btn);
                     })(actions[a], cb);
                 }
 
-                wrap.appendChild(btn);
-                wrap.appendChild(menu);
                 td.appendChild(wrap);
                 row.appendChild(td);
                 injectedAny = true;
