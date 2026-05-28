@@ -1,0 +1,242 @@
+<?php
+/**
+ * app/design/adminhtml/default/default/template/auditfix/issues.phtml
+ *
+ * Audit Issues page. Shows:
+ *   - Cron schedule strip (3 scanners + last-run / next-run / Run now).
+ *   - Filter tabs (Open / Fixed / Dismissed / All) + category & severity chips.
+ *   - Issues grid with per-row Fix / Dismiss / Reopen actions.
+ *
+ * Visual language follows backend-design "Neon + Minimalist": deep dark
+ * surface, outlined neon pills, restrained motion. Inline-scoped via
+ * .auditfix-page body marker so nothing bleeds onto other admin pages.
+ */
+$helper = Mage::helper('mmd_auditfix');
+$read   = Mage::getSingleton('core/resource')->getConnection('core_read');
+$tbl    = Mage::getSingleton('core/resource')->getTableName('mmd_audit_issues');
+
+/* Default landing tab is "all" — surfaces every logged finding (pending,
+   resolved, dismissed) so the operator sees the full audit trail without
+   clicking. Filter via the tabs to narrow down. */
+$statusFilter = $this->getRequest()->getParam('status', 'all');
+$validStatus  = array('open', 'fixed', 'dismissed', 'wont_fix', 'all');
+if (!in_array($statusFilter, $validStatus, true)) $statusFilter = 'all';
+
+$where = '1=1';
+$bind  = array();
+if ($statusFilter !== 'all') {
+    $where .= ' AND status = ?';
+    $bind[] = $statusFilter;
+}
+
+$rows = $read->fetchAll("SELECT * FROM {$tbl} WHERE {$where} ORDER BY
+    FIELD(severity,'high','medium','low','quick_win','big_bet'),
+    found_at DESC LIMIT 500", $bind);
+
+$countsBy = $read->fetchAll("SELECT status, COUNT(*) AS n FROM {$tbl} GROUP BY status");
+$counts = array('open' => 0, 'fixed' => 0, 'dismissed' => 0, 'wont_fix' => 0, 'all' => 0);
+foreach ($countsBy as $c) { $counts[$c['status']] = (int)$c['n']; $counts['all'] += (int)$c['n']; }
+
+$fixer = Mage::getModel('mmd_auditfix/fixer');
+
+$urlFix    = $this->getUrl('adminhtml/auditissues/fix');
+$urlMark   = $this->getUrl('adminhtml/auditissues/mark');
+$urlRun    = $this->getUrl('adminhtml/auditissues/runScan');
+$formKey   = Mage::getSingleton('core/session')->getFormKey();
+
+// Schedule strip data
+$scanners = array(
+    'seo'         => array('label' => 'SEO',        'cron' => '02:00 daily', 'severity' => 'amber'),
+    'security'    => array('label' => 'Security',   'cron' => '03:00 daily', 'severity' => 'red'),
+    'code_review' => array('label' => 'Code Review','cron' => '04:00 daily', 'severity' => 'violet'),
+);
+
+/* UI vocabulary: keep DB enum (open/fixed/dismissed/wont_fix) but surface
+   "Pending" / "Resolved" to operators per product decision. The mapping is
+   one-way (display only); controllers / API still write the canonical enum. */
+$statusLabels = array(
+    'open'      => 'Pending',
+    'fixed'     => 'Resolved',
+    'dismissed' => 'Dismissed',
+    'wont_fix'  => "Won't fix",
+    'all'       => 'All',
+);
+foreach ($scanners as $code => &$meta) {
+    $base = "mmd_auditfix/scan_{$code}/";
+    $meta['last_run']     = (string)Mage::getStoreConfig($base . 'last_run_at');
+    $meta['last_logged']  = (int)Mage::getStoreConfig($base . 'last_run_logged');
+    $meta['last_fixed']   = (int)Mage::getStoreConfig($base . 'last_run_fixed');
+    $meta['last_status']  = (string)Mage::getStoreConfig($base . 'last_run_status');
+}
+unset($meta);
+?>
+<div class="auditfix-page">
+
+    <div class="afx-header">
+        <div class="afx-title">
+            <span class="afx-eyebrow">Audit</span>
+            <h1>Audit Issues</h1>
+        </div>
+        <div class="afx-meta">
+            <span class="afx-stat"><b><?php echo $counts['open'] ?></b> pending</span>
+            <span class="afx-stat"><b><?php echo $counts['fixed'] ?></b> resolved</span>
+            <span class="afx-stat"><b><?php echo $counts['dismissed'] + $counts['wont_fix'] ?></b> dismissed</span>
+        </div>
+    </div>
+
+    <section class="afx-section" id="cron-schedule">
+        <div class="afx-section-head">
+            <span class="afx-eyebrow">Cron schedule</span>
+        </div>
+        <div class="afx-schedule">
+            <?php foreach ($scanners as $code => $meta): ?>
+            <div class="afx-sched-card afx-tone-<?php echo $meta['severity'] ?>">
+                <div class="afx-sched-top">
+                    <span class="afx-sched-label"><?php echo $meta['label'] ?></span>
+                    <span class="afx-sched-cron"><?php echo $meta['cron'] ?></span>
+                </div>
+                <div class="afx-sched-meta">
+                    <span>last run</span>
+                    <b><?php echo $meta['last_run'] ? $this->escapeHtml(substr($meta['last_run'], 0, 16)) : '—' ?></b>
+                </div>
+                <div class="afx-sched-meta">
+                    <span>logged / fixed</span>
+                    <b><?php echo $meta['last_logged'] ?> / <?php echo $meta['last_fixed'] ?></b>
+                </div>
+                <div class="afx-sched-actions">
+                    <button type="button" class="afx-btn" onclick="afxRunScan('<?php echo $code ?>')">Run now</button>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </section>
+
+    <section class="afx-section">
+        <div class="afx-tabs">
+            <?php foreach (array('open', 'fixed', 'dismissed', 'all') as $st): ?>
+            <a href="?status=<?php echo $st ?>" class="afx-tab <?php echo $statusFilter === $st ? 'is-active' : '' ?>">
+                <?php echo $statusLabels[$st] ?? ucfirst($st) ?> <span class="afx-tab-count"><?php echo $counts[$st] ?? 0 ?></span>
+            </a>
+            <?php endforeach; ?>
+        </div>
+
+        <table class="afx-table">
+            <thead>
+                <tr>
+                    <th style="width:64px">#</th>
+                    <th style="width:90px">Status</th>
+                    <th style="width:90px">Severity</th>
+                    <th style="width:110px">Category</th>
+                    <th>Title</th>
+                    <th>Entity</th>
+                    <th style="width:140px">Source</th>
+                    <th style="width:130px">Found</th>
+                    <th style="width:170px;text-align:right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php if (!$rows): ?>
+                <tr><td colspan="9" class="afx-empty">No issues in this view.</td></tr>
+            <?php endif; ?>
+            <?php foreach ($rows as $r): ?>
+                <?php $canFix = $fixer->canFix($r) && $r['status'] === 'open'; ?>
+                <tr data-issue="<?php echo (int)$r['issue_id'] ?>" data-status="<?php echo $this->escapeHtml($r['status']) ?>">
+                    <td class="afx-id">#<?php echo (int)$r['issue_id'] ?></td>
+                    <td><span class="afx-status afx-status-<?php echo $this->escapeHtml($r['status']) ?>"><?php echo $this->escapeHtml($statusLabels[$r['status']] ?? $r['status']) ?></span></td>
+                    <td><span class="afx-pill afx-pill-<?php echo $this->escapeHtml($r['severity']) ?>"><?php echo $this->escapeHtml(str_replace('_',' ', $r['severity'])) ?></span></td>
+                    <td><span class="afx-cat"><?php echo $this->escapeHtml($r['category']) ?></span></td>
+                    <td>
+                        <div class="afx-title-row"><?php echo $this->escapeHtml($r['title']) ?></div>
+                        <?php if (!empty($r['detail'])): ?>
+                        <div class="afx-detail"><?php echo nl2br($this->escapeHtml(substr((string)$r['detail'], 0, 240))) ?></div>
+                        <?php endif; ?>
+                        <?php if (!empty($r['fix_summary'])): ?>
+                        <div class="afx-fix-summary">↳ <?php echo $this->escapeHtml($r['fix_summary']) ?></div>
+                        <?php endif; ?>
+                    </td>
+                    <td class="afx-entity">
+                        <?php if ($r['entity_type']): ?>
+                            <span class="afx-entity-type"><?php echo $this->escapeHtml($r['entity_type']) ?></span>
+                            <?php if ($r['entity_id']): ?><span class="afx-entity-id">#<?php echo (int)$r['entity_id'] ?></span><?php endif; ?>
+                        <?php else: ?>
+                            <span class="afx-muted">—</span>
+                        <?php endif; ?>
+                    </td>
+                    <td class="afx-source"><?php echo $this->escapeHtml($r['source']) ?></td>
+                    <td class="afx-time"><?php echo $this->escapeHtml(substr((string)$r['found_at'], 0, 16)) ?></td>
+                    <td class="afx-actions">
+                        <?php if ($canFix): ?>
+                        <button type="button" class="afx-icon-btn afx-icon-fix" title="Apply fix" onclick="afxFix(<?php echo (int)$r['issue_id'] ?>)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.7 6.3a3 3 0 1 1 3 3l-9 9-4 1 1-4 9-9z"/></svg>
+                            Fix
+                        </button>
+                        <?php endif; ?>
+                        <?php if ($r['status'] === 'open'): ?>
+                        <button type="button" class="afx-icon-btn" title="Dismiss" onclick="afxMark(<?php echo (int)$r['issue_id'] ?>,'dismissed')">Dismiss</button>
+                        <?php elseif ($r['status'] === 'dismissed' || $r['status'] === 'wont_fix' || $r['status'] === 'fixed'): ?>
+                        <button type="button" class="afx-icon-btn" title="Reopen" onclick="afxMark(<?php echo (int)$r['issue_id'] ?>,'open')">Reopen</button>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </section>
+</div>
+
+<script type="text/javascript">
+(function(){
+    var FORM_KEY = '<?php echo $formKey ?>';
+    var URL_FIX  = '<?php echo $urlFix ?>';
+    var URL_MARK = '<?php echo $urlMark ?>';
+    var URL_RUN  = '<?php echo $urlRun ?>';
+
+    function post(url, params, cb) {
+        var x = new XMLHttpRequest();
+        x.open('POST', url);
+        x.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        x.onload = function() {
+            try { cb(JSON.parse(x.responseText)); }
+            catch(e) { cb({ ok:false, msg: 'Bad response' }); }
+        };
+        var body = 'form_key=' + encodeURIComponent(FORM_KEY);
+        for (var k in params) body += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+        x.send(body);
+    }
+
+    window.afxFix = function(id) {
+        post(URL_FIX, { issue_id: id }, function(r){
+            if (r.ok) { afxFlash('Fixed: ' + (r.msg||''), 'ok'); afxReload(); }
+            else      { afxFlash('Fix failed: ' + (r.msg||''), 'err'); }
+        });
+    };
+    window.afxMark = function(id, status) {
+        post(URL_MARK, { issue_id: id, status: status }, function(r){
+            if (r.ok) { afxFlash(r.msg||'Updated', 'ok'); afxReload(); }
+            else      { afxFlash('Failed: ' + (r.msg||''), 'err'); }
+        });
+    };
+    window.afxRunScan = function(which) {
+        afxFlash('Running ' + which + ' scanner…', 'info');
+        post(URL_RUN, { which: which }, function(r){
+            if (r.ok) { afxFlash(r.msg||'Done', 'ok'); setTimeout(afxReload, 600); }
+            else      { afxFlash('Scan failed: ' + (r.msg||''), 'err'); }
+        });
+    };
+
+    function afxFlash(msg, tone) {
+        var f = document.getElementById('afx-flash');
+        if (!f) {
+            f = document.createElement('div');
+            f.id = 'afx-flash';
+            f.className = 'afx-flash';
+            document.body.appendChild(f);
+        }
+        f.textContent = msg;
+        f.className = 'afx-flash afx-flash-' + (tone||'info') + ' is-visible';
+        clearTimeout(f._t);
+        f._t = setTimeout(function(){ f.classList.remove('is-visible'); }, 3000);
+    }
+    function afxReload() { window.location.reload(); }
+})();
+</script>

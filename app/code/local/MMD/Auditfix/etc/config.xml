@@ -1,0 +1,75 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_Auditfix>
+            <version>0.1.0</version>
+        </MMD_Auditfix>
+    </modules>
+
+    <global>
+        <helpers>
+            <mmd_auditfix>
+                <class>MMD_Auditfix_Helper</class>
+            </mmd_auditfix>
+        </helpers>
+        <models>
+            <mmd_auditfix>
+                <class>MMD_Auditfix_Model</class>
+            </mmd_auditfix>
+        </models>
+        <resources>
+            <mmd_auditfix_write>
+                <connection><use>core_write</use></connection>
+            </mmd_auditfix_write>
+            <mmd_auditfix_read>
+                <connection><use>core_read</use></connection>
+            </mmd_auditfix_read>
+        </resources>
+    </global>
+
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <MMD_Auditfix before="Mage_Adminhtml">MMD_Auditfix_Adminhtml</MMD_Auditfix>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+
+    <adminhtml>
+        <layout>
+            <updates>
+                <mmd_auditfix>
+                    <file>auditfix.xml</file>
+                </mmd_auditfix>
+            </updates>
+        </layout>
+    </adminhtml>
+
+    <!-- Scheduled audit scanners. Each runs heuristic checks in PHP and
+         writes findings into mmd_audit_issues. Low-risk issues (currently:
+         empty product meta_description) are auto-fixed in-place and logged
+         with status='fixed'; everything else is logged status='open' for
+         a human to triage on the Audit Issues page. The Claude seo-auditor
+         agent remains the manual deep-dive — these crons are the cheap,
+         daily heuristic pass that keeps the banner fresh between agent runs. -->
+    <crontab>
+        <jobs>
+            <mmd_auditfix_scan_seo>
+                <schedule><cron_expr>0 2 * * *</cron_expr></schedule>
+                <run><model>mmd_auditfix/cron_scanSeo::run</model></run>
+            </mmd_auditfix_scan_seo>
+            <mmd_auditfix_scan_security>
+                <schedule><cron_expr>0 3 * * *</cron_expr></schedule>
+                <run><model>mmd_auditfix/cron_scanSecurity::run</model></run>
+            </mmd_auditfix_scan_security>
+            <mmd_auditfix_scan_code_review>
+                <schedule><cron_expr>0 4 * * *</cron_expr></schedule>
+                <run><model>mmd_auditfix/cron_scanCodeReview::run</model></run>
+            </mmd_auditfix_scan_code_review>
+        </jobs>
+    </crontab>
+</config>

@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_Auditfix>
+            <active>true</active>
+            <codePool>local</codePool>
+            <depends>
+                <Mage_Adminhtml />
+                <Mage_Catalog />
+                <MMD_RoleManager />
+            </depends>
+        </MMD_Auditfix>
+    </modules>
+</config>

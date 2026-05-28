@@ -101,6 +101,27 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
         <span>Admin Users</span>
     </a>
+    <?php
+        // Audit Issues — Super Admin only (gated by sidebar parent). The
+        // ACL resource (admin/mmd_auditfix) also enforces this server-side
+        // on every controller hit, so a deep-link from another role 404s.
+        $_auditUrl = Mage::helper('adminhtml')->getUrl('adminhtml/auditissues/index');
+        $_auditActive = ($_ctrl === 'auditissues') ? ' active' : '';
+        $_auditOpenCount = 0;
+        try {
+            $_aReadConn = Mage::getSingleton('core/resource')->getConnection('core_read');
+            $_aTbl = Mage::getSingleton('core/resource')->getTableName('mmd_audit_issues');
+            $_auditOpenCount = (int)$_aReadConn->fetchOne("SELECT COUNT(*) FROM {$_aTbl} WHERE status = 'open'");
+        } catch (Exception $_e) { /* table missing — silently zero */ }
+    ?>
+    <a href="<?php echo $_auditUrl ?>" class="lms-nav-item<?php echo $_auditActive ?>">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        <span>Audit Issues<?php if ($_auditOpenCount > 0): ?> <span class="lms-nav-badge"><?php echo $_auditOpenCount ?></span><?php endif; ?></span>
+    </a>
+    <a href="<?php echo $_auditUrl ?>#cron-schedule" class="lms-nav-item<?php echo $_auditActive ?>">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>Cron Schedule</span>
+    </a>
     <!-- Sales group removed from Super Admin sidebar — already shown under
          the Admin role; super-admin's job is configuration, not order ops. -->
     <!-- Super Admin sidebar trimmed 2026-05-06: Class Management,
@@ -308,10 +329,12 @@
             <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/promo_quote') ?>" class="tools-sub-item"><span>Shopping Cart Price Rules</span></a>
         </div>
     </div>
-    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/seoaudit') ?>" class="lms-nav-item<?php echo _so(array('seoaudit')) ?>">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c2.39 0 4.68.94 6.36 2.64"/></svg>
-        <span>SEO Audit</span>
-    </a>
+    <?php /* SEO Audit moved 2026-05-29: the standalone audit page (route
+            adminhtml/seoaudit) is retained for the deep-dive view but no
+            longer linked from Marketing. The segment-aware audit findings
+            (brand suffix, WSQ token, HRDF hook, etc.) now flow into the
+            unified Audit Issues page (Super Admin → Audit Issues),
+            written daily by MMD_Auditfix_Model_Cron_ScanSeo. */ ?>
     <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/catalog_search') ?>" class="lms-nav-item">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <span>Search Terms</span>

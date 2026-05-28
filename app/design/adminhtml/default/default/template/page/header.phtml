@@ -36,6 +36,30 @@ $activeRole = $helper->getActiveRoleCode();
 $activeRoleLabel = $helper->getRoleLabel($activeRole);
 $userRoles = $helper->getUserRoles();
 $switchUrl = Mage::helper('adminhtml')->getUrl('adminhtml/roleswitch/switch');
+
+/* Audit findings — read once and surface as a bell icon in the topbar.
+   JSON written by scripts/audit/record-findings.php; clear with --clear. */
+$_auditFile = Mage::getBaseDir('var') . '/audit-notifications/findings.json';
+$_audit = null; $_auditTotal = 0;
+$_aHigh = $_aMed = $_aQuick = $_aBig = $_aLow = 0;
+$_aSeverity = ''; $_aSummary = ''; $_aWhen = ''; $_aScope = ''; $_aReport = ''; $_aSource = '';
+if (is_file($_auditFile)) {
+    $_audit = @json_decode(file_get_contents($_auditFile), true);
+    if (is_array($_audit) && !empty($_audit['counts'])) {
+        $_aHigh  = (int)($_audit['counts']['high']      ?? 0);
+        $_aMed   = (int)($_audit['counts']['medium']    ?? 0);
+        $_aQuick = (int)($_audit['counts']['quick_win'] ?? 0);
+        $_aBig   = (int)($_audit['counts']['big_bet']   ?? 0);
+        $_aLow   = (int)($_audit['counts']['low']       ?? 0);
+        $_auditTotal = $_aHigh + $_aMed + $_aQuick + $_aBig + $_aLow;
+        $_aSeverity = $_aHigh > 0 ? 'critical' : ($_aMed > 0 ? 'warning' : 'info');
+        $_aSummary  = (string)($_audit['summary']   ?? '');
+        $_aWhen     = (string)($_audit['timestamp'] ?? '');
+        $_aScope    = (string)($_audit['scope']     ?? '');
+        $_aReport   = (string)($_audit['report']    ?? '');
+        $_aSource   = (string)($_audit['source']    ?? 'audit');
+    }
+}
 $roleIcons = array(
     'learner' => '&#x1F4DA;',
     'trainer' => '&#x1F468;&#x200D;&#x1F3EB;',
@@ -132,6 +156,50 @@ $roleIcons = array(
     <?php endif; ?>
 
     <div class="header-right">
+        <?php if ($_auditTotal > 0): ?>
+        <div class="audit-bell-wrap" id="audit-bell">
+            <button type="button"
+                    class="audit-bell-btn audit-bell-<?php echo $_aSeverity ?>"
+                    onclick="document.getElementById('audit-bell').classList.toggle('open')"
+                    title="<?php echo (int)$_auditTotal ?> audit issue<?php echo $_auditTotal === 1 ? '' : 's' ?>"
+                    aria-label="Audit issues: <?php echo (int)$_auditTotal ?>">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                <span class="audit-bell-badge audit-bell-badge-<?php echo $_aSeverity ?>"><?php echo $_auditTotal > 99 ? '99+' : (int)$_auditTotal ?></span>
+            </button>
+            <div class="audit-bell-dropdown" role="dialog" aria-label="Audit issues">
+                <div class="audit-bell-heading">
+                    <span class="audit-bell-heading-title">
+                        <?php echo $_aHigh > 0 ? 'Critical issues detected' : ($_aMed > 0 ? 'Review needed' : 'Audit findings'); ?>
+                    </span>
+                    <span class="audit-bell-heading-source"><?php echo $this->escapeHtml($_aSource) ?></span>
+                </div>
+                <div class="audit-bell-pills">
+                    <?php if ($_aHigh > 0): ?><span class="audit-pill audit-pill-high"><?php echo $_aHigh ?> High Risk</span><?php endif; ?>
+                    <?php if ($_aMed > 0): ?><span class="audit-pill audit-pill-med"><?php echo $_aMed ?> Medium Risk</span><?php endif; ?>
+                    <?php if ($_aQuick > 0): ?><span class="audit-pill audit-pill-quick"><?php echo $_aQuick ?> Quick Win</span><?php endif; ?>
+                    <?php if ($_aBig > 0): ?><span class="audit-pill audit-pill-big"><?php echo $_aBig ?> Big Bet</span><?php endif; ?>
+                    <?php if ($_aLow > 0): ?><span class="audit-pill audit-pill-low"><?php echo $_aLow ?> Low Risk</span><?php endif; ?>
+                </div>
+                <?php if ($_aSummary): ?>
+                <div class="audit-bell-summary"><?php echo $this->escapeHtml($_aSummary) ?></div>
+                <?php endif; ?>
+                <div class="audit-bell-meta">
+                    <?php if ($_aScope): ?><span><?php echo $this->escapeHtml($_aScope) ?></span><?php endif; ?>
+                    <?php if ($_aWhen): ?><span><?php echo $this->escapeHtml(substr($_aWhen, 0, 16)) ?></span><?php endif; ?>
+                </div>
+                <div class="audit-bell-actions">
+                    <a class="audit-bell-link audit-bell-link-primary" href="<?php echo $this->getUrl('adminhtml/auditissues/index') ?>">View issues</a>
+                    <?php if ($_aReport): ?>
+                    <a class="audit-bell-link" href="#" onclick="alert('Report path: <?php echo $this->escapeHtml($_aReport) ?>'); return false;">Report</a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <button type="button" class="theme-toggle" id="theme-toggle" onclick="adminToggleTheme()" title="Toggle light/dark mode" aria-label="Toggle light/dark mode">
             <svg class="theme-toggle-icon theme-toggle-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
             <svg class="theme-toggle-icon theme-toggle-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -234,6 +302,8 @@ document.addEventListener('click', function(e) {
     if (menu && !menu.contains(e.target)) menu.classList.remove('open');
     var viewAs = document.getElementById('view-as');
     if (viewAs && !viewAs.contains(e.target)) viewAs.classList.remove('open');
+    var bell = document.getElementById('audit-bell');
+    if (bell && !bell.contains(e.target)) bell.classList.remove('open');
 });
 (function(){
     var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];

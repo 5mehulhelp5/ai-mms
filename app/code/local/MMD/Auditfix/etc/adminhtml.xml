@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<config>
+    <acl>
+        <resources>
+            <admin>
+                <children>
+                    <mmd_auditfix translate="title" module="mmd_auditfix">
+                        <title>Audit Issues</title>
+                        <sort_order>110</sort_order>
+                        <children>
+                            <index>
+                                <title>View Issues</title>
+                            </index>
+                            <action>
+                                <title>Mark / Rerun / Dismiss</title>
+                            </action>
+                        </children>
+                    </mmd_auditfix>
+                </children>
+            </admin>
+        </resources>
+    </acl>
+</config>

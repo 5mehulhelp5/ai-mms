@@ -520,6 +520,105 @@ Specs:
 When clustering multiple icon buttons in a row, gap them with 4–6px. Group them in a
 flex container above the textarea / field they control.
 
+## Hard rule: icon > button for chrome-level actions
+
+For anything that lives in **persistent admin chrome** — the topbar
+(`.admin-topbar` / `.header-right`), sidebar headers, page header gutters, grid
+toolbars — **prefer a bare icon over a rectangular button.** Buttons broadcast
+"primary action, click me." Chrome actions are ambient affordances; a clean
+glyph reads as part of the frame, not as a CTA competing with the page's real
+primary button.
+
+**Use an icon (no border, no background) when:**
+- It's a global utility that lives on every page (theme toggle, notification
+  bell, role switcher trigger, user menu trigger, dark/light, language).
+- The label is communicated by the glyph alone + tooltip (a `title=` attr is
+  enough; the action is recognized iconographically).
+- It sits next to other icons of the same class — the row should read as a
+  uniform strip of glyphs, not a cluster of pill buttons.
+
+**Promote to a button only when:**
+- The action is the page's primary task (Save, Add Course, Generate Class).
+- A non-iconographic label is load-bearing ("Apply rule", "Recalculate") — i.e.
+  no universally-understood icon exists.
+- The action is destructive or scope-changing and benefits from a heavier
+  visual weight to slow the user down.
+
+**Canonical chrome-icon pattern** (no box, just glyph + optional badge):
+
+> ⚠ **Override trap:** the canonical button system (`sidebar-nav.css` §18 +
+> `boxes.css`) paints every `<button>` with padding / border / background /
+> radius / box-shadow. A bare-glyph rule WITHOUT `!important` loses the cascade
+> and renders as a rounded blue button (incident: audit bell 2026-05-29, shipped
+> as a 28×28 outlined box for one push because `border:0` lost to
+> `.admin-main button { border: 1px solid … }`). Force every visual property
+> with `!important` and also reset `box-shadow`, `background-image`, `text-shadow`,
+> `min-width`, `min-height`. The button "look" comes from a dozen properties —
+> miss any one and you get a button back.
+
+```css
+.foo-icon-btn {
+    position: relative !important;
+    width: 28px !important; height: 28px !important;   /* hit-area, not visual size */
+    min-width: 0 !important; min-height: 0 !important;
+    padding: 0 !important; margin: 0 !important;
+    border: 0 !important;                              /* NO border */
+    border-radius: 0 !important;
+    background: transparent !important;                /* NO background */
+    background-image: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    color: #cbd5e1 !important;
+    cursor: pointer;
+    display: inline-flex !important;
+    align-items: center; justify-content: center;
+    line-height: 1 !important;
+    font-size: 0 !important;                           /* kill text-node spacing */
+    transition: color .15s ease, transform .15s ease, filter .15s ease;
+    -webkit-appearance: none !important; appearance: none !important;
+}
+.foo-icon-btn:hover { color: #fff !important; background: transparent !important; box-shadow: none !important; transform: translateY(-1px); }
+.foo-icon-btn:active { background: transparent !important; box-shadow: none !important; }
+.foo-icon-btn:focus { outline: none; box-shadow: none !important; }
+.foo-icon-btn:focus-visible {
+    outline: 2px solid rgba(255,255,255,.35);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+.foo-icon-btn svg { display: block; pointer-events: none; }
+/* Severity tint via filter:drop-shadow, NOT box-shadow — the latter draws a
+   rectangle behind the glyph and reintroduces button chrome. */
+.foo-icon-btn.is-critical { color: #ff3b5c; filter: drop-shadow(0 0 6px rgba(255,59,92,.55)); }
+.foo-icon-btn.is-warning  { color: #f5c451; filter: drop-shadow(0 0 5px rgba(245,196,81,.45)); }
+```
+
+Reference implementation: the audit-issues bell in
+`app/design/adminhtml/default/default/template/page/header.phtml` /
+`dark-theme.css` (`.audit-bell-btn` + `.audit-bell-badge`). The bell sits in
+`.header-right` alongside theme-toggle and user-avatar — all three are bare
+glyphs, no boxes, so the strip reads as one continuous icon row.
+
+**Notification badge over an icon** — when a chrome icon needs a count:
+
+- Small pill anchored top-right of the glyph, `min-width: 15px; height: 15px;
+  border-radius: 8px; font-size: 9.5px; font-weight: 700`.
+- Use `box-shadow: 0 0 0 2px var(--d2)` (NOT a `border:`) to carve a halo against
+  the topbar background — borders would shift the badge geometry every time the
+  topbar bg changes.
+- Severity color drives the badge fill: red `#ff3b5c` for critical, amber
+  `#f5c451` for warning, slate `#8aa1bd` for info.
+- Add `pointer-events: none` so the badge never eats clicks meant for the glyph.
+
+**Motion**: a critical icon can carry a gentle attention cue (drop-shadow
+intensifying, a 3s swing keyframe on the SVG itself with
+`transform-origin: 50% 18%`). Don't pulse the whole element — pulsing a bare
+icon stays subtle, pulsing a bordered button reads as a faulty alert dialog.
+
+If you find yourself adding `border:`, `background:`, or `border-radius` larger
+than 4px to a chrome action, you're building a button. Stop, and ask whether
+the action belongs in the chrome at all — if yes, go back to the bare glyph; if
+no, move it to the page body where buttons live.
+
 ## Minimalist checkbox (admin-wide — `dark-theme.css`)
 
 Flat, no native gray inner box. The global rule is in `dark-theme.css` (the
