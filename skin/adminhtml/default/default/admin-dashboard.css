@@ -3399,3 +3399,28 @@ button.hsp-btn-submit{
     color: #475569 !important;
 }
 
+
+/* ===== MMD auto-wrapped grid card =====
+   sidebar-nav-v2.js::wrapMmdGridInCard() lifts the .content-header h3
+   + form-buttons into a .dcf-mag-bar above each MMD admin grid so
+   every list page (Users / Classes / Providers / Marketing /
+   SEO Audit / SEO Metadata / Course Page Generator / Class Schedule)
+   reads with the same chrome as the Leads page. The .dcf-mag rule
+   already shipped for Edit Course; only minor scoping here. */
+.mmd-auto-card .dcf-mag-body { padding: 0 !important; }
+.mmd-auto-card .grid { margin: 0 !important; }
+.mmd-auto-card [id$="_massaction"] {
+    padding: 10px 14px !important;
+    border-bottom: 1px solid var(--b1, #1f2937) !important;
+}
+.mmd-auto-card-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.mmd-auto-card-actions button,
+.mmd-auto-card-actions .scalable,
+.mmd-auto-card-actions input[type="submit"] {
+    margin: 0 !important;
+}

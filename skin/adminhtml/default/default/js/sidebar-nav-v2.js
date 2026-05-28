@@ -2126,6 +2126,92 @@ document.observe('dom:loaded', function() {
         });
     }
 
+    // Wrap MMD admin grids (Users / Classes / Providers / Marketing /
+    // SEO Audit / SEO Metadata / Course Page Generator / Class
+    // Schedule) in a .dcf-mag section card whose .dcf-mag-bar reads
+    // as the page title, mirroring the "SEO Meta" header pattern on
+    // the Course Edit page.
+    //
+    // Strict allow-list keyed off body class. Course Edit
+    // (`adminhtml-dashboard-*`) is the design benchmark and MUST be
+    // left untouched. Leads has its own custom template that already
+    // emits .dcf-mag; we detect that and skip.
+    function wrapMmdGridInCard() {
+        var bodyClass = ' ' + document.body.className + ' ';
+        // Hard exclude — Course Edit and other dashboard routes.
+        if (bodyClass.indexOf('adminhtml-dashboard-') !== -1) return;
+        var allowPrefixes = [
+            'adminhtml-providers-',          // Courses → Providers
+            'adminhtml-marketingdashboard-', // Marketing dashboard
+            'adminhtml-classes-',            // Class Management
+            'adminhtml-cpgenerator-',        // Course Page Generator
+            'adminhtml-rolemanagement-',     // Users / Role Management
+            'adminhtml-seometadata-',        // SEO Metadata
+            'adminhtml-seoaudit-',           // SEO Audit
+            'adminhtml-trainer-',            // Trainer admin
+            'adminhtml-customoptions-options-' // Manage Class Schedule
+        ];
+        var bodyClassRaw = document.body.className;
+        var match = allowPrefixes.some(function (p) {
+            return bodyClassRaw.indexOf(p) !== -1;
+        });
+        if (!match) return;
+
+        var container = document.querySelector('#page\\:main-container, #anchor-content');
+        if (!container) return;
+        // Already wrapped (Leads custom template, or a re-run).
+        if (container.querySelector('.mmd-leads-wrap')) return;
+        if (container.querySelector('.dcf-mag.mmd-auto-card')) return;
+
+        var contentHeader = container.querySelector('.content-header');
+        var grid = container.querySelector('.grid');
+        if (!contentHeader || !grid) return;
+        var h3 = contentHeader.querySelector('h3');
+        var title = h3 ? h3.textContent.trim() : '';
+        if (!title) return;
+
+        // Grid wrapper div — closest ancestor div with an id (Magento
+        // emits <div id="<grid_id>">…<div id="<grid_id>_massaction">…
+        // <table id="<grid_id>_table">…). That id-bearing div owns
+        // both the massaction toolbar and the grid table.
+        var gridWrapper = grid.closest('div[id]') || grid;
+        var massaction = container.querySelector('[id$="_massaction"]');
+
+        // Build card
+        var card = document.createElement('div');
+        card.className = 'dcf-mag mmd-auto-card';
+        var bar = document.createElement('div');
+        bar.className = 'dcf-mag-bar';
+        var titleSpan = document.createElement('span');
+        titleSpan.textContent = title;
+        bar.appendChild(titleSpan);
+        // Pull the form-buttons (Add New, Reset, etc.) into the bar's
+        // right side — .dcf-mag-bar is flex justify-content:space-between
+        // so they land flush right without extra CSS.
+        var formButtons = contentHeader.querySelector('.form-buttons, .content-buttons');
+        if (formButtons && formButtons.children.length) {
+            var btnHolder = document.createElement('span');
+            btnHolder.className = 'mmd-auto-card-actions';
+            while (formButtons.firstChild) btnHolder.appendChild(formButtons.firstChild);
+            bar.appendChild(btnHolder);
+        }
+        card.appendChild(bar);
+        var body = document.createElement('div');
+        body.className = 'dcf-mag-body';
+        body.style.padding = '0';
+        card.appendChild(body);
+
+        // Insert card immediately before the grid wrapper, then move
+        // massaction (if a separate sibling) + grid wrapper into body.
+        gridWrapper.parentNode.insertBefore(card, gridWrapper);
+        if (massaction && massaction !== gridWrapper && !gridWrapper.contains(massaction)) {
+            body.appendChild(massaction);
+        }
+        body.appendChild(gridWrapper);
+
+        contentHeader.style.display = 'none';
+    }
+
     // Apply all grid enhancements
     function applyGridEnhancements() {
         // Remove old KPI cards first
@@ -2138,6 +2224,7 @@ document.observe('dom:loaded', function() {
         consolidateInvoiceActions();
         mergeDuplicateActionColumns();
         injectGridKPIs();
+        wrapMmdGridInCard();
     }
 
     // Run on initial load. Retries cover slow first paints where the
