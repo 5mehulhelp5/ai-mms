@@ -2579,4 +2579,16 @@ li.level2 > a > span > .cat-label,
         margin-top: 0 !important;
     }
     body.cms-home .main-before-top-container { display: none !important; }
+
+    /* Homepage section titles ("Popular WSQ...", "WSQ and IBF Courses", etc.)
+       render left-aligned at desktop H3 size, which dominates the narrow
+       viewport. Center and shrink so they read as section headers, not page
+       titles. .padding-right reserves space for the desktop arrows, which
+       are visually crowding the title text on mobile. */
+    body.cms-home .section-title {
+        text-align: center !important;
+        font-size: 20px !important;
+        line-height: 1.3 !important;
+        padding-right: 0 !important;
+    }
 }
