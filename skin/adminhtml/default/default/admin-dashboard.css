@@ -15,6 +15,14 @@
     background:var(--b0,#0b1220);
     border:1px solid var(--b1,#1e293b);border-radius:8px;
 }
+/* Global injection sits at the top of .middle (which has 16px top
+   padding from sidebar-nav.css §11). Pull it up so it reads as a
+   sub-header band against the topbar rather than floating in a sea
+   of dead space. The Edit Course inline strip omits the
+   .mmd-branchscope-pills class — only the global bar is affected. */
+.dcf-store-switcher.mmd-branchscope-pills{
+    margin-top:-10px !important;
+}
 .dcf-store-switcher-label{
     font-size:11px;font-weight:600;letter-spacing:.4px;
     text-transform:uppercase;color:var(--t2,#94a3b8);
