@@ -255,6 +255,7 @@ class MMD_Branchscope_Helper_Data extends Mage_Core_Helper_Abstract
             'tax_rate'          => true,
             'tax_rule'          => true,
             'seoaudit'          => true,
+            'leads'             => true,
         );
 
         return isset($allow[$controller]);

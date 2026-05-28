@@ -18,7 +18,20 @@ class MMD_Leads_Block_Adminhtml_Leads_Grid extends Mage_Adminhtml_Block_Widget_G
 
     protected function _prepareCollection()
     {
-        $this->setCollection(Mage::getModel('mmd_leads/lead')->getCollection());
+        $collection = Mage::getModel('mmd_leads/lead')->getCollection();
+
+        // Scope rows to the country pill picked in the global Store View bar
+        // (.dcf-store-switcher → ?store=N). 0 = All; >0 = single country.
+        // Without this the pills change the URL but the grid keeps showing
+        // every lead, contradicting the "Viewing: <Country>" notice band.
+        try {
+            $activeStoreId = (int) Mage::helper('branchscope')->getActiveStoreId();
+            if ($activeStoreId > 0) {
+                $collection->addFieldToFilter('store_id', $activeStoreId);
+            }
+        } catch (Exception $e) { /* helper unavailable — show unfiltered */ }
+
+        $this->setCollection($collection);
         return parent::_prepareCollection();
     }
 
