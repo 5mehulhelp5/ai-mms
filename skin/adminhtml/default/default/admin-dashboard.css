@@ -4,78 +4,66 @@
    dashboard load. Scoped via main.xml to load only on adminhtml_dashboard_index. */
 
 /* === Global Store View bar (MMD_Branchscope) ===
-   Rendered at the top of <content> on every store-scoped admin page.
-   Canonical pattern — see backend-design skill ("Store View bar"). All
-   new admin pages with per-store data inherit this strip; do not
-   re-implement inline. Markup contract:
-       .mmd-sv-bar
-         .mmd-sv-label             "STORE VIEW:"
-         .mmd-sv-tabs              flex row of pills
-           .mmd-sv-tab[.is-active]
-             .mmd-sv-tab-code      2-letter store code badge
-             .mmd-sv-tab-name      full store name
-         .mmd-sv-scope-link        right-aligned info link
-       .mmd-sv-editing             optional "Editing for: X [CC]" chip row
-*/
-.mmd-sv-bar{
-    display:flex !important;align-items:center;gap:10px;flex-wrap:wrap;
-    padding:10px 14px;margin:0 0 12px !important;
+   Canonical pattern — hoisted from the Edit Course inline <style>
+   (template/dashboard/index.phtml). Same .dcf-store-* class names so
+   the global bar and the Edit Course inline bar render identically.
+   See the backend-design skill ("Store View bar") for the rule that
+   every store-scoped admin page must use this strip. */
+.dcf-store-switcher{
+    display:flex;align-items:center;gap:4px;flex-wrap:wrap;
+    padding:6px 10px;margin:0 0 12px;
     background:var(--b0,#0b1220);
-    border:1px solid var(--b1,#1e293b);border-radius:10px;
-    font-family:inherit;
+    border:1px solid var(--b1,#1e293b);border-radius:8px;
 }
-.mmd-sv-label{
-    font:600 11px/1 inherit;letter-spacing:.5px;text-transform:uppercase;
-    color:var(--t2,#94a3b8);
-    padding-right:10px;margin-right:2px;
+.dcf-store-switcher-label{
+    font-size:11px;font-weight:600;letter-spacing:.4px;
+    text-transform:uppercase;color:var(--t2,#94a3b8);
+    padding-right:8px;margin-right:4px;
     border-right:1px solid var(--b1,#1e293b);
 }
-.mmd-sv-tabs{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;}
-a.mmd-sv-tab,a.mmd-sv-tab:hover,a.mmd-sv-tab:focus,a.mmd-sv-tab:active{
-    display:inline-flex !important;align-items:center;gap:8px;
-    padding:6px 12px;border-radius:8px;
-    font:500 13px/1 inherit;color:var(--t2,#94a3b8);
-    text-decoration:none !important;
-    border:1px solid var(--b1,#1e293b);background:transparent;
+a.dcf-store-tab,a.dcf-store-tab:hover,a.dcf-store-tab:focus,a.dcf-store-tab:active{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:5px 11px;border-radius:6px;
+    font-size:12px;font-weight:500;color:var(--t2,#94a3b8);
+    text-decoration:none;border:1px solid transparent;background:transparent;
     transition:background .12s,color .12s,border-color .12s;
 }
-a.mmd-sv-tab:hover{
-    background:rgba(148,163,184,.08);
-    border-color:var(--b2,#334155);color:var(--t1,#f1f5f9);
+a.dcf-store-tab:hover{
+    background:rgba(148,163,184,.1);color:var(--t1,#f1f5f9);
+    text-decoration:none;
 }
-a.mmd-sv-tab.is-active,a.mmd-sv-tab.is-active:hover{
-    background:rgba(34,211,238,.12);
+a.dcf-store-tab.is-active,a.dcf-store-tab.is-active:hover{
+    background:rgba(34,211,238,.14);
     border-color:rgba(34,211,238,.5);color:#22d3ee;
 }
-.mmd-sv-tab-code{
-    font:700 10px/1 inherit;letter-spacing:.6px;
-    padding:3px 6px;border-radius:4px;
+.dcf-store-tab-flag{
+    font-weight:700;font-size:10px;letter-spacing:.5px;
+    padding:1px 5px;border-radius:3px;
     background:rgba(148,163,184,.18);color:var(--t1,#f1f5f9);
 }
-.mmd-sv-tab.is-active .mmd-sv-tab-code{
+.dcf-store-tab.is-active .dcf-store-tab-flag{
     background:rgba(34,211,238,.25);color:#22d3ee;
 }
-.mmd-sv-tab-name{color:inherit;}
-.mmd-sv-scope-link{
+.dcf-store-switcher-hint{
     margin-left:auto;display:inline-flex;align-items:center;gap:5px;
-    font:500 11px/1 inherit;color:var(--t2,#94a3b8);cursor:help;
+    font-size:11px;color:var(--t2,#94a3b8);cursor:help;
 }
-.mmd-sv-editing{
-    display:flex;justify-content:flex-end;
-    margin:0 0 14px;
-}
-.mmd-sv-editing-pill{
+/* "Editing for: <Store> [CC]" chip — for edit-mode pages that pair an
+   inline edit banner with the per-store affordance. Markup:
+   <span class="dcf-active-store-pill">…<strong>Name</strong>
+   <span class="dcf-active-store-code">CC</span></span> */
+.dcf-active-store-pill{
     display:inline-flex;align-items:center;gap:8px;
-    padding:5px 14px;border-radius:999px;
+    padding:4px 12px;border-radius:999px;
     background:rgba(34,211,238,.12);
     border:1px solid rgba(34,211,238,.45);
-    color:#22d3ee;font:600 12px/1 inherit;letter-spacing:.2px;
+    color:#22d3ee;font-size:12px;font-weight:600;letter-spacing:.2px;
 }
-.mmd-sv-editing-pill strong{color:#e0f7fb;font-weight:700;}
-.mmd-sv-editing-code{
-    padding:2px 7px;border-radius:6px;
+.dcf-active-store-pill strong{color:#e0f7fb;font-weight:700;}
+.dcf-active-store-pill .dcf-active-store-code{
+    padding:1px 7px;border-radius:6px;
     background:rgba(34,211,238,.25);color:#e0f7fb;
-    font:700 10px/1 inherit;letter-spacing:.6px;
+    font-size:11px;letter-spacing:.6px;
 }
 
 

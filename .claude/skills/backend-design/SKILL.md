@@ -477,6 +477,53 @@ Keep overrides in a clearly commented, numbered section at the end of
 6. New override is body-class/id scoped and won't leak to other grids.
 7. **No gray backgrounds** on `<input>`, `<textarea>`, or `<td>` — transparent + border only. (See "Hard rule" section above.)
 8. Verified in the dark theme at the actual page. CSS/JS merging is on in admin — after editing `sidebar-nav.css`, flush **System → Cache Management → JavaScript/CSS Cache** before hard-refresh, or the bundled `media/css/HASH.css` will still serve the old rules.
-9. **Branch / store filter pills** use the canonical `.dev-country-tabs` + `.dev-country-btn` markup — no per-page tab class, no connected-tab look, active state = solid `--brand` blue.
+9. **Store View bar** on every store-scoped admin page uses the canonical `.dcf-store-switcher` markup (see "Store View bar" section below) — never re-implement inline. The global `MMD_Branchscope_Block_Store_Switcher` injects it into `<content>` automatically; per-page templates only render the inline version when they pre-existed the global bar (Edit Course) AND need to preserve extra URL state across switches (e.g. `course_id`, `mode`, `dev_back`). On those routes add a suppression branch in `Switcher.php`. Legacy `.dev-country-tabs` / `.dev-country-btn` is retained only for the in-panel Manage Courses filter (which doubles as a list filter), not for the universal switcher.
 10. **Page-level action buttons** are registered via `_addButton()` on the container block — no raw `<a class="button">` or `<button>` markup in templates for toolbar actions.
 11. Typography inherits from `dark-theme.css` — no per-page `font-family` or base `font-size` overrides; new headings/labels reuse the density-preference scale at the top of this doc.
+
+## Store View bar (canonical)
+
+Every store-scoped admin page renders one horizontal Store View bar — six
+country pills (SG / MY / GH / NG / BT / IN), each with a 2-letter code
+badge and full store name, plus a right-aligned "Scope" info link. The
+active pill uses the cyan accent (`rgba(34,211,238,*)`); inactive pills
+are transparent with a hover-only border.
+
+**Source of truth:** the global block
+`MMD_Branchscope_Block_Store_Switcher` (registered in
+`layout/branchscope.xml` under `<default>` as `mmd.branch.pills.global`)
+emits the markup. CSS lives in `skin/adminhtml/default/default/admin-dashboard.css`
+under "Global Store View bar". Never re-implement either inline.
+
+**Markup contract** (keep these classes — they are styled by the global
+CSS and by the Edit Course inline fallback):
+
+```html
+<div class="dcf-store-switcher mmd-branchscope-pills" role="tablist" aria-label="Store view">
+  <span class="dcf-store-switcher-label">Store View:</span>
+  <a class="dcf-store-tab is-active" href="?store=1" role="tab" aria-selected="true" data-store-id="1">
+    <span class="dcf-store-tab-flag">SG</span>
+    <span class="dcf-store-tab-name">Singapore</span>
+  </a>
+  <!-- …MY / GH / NG / BT / IN… -->
+  <span class="dcf-store-switcher-hint" title="…"><svg/>…<span>Scope</span></span>
+</div>
+```
+
+**Edit-mode pages** (Edit Course today, Edit Category / CMS Page tomorrow)
+that need a "Editing for: <Store> [CC]" affordance pair the bar with the
+amber edit notice and a cyan chip:
+
+```html
+<span class="dcf-active-store-pill">
+  <svg/>Editing for: <strong>Singapore</strong>
+  <span class="dcf-active-store-code">SG</span>
+</span>
+```
+
+**Rules**
+- Six country stores only — exclude `All` (store_id 0) and `Infotech` (store_id 7).
+- Helper: call `Mage::helper('branchscope')->getCountryStorePillOptions()` — it returns the canonical 6-store list with `code`. Do not iterate `core/store` directly.
+- Role gating: hide for `learner` and `trainer`. All other roles (developer, marketing, admin, super-admin / training_provider) see the bar on store-scoped routes; admin + super-admin see it on every route.
+- Suppress the global bar on any route that emits its own inline Store View bar (Edit Course already does this — extend the `getNameInLayout() === 'mmd.branch.pills.global'` switch in `Switcher.php` when adding new pre-existing inline bars).
+- Do not invent new class names like `mmd-sv-*`, `store-view-tabs`, etc. — the canonical names are `.dcf-store-switcher` / `.dcf-store-tab` / `.dcf-store-tab-flag`.

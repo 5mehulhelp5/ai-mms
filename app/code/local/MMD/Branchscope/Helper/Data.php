@@ -128,6 +128,36 @@ class MMD_Branchscope_Helper_Data extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Canonical 6-country pill set used by the global Store View bar
+     * (mirrors the Edit Course inline design). Excludes "All" and store
+     * 7 (Infotech corporate site) — those make sense for grid filters
+     * but not for the universal store-view switcher. Each option
+     * carries a 2-letter `code` for the pill badge, matching the
+     * class_id prefix scheme (SG000042 etc.).
+     *
+     * @return array
+     */
+    public function getCountryStorePillOptions()
+    {
+        $codeMap = array(1=>'SG',2=>'MY',3=>'GH',4=>'NG',5=>'BT',6=>'IN');
+        $options = array();
+        $stores  = Mage::getModel('core/store')->getCollection()->setOrder('store_id', 'ASC');
+        foreach ($stores as $store) {
+            $sid = (int) $store->getId();
+            if (!isset($codeMap[$sid])) {
+                continue; // skip admin (0), Infotech (7), anything else
+            }
+            $name = preg_replace('/\s*Store View\s*$/i', '', $store->getName());
+            $options[] = array(
+                'id'   => $sid,
+                'name' => $name,
+                'code' => $codeMap[$sid],
+            );
+        }
+        return $options;
+    }
+
+    /**
      * Build the pill URL for a given store id. Anchored on the current
      * route ONLY (module/controller/action) — strips path params like
      * /store/X/section/Y from the previous URL so we don't end up with

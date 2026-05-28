@@ -24,16 +24,14 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
 
         // Roles that don't get a branch switcher:
         //  - learner / trainer: scoped to their own registration country.
-        //  - developer: course catalog is shared across all countries
-        //    (one product = all branches), so a per-country pill is noise.
-        //  - marketing: campaigns and newsletter content are authored
-        //    cross-country; the operator doesn't pick a branch here.
-        // Other roles (admin, training_provider, super admin) still see
-        // the pills.
+        // Everyone else (developer, marketing, admin, super-admin) sees
+        // the bar on store-scoped pages. NOTE: 'training_provider' is
+        // the internal role code for Super Admin (see RoleManager
+        // Helper/Data.php).
         $_activeRole = '';
         try {
             $_activeRole = (string) Mage::helper('mmd_rolemanager')->getActiveRoleCode();
-            if (in_array($_activeRole, array('learner', 'trainer', 'developer', 'marketing'), true)) {
+            if (in_array($_activeRole, array('learner', 'trainer'), true)) {
                 return '';
             }
         } catch (Exception $e) { /* role helper unavailable — render normally */ }
@@ -80,6 +78,16 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
                 && $_req->getParam('panel') === 'courses') {
                 return '';
             }
+            // Edit Course / Editing Course page renders its own inline
+            // Store View bar (template/dashboard/index.phtml — preserves
+            // course_id / mode / dev_back across switches). Suppress the
+            // global bar here to avoid two stacked switchers.
+            if ($_req->getRouteName() === 'adminhtml'
+                && $_req->getControllerName() === 'dashboard'
+                && $_req->getParam('course_id')
+                && in_array((string) $_req->getParam('mode'), array('edit', 'editing'), true)) {
+                return '';
+            }
             if (!$isFullAdmin
                 && $_req->getRouteName() === 'adminhtml'
                 && $_req->getControllerName() === 'catalog_category') {
@@ -87,20 +95,38 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
             }
         }
 
-        $activeId = $helper->getActiveStoreId();
-        $options  = $helper->getStorePillOptions();
+        // Same markup as Edit Course's inline Store View bar
+        // (template/dashboard/index.phtml, .dcf-store-switcher) — same
+        // class names so the page CSS (now hoisted to admin-dashboard.css)
+        // styles both identically. 6-country pill set only (no "All", no
+        // Infotech) to match the Edit Course design exactly.
+        $activeId = (int) $helper->getActiveStoreId();
+        $options  = $helper->getCountryStorePillOptions();
 
         $pills = '';
         foreach ($options as $opt) {
-            $url    = $helper->buildPillUrl($opt['id']);
-            $active = ((int) $opt['id'] === (int) $activeId) ? ' active' : '';
-            $pills .= '<a href="' . $this->escapeHtml($url) . '"'
-                   .  ' class="dev-country-btn' . $active . '"'
-                   .  ' data-store-id="' . (int) $opt['id'] . '">'
-                   .  $this->escapeHtml($opt['name'])
+            $url   = $helper->buildPillUrl($opt['id']);
+            $isAct = ((int) $opt['id'] === $activeId);
+            $pills .= '<a class="dcf-store-tab' . ($isAct ? ' is-active' : '') . '"'
+                   .  ' href="' . $this->escapeHtml($url) . '"'
+                   .  ' role="tab" aria-selected="' . ($isAct ? 'true' : 'false') . '"'
+                   .  ' data-store-id="' . (int) $opt['id'] . '"'
+                   .  ' title="Switch to ' . $this->escapeHtml($opt['name']) . ' store view">'
+                   .  '<span class="dcf-store-tab-flag">' . $this->escapeHtml($opt['code']) . '</span>'
+                   .  '<span class="dcf-store-tab-name">' . $this->escapeHtml($opt['name']) . '</span>'
                    .  '</a>';
         }
 
-        return '<div class="dev-country-tabs mmd-branchscope-pills">' . $pills . '</div>';
+        return '<div class="dcf-store-switcher mmd-branchscope-pills"'
+            . ' role="tablist" aria-label="Store view">'
+            . '<span class="dcf-store-switcher-label">Store View:</span>'
+            . $pills
+            . '<span class="dcf-store-switcher-hint"'
+            . ' title="Global-scope fields (SKU, price, dates) save the same value across all stores regardless of which tab is active.'
+            . ' Store-view fields (titles, meta, descriptions, design overrides) save to the active store only.">'
+            . '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
+            . '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>'
+            . '<line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>Scope</span></span>'
+            . '</div>';
     }
 }
