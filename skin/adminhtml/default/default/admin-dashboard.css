@@ -2970,13 +2970,17 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .al-kpi-lbl { color:#64748b !important }
 /* .al-kpi-num color is semantic (blue/green/red), works on both */
 
-/* Tabs strip (Upcoming / Ongoing / Completed) */
+/* Tabs strip (Upcoming / Ongoing / Completed) — per request, black
+   text on every tab in light mode. Active tab swaps to a soft blue
+   tint (instead of solid #2563eb) so slate-900 reads against it. */
 :root[data-theme="light"] .al-tabs { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] button.al-tab,
 :root[data-theme="light"] button.al-tab:hover,
-:root[data-theme="light"] button.al-tab:focus { color:#64748b !important }
-:root[data-theme="light"] button.al-tab:hover { color:#0f172a !important }
-/* .active tab keeps solid blue, fine */
+:root[data-theme="light"] button.al-tab:focus { color:#0f172a !important }
+:root[data-theme="light"] button.al-tab:hover { background:rgba(15,23,42,0.06) !important; color:#0f172a !important }
+:root[data-theme="light"] button.al-tab.active,
+:root[data-theme="light"] button.al-tab.active:hover,
+:root[data-theme="light"] button.al-tab.active:focus { background:rgba(37,99,235,0.64) !important; color:#0f172a !important }
 
 /* Search row + input */
 :root[data-theme="light"] .al-search-row { background:transparent !important; border-color:#64748b !important }
@@ -3024,13 +3028,16 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .at-kpi-lbl { color:#64748b !important }
 /* Nums keep blue/green/red semantic colors */
 
-/* Tabs strip */
+/* Tabs strip — per request, black text on every tab in light mode.
+   Active tab swaps to a soft blue tint so slate-900 reads against it. */
 :root[data-theme="light"] .at-tabs { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] button.at-tab,
 :root[data-theme="light"] button.at-tab:hover,
-:root[data-theme="light"] button.at-tab:focus { color:#64748b !important }
-:root[data-theme="light"] button.at-tab:hover { color:#0f172a !important }
-/* .active stays solid blue */
+:root[data-theme="light"] button.at-tab:focus { color:#0f172a !important }
+:root[data-theme="light"] button.at-tab:hover { background:rgba(15,23,42,0.06) !important; color:#0f172a !important }
+:root[data-theme="light"] button.at-tab.active,
+:root[data-theme="light"] button.at-tab.active:hover,
+:root[data-theme="light"] button.at-tab.active:focus { background:rgba(37,99,235,0.64) !important; color:#0f172a !important }
 
 /* Search input */
 :root[data-theme="light"] .at-search-input { background:#ffffff !important; border-color:#64748b !important; color:#0f172a !important }
@@ -3254,4 +3261,93 @@ button.hsp-btn-submit{
 }
 :root[data-theme="light"] .dcf-store-switcher-hint {
     color: #475569 !important;
+}
+
+/* "Viewing: <Country> SG" pill — same notice band, light mode. Near-white
+   text (#e0f7fb) is unreadable on the cream amber notice background, so
+   force slate-900 for the label and country name. */
+:root[data-theme="light"] .dcf-active-store-pill,
+:root[data-theme="light"] .dcf-active-store-pill strong {
+    color: #0f172a !important;
+}
+:root[data-theme="light"] .dcf-active-store-pill .dcf-active-store-code {
+    background: rgba(15, 23, 42, 0.10) !important;
+    color: #0f172a !important;
+}
+
+/* Create New Class (?panel=create_class) — light-mode card palette. Same
+   slate-200 surface + slate-300 border treatment used by KPI/dev/edt
+   cards across the admin so the form sections stop reading as dark
+   panels punched into the light page background. */
+:root[data-theme="light"] .cnc-card,
+:root[data-theme="light"] .cnc-optional-card {
+    background: #e2e8f0 !important;
+    border-color: #cbd5e1 !important;
+}
+:root[data-theme="light"] .cnc-card-title {
+    color: #0f172a !important;
+}
+:root[data-theme="light"] .cnc-subtitle {
+    color: #334155 !important;
+}
+:root[data-theme="light"] .cnc-label {
+    color: #334155 !important;
+}
+:root[data-theme="light"] .cnc-help {
+    color: #475569 !important;
+}
+:root[data-theme="light"] .cnc-input,
+:root[data-theme="light"] .cnc-select {
+    background: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+}
+:root[data-theme="light"] .cnc-input::placeholder {
+    color: #94a3b8 !important;
+}
+:root[data-theme="light"] .cnc-input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: none !important;
+    opacity: .7;
+}
+:root[data-theme="light"] .cnc-input:-webkit-autofill,
+:root[data-theme="light"] .cnc-input:-webkit-autofill:hover,
+:root[data-theme="light"] .cnc-input:-webkit-autofill:focus,
+:root[data-theme="light"] .cnc-input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+    -webkit-text-fill-color: #0f172a !important;
+    caret-color: #0f172a;
+}
+:root[data-theme="light"] .cnc-optional-row label {
+    color: #0f172a !important;
+}
+:root[data-theme="light"] .cnc-optional-row label span {
+    color: #475569 !important;
+}
+:root[data-theme="light"] .cnc-divider {
+    border-top-color: #cbd5e1 !important;
+}
+:root[data-theme="light"] .cnc-trainer-list {
+    background: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, .12) !important;
+}
+:root[data-theme="light"] .cnc-trainer-row {
+    color: #0f172a !important;
+    border-bottom-color: #e2e8f0 !important;
+}
+:root[data-theme="light"] .cnc-trainer-row:hover {
+    background: rgba(37, 99, 235, .10) !important;
+    color: #0f172a !important;
+}
+:root[data-theme="light"] .cnc-trainer-empty {
+    color: #64748b !important;
+}
+:root[data-theme="light"] button.cnc-btn-cancel,
+:root[data-theme="light"] button.cnc-btn-cancel:hover,
+:root[data-theme="light"] button.cnc-btn-cancel:focus {
+    color: #334155 !important;
+    border-color: #cbd5e1 !important;
+}
+:root[data-theme="light"] button.cnc-btn-cancel:hover {
+    background: #f1f5f9 !important;
 }

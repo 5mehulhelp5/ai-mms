@@ -4413,3 +4413,51 @@ body .admin-main .columns { gap: 0 !important; padding-left: 0 !important; }
 body .admin-main .main-col { padding-left: 0 !important; margin-left: 0 !important; }
 body .admin-main .main-col-inner { padding-left: 0 !important; }
 body .admin-main #anchor-content { padding-left: 0 !important; }
+
+/* === New / Edit Customer → Addresses tab ===
+   boxes.css §1190 paints the "Add New Address" placeholder card and
+   each saved-address `<li>` with a light-gray GIF stripe pattern
+   (sub_button_bg.gif / address_list_li.gif), which on the dark theme
+   reads as a white box punched out of the admin shell. Neutralise the
+   GIFs and re-skin both the placeholder and the address list rows
+   with the standard dark card palette (--d3 surface + --b1 border). */
+.admin-main .sub-btn-set {
+    background: var(--d3) !important;
+    background-image: none !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 8px !important;
+}
+.admin-main .address-list li,
+.admin-main .address-list li.on,
+.admin-main .address-list li.over {
+    background: var(--d3) !important;
+    background-image: none !important;
+    border-top: 1px solid var(--b1) !important;
+    color: var(--t2) !important;
+}
+.admin-main .address-list li:first-child {
+    border-top: none !important;
+}
+.admin-main .address-list li.on {
+    background: rgba(96, 165, 250, .12) !important;
+}
+.admin-main .address-list address {
+    color: var(--t2) !important;
+}
+/* Light-mode flip — slate-200 surface to match the rest of the admin
+   panels (KPI cards, cnc-card, etc). */
+:root[data-theme="light"] .admin-main .sub-btn-set,
+:root[data-theme="light"] .admin-main .address-list li,
+:root[data-theme="light"] .admin-main .address-list li.on,
+:root[data-theme="light"] .admin-main .address-list li.over {
+    background: #e2e8f0 !important;
+    background-image: none !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+}
+:root[data-theme="light"] .admin-main .address-list li.on {
+    background: rgba(37, 99, 235, .12) !important;
+}
+:root[data-theme="light"] .admin-main .address-list address {
+    color: #0f172a !important;
+}

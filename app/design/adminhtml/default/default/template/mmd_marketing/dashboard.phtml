@@ -149,6 +149,21 @@ try {
 .mmd-mkt-leads-by-store{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
 .mmd-mkt-leads-chip{background:#0f172a;border:1px solid #334155;border-radius:999px;padding:4px 12px;font-size:12px;color:#e2e8f0;}
 .mmd-mkt-leads-chip strong{color:#22d3ee;margin-left:6px;}
+
+/* Light mode — slate-200 cards with dark text, matching the rest of the
+   admin KPI palette (see admin-dashboard.css .dash-kpi-card overrides). */
+:root[data-theme="light"] .mmd-mkt-kpi,
+:root[data-theme="light"] .mmd-mkt-chart-card{background:#e2e8f0;border-color:#cbd5e1;}
+:root[data-theme="light"] .mmd-mkt-kpi-label,
+:root[data-theme="light"] .mmd-mkt-chart-head{color:#475569;}
+:root[data-theme="light"] .mmd-mkt-kpi-value{color:#0891b2 !important;}
+:root[data-theme="light"] .mmd-mkt-kpi-value.mmd-mkt-kpi-pending{color:#94a3b8;}
+:root[data-theme="light"] .mmd-mkt-kpi-sub,
+:root[data-theme="light"] .mmd-mkt-chart-empty{color:#64748b;}
+:root[data-theme="light"] .mmd-mkt-chart-body{border-bottom-color:rgba(100,116,139,.35);}
+:root[data-theme="light"] .mmd-mkt-chart-bar{background:linear-gradient(180deg,#94a3b8 0%,#64748b 100%);opacity:.45;}
+:root[data-theme="light"] .mmd-mkt-leads-chip{background:#f1f5f9;border-color:#cbd5e1;color:#1e293b;}
+:root[data-theme="light"] .mmd-mkt-leads-chip strong{color:#0891b2;}
 </style>
 
 <div class="mmd-marketing-dashboard">
