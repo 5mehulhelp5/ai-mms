@@ -1270,6 +1270,9 @@ document.observe('dom:loaded', function() {
             if (table.id === 'indexer_processes_grid_table') return;
             // Manage Class Schedule needs visible row checkboxes for bulk delete.
             if (table.id === 'customoptionsOptionsGrid_table') return;
+            // Leads admin: bulk delete + per-row selection drive the mass-action
+            // workflow, so the checkbox column must stay visible.
+            if (table.id === 'mmdLeadsGrid_table') return;
             // Only hide the first column if it's actually a checkbox column.
             // Detect by inspecting the first body row: if its first cell has
             // an <input type="checkbox">, then the entire first column (head

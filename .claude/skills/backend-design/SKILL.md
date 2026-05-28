@@ -75,6 +75,61 @@ Anti-pattern: wrapping every section in a `--d3` card with 16-20px padding "for 
 | `skin/adminhtml/default/default/js/sidebar-nav-v2.js` | Grid enhancements: checkbox-column removal, per-row action dropdowns, KPI cards. Has per-grid opt-outs (e.g. `cache_grid_table`). |
 | `app/design/adminhtml/default/default/template/` | Admin phtml (header, menu, login, rolemanager). Prefer ID selectors — legacy `boxes.css` has high-specificity rules. |
 
+## Layout cascade — how the admin shell is positioned
+
+A trap that has eaten multiple sessions: the admin shell already
+accommodates the 250px left sidebar in `.admin-main`. **Don't add
+extra `padding-left` or `margin-left` to wrappers inside `.admin-main`
+to "clear" the sidebar — it stacks on top of the existing 250px gap
+and pushes the content off the right edge.**
+
+The actual chain (sidebar-nav.css 7–68):
+
+1. `body > .admin-sidebar-layout` is a `display: flex; flex-direction: column` shell.
+2. `.admin-topbar` is `position: fixed; top:0; left:0; right:0; z-index:1400` (56px tall).
+3. `.admin-sidebar` is `position: fixed; top:56px; left:0; bottom:0; width:250px; z-index:1200`.
+4. **`.admin-main { margin-left: 250px; padding-top: 56px; padding-left: 20px; flex: 1 }`** — this `margin-left:250px` is the gap for the sidebar.
+5. Responsive (`@media (max-width:1024px)`) and `body.sidebar-collapsed` shrink BOTH `.admin-sidebar` to 60px AND `.admin-main { margin-left: 60px }`. They move together.
+
+**Edit Course / Leads pattern (admin-dashboard.css 370–377):**
+
+- `body:has(.dcf-edit-sidebar) #admin-sidebar { display: none }` + `body:has(.dcf-edit-sidebar) .sidebar-toggle { display: none }` hide the regular admin sidebar.
+- `.dcf-edit-sidebar { position: fixed; top:56px; left:0; bottom:0; width:250px; z-index:1200 }` slots into the same 250px slot.
+- **No extra `padding-left` is added to `.main-col-inner` / `.middle` / the page wrap.** The existing `.admin-main { margin-left:250px }` is the gap; the new sidebar just visually replaces the old one.
+
+So when adding a new page that uses `.dcf-edit-sidebar` (Leads adopted this), reuse the class verbatim and let the shell margin handle the offset. Adding `padding-left:270px` "to push the wrap right of the sidebar" was the bug: 250 (admin-main) + 270 (wrap) = 520px from the viewport edge, table shoved off-screen.
+
+## Grid checkbox column — JS hides it by default
+
+`sidebar-nav-v2.js::removeCheckboxColumn()` (around line 1262)
+**hides the first column of every `.grid table.data` whose first body
+cell is an `<input type="checkbox">`** by setting `display: none` on
+the `<th>` / `<td>` / `<col>`. The point is to clean visual noise on
+grids that don't actually use bulk actions.
+
+**This is an opt-IN allow-list, not opt-out.** Any grid that DOES want
+visible mass-select checkboxes must add its table id to the early-return
+list at the top of `removeCheckboxColumn`. Current allow-list:
+
+- `cache_grid_table` (Cache Management — bulk select drives flush)
+- `indexer_processes_grid_table` (Index Management)
+- `customoptionsOptionsGrid_table` (Manage Class Schedule — bulk delete)
+- `mmdLeadsGrid_table` (Leads — bulk delete)
+
+When a new MMD admin grid needs working row checkboxes (bulk delete,
+mass status change, etc.), the symptom is the same: "the mass-action
+toolbar shows '0 items selected' but I can't see any checkboxes to
+tick." The fix is **always** adding the table id to that list, never
+restating checkbox CSS scoped to the grid. If you find yourself
+writing `body .admin-main #foo_table input[type=checkbox] { ... }`,
+stop — the issue is the JS strip, not the cascade.
+
+Adjacent helper: `injectHeaderSelectAll()` (right below) adds the
+"select all" checkbox into the empty header cell of any grid that
+HAS a mass-action checkbox column. It uses the same detection
+(first body cell contains `<input type="checkbox">`), so a grid on
+the allow-list gets the header checkbox for free.
+
 These are static skin assets — **no build step, no Magento cache clear**. Changes
 ship on next deploy; users just hard-refresh.
 
