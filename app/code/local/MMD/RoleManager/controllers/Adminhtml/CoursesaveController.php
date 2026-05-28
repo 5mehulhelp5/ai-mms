@@ -1626,28 +1626,35 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             }
             // Supported scope: six country storefronts (SG/MY/GH/NG/BT/IN).
             //
-            // Country pick — two tiers depending on the operator's role:
+            // The active country comes from the Store-View bar's
+            // current selection — the dashboard JS reads it at page
+            // render and POSTs it as `wid` so the value survives the
+            // fetch (the POST URL has no ?store= param of its own).
+            // Falls back to the rolemanager helper if `wid` is
+            // missing (direct-POST tools, smoke tests).
             //
-            //   Developers: View-As wins. They get full override to
-            //   generate any country's brochure for any course, even
-            //   when the course isn't published in that country yet.
-            //   Useful for QA, fixture seeding, and unblocking ops.
-            //
-            //   Everyone else (admin/trainer/training_provider):
-            //     1. View-As if the course is actually published there.
-            //     2. Else the course's smallest-id supported website.
-            //   Means the button works without forcing the admin to
-            //   switch View-As, but a non-dev can never produce a PDF
-            //   that links from a storefront the course isn't on.
+            // Gating after pick:
+            //   Developer role: any supported wid is accepted, even
+            //     if the course isn't on that country. QA / ops use.
+            //   Other roles: wid must be one the course is published
+            //     in. If View-As doesn't match (e.g. admin viewing SG
+            //     for an MY-only course), fall back to the course's
+            //     smallest supported website so the button always
+            //     produces a usable brochure.
             //
             // Throws only when the course isn't on any supported
             // country (e.g. Infotech-only or wholly-unassigned).
             $supported   = array(1, 2, 3, 4, 5, 6);
             $productWids = $this->_courseWebsiteIds((int) $product->getId());
-            $viewAsWid   = 0;
-            try { $viewAsWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId(); }
-            catch (Exception $e) { $viewAsWid = 0; }
             $isDeveloper = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('developer'));
+
+            // 1. Trust the POST wid first — that's the Store-View pill
+            //    the admin actually clicked on this page load.
+            $viewAsWid = (int) $this->getRequest()->getParam('wid');
+            if ($viewAsWid <= 0) {
+                try { $viewAsWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId(); }
+                catch (Exception $e) { $viewAsWid = 0; }
+            }
 
             $broWid = 0;
             if ($isDeveloper && in_array($viewAsWid, $supported, true)) {
@@ -1827,11 +1834,36 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             ?? Mage::getStoreConfig('trans_email/ident_general/email', $scopeStoreId));
 
         // ---- Storefront product URL (registration link) ------------
+        // Builds against the COUNTRY'S PRODUCTION domain so the link
+        // in the printed brochure always lands on the right storefront
+        // — clicking an MY brochure's Sign Up link opens
+        // tertiarycourses.com.my, GH → tertiarycourses.com.gh, etc.
+        // (the Apache vhost routes via MAGE_RUN_CODE on the Host
+        // header — see /var/www/html/.htaccess SetEnvIf lines).
+        // Mage::getBaseUrl() / $product->getProductUrl() would point
+        // at localhost when generating in dev, defeating the link's
+        // purpose since the brochure is meant to be shared with
+        // learners.
+        $prodHosts = array(
+            1 => 'https://www.tertiarycourses.com.sg/',
+            2 => 'https://www.tertiarycourses.com.my/',
+            3 => 'https://www.tertiarycourses.com.gh/',
+            4 => 'https://www.tertiarycourses.com.ng/',
+            5 => 'https://www.tertiarycourses.bt/',
+            6 => 'https://www.tertiarycourses.co.in/',
+        );
+        $prodBase = $prodHosts[(int) $activeWid] ?? $prodHosts[1];
         $registrationUrl = '';
         try {
-            $registrationUrl = (string) $admin->getProductUrl();
+            $urlKey = (string) $admin->getData('url_key');
+            if ($urlKey === '') $urlKey = (string) $admin->getUrlKey();
+            if ($urlKey !== '') {
+                $registrationUrl = $prodBase . $urlKey . '.html';
+            } else {
+                $registrationUrl = $prodBase;
+            }
         } catch (Exception $e) {
-            $registrationUrl = '';
+            $registrationUrl = $prodBase;
         }
 
         $descRaw = (string) ($admin->getData('description') ?: $admin->getData('short_description'));
@@ -2012,14 +2044,12 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             'certificate_html'   => $certificateHtml,
             'funding_html'       => $cmsHtml('funding_and_grant'),
             'trainer_html'       => $this->_sanitizeRichHtml((string) $admin->getData('trainerprofile')),
-            // The brochure rebrands the provider name to the academy
-            // level ("Tertiary Infotech Academy") regardless of what
-            // the storefront's general/store_information/name says
-            // (which is "Tertiary Courses Singapore" — the consumer
-            // brand). Keeps storefront/emails on the consumer brand,
-            // but the printed/distributed brochure uses the academy
-            // (training-provider) brand that pairs with the logo.
-            'store_name'         => 'Tertiary Infotech Academy',
+            // Read the provider name from the DB per country —
+            // general/store_information/name carries the consumer
+            // brand for each storefront: Tertiary Courses Singapore /
+            // Malaysia / Ghana / Nigeria / Bhutan / India. Falls back
+            // to the academy umbrella brand if the row is empty.
+            'store_name'         => (string) ($store['name'] ?: 'Tertiary Infotech Academy'),
             'store_phone'        => (string) ($store['phone'] ?? ''),
             'store_email'        => $storeEmail,
             'store_address'      => (string) ($store['address'] ?? ''),
@@ -2412,21 +2442,22 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
      */
     protected function _buildBrochureHeader(array $ctx)
     {
-        // Page-header band: only used on continuation pages (page 2+).
-        // The big logo + tagline ships in the BODY of page 1 instead
-        // (see brochure.phtml) because mPDF's SetHTMLHeader context
-        // refuses to render data: URIs reliably — they intermittently
-        // show as broken images. Continuation pages get a thin
-        // brand-blue rule + small "Tertiary Courses Singapore" caption
-        // so the document still feels branded without depending on the
-        // image pipeline.
-        $name = htmlspecialchars((string) ($ctx['store_name'] ?: 'Tertiary Courses Singapore'));
+        // Page-header band on continuation pages (page 2+). Always
+        // reads "TERTIARY INFOTECH ACADEMY" — the academy-level
+        // training-provider brand that pairs with the
+        // Infotech_Academy.png logo on page 1. Country-specific
+        // consumer brand (Tertiary Courses Singapore / Malaysia /
+        // Ghana / …) still ships from the DB and shows up in the
+        // body's contact card + footer, but the header band stays
+        // academy-branded so the document reads as "an academy
+        // brochure for a {country} storefront" rather than swapping
+        // identity between pages.
         return '<table width="100%" cellpadding="0" cellspacing="0" '
              . 'style="border-bottom:0.5pt solid #2563eb;font-family:Helvetica,Arial,sans-serif;">'
              . '<tr>'
              .   '<td align="left" style="padding:0 0 2pt;'
              .     'font-size:9pt;color:#1e3a8a;letter-spacing:0.06em;'
-             .     'text-transform:uppercase;font-weight:700;vertical-align:bottom;">' . $name . '</td>'
+             .     'text-transform:uppercase;font-weight:700;vertical-align:bottom;">Tertiary Infotech Academy</td>'
              . '</tr>'
              . '</table>';
     }
@@ -2623,7 +2654,15 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         // public artefact in media/ anyway — no auth/secret in it.
         @chmod($absPath, 0666);
 
-        $url = rtrim((string) Mage::getBaseUrl('media'), '/')
+        // Build the brochure file URL against the CURRENT environment's
+        // base media URL so admins can preview locally (localhost:8080)
+        // before the deploy, and the saved URL in the CMS textarea
+        // works in prod (country domain). The registration URL inside
+        // the PDF — see _collectBrochureContext — uses hardcoded
+        // production domains because that link is printed/distributed
+        // to learners and must always land on the public storefront.
+        $mediaBase = (string) Mage::getBaseUrl('media');
+        $url = rtrim($mediaBase, '/')
              . '/courses/brochures/' . rawurlencode($filename)
              . '?v=' . (int) @filemtime($absPath);
         return $url;
