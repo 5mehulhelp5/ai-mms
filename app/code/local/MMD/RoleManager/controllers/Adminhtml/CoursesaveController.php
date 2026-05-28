@@ -2148,42 +2148,57 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             );
         }
 
-        $parentFolderId = '0B5_pAs5nKRmfRTc1akJxT1BGblE';
+        // Shared Drive (or folder inside it) that holds the 6 country
+        // subfolders — Singapore / Malaysia / Ghana / Nigeria / Bhutan
+        // / India. Must be a Shared Drive (not My Drive) because
+        // service accounts can't own files in a personal Drive — they
+        // hit a "storage quota exceeded" error.
+        $parentFolderId = '16S5PAreCxFQ7Kcbu7eE6djMfhNq7wz2B';
 
         try {
             $client = new \Google\Client();
             $client->setAuthConfig($keyFile);
-            // drive.file scope = can only see files the app created.
-            // Strictly narrower than the folder share itself.
-            $client->setScopes(array(\Google\Service\Drive::DRIVE_FILE));
+            // `drive` scope = read + write access to files the SA has
+            // been granted access to (via Drive sharing). The narrower
+            // `drive.file` scope would have been ideal — "only files
+            // the app created" — but it can't see the country
+            // folders since those were created by a human in the
+            // Drive UI, so the lookup would fail with "folder not
+            // found." Access is still bounded: the SA has no GCP IAM
+            // role and only sees folders explicitly shared with its
+            // email (parent "5 Course Brochures" + 6 country subfolders).
+            $client->setScopes(array(\Google\Service\Drive::DRIVE));
             $drive = new \Google\Service\Drive($client);
 
             // Per-request folder-ID cache so back-to-back uploads
             // (multi-country admin workflow) don't repeat the lookup.
-            static $folderIdCache = array();
-            $cacheKey = $parentFolderId . '|' . $folderName;
-            if (!isset($folderIdCache[$cacheKey])) {
-                // Look up the country subfolder by name under the parent.
-                // Drive's search needs the parent + name + mimeType.
+            // We list ALL subfolders of the parent in one query and
+            // match by TRIMMED name in PHP — Drive's `name = '…'`
+            // operator is exact, but the country folders in this
+            // particular Drive have trailing whitespace ("Malaysia "
+            // etc.), so a literal match misses them.
+            static $folderIdCache = null;
+            if ($folderIdCache === null) {
+                $folderIdCache = array();
                 $q = sprintf(
-                    "name = '%s' and mimeType = 'application/vnd.google-apps.folder' and '%s' in parents and trashed = false",
-                    addslashes($folderName),
+                    "mimeType = 'application/vnd.google-apps.folder' and '%s' in parents and trashed = false",
                     addslashes($parentFolderId)
                 );
                 $resp = $drive->files->listFiles(array(
-                    'q'                     => $q,
-                    'fields'                => 'files(id, name)',
-                    'supportsAllDrives'     => true,
+                    'q'                         => $q,
+                    'fields'                    => 'files(id, name)',
+                    'supportsAllDrives'         => true,
                     'includeItemsFromAllDrives' => true,
-                    'pageSize'              => 5,
+                    'pageSize'                  => 50,
                 ));
-                $files = $resp->getFiles();
-                if (count($files) === 0) {
-                    throw new Exception("Country folder '$folderName' not found under parent — share it with the service account.");
+                foreach ($resp->getFiles() as $f) {
+                    $folderIdCache[trim((string) $f->getName())] = $f->getId();
                 }
-                $folderIdCache[$cacheKey] = $files[0]->getId();
             }
-            $folderId = $folderIdCache[$cacheKey];
+            if (!isset($folderIdCache[$folderName])) {
+                throw new Exception("Country folder '$folderName' not found under parent — share it with the service account.");
+            }
+            $folderId = $folderIdCache[$folderName];
 
             // Find existing file with the same name in that folder so
             // we can UPDATE rather than create-a-duplicate.
