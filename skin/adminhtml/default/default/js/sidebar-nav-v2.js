@@ -2230,13 +2230,17 @@ document.observe('dom:loaded', function() {
         contentHeader.classList.add('mmd-content-header-hidden');
     }
 
-    // Apply all grid enhancements
+    // Apply all grid enhancements. Order matters: injectEditDeleteActions
+    // runs BEFORE injectRowActions so the latter's skip-check on
+    // `.row-edit-actions` actually fires and we don't end up with TWO
+    // ACTIONS columns (an empty mass-action mirror next to the real
+    // Edit/Delete icons) on grids whose rows are edit-linked.
     function applyGridEnhancements() {
         // Remove old KPI cards first
         document.querySelectorAll('.grid-kpi-cards').forEach(function(el) { el.remove(); });
         removeCheckboxColumn();
-        injectRowActions();
         injectEditDeleteActions();
+        injectRowActions();
         simplifyCmsPageStoreColumn();
         consolidateCmsPageActions();
         consolidateInvoiceActions();
