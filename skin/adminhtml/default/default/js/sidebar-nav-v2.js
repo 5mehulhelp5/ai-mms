@@ -1288,28 +1288,57 @@ document.observe('dom:loaded', function() {
     function removeCheckboxColumn() {
         var tables = document.querySelectorAll('.grid table.data');
         tables.forEach(function(table) {
-            // Keep the native checkbox column on the Cache Management grid —
-            // bulk select/refresh/flush there depends on the real
-            // mass-action checkboxes (see scoped CSS in sidebar-nav.css).
-            if (table.id === 'cache_grid_table') return;
-            if (table.id === 'indexer_processes_grid_table') return;
-            // Manage Class Schedule needs visible row checkboxes for bulk delete.
-            if (table.id === 'customoptionsOptionsGrid_table') return;
-            // Leads admin: bulk delete + per-row selection drive the mass-action
-            // workflow, so the checkbox column must stay visible.
-            if (table.id === 'mmdLeadsGrid_table') return;
-            // Courses → Providers: bulk delete via mass-action.
-            if (table.id === 'providersGrid_table') return;
-            // Only hide the first column if it's actually a checkbox column.
-            // Detect by inspecting the first body row: if its first cell has
-            // an <input type="checkbox">, then the entire first column (head
-            // + body + col) is the mass-action checkbox column. The previous
-            // heuristic also hid first columns that were just empty or
-            // centered, which over-fired on grids whose intentional first
-            // column happened to be narrow/blank.
+            // Detect: is the first column actually the mass-action checkbox?
+            // (Magento auto-injects one when the grid block defines
+            // _prepareMassaction.) If the first body cell has an
+            // <input type="checkbox">, yes — otherwise the column is some
+            // intentional narrow/blank first column and we leave it alone.
             var firstBodyRow = table.querySelector('tbody tr');
             if (!firstBodyRow || !firstBodyRow.children.length) return;
             if (!firstBodyRow.children[0].querySelector('input[type="checkbox"]')) return;
+
+            // CANONICAL RULE: a checkbox column is meaningful iff the
+            // grid actually has mass-actions wired up. If the grid block
+            // declared _prepareMassaction() with at least one item
+            // (Delete, Change status, etc.), Magento renders a
+            // [id$="_massaction"] select with non-empty options — that's
+            // the signal to KEEP the checkbox column so the operator can
+            // select rows. Grids whose first column happens to be a
+            // checkbox but have no actions wired (or whose actions we
+            // deliberately suppress, like Cache Management, where the
+            // Reindex/Flush buttons replace the select+submit dance)
+            // get hidden as before.
+            //
+            // The grid's id-bearing wrapper is the table id minus
+            // '_table'. The massaction div sits next to the table inside
+            // that wrapper. Look up that select; treat "has at least one
+            // option with a non-empty value" as the gate.
+            var gridId = (table.id || '').replace(/_table$/, '');
+            var hasActiveMassaction = false;
+            if (gridId) {
+                var massSel = document.querySelector('#' + CSS.escape(gridId + '_massaction') + ' select');
+                if (massSel) {
+                    for (var oi = 0; oi < massSel.options.length; oi++) {
+                        if (massSel.options[oi].value && massSel.options[oi].value !== '') {
+                            hasActiveMassaction = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Explicit opt-outs — grids that DO have mass-actions but
+            // where we deliberately use a different UX (Cache Management
+            // and Index Management have per-action buttons in the
+            // toolbar; both pre-date the canonical rule).
+            var explicitHide = (
+                table.id === 'cache_grid_table' ||
+                table.id === 'indexer_processes_grid_table'
+            );
+
+            if (hasActiveMassaction && !explicitHide) {
+                return; // keep the checkbox column visible
+            }
 
             var rows = table.querySelectorAll('tr');
             for (var r = 0; r < rows.length; r++) {

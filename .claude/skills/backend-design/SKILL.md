@@ -117,18 +117,26 @@ The four invariants:
    `border-bottom`) is global in `admin-dashboard.css` — do NOT
    restate or override it on a per-page basis.
 
-2. **Row-select checkbox column** — visible on every grid that
-   supports bulk actions (delete, status change, export). Magento's
+2. **Row-select checkbox column** — visible on every grid that has
+   active mass-actions (Delete, Change status, etc.). Magento's
    massaction column is auto-injected when the grid block defines
-   `_prepareMassaction()`; the grid table id must be added to the
-   `removeCheckboxColumn()` allow-list in
-   `sidebar-nav-v2.js` so the JS doesn't hide it. Current entries:
-   `cache_grid_table`, `indexer_processes_grid_table`,
-   `customoptionsOptionsGrid_table`, `mmdLeadsGrid_table`,
-   `providersGrid_table`. **No per-grid checkbox CSS** — the global
-   `input[type="checkbox"]` rule in `dark-theme.css` already styles
-   them (16×16, `#475569` border, transparent bg, blue fill on
-   `:checked`). See the "Minimalist checkbox" section above.
+   `_prepareMassaction()`. `sidebar-nav-v2.js::removeCheckboxColumn()`
+   now applies a **canonical rule**: if `#<grid_id>_massaction select`
+   has at least one option with a non-empty value, the checkbox
+   column stays visible. No per-grid allow-list to maintain. **No
+   per-grid checkbox CSS** — the global `input[type="checkbox"]`
+   rule in `dark-theme.css` already styles them (16×16, `#475569`
+   border, transparent bg, blue fill on `:checked`). See the
+   "Minimalist checkbox" section above.
+
+   The only opt-outs are deliberate UX choices, hard-coded in the JS:
+   `cache_grid_table` and `indexer_processes_grid_table` use
+   dedicated Reindex/Flush buttons in the toolbar instead of the
+   massaction select+submit dance, so we hide their checkboxes even
+   though `_prepareMassaction()` runs. Any new grid that wants
+   mass-action selection just declares `_prepareMassaction()` in PHP
+   — the canonical rule surfaces the column automatically; no JS
+   change required.
 
 3. **Action column is icon-only** — already guaranteed by the global
    class rewrite of `Mage_Adminhtml_Block_Widget_Grid_Column_Renderer_Action`
@@ -183,36 +191,51 @@ manually in the template:
 
 — same classes the auto-wrap emits, so the CSS already covers them.
 
-## Grid checkbox column — JS hides it by default
+## Grid checkbox column — canonical rule (active mass-actions = visible)
+
+**Rule:** if a grid has wired-up mass-actions, its row-select
+checkboxes are visible. No allow-list to maintain.
 
 `sidebar-nav-v2.js::removeCheckboxColumn()` (around line 1262)
-**hides the first column of every `.grid table.data` whose first body
-cell is an `<input type="checkbox">`** by setting `display: none` on
-the `<th>` / `<td>` / `<col>`. The point is to clean visual noise on
-grids that don't actually use bulk actions.
+inspects each `.grid table.data` whose first body cell is an
+`<input type="checkbox">` (i.e. Magento auto-injected its mass-action
+column) and asks one question: does the grid's
+`#<grid_id>_massaction select` have at least one option with a
+non-empty value? If yes — the grid has actual actions to apply, so
+keep the column visible. If no — the column is decorative noise,
+hide it.
 
-**This is an opt-IN allow-list, not opt-out.** Any grid that DOES want
-visible mass-select checkboxes must add its table id to the early-return
-list at the top of `removeCheckboxColumn`. Current allow-list:
+That replaces the old hardcoded allow-list. Adding a new MMD admin
+grid that needs bulk select now requires zero JS changes — declare
+`_prepareMassaction()` in PHP with at least one item, and the
+canonical rule picks it up automatically.
 
-- `cache_grid_table` (Cache Management — bulk select drives flush)
-- `indexer_processes_grid_table` (Index Management)
-- `customoptionsOptionsGrid_table` (Manage Class Schedule — bulk delete)
-- `mmdLeadsGrid_table` (Leads — bulk delete)
+**Hard-coded exceptions (deliberate UX choices):**
 
-When a new MMD admin grid needs working row checkboxes (bulk delete,
-mass status change, etc.), the symptom is the same: "the mass-action
-toolbar shows '0 items selected' but I can't see any checkboxes to
-tick." The fix is **always** adding the table id to that list, never
-restating checkbox CSS scoped to the grid. If you find yourself
-writing `body .admin-main #foo_table input[type=checkbox] { ... }`,
-stop — the issue is the JS strip, not the cascade.
+- `cache_grid_table` (Cache Management) — uses dedicated Flush
+  buttons in the toolbar, not the massaction select+submit. The
+  per-row checkboxes were intentionally removed (commit `6c437f504`)
+  to prevent accidental bulk reindex / flush.
+- `indexer_processes_grid_table` (Index Management) — same pattern.
+
+When troubleshooting "the mass-action toolbar shows '0 items
+selected' but I can't see any checkboxes to tick", check in this
+order: (1) does the grid block actually declare `_prepareMassaction`
+with non-empty items? (2) is the grid one of the two opt-outs
+above? If not, the canonical rule should be surfacing the column —
+look at JS console errors or the merged JS bundle freshness.
+
+If you find yourself writing
+`body .admin-main #foo_table input[type=checkbox] { ... }`, stop —
+the issue is upstream (the JS strip or a missing
+`_prepareMassaction` declaration), not the CSS cascade.
 
 Adjacent helper: `injectHeaderSelectAll()` (right below) adds the
 "select all" checkbox into the empty header cell of any grid that
 HAS a mass-action checkbox column. It uses the same detection
-(first body cell contains `<input type="checkbox">`), so a grid on
-the allow-list gets the header checkbox for free.
+(first body cell contains `<input type="checkbox">`), so any grid
+that keeps its checkboxes under the canonical rule gets the header
+"select all" toggle for free.
 
 These are static skin assets — **no build step, no Magento cache clear**. Changes
 ship on next deploy; users just hard-refresh.
