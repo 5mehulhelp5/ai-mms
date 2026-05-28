@@ -53,17 +53,24 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
         /** @var MMD_Branchscope_Helper_Data $helper */
         $helper = Mage::helper('branchscope');
 
-        // All four operator roles (developer, marketing, admin, super-admin
-        // a.k.a. 'training_provider') see the Store View bar + Editing/Viewing
-        // notice on EVERY standard Magento admin page so the top chrome is
-        // standardized across the whole backend — bypass both the
-        // store-scoped-route allow-list and the dashboard/category
-        // suppressions. Learner and trainer are already excluded above.
-        $isFullAdmin = in_array(
-            $_activeRole,
-            array('developer', 'marketing', 'admin', 'training_provider'),
-            true
-        );
+        // INVARIANT: the Store View bar + the "Viewing / Editing for"
+        // header notice render on EVERY adminhtml page for the four
+        // operator roles — developer, marketing, admin, super-admin
+        // (internal code 'training_provider'). These users see the same
+        // top chrome on Reports / Tax / Newsletter Templates / any
+        // custom module, regardless of whether the underlying grid
+        // actually filters by ?store=. Learner and trainer were already
+        // excluded above.
+        //
+        // Detection-failure safety: if the role helper returned empty
+        // (session not yet seeded, role row missing, helper exception),
+        // default to TRUE so the bar stays visible rather than silently
+        // disappearing. Hiding the bar is worse than showing it on a
+        // page that may not filter — operators rely on it as the
+        // "which country am I working in" anchor.
+        $operatorRoles = array('developer', 'marketing', 'admin', 'training_provider');
+        $isFullAdmin   = ($_activeRole === '')
+            || in_array($_activeRole, $operatorRoles, true);
 
         // The block is injected into the <default> layout handle so it
         // would otherwise render on every adminhtml page. Suppress on

@@ -224,6 +224,24 @@ class MMD_Branchscope_Helper_Data extends Mage_Core_Helper_Abstract
 
         // Explicit allow-list of controllers that show store-scoped data.
         // Anything not listed is treated as non-store-scoped (pills hidden).
+        // Allow-list contract: a controller belongs here ONLY if its grid
+        // / page actually honours the ?store= URL param. Showing the
+        // Store View bar but ignoring the param violates the "Filtering
+        // contract (MANDATORY)" rule in the backend-design skill. When
+        // wiring a new controller, also wire its grid (see Reviews fix
+        // pattern in MMD_Adminhtml_Block_Review_Grid::_beforeLoadCollection).
+        //
+        // Suppressed by design:
+        //   - newsletter_template, newsletter_problem: templates are
+        //     global; problems join indirectly through queue/subscriber.
+        //   - tax_class, tax_rate, tax_rule: tax rules are global /
+        //     website-scoped, not per-store.
+        //   - report_sales, report_product, report_customer, report_review,
+        //     report_tag, report_search: stock reports use their own
+        //     date/store filter form (getFilterData()->getStoreIds()).
+        //     Wiring them needs setStoreIds() BEFORE parent _prepareCollection,
+        //     not the _beforeLoadCollection pattern. Re-add here only
+        //     after the override ships.
         static $allow = array(
             'dashboard'         => true,
             'catalog_product'   => true,
@@ -240,20 +258,9 @@ class MMD_Branchscope_Helper_Data extends Mage_Core_Helper_Abstract
             'cms_block'         => true,
             'newsletter_queue'  => true,
             'newsletter_subscriber' => true,
-            'newsletter_template'   => true,
-            'newsletter_problem'    => true,
             'promo_catalog'     => true,
             'promo_quote'       => true,
-            'report_sales'      => true,
-            'report_shopcart'   => true,
-            'report_product'    => true,
-            'report_customer'   => true,
-            'report_review'     => true,
-            'report_tag'        => true,
-            'report_search'     => true,
-            'tax_class'         => true,
-            'tax_rate'          => true,
-            'tax_rule'          => true,
+            'report_shopcart'   => true, // Abandoned/Grid reads ?store= natively
             'seoaudit'          => true,
             'leads'             => true,
         );

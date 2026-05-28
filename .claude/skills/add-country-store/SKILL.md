@@ -116,6 +116,67 @@ Wire www.tertiarycourses.com.<TLD> to the <Country> store
 [short context — what the migration does and why; reference 061/066 as precedent if relevant]
 ```
 
+## Admin Store View bar — must filter grid data, not just decorate
+
+A new country store is only "wired" when the admin Store View bar
+(`MMD_Branchscope_Block_Store_Switcher`, injected globally via
+`layout/branchscope.xml`) actually filters every store-scoped admin grid
+to that country. The pill writes `?store=N` into the URL; each grid
+must honour it. **Showing the pill bar while ignoring `?store=` is the
+forbidden state** — it lies to the operator about what they're looking at.
+
+### How filtering works under the hood
+
+- Pill URL: `Mage::helper('branchscope')->buildPillUrl($storeId)` — adds
+  `?store=N` to the current route. Active id resolves via
+  `getActiveStoreId()` (URL param → session → SG default).
+- The Store View bar only renders on routes in
+  `MMD_Branchscope_Helper_Data::isStoreScopedRoute()` (catalog, sales,
+  customer, cms, newsletter, promo, reports, leads, seoaudit, etc.).
+  If your new grid doesn't appear in that allow-list, add it there;
+  conversely, never add a controller whose data has no store dimension.
+- The grid itself is responsible for applying the filter. Stock Magento
+  is inconsistent: catalog product / sales order / customer grids honour
+  `?store=` natively, but Reviews, Search Terms, Tag, Newsletter Problem,
+  and several reports do not.
+
+### Wiring filter into a grid that doesn't filter natively
+
+Override `_beforeLoadCollection` (NOT `_prepareCollection`) so the store
+id is set **before** `load()` runs and `_beforeLoad` builds the SQL. Calling
+`addStoreFilter()` after `parent::_prepareCollection()` is too late on
+many collections — the parent calls `$collection->load()` internally
+and the join is baked with `store_id = 0`.
+
+```php
+protected function _beforeLoadCollection()
+{
+    parent::_beforeLoadCollection();
+    $storeId = (int) $this->getRequest()->getParam('store', 0);
+    if ($storeId > 0 && $this->getCollection()) {
+        $this->getCollection()->addStoreFilter($storeId);
+    }
+    return $this;
+}
+```
+
+Reference: [Block/Review/Grid.php](app/code/local/MMD/Adminhtml/Block/Review/Grid.php) — the Reviews & Ratings grid had to be patched this way because `Mage_Adminhtml_Block_Review_Grid` only calls `addStoreData()` (display-only) and never `addStoreFilter()`. Same shape applies to any other grid where `?store=` is silently ignored.
+
+### Verify after adding a new country
+
+Per new store, walk every admin grid on the `isStoreScopedRoute()`
+allow-list and confirm:
+
+1. `?store=<new_id>` returns only that country's rows.
+2. `?store=0` (or no param) returns all rows.
+3. Cross-store rows (e.g. shared course products) appear under every
+   store as expected based on `catalog_product_website` membership.
+
+If a grid still shows global rows under a country pill, it's a missing
+`addStoreFilter` in that grid's MMD override (or a missing override
+entirely). Treat it as part of the country-wiring change, not as a
+follow-up.
+
 ## Anti-patterns — don't
 
 - Don't hardcode `store_id=2` etc. Always `WHERE code = '<country>'`.

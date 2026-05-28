@@ -10,6 +10,59 @@ new colors, paddings, or button styles per-page.** Everything routes through one
 token set and a small number of component rules. New admin UI must reuse them so
 the panel stays consistent.
 
+## Design philosophy: Neon + Minimalist (entire backend)
+
+The admin's visual language is **neon on near-black with a minimalist content
+discipline**. Every new admin surface — grids, modals, banners, dashboards,
+sidebars, modules — must read like part of the same product. The defining
+qualities:
+
+- **Surface = deep dark, not "Magento gray".** Page background and chrome
+  use `#0b0f17` / `#0f172a` / token-driven `--d*` shades. No pastel washes,
+  no Magento 1's stock taupe panels. If a surface needs to draw attention,
+  it does so with a neon accent line or glow — not by switching to a light
+  fill.
+- **Color is reserved.** Body text, labels, captions, table cells are all
+  in the cool-gray family (`#e5e7eb`, `#cbd5e1`, `#6b7280`). Color appears
+  only where the UI is signalling state or category:
+  - Brand cyan/blue for primary action, hover, active tab.
+  - Red `#ff3b5c` for critical / destructive / high risk.
+  - Amber `#f5c451` for warning / medium risk.
+  - Green `#3df5a8` for success / quick win.
+  - Violet `#b07cff` for "big bet" / experimental / AI-driven.
+  - Muted slate `#8aa1bd` for low risk / neutral metadata.
+  Saturated fills are banned; the same hues appear as **1px borders + soft
+  `box-shadow` glow** (`0 0 6px <color>`, `inset 0 0 6px <color>/0.1`) so
+  the chrome reads as outline-on-dark, not as colored blocks.
+- **Components are outlined, not filled.** Pills, badges, buttons,
+  notifications, status chips — all share the same shape: 1px solid
+  `currentColor`, 2px corner radius, transparent fill, neon glow on hover
+  or active. The audit-notification pills (`.audit-pill-*` in
+  `dark-theme.css`) and the "View issues" link button are the reference
+  implementation; reuse the same pattern (border + glow + uppercase
+  letter-spaced label) for every new chip-shaped element across the
+  backend.
+- **Density is calm, not cramped.** Vertical rhythm uses 6 / 10 / 14 / 18px
+  steps. Tables and grids keep generous row padding (10–12px). No
+  decorative borders inside a card; one outer border (or none) plus
+  whitespace is enough. Don't add icons or color "for visual interest" —
+  if it doesn't carry information, leave it out.
+- **Typography is utilitarian.** `Inter` / `SF Pro Text` / system stack at
+  11.5–12px for body, 10.5px uppercase letter-spaced (1.2–1.4px) for
+  section / status labels, tabular-nums for any column of numbers or
+  timestamps. Headings are weight + size, never decorative.
+- **Motion is restrained.** Transitions are 0.15s ease on `box-shadow` /
+  `background` / `border-color` only. No bouncing, no scaling, no fade-in
+  delays. Hover state lights up an outline; that's the whole interaction
+  vocabulary.
+
+When designing or reviewing any admin surface (a new module page, a grid
+toolbar, a modal, a status badge), the test is: *strip every shadow,
+gradient, and color — does the page still communicate its hierarchy
+through layout and typography alone?* If not, the chrome is doing too
+much work. Add the neon back only at the points where the user needs to
+notice state.
+
 ## Hard rule: ONE global design system, no per-page ad-hoc components
 
 Every admin page — core Magento, MMD module, custom dashboard, role-manager,
@@ -738,3 +791,38 @@ amber edit notice and a cyan chip:
 - Role gating: hide for `learner` and `trainer`. All other roles (developer, marketing, admin, super-admin / training_provider) see the bar on store-scoped routes; admin + super-admin see it on every route.
 - Suppress the global bar on any route that emits its own inline Store View bar (Edit Course already does this — extend the `getNameInLayout() === 'mmd.branch.pills.global'` switch in `Switcher.php` when adding new pre-existing inline bars).
 - Do not invent new class names like `mmd-sv-*`, `store-view-tabs`, etc. — the canonical names are `.dcf-store-switcher` / `.dcf-store-tab` / `.dcf-store-tab-flag`.
+
+**Universal-for-operators invariant (MANDATORY)** — the four operator
+roles (developer, marketing, admin, super-admin / `training_provider`)
+see the Store View bar AND the "Viewing / Editing for: <Country>"
+header notice on **every** adminhtml page, full stop. This is the
+"which country am I working in" anchor; hiding it on report / tax /
+newsletter-template pages because those grids don't filter is a
+regression, not a feature. The bar bypasses `isStoreScopedRoute()`
+for these roles by design (`$isFullAdmin` branch in
+[Switcher.php](app/code/local/MMD/Branchscope/Block/Store/Switcher.php)).
+Learner and trainer roles are scoped to their own country and never
+see the bar. If role detection returns empty (session not yet seeded,
+helper exception), the bar defaults to visible — silent disappearance
+is the worst failure mode.
+
+**Filtering contract (MANDATORY)** — the bar is not decoration. If a page
+renders the Store View bar, clicking a pill **must actually filter the
+page data**. The pill writes `?store=N` to the URL; the page is
+responsible for honouring it. The contract is broken silently on any
+admin grid where stock Magento ignores the param (Reviews, Search Terms,
+some Newsletter grids, Tag, several report grids). Before shipping a new
+or rewritten admin list/grid, verify:
+
+1. Load the page with `?store=0` (or no param) — all rows visible.
+2. Load with `?store=3` (Ghana) — only Ghana-scoped rows remain.
+3. If the underlying collection has no store filter method, add one in
+   the MMD override (e.g. `MMD_Adminhtml_Block_Review_Grid::_prepareCollection`
+   calls `$collection->addStoreFilter($storeId)` when `?store=` > 0).
+4. For grids whose data is truly global (no store dimension — e.g.
+   Permissions, Cache, Manage Stores), suppress the bar instead by
+   leaving the controller out of `MMD_Branchscope_Helper_Data::isStoreScopedRoute()`.
+   **Showing the bar but ignoring the param is the worst-of-both
+   outcome and is forbidden.**
+
+Reference fix: [Block/Review/Grid.php](app/code/local/MMD/Adminhtml/Block/Review/Grid.php) `_prepareCollection` — calls `addStoreFilter()` because the core review grid only joins store data for display and never filters by `?store=`.

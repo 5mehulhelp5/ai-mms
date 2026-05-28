@@ -62,14 +62,31 @@ class MMD_Adminhtml_Block_Review_Grid extends Mage_Adminhtml_Block_Review_Grid
     {
         parent::_prepareCollection();
 
-        // Per-rating columns are best-effort: if anything in the
-        // join/inject path throws (missing rating tables in a fresh DB,
-        // schema drift, oddly-shaped data), the grid itself must still
-        // render. Log and bail.
         try {
             $this->_injectRatingValues();
         } catch (Exception $e) {
             Mage::logException($e);
+        }
+        return $this;
+    }
+
+    /**
+     * Wire the Store View bar's ?store=N to actually filter the grid.
+     *
+     * Stock Mage_Adminhtml_Block_Review_Grid only joins store data for
+     * display (addStoreData) and never filters by ?store=. The grid's
+     * collection runs _applyStoresFilterToSelect during _beforeLoad, so
+     * the store id must be set BEFORE load() is called from
+     * Mage_Adminhtml_Block_Widget_Grid::_prepareCollection. Hooking
+     * _beforeLoadCollection is the right place — it fires between filter
+     * setup and load().
+     */
+    protected function _beforeLoadCollection()
+    {
+        parent::_beforeLoadCollection();
+        $storeId = (int) $this->getRequest()->getParam('store', 0);
+        if ($storeId > 0 && $this->getCollection()) {
+            $this->getCollection()->addStoreFilter($storeId);
         }
         return $this;
     }

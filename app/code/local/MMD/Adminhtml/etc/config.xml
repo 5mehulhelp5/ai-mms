@@ -128,6 +128,16 @@
                     <review_grid>MMD_Adminhtml_Block_Review_Grid</review_grid>
                     <catalog_search>MMD_Adminhtml_Block_Catalog_Search</catalog_search>
                     <catalog_search_grid>MMD_Adminhtml_Block_Catalog_Search_Grid</catalog_search_grid>
+                    <!-- Store View bar ?store= filter wiring (see backend-design skill) -->
+                    <customer_grid>MMD_Adminhtml_Block_Customer_Grid</customer_grid>
+                    <cms_page_grid>MMD_Adminhtml_Block_Cms_Page_Grid</cms_page_grid>
+                    <cms_block_grid>MMD_Adminhtml_Block_Cms_Block_Grid</cms_block_grid>
+                    <sales_shipment_grid>MMD_Adminhtml_Block_Sales_Shipment_Grid</sales_shipment_grid>
+                    <sales_creditmemo_grid>MMD_Adminhtml_Block_Sales_Creditmemo_Grid</sales_creditmemo_grid>
+                    <newsletter_subscriber_grid>MMD_Adminhtml_Block_Newsletter_Subscriber_Grid</newsletter_subscriber_grid>
+                    <newsletter_queue_grid>MMD_Adminhtml_Block_Newsletter_Queue_Grid</newsletter_queue_grid>
+                    <promo_catalog_grid>MMD_Adminhtml_Block_Promo_Catalog_Grid</promo_catalog_grid>
+                    <promo_quote_grid>MMD_Adminhtml_Block_Promo_Quote_Grid</promo_quote_grid>
                 </rewrite>
             </adminhtml>
         </blocks>
