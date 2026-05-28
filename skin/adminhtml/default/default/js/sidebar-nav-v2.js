@@ -2256,7 +2256,15 @@ document.observe('dom:loaded', function() {
         // priority so the original page-title row actually
         // disappears instead of stacking above the new card.
         contentHeader.style.setProperty('display', 'none', 'important');
+        contentHeader.style.setProperty('visibility', 'hidden', 'important');
+        contentHeader.style.setProperty('height', '0', 'important');
+        contentHeader.style.setProperty('margin', '0', 'important');
+        contentHeader.style.setProperty('padding', '0', 'important');
+        contentHeader.style.setProperty('overflow', 'hidden', 'important');
         contentHeader.classList.add('mmd-content-header-hidden');
+        // Stamp the body so anyone debugging via DevTools can see
+        // the wrap ran without scrolling through every <div>.
+        document.body.classList.add('mmd-grid-wrapped');
     }
 
     // Apply all grid enhancements. Order matters: injectEditDeleteActions
