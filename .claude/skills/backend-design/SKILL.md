@@ -99,6 +99,87 @@ The actual chain (sidebar-nav.css 7–68):
 
 So when adding a new page that uses `.dcf-edit-sidebar` (Leads adopted this), reuse the class verbatim and let the shell margin handle the offset. Adding `padding-left:270px` "to push the wrap right of the sidebar" was the bug: 250 (admin-main) + 270 (wrap) = 520px from the viewport edge, table shoved off-screen.
 
+## MMD admin grid pages — canonical layout (applies to every MMD list page)
+
+Every list / grid page reachable by the **developer, marketing, admin,
+or super-admin** role uses one shape. The Edit Course page is the
+visual benchmark (`.dcf-section` cards, `.dcf-mag-bar` headers); the
+Leads page is the canonical worked example for a grid. No per-page
+variants — if a new MMD grid page looks different, that's a bug.
+
+The four invariants:
+
+1. **Container header** — title sits in a `.dcf-mag-bar` (the dark
+   gradient bar at the top of the card), NOT in a floating `<h3>`
+   above the table. Form buttons (Add New, Reset, etc.) flush right
+   in the same bar via `.mmd-auto-card-actions`. `.dcf-mag-bar`
+   styling (gradient bg, `padding:13px 22px`, `font:15px/700`,
+   `border-bottom`) is global in `admin-dashboard.css` — do NOT
+   restate or override it on a per-page basis.
+
+2. **Row-select checkbox column** — visible on every grid that
+   supports bulk actions (delete, status change, export). Magento's
+   massaction column is auto-injected when the grid block defines
+   `_prepareMassaction()`; the grid table id must be added to the
+   `removeCheckboxColumn()` allow-list in
+   `sidebar-nav-v2.js` so the JS doesn't hide it. Current entries:
+   `cache_grid_table`, `indexer_processes_grid_table`,
+   `customoptionsOptionsGrid_table`, `mmdLeadsGrid_table`,
+   `providersGrid_table`. **No per-grid checkbox CSS** — the global
+   `input[type="checkbox"]` rule in `dark-theme.css` already styles
+   them (16×16, `#475569` border, transparent bg, blue fill on
+   `:checked`). See the "Minimalist checkbox" section above.
+
+3. **Action column is icon-only** — already guaranteed by the global
+   class rewrite of `Mage_Adminhtml_Block_Widget_Grid_Column_Renderer_Action`
+   (see the "Grid Action column" section above). Anything declared
+   as `'type' => 'action'` renders as 26×26 ghost icon buttons. Do
+   NOT add `'renderer' => …` keys to action columns; do NOT render
+   text-link action HTML manually in a custom renderer.
+
+4. **Font size matches Leads** — every grid inherits `§14` from
+   `sidebar-nav.css` (cell padding, font size, header style, row
+   separator). No per-page font overrides — no `font-size:` in
+   page-scoped CSS or inline templates. If a column needs density
+   tweaks, use the `td.muted` / `td.strong` / `td.center` modifiers
+   from the `.mm-table` block (for MMD custom panels) or accept §14
+   defaults (for native Magento grids).
+
+**Auto-rollout** — `sidebar-nav-v2.js::wrapMmdGridInCard()` applies
+invariant #1 (and #3 indirectly) to every MMD admin grid route by
+hoisting the `.content-header` into a `.dcf-mag` section card. The
+function is body-class scoped — allow-list at the top of the function:
+`adminhtml-{providers, marketingdashboard, classes, cpgenerator,
+rolemanagement, seometadata, seoaudit, trainer,
+customoptions-options}-*`. Adding a new MMD admin grid route means
+appending the new body-class prefix to that array (and adding the
+table id to the checkbox allow-list if it has bulk actions).
+
+**Hard exclude** — any `adminhtml-dashboard-*` body class (Edit
+Course is the design benchmark and the wrap function explicitly
+returns early on it). Leads ships its own custom phtml that already
+emits `.dcf-mag` — the wrap function detects `.mmd-leads-wrap` and
+skips, so it doesn't double-wrap.
+
+**Pages without a Magento grid** (e.g. Marketing dashboard's KPI
+tiles, dashboards rendered from a hand-written phtml) don't get
+auto-wrapped because there's no `.grid` to find. For those, wrap
+manually in the template:
+
+```html
+<div class="dcf-mag mmd-auto-card">
+  <div class="dcf-mag-bar">
+    <span><?php echo $this->__('Marketing Dashboard') ?></span>
+    <span class="mmd-auto-card-actions">[buttons]</span>
+  </div>
+  <div class="dcf-mag-body" style="padding:0;">
+    <!-- table / content -->
+  </div>
+</div>
+```
+
+— same classes the auto-wrap emits, so the CSS already covers them.
+
 ## Grid checkbox column — JS hides it by default
 
 `sidebar-nav-v2.js::removeCheckboxColumn()` (around line 1262)
