@@ -295,3 +295,21 @@ button.rm-pagination-btn.active,
     color:#f1f5f9 !important;font-weight:600 !important;background:transparent !important;
 }
 .rm-pagination-ellipsis{padding:0 4px;color:#475569}
+
+/* === Light-mode overrides ===
+   The Users table reads near-invisible in light mode because the row
+   text is slate-50 (#f1f5f9) and the email column is slate-400 — both
+   wash out against the light page background. Flip the body text to
+   slate-900 / slate-600 for readability, and lighten the row separators
+   so the table grid stays visible. */
+:root[data-theme="light"] .rm-name{color:#0f172a}
+:root[data-theme="light"] .rm-email{color:#475569}
+:root[data-theme="light"] .rm-table th{color:#475569;border-bottom-color:#cbd5e1}
+:root[data-theme="light"] .rm-table td{color:#0f172a;border-bottom-color:#e2e8f0}
+:root[data-theme="light"] .rm-table tr:hover td{background:rgba(37,99,235,.06)}
+:root[data-theme="light"] .rm-search input,
+:root[data-theme="light"] .rm-select{background:#ffffff;border-color:#cbd5e1;color:#0f172a}
+:root[data-theme="light"] .rm-search svg{color:#94a3b8}
+:root[data-theme="light"] .rm-self{color:#64748b}
+:root[data-theme="light"] button.rm-pagination-btn.active,
+:root[data-theme="light"] .rm-pagination-btn.rm-pagination-btn.active{color:#0f172a !important}

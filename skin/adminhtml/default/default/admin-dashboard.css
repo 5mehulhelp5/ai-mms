@@ -3351,3 +3351,50 @@ button.hsp-btn-submit{
 :root[data-theme="light"] button.cnc-btn-cancel:hover {
     background: #f1f5f9 !important;
 }
+
+/* === Light-mode safety net for inline hardcoded dark styles ===
+   A bunch of admin templates ship inline `style="background:#1e293b..."`
+   on empty-state boxes, info banners, tinted-border cards, code chips,
+   etc. They were written when the panel was dark-only and now render
+   as dark patches in light mode (recurring complaint: "this box went
+   dark again"). Class-based overrides can't catch them because the
+   color is in the element's inline `style` attribute. Attribute
+   selectors with !important DO win against unprefixed inline styles,
+   so we re-skin every inline dark surface/border/text to the slate
+   light palette in one sweep. New templates that hardcode the same
+   shades automatically pick up the override — no need to remember
+   to add a `:root[data-theme="light"]` block per page. */
+:root[data-theme="light"] [style*="background:#1e293b"],
+:root[data-theme="light"] [style*="background: #1e293b"],
+:root[data-theme="light"] [style*="background:#0f172a"],
+:root[data-theme="light"] [style*="background: #0f172a"],
+:root[data-theme="light"] [style*="background:#1f2937"],
+:root[data-theme="light"] [style*="background: #1f2937"],
+:root[data-theme="light"] [style*="background:#0b1220"],
+:root[data-theme="light"] [style*="background: #0b1220"] {
+    background: #e2e8f0 !important;
+}
+:root[data-theme="light"] [style*="border:1px dashed #334155"],
+:root[data-theme="light"] [style*="border: 1px dashed #334155"],
+:root[data-theme="light"] [style*="border:1px solid #334155"],
+:root[data-theme="light"] [style*="border: 1px solid #334155"],
+:root[data-theme="light"] [style*="border:1px solid #475569"],
+:root[data-theme="light"] [style*="border: 1px solid #475569"] {
+    border-color: #cbd5e1 !important;
+}
+/* Hardcoded slate-50/100/200/300 text → slate-900 in light mode */
+:root[data-theme="light"] [style*="color:#f1f5f9"],
+:root[data-theme="light"] [style*="color: #f1f5f9"],
+:root[data-theme="light"] [style*="color:#e2e8f0"],
+:root[data-theme="light"] [style*="color: #e2e8f0"],
+:root[data-theme="light"] [style*="color:#cbd5e1"],
+:root[data-theme="light"] [style*="color: #cbd5e1"] {
+    color: #0f172a !important;
+}
+/* Hardcoded slate-400/500 muted text → slate-600 (still muted, readable) */
+:root[data-theme="light"] [style*="color:#94a3b8"],
+:root[data-theme="light"] [style*="color: #94a3b8"],
+:root[data-theme="light"] [style*="color:#64748b"],
+:root[data-theme="light"] [style*="color: #64748b"] {
+    color: #475569 !important;
+}
