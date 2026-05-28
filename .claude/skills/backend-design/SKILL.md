@@ -99,13 +99,43 @@ The actual chain (sidebar-nav.css 7–68):
 
 So when adding a new page that uses `.dcf-edit-sidebar` (Leads adopted this), reuse the class verbatim and let the shell margin handle the offset. Adding `padding-left:270px` "to push the wrap right of the sidebar" was the bug: 250 (admin-main) + 270 (wrap) = 520px from the viewport edge, table shoved off-screen.
 
-## MMD admin grid pages — canonical layout (applies to every MMD list page)
+## Admin grid page — canonical layout (global, applies to every list page)
 
-Every list / grid page reachable by the **developer, marketing, admin,
-or super-admin** role uses one shape. The Edit Course page is the
-visual benchmark (`.dcf-section` cards, `.dcf-mag-bar` headers); the
-Leads page is the canonical worked example for a grid. No per-page
-variants — if a new MMD grid page looks different, that's a bug.
+**THE shape every admin list / grid page MUST take** — MMD custom
+pages, Magento core pages (Catalog, Sales, Customers, CMS, Newsletter,
+Promotions, URL Rewrite, Reviews, Funding Tags, Search Terms, System →
+Manage Stores, …) — every route with a `.content-header` + `.grid`
+in the main container. The Edit Course page is the visual benchmark
+for edit-mode pages; **the All Reviews page (and the Leads page) is
+the visual benchmark for grids**. No per-page variants — if any list
+page looks different from those, that's a bug to file, not a design
+choice to honour.
+
+**Grid benchmark anatomy** (top to bottom — match exactly):
+
+1. `.dcf-mag-bar` header — bold title left, page-action buttons
+   ("Add New Review", "Add URL Rewrite", "Filters ▾", etc.) flush
+   right inside `.mmd-auto-card-actions`. Gradient-bar styling is
+   global in `admin-dashboard.css`; do NOT restate or override per
+   page.
+2. Mass-action toolbar (`[id$="_massaction"]`) — slim row, "0 items
+   selected" left, `ACTIONS [select] Submit` right, single hairline
+   `border-bottom` separating it from the table body.
+3. Grid table — checkbox column visible (canonical rule below: any
+   grid with non-empty mass-actions surfaces its checkboxes), then
+   the standard column set, then a single icon-only **Actions**
+   column on the right when bulk operations are also per-row
+   available.
+4. Pagination/footer row — `Showing X-Y of Z records | Show [20]
+   per page | First ‹ Prev 1 Next › Last` — flat-text pager
+   (`.dev-pg-btn` / `-pg-btn`), no chip backgrounds. See "Minimalist
+   pagination" below.
+
+If a screenshot of your grid wouldn't look indistinguishable from
+the All Reviews screenshot when squinted at, something is off —
+usually a missing `_prepareMassaction()` on the block, a custom
+inline `<style>` block fighting the global rules, or a
+`.content-header` the auto-wrap didn't find.
 
 The four invariants:
 
