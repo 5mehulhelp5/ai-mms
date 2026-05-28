@@ -1479,19 +1479,39 @@ if ($_editMode) {
                 }
             }
 
-            // Load ALL trainer options from the `trainers` multiselect attribute
-            // Also try to match each trainer's name to an admin_user record to pull an email
-            $_allTrainers = array();      // option_id => name
-            $_allTrainerEmails = array(); // option_id => email (may be empty)
+            // Picker source = courses_trainers (View Trainers panel is the
+            // single source of truth for the trainer list). Each row still
+            // needs a matching EAV `trainers` option (attribute_id=170)
+            // because product assignments are stored as option_ids, so we
+            // find-or-create the option per trainer at page load. Email
+            // comes from courses_trainers directly; admin_user/name slug
+            // fallbacks only kick in when the column is empty.
+            $_allTrainers      = array(); // option_id => display name (ACTA-stripped)
+            $_allTrainerEmails = array(); // option_id => email
+            $_optionToName     = array(); // option_id => raw EAV value (used to recover orphans)
             try {
-                $_read = Mage::getSingleton('core/resource')->getConnection('core_read');
+                $_read  = Mage::getSingleton('core/resource')->getConnection('core_read');
+                $_write = Mage::getSingleton('core/resource')->getConnection('core_write');
                 $_tblOV = $_read->getTableName('eav_attribute_option_value');
                 $_tblO  = $_read->getTableName('eav_attribute_option');
-                $_rowsAll = $_read->fetchAll(
-                    "SELECT o.option_id, v.value FROM {$_tblO} o JOIN {$_tblOV} v ON o.option_id=v.option_id WHERE o.attribute_id=170 AND v.store_id=0 ORDER BY v.value"
-                );
+                $_tblCT = $_read->getTableName('courses_trainers');
 
-                // Load admin users once: full_name_lower => email
+                // Existing EAV options keyed by lowercase name → option_id.
+                $_eavOpts = $_read->fetchAll(
+                    "SELECT o.option_id, v.value FROM {$_tblO} o "
+                    . "JOIN {$_tblOV} v ON o.option_id=v.option_id "
+                    . "WHERE o.attribute_id=170 AND v.store_id=0"
+                );
+                $_nameToOption = array();
+                foreach ($_eavOpts as $_eo) {
+                    $_raw = trim((string)$_eo['value']);
+                    if ($_raw === '') continue;
+                    $_nameToOption[strtolower($_raw)] = (int)$_eo['option_id'];
+                    $_optionToName[(int)$_eo['option_id']] = $_raw;
+                }
+
+                // admin_user lookup for trainers whose courses_trainers row
+                // has no email column populated (legacy/backfill gap).
                 $_adminUsers = array();
                 try {
                     $_auRows = $_read->fetchAll("SELECT firstname, lastname, email FROM " . $_read->getTableName('admin_user') . " WHERE email IS NOT NULL AND email != ''");
@@ -1499,33 +1519,66 @@ if ($_editMode) {
                         $_fn = trim((string)$_au['firstname']);
                         $_ln = trim((string)$_au['lastname']);
                         if ($_fn !== '' || $_ln !== '') {
-                            $_key = strtolower(trim($_fn . ' ' . $_ln));
-                            $_adminUsers[$_key] = $_au['email'];
+                            $_adminUsers[strtolower(trim($_fn . ' ' . $_ln))] = $_au['email'];
                         }
                     }
                 } catch (Exception $e) {}
 
-                foreach ($_rowsAll as $_r) {
-                    $_nm = trim(preg_replace('/^ACTA\s+/i', '', $_r['value']));
+                // Canonical trainer list (courses_trainers / View Trainers).
+                $_ctRows = $_read->fetchAll(
+                    "SELECT trainers_id, title, email FROM {$_tblCT} "
+                    . "WHERE status=1 AND title IS NOT NULL AND title != '' ORDER BY title"
+                );
+                foreach ($_ctRows as $_ct) {
+                    $_nm = trim((string)$_ct['title']);
                     if ($_nm === '') continue;
-                    $_allTrainers[(int)$_r['option_id']] = $_nm;
-                    // Try to match an admin user by name (case-insensitive)
-                    $_low = strtolower($_nm);
-                    $_email = '';
-                    if (isset($_adminUsers[$_low])) {
-                        $_email = $_adminUsers[$_low];
-                    } else {
-                        foreach ($_adminUsers as $_aukey => $_auemail) {
-                            if ($_aukey !== '' && stripos($_nm, $_aukey) !== false) { $_email = $_auemail; break; }
+                    $_key   = strtolower($_nm);
+                    $_optId = isset($_nameToOption[$_key]) ? $_nameToOption[$_key] : 0;
+
+                    // Lazy-create the matching EAV option so saving still
+                    // resolves to a real option_id. One-time cost per name;
+                    // subsequent page loads are read-only.
+                    if ($_optId === 0) {
+                        try {
+                            $_write->insert($_tblO, array('attribute_id' => 170, 'sort_order' => 0));
+                            $_optId = (int)$_write->lastInsertId($_tblO);
+                            $_write->insert($_tblOV, array(
+                                'option_id' => $_optId,
+                                'store_id'  => 0,
+                                'value'     => $_nm,
+                            ));
+                            $_nameToOption[$_key] = $_optId;
+                            $_optionToName[$_optId] = $_nm;
+                        } catch (Exception $e) {
+                            continue; // skip on insert failure (race / lock)
                         }
                     }
-                    // Fallback: generate a placeholder email from the name
+
+                    $_display = trim(preg_replace('/^ACTA\s+/i', '', $_nm));
+                    if ($_display === '') $_display = $_nm;
+                    $_allTrainers[$_optId] = $_display;
+
+                    // Email: courses_trainers.email → admin_user match → slug
+                    $_email = trim((string)(isset($_ct['email']) ? $_ct['email'] : ''));
                     if ($_email === '') {
-                        $_slug = preg_replace('/[^a-z0-9]+/', '.', strtolower($_nm));
-                        $_slug = trim($_slug, '.');
-                        if ($_slug !== '') $_email = $_slug . '@tertiaryinfotech.com';
+                        $_low = strtolower($_display);
+                        if (isset($_adminUsers[$_low])) {
+                            $_email = $_adminUsers[$_low];
+                        } else {
+                            foreach ($_adminUsers as $_aukey => $_auemail) {
+                                if ($_aukey !== '' && stripos($_display, $_aukey) !== false) {
+                                    $_email = $_auemail;
+                                    break;
+                                }
+                            }
+                        }
+                        if ($_email === '') {
+                            $_slug = preg_replace('/[^a-z0-9]+/', '.', strtolower($_display));
+                            $_slug = trim($_slug, '.');
+                            if ($_slug !== '') $_email = $_slug . '@tertiaryinfotech.com';
+                        }
                     }
-                    $_allTrainerEmails[(int)$_r['option_id']] = $_email;
+                    $_allTrainerEmails[$_optId] = $_email;
                 }
             } catch (Exception $e) {}
 
@@ -1535,6 +1588,22 @@ if ($_editMode) {
             if ($_trainerIds !== '') {
                 foreach (array_filter(array_map('intval', explode(',', $_trainerIds))) as $_id) {
                     $_assignedIds[] = $_id;
+                }
+            }
+
+            // Preserve orphan EAV options that are already assigned to this
+            // course but whose courses_trainers row was deleted (or never
+            // existed, for legacy options pre-dating the table). Without
+            // this they'd silently vanish from the assignment list when the
+            // picker source switched to courses_trainers.
+            foreach ($_assignedIds as $_oid) {
+                if (!isset($_allTrainers[$_oid]) && isset($_optionToName[$_oid])) {
+                    $_rawNm = $_optionToName[$_oid];
+                    $_disp  = trim(preg_replace('/^ACTA\s+/i', '', $_rawNm));
+                    $_allTrainers[$_oid] = $_disp !== '' ? $_disp : $_rawNm;
+                    if (!isset($_allTrainerEmails[$_oid])) {
+                        $_allTrainerEmails[$_oid] = '';
+                    }
                 }
             }
 
@@ -3753,14 +3822,6 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
 
         <!-- ===== Tab: Trainer Details (single-column layout, matching Course Details) ===== -->
         <div class="dcf-tab-panel" data-tab="trainer-details">
-
-            <div class="dcf-section">
-                <div class="dcf-section-title">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                    Trainer Profile
-                </div>
-                <textarea class="dcf-textarea dcf-textarea-rich" name="trainer_profile" placeholder="HTML supported — trainer background, qualifications, experience..."><?php echo htmlspecialchars((string) $_editProd->getData('trainerprofile')) ?></textarea>
-            </div>
 
             <!-- Trainer multi-select picker (moved here from Course Details tab) -->
             <div class="dcf-section" style="margin-top:14px;">
