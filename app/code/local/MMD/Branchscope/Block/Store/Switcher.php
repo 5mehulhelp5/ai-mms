@@ -146,11 +146,20 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
             || $req->getParam('course_id')
             || in_array((string) $req->getParam('mode'), array('edit', 'editing'), true);
         $label     = $isEditing ? 'Editing for:' : 'Viewing:';
+        $leftCopy  = $isEditing
+            ? 'You are in edit mode. Make your changes and click Save Changes.'
+            : 'Switch country via the Store View tabs above to filter this page.';
 
         $notice = '';
         if ($activeName !== '') {
             $notice = '<div class="dcf-edit-notice mmd-branchscope-notice"'
-                . ' style="display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;margin-top:10px;">'
+                . ' style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:10px;">'
+                . '<span style="display:inline-flex;align-items:center;gap:8px;">'
+                . '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
+                . '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>'
+                . '<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
+                . $this->escapeHtml($leftCopy)
+                . '</span>'
                 . '<span class="dcf-active-store-pill"'
                 . ' title="Store-view-scoped fields on this page apply to this country. Switch via the Store View tabs above.">'
                 . '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
