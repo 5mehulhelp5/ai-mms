@@ -109,7 +109,7 @@ class MMD_Leads_Block_Adminhtml_Leads_Grid extends Mage_Adminhtml_Block_Widget_G
 
         $this->addColumn('action', array(
             'header'  => $helper->__('Action'),
-            'width'   => '90px',
+            'width'   => '140px',
             'type'    => 'action',
             'getter'  => 'getId',
             'actions' => array(
@@ -117,6 +117,12 @@ class MMD_Leads_Block_Adminhtml_Leads_Grid extends Mage_Adminhtml_Block_Widget_G
                     'caption' => $helper->__('View / Reply'),
                     'url'     => array('base' => '*/*/view'),
                     'field'   => 'id',
+                ),
+                array(
+                    'caption' => $helper->__('Delete'),
+                    'url'     => array('base' => '*/*/delete'),
+                    'field'   => 'id',
+                    'confirm' => $helper->__('Delete this lead?'),
                 ),
             ),
             'filter'    => false,
