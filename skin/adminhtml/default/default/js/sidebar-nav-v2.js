@@ -689,9 +689,24 @@ document.observe('dom:loaded', function() {
             contentHeader = mainContainer.down('.content-header');
         }
 
-        // Insert toggle button into content-header or before the grid area
+        // Insert toggle button into content-header or before the grid area.
+        // Prefer a .dcf-mag-bar ancestor (custom .dcf-* section card) when
+        // present — pages like Leads wrap the grid in a section card and
+        // want the Filters toggle to sit flush-right inside that header
+        // bar, not floating above the table as a stray button.
         var togglePlaced = false;
-        if (contentHeader) {
+        var magBar = null;
+        var walk = grid;
+        for (var dwa = 0; dwa < 6 && walk; dwa++) {
+            var mag = walk.up('.dcf-mag');
+            if (mag) { magBar = mag.down('.dcf-mag-bar'); break; }
+            walk = walk.up();
+        }
+        if (magBar) {
+            magBar.insert(toggleBtn);
+            toggleBtn.addClassName('advanced-filter-toggle-in-bar');
+            togglePlaced = true;
+        } else if (contentHeader) {
             // Find or create a buttons area
             var btnContainer = contentHeader.down('.content-buttons');
             if (!btnContainer) {
