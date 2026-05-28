@@ -37,6 +37,19 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
         } catch (Exception $e) { /* role helper unavailable — render normally */ }
           catch (Error $e)     { /* same */ }
 
+        // Branchscope rewrites adminhtml/store_switcher globally, so every
+        // inline <block type="adminhtml/store_switcher" /> in catalog.xml /
+        // sales.xml / report.xml / newsletter.xml / admin.xml ALSO ends up
+        // as a MMD_Branchscope_Block_Store_Switcher and would render a
+        // second pill bar + "Editing for/Viewing" notice on the same page.
+        // The global instance ('mmd.branch.pills.global' from branchscope.xml)
+        // is the single source of truth — every other instance renders empty.
+        // Programmatic callers that read getStoreId() / getStores() off the
+        // block keep working; only _toHtml() goes silent.
+        if ($this->getNameInLayout() !== 'mmd.branch.pills.global') {
+            return '';
+        }
+
         /** @var MMD_Branchscope_Helper_Data $helper */
         $helper = Mage::helper('branchscope');
 

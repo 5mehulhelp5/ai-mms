@@ -3159,3 +3159,99 @@ button.hsp-btn-submit{
 /* Light mode — closed: dark slate text + visible border; open: blue */
 :root[data-theme="light"] #dev-filter-toggle[data-open="0"] { color: #0f172a !important; border-color: #94a3b8 !important; }
 :root[data-theme="light"] #dev-filter-toggle[data-open="1"] { color: #2563eb !important; border-color: #2563eb !important; }
+
+/* ============================================================
+   Unified admin page-title styling
+   ------------------------------------------------------------
+   Every admin page should render its top-of-content heading at
+   the same 28px / 700 weight — the dominant size already used
+   by most custom panels (.dev-title, .dce-title, .al-title, etc.).
+   The brief: "page title (must be same font size)" across all
+   backend pages.
+
+   Covers:
+     - Custom dashboard panels (.dev-title, .trn-title, .lmc-title,
+       .al-title, .at-title, .crd-title, .mn-title, .lcd-title,
+       .hsp-title, .dce-title, .cs-title, .edt-title)
+     - Stock Magento .page-head / .content-header headings (used
+       by Catalog Products grid, Categories, Customers, Sales,
+       System Configuration, etc.)
+   ============================================================ */
+.dev-title,
+.trn-title,
+.lmc-title,
+.al-title,
+.at-title,
+.crd-title,
+.mn-title,
+.lcd-title,
+.hsp-title,
+.dce-title,
+.cs-title,
+.edt-title,
+.admin-main .page-head h3,
+.admin-main .page-head h1,
+.admin-main .content-header h3,
+.admin-main .content-header h1 {
+    font-size: 28px !important;
+    font-weight: 700 !important;
+    line-height: 1.2 !important;
+    color: var(--t1, #f1f5f9) !important;
+    margin: 0 0 24px !important;
+    padding: 0 !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+}
+:root[data-theme="light"] .dev-title,
+:root[data-theme="light"] .trn-title,
+:root[data-theme="light"] .lmc-title,
+:root[data-theme="light"] .al-title,
+:root[data-theme="light"] .at-title,
+:root[data-theme="light"] .crd-title,
+:root[data-theme="light"] .mn-title,
+:root[data-theme="light"] .lcd-title,
+:root[data-theme="light"] .hsp-title,
+:root[data-theme="light"] .dce-title,
+:root[data-theme="light"] .cs-title,
+:root[data-theme="light"] .edt-title,
+:root[data-theme="light"] .admin-main .page-head h3,
+:root[data-theme="light"] .admin-main .page-head h1,
+:root[data-theme="light"] .admin-main .content-header h3,
+:root[data-theme="light"] .admin-main .content-header h1 {
+    color: #0f172a !important;
+}
+
+/* ============================================================
+   Store View bar — light-mode override
+   ------------------------------------------------------------
+   The base .dcf-store-switcher rule uses --b0 (which isn't
+   defined in light mode and falls back to hardcoded dark slate),
+   leaving the bar looking like a dark island on the white page.
+   Re-paint the surface as light gray and flip the text to dark
+   slate so it reads cleanly in light mode.
+   ============================================================ */
+:root[data-theme="light"] .dcf-store-switcher {
+    background: #e2e8f0 !important;
+    border-color: #cbd5e1 !important;
+}
+:root[data-theme="light"] .dcf-store-switcher-label {
+    color: #475569 !important;
+    border-right-color: #cbd5e1 !important;
+}
+:root[data-theme="light"] a.dcf-store-tab,
+:root[data-theme="light"] a.dcf-store-tab:hover,
+:root[data-theme="light"] a.dcf-store-tab:focus,
+:root[data-theme="light"] a.dcf-store-tab:active {
+    color: #1e293b !important;
+}
+:root[data-theme="light"] a.dcf-store-tab:hover {
+    background: rgba(15, 23, 42, 0.08) !important;
+    color: #0f172a !important;
+}
+:root[data-theme="light"] .dcf-store-tab-flag {
+    background: rgba(15, 23, 42, 0.10) !important;
+    color: #0f172a !important;
+}
+:root[data-theme="light"] .dcf-store-switcher-hint {
+    color: #475569 !important;
+}
