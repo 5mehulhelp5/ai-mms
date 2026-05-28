@@ -31,6 +31,17 @@ class MMD_Leads_Block_Adminhtml_Leads_Grid extends Mage_Adminhtml_Block_Widget_G
             }
         } catch (Exception $e) { /* helper unavailable — show unfiltered */ }
 
+        // Sidebar filter (new / replied / auto_reply_failed) — keys match
+        // MMD_Leads_Block_Adminhtml_Leads::getSidebarItems().
+        $filter = (string) $this->getRequest()->getParam('filter_status', '');
+        if ($filter === 'new') {
+            $collection->addFieldToFilter('status', MMD_Leads_Model_Lead::STATUS_NEW);
+        } elseif ($filter === 'replied') {
+            $collection->addFieldToFilter('status', MMD_Leads_Model_Lead::STATUS_REPLIED);
+        } elseif ($filter === 'auto_reply_failed') {
+            $collection->addFieldToFilter('auto_reply_status', MMD_Leads_Model_Lead::AUTO_REPLY_FAILED);
+        }
+
         $this->setCollection($collection);
         return parent::_prepareCollection();
     }
@@ -161,7 +172,14 @@ class MMD_Leads_Block_Adminhtml_Leads_Grid extends Mage_Adminhtml_Block_Widget_G
 
     public function getGridUrl()
     {
-        return $this->getUrl('*/*/grid', array('_current' => true));
+        // Preserve the sidebar filter_status across AJAX grid reloads
+        // (sort/page) so the filtered scope sticks.
+        $params = array('_current' => true);
+        $f = (string) $this->getRequest()->getParam('filter_status', '');
+        if ($f !== '') {
+            $params['filter_status'] = $f;
+        }
+        return $this->getUrl('*/*/grid', $params);
     }
 
     public function getRowUrl($row)

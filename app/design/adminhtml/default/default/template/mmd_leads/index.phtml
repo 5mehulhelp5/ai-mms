@@ -1,0 +1,88 @@
+<?php
+/** @var MMD_Leads_Block_Adminhtml_Leads $this */
+$_items  = $this->getSidebarItems();
+$_active = $this->getActiveFilter();
+?>
+<aside class="sidebar-nav sidebar-nav-role dcf-edit-sidebar mmd-leads-sidebar">
+    <h3 class="dcf-edit-sidebar-title">Leads</h3>
+    <?php foreach ($_items as $_it): ?>
+        <a class="lms-nav-item<?php echo $_it['key'] === $_active ? ' active' : '' ?>"
+           href="<?php echo htmlspecialchars($this->getFilterUrl($_it['key'])) ?>">
+            <span><?php echo htmlspecialchars($_it['label']) ?></span>
+            <span class="mmd-leads-nav-count"><?php echo (int) $_it['count'] ?></span>
+        </a>
+    <?php endforeach; ?>
+</aside>
+
+<div class="dcf-wrap mmd-leads-wrap">
+    <div class="dcf-header">
+        <div class="dcf-header-row2">
+            <button type="button" class="mm-btn mm-btn-ghost" onclick="window.location.href='<?php echo $this->getBackUrl() ?>'" style="flex:0 0 auto;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                Back to Dashboard
+            </button>
+            <h1 class="dcf-title" style="font-size:22px;margin:0;flex:1 1 auto;">Leads</h1>
+            <div class="dcf-actions">
+                <button type="button" class="dcf-btn dcf-btn-cancel" onclick="window.location.reload();">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15A9 9 0 1 1 18 5.6L23 10"/></svg>
+                    Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <?php if ($_active !== 'all'):
+        $_activeLabel = '';
+        foreach ($_items as $_it) { if ($_it['key'] === $_active) { $_activeLabel = $_it['label']; break; } }
+    ?>
+    <div class="dcf-edit-notice">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Filtered: <strong><?php echo htmlspecialchars($_activeLabel) ?></strong>
+        <a href="<?php echo $this->getFilterUrl('all') ?>" style="margin-left:auto;color:inherit;text-decoration:underline;">Clear filter</a>
+    </div>
+    <?php endif; ?>
+
+    <div class="dcf-mag">
+        <div class="dcf-mag-bar">
+            <span>All Leads</span>
+        </div>
+        <div class="dcf-mag-body" style="padding:0;">
+            <?php echo $this->getGridHtml() ?>
+        </div>
+    </div>
+</div>
+
+<style>
+    .mmd-leads-sidebar .lms-nav-item {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+    }
+    .mmd-leads-nav-count {
+        background: rgba(148,163,184,.18) !important;
+        color: #cbd5e1 !important;
+        font-size: 11px !important;
+        font-weight: 600 !important;
+        padding: 2px 8px !important;
+        border-radius: 10px !important;
+        min-width: 22px;
+        text-align: center;
+        flex: 0 0 auto !important;
+    }
+    .lms-nav-item.active .mmd-leads-nav-count {
+        background: rgba(37,139,182,.22) !important;
+        color: #258bb6 !important;
+    }
+    /* Push the wrap right of the fixed sidebar */
+    body:has(.mmd-leads-sidebar) .admin-main .main-col-inner,
+    body:has(.mmd-leads-sidebar) .admin-main .middle {
+        padding-left: 270px !important;
+    }
+    /* Grid sits inside .dcf-mag-body — strip the grid's own margin/border
+       so the header bar above it reads as the section bar. */
+    .mmd-leads-wrap .dcf-mag .grid { margin: 0 !important; }
+    .mmd-leads-wrap [id$="_massaction"] {
+        padding: 10px 14px !important;
+        border-bottom: 1px solid var(--b1, #1f2937) !important;
+    }
+</style>
