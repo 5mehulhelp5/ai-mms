@@ -146,20 +146,23 @@ The four invariants:
    defaults (for native Magento grids).
 
 **Auto-rollout** — `sidebar-nav-v2.js::wrapMmdGridInCard()` applies
-invariant #1 (and #3 indirectly) to every MMD admin grid route by
+invariant #1 (and #3 indirectly) to **every** admin grid route by
 hoisting the `.content-header` into a `.dcf-mag` section card. The
-function is body-class scoped — allow-list at the top of the function:
-`adminhtml-{providers, marketingdashboard, classes, cpgenerator,
-rolemanagement, seometadata, seoaudit, trainer,
-customoptions-options}-*`. Adding a new MMD admin grid route means
-appending the new body-class prefix to that array (and adding the
-table id to the checkbox allow-list if it has bulk actions).
+function is **deny-list** scoped, not allow-list: it fires on every
+page with a `.content-header h3` + a `.grid` in the main container,
+including Magento core pages (URL Rewrite Management, Reviews &
+Ratings, Newsletters, Search Terms, Google Sitemap, Catalog Tags,
+etc.). The design system is now the universal admin chrome — there
+should be no second-class "this page is a core Magento page so it
+gets the old layout" carve-out for grids.
 
-**Hard exclude** — any `adminhtml-dashboard-*` body class (Edit
-Course is the design benchmark and the wrap function explicitly
-returns early on it). Leads ships its own custom phtml that already
+**Hard exclude** — any `adminhtml-dashboard-*` body class. Course
+Edit is the design benchmark (its `.dcf-section` + `.dcf-mag` cards
+already match what we want everywhere else) and the global admin
+dashboard has its own chrome. The wrap function returns early on
+those body classes. Leads ships its own custom phtml that already
 emits `.dcf-mag` — the wrap function detects `.mmd-leads-wrap` and
-skips, so it doesn't double-wrap.
+the `.mmd-auto-card` class it emits, so re-runs are idempotent.
 
 **Pages without a Magento grid** (e.g. Marketing dashboard's KPI
 tiles, dashboards rendered from a hand-written phtml) don't get

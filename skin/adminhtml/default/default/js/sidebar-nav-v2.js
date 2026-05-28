@@ -2128,36 +2128,21 @@ document.observe('dom:loaded', function() {
         });
     }
 
-    // Wrap MMD admin grids (Users / Classes / Providers / Marketing /
-    // SEO Audit / SEO Metadata / Course Page Generator / Class
-    // Schedule) in a .dcf-mag section card whose .dcf-mag-bar reads
-    // as the page title, mirroring the "SEO Meta" header pattern on
-    // the Course Edit page.
+    // Wrap any admin grid page in a .dcf-mag section card whose
+    // .dcf-mag-bar reads as the page title, mirroring the "SEO Meta"
+    // header pattern on the Course Edit page. Applies to every admin
+    // route with a .content-header + .grid in the main container —
+    // MMD custom pages AND Magento core grids (URL Rewrite, Reviews,
+    // Newsletters, Search Terms, etc).
     //
-    // Strict allow-list keyed off body class. Course Edit
-    // (`adminhtml-dashboard-*`) is the design benchmark and MUST be
-    // left untouched. Leads has its own custom template that already
-    // emits .dcf-mag; we detect that and skip.
+    // Hard exclude — Course Edit (`adminhtml-dashboard-*`) is the
+    // design benchmark and MUST be left untouched. Pages already
+    // shipping their own .dcf-mag (Leads custom template) are detected
+    // via .mmd-leads-wrap / .mmd-auto-card and skipped.
     function wrapMmdGridInCard() {
-        var bodyClass = ' ' + document.body.className + ' ';
-        // Hard exclude — Course Edit and other dashboard routes.
-        if (bodyClass.indexOf('adminhtml-dashboard-') !== -1) return;
-        var allowPrefixes = [
-            'adminhtml-providers-',          // Courses → Providers
-            'adminhtml-marketingdashboard-', // Marketing dashboard
-            'adminhtml-classes-',            // Class Management
-            'adminhtml-cpgenerator-',        // Course Page Generator
-            'adminhtml-rolemanagement-',     // Users / Role Management
-            'adminhtml-seometadata-',        // SEO Metadata
-            'adminhtml-seoaudit-',           // SEO Audit
-            'adminhtml-trainer-',            // Trainer admin
-            'adminhtml-customoptions-options-' // Manage Class Schedule
-        ];
-        var bodyClassRaw = document.body.className;
-        var match = allowPrefixes.some(function (p) {
-            return bodyClassRaw.indexOf(p) !== -1;
-        });
-        if (!match) return;
+        // Hard exclude: anything dashboard-related (course edit + the
+        // global admin dashboard, both of which have their own chrome).
+        if (document.body.className.indexOf('adminhtml-dashboard-') !== -1) return;
 
         var container = document.querySelector('#page\\:main-container, #anchor-content');
         if (!container) return;
