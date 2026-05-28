@@ -145,6 +145,20 @@ class MMD_Leads_Block_Adminhtml_Leads_Grid extends Mage_Adminhtml_Block_Widget_G
         return $this;
     }
 
+    /**
+     * Widen the auto-injected checkbox column. The default 20px col
+     * blends into the table edge under the dark theme — bump to 44px
+     * so the checkbox is unambiguously visible.
+     */
+    protected function _prepareMassactionColumn()
+    {
+        parent::_prepareMassactionColumn();
+        if (isset($this->_columns['massaction'])) {
+            $this->_columns['massaction']->setData('width', '44px');
+        }
+        return $this;
+    }
+
     public function getGridUrl()
     {
         return $this->getUrl('*/*/grid', array('_current' => true));
