@@ -63,12 +63,29 @@ if ($assignedRaw !== '') {
                     array($name)
                 );
 
+                // Skip trainers with no bio in courses_trainers — per
+                // request, only render assignments that have a Trainer
+                // Profile filled out. Strip tags first so an HTML blob
+                // that's effectively whitespace (e.g. "<p>&nbsp;</p>")
+                // doesn't count as content.
+                if (trim(strip_tags($desc)) === '') { continue; }
+
                 // Strip ACTA prefix for the displayed name (the EAV
                 // option value still carries it for matching purposes).
                 $display = trim(preg_replace('/^ACTA\s+/i', '', $name));
                 if ($display === '') { $display = $name; }
 
                 $cards[] = array('name' => $display, 'desc' => $desc);
+            }
+
+            // Cap at 3 trainers, alphabetical by display name, so courses
+            // with a large assigned list show a stable, predictable subset
+            // instead of overwhelming the tab.
+            usort($cards, function ($a, $b) {
+                return strcasecmp($a['name'], $b['name']);
+            });
+            if (count($cards) > 3) {
+                $cards = array_slice($cards, 0, 3);
             }
         } catch (Exception $e) {
             // Fall through to legacy blob fallback below.
