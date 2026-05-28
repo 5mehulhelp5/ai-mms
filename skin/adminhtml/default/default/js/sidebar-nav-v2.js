@@ -2243,10 +2243,21 @@ document.observe('dom:loaded', function() {
         card.appendChild(body);
 
         // Insert card immediately before the grid wrapper, then move
-        // massaction (if a separate sibling) + grid wrapper into body.
+        // the grid wrapper into the body. The massaction toolbar gets
+        // hoisted into the BAR (right side) so "X items selected /
+        // ACTIONS [select] Submit" sits inline with the title + form
+        // buttons — single row of chrome instead of two stacked
+        // toolbars. See "Massaction in bar" CSS in admin-dashboard.css
+        // for the slim styling that this layout depends on.
         gridWrapper.parentNode.insertBefore(card, gridWrapper);
-        if (massaction && massaction !== gridWrapper && !gridWrapper.contains(massaction)) {
-            body.appendChild(massaction);
+        if (massaction && massaction !== gridWrapper) {
+            // If massaction is a child of the grid wrapper, lift it out
+            // first so moving the wrapper into body doesn't drag it.
+            if (gridWrapper.contains(massaction)) {
+                massaction.parentNode.removeChild(massaction);
+            }
+            massaction.classList.add('mmd-bar-massaction');
+            bar.appendChild(massaction);
         }
         body.appendChild(gridWrapper);
 
