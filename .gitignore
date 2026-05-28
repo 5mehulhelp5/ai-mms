@@ -1,6 +1,9 @@
 # Environment secrets
 .env
 
+# Node tooling — the admin theme is pure PHP + plain CSS; no node build.
+node_modules/
+
 # Database dumps
 *.sql
 *.sql.gz

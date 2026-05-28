@@ -145,9 +145,8 @@ docker-compose up -d
 # - Manual local run: docker exec ai-mms-web-1 php /var/www/html/migrations/apply.php
 # - First-time bootstrap against an existing DB: php migrations/apply.php --bootstrap (marks all as applied without running).
 
-# Tailwind CSS (for admin panel styling — run locally)
-npm run tw:build    # Build skin/adminhtml/default/default/tailwind.css
-npm run tw:watch    # Rebuild on change during dev
+# Admin panel styling is **plain CSS** in skin/adminhtml/default/default/*.css
+# — no node / npm / Tailwind build step. Edit the CSS files directly.
 
 # Code quality (inside web container)
 composer php-cs-fixer:fix

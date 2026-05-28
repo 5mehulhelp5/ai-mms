@@ -88,7 +88,6 @@ Default layout, loads most of the pages
                 <action method="addCss"><name>print.css</name><params>media="print"</params></action>
 
                 <action method="addItem"><type>skin_css</type><name>menu.css</name><params>media="screen, projection"</params></action>
-                <action method="addCss"><name>tailwind.css</name></action>
                 <action method="addCss"><name>dark-theme.css</name></action>
                 <action method="addCss"><name>admin-responsive.css</name></action>
                 <action method="addCss"><name>sidebar-nav.css</name></action>
