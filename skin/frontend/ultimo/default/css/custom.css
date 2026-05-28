@@ -2567,3 +2567,16 @@ li.level2 > a > span > .cat-label,
         display: block !important;
     }
 }
+
+/* Mobile homepage: collapse the dead space between the header bar and the
+   banner. Ultimo's .main-container > .main > .inner-container > .col-main
+   chain each contribute top padding that sums to a visible gap on phones. */
+@media (max-width: 767px) {
+    body.cms-home .main-container .main,
+    body.cms-home .main-container .inner-container,
+    body.cms-home .main-container .col-main {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+    body.cms-home .main-before-top-container { display: none !important; }
+}
