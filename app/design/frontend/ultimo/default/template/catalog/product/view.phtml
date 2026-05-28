@@ -229,20 +229,20 @@
 	// `?v=<mtime>` busts any browser/CDN cache when the brochure is
 	// regenerated.
 	//
-	// SG-only — the Generate Brochure feature itself is gated to the
-	// Singapore admin scope (see CoursesaveController::generateBrochureAction
-	// + the dashboard button gate). The PDFs in media/courses/brochures/
-	// are SG-formatted (S$, 9% GST, WSQ tiers, SG venue block, English),
-	// so we must not surface them on MY/GH/NG/BT/IN storefronts. Other
-	// countries fall back to whatever was manually pasted into their
-	// brochure CMS block (which is the only path they have until their
-	// own generators are built).
-	if ($_courseBrochureUrl === '' && $_courseSku !== ''
-	    && (int) Mage::app()->getStore()->getId() === 1) {
-		$_brochureFile = Mage::getBaseDir('media') . '/courses/brochures/' . $_courseSku . '.pdf';
+	// Enabled on every country storefront (SG/MY/GH/NG/BT/IN — store
+	// IDs 1-6). The brochure generator writes one file per (SKU,
+	// country) — <SKU>-SG.pdf / -MY.pdf / etc. — so the same course
+	// on multiple sites can have completely separate brochures with
+	// the right currency, venue, tax, contact info per country. The
+	// storefront looks for the file matching its OWN store.
+	$_brochureCcMap = array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'IN');
+	$_brochureStoreId = (int) Mage::app()->getStore()->getId();
+	if ($_courseBrochureUrl === '' && $_courseSku !== '' && isset($_brochureCcMap[$_brochureStoreId])) {
+		$_brochureCc   = $_brochureCcMap[$_brochureStoreId];
+		$_brochureFile = Mage::getBaseDir('media') . '/courses/brochures/' . $_courseSku . '-' . $_brochureCc . '.pdf';
 		if (is_file($_brochureFile)) {
 			$_courseBrochureUrl = rtrim(Mage::getBaseUrl('media'), '/')
-				. '/courses/brochures/' . rawurlencode($_courseSku) . '.pdf'
+				. '/courses/brochures/' . rawurlencode($_courseSku . '-' . $_brochureCc) . '.pdf'
 				. '?v=' . filemtime($_brochureFile);
 		}
 	}

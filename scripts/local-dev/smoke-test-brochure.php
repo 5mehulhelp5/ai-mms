@@ -4,9 +4,25 @@
 // reports timing + output path. Local-dev only.
 //
 //   docker exec ai-mms-web-1 php /var/www/html/scripts/local-dev/smoke-test-brochure.php TGS-2025060473
+//   docker exec ai-mms-web-1 php /var/www/html/scripts/local-dev/smoke-test-brochure.php M1001 --wid=2
 //
 require_once __DIR__ . '/../../app/Mage.php';
 Mage::app('admin', 'store');
+
+// --wid=N → forces the brochure controller to render as if the admin's
+// active website were N. Works by setting ?store=N on the current request
+// so MMD_Branchscope_Helper_Data::hasExplicitChoice() returns true and
+// MMD_RoleManager_Helper_Data::getActiveWebsiteId() resolves to N. Store
+// IDs in this build are 1=SG, 2=MY, 3=GH, 4=NG, 5=BT, 6=IN.
+$widOverride = 0;
+foreach ($argv as $arg) {
+    if (preg_match('/^--wid=(\d+)$/', (string) $arg, $m)) {
+        $widOverride = (int) $m[1];
+    }
+}
+if ($widOverride > 0) {
+    Mage::app()->getRequest()->setParam('store', $widOverride);
+}
 
 require_once __DIR__ . '/../../app/code/local/MMD/RoleManager/controllers/Adminhtml/CoursesaveController.php';
 
@@ -73,8 +89,11 @@ $controller = new class extends MMD_RoleManager_Adminhtml_CoursesaveController {
         echo "\ntimings: collect=" . number_format($tCtx, 2) . "s, render=" . number_format($tPdf, 2) . "s\n";
         echo "url: $url\n";
 
-        $safeSku = preg_replace('/[^A-Za-z0-9._-]/', '_', $product->getSku());
-        $path = Mage::getBaseDir('media') . '/courses/brochures/' . $safeSku . '.pdf';
+        // Brochure path is <SKU>-<CC>.pdf — derive CC from active_wid.
+        $ccMap = array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'IN');
+        $cc       = $ccMap[(int) ($ctx['active_wid'] ?? 1)] ?? 'SG';
+        $safeSku  = preg_replace('/[^A-Za-z0-9._-]/', '_', $product->getSku());
+        $path     = Mage::getBaseDir('media') . '/courses/brochures/' . $safeSku . '-' . $cc . '.pdf';
         if (is_file($path)) {
             echo "file: $path (" . filesize($path) . " bytes)\n";
         } else {

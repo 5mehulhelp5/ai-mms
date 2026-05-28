@@ -1624,19 +1624,52 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             if (!class_exists('\\Mpdf\\Mpdf')) {
                 throw new Exception('mPDF not installed — run composer require mpdf/mpdf');
             }
-            // First-cut scope: brochure generator only supports Singapore
-            // courses (GST 9%, WSQ fee tiers, SG venue blocks, S$ currency
-            // are all SG-coupled). Match the dashboard UI gate so a
-            // non-SG admin can't bypass it via a direct POST.
+            // Supported scope: six country storefronts (SG/MY/GH/NG/BT/IN).
+            //
+            // Country pick — two tiers depending on the operator's role:
+            //
+            //   Developers: View-As wins. They get full override to
+            //   generate any country's brochure for any course, even
+            //   when the course isn't published in that country yet.
+            //   Useful for QA, fixture seeding, and unblocking ops.
+            //
+            //   Everyone else (admin/trainer/training_provider):
+            //     1. View-As if the course is actually published there.
+            //     2. Else the course's smallest-id supported website.
+            //   Means the button works without forcing the admin to
+            //   switch View-As, but a non-dev can never produce a PDF
+            //   that links from a storefront the course isn't on.
+            //
+            // Throws only when the course isn't on any supported
+            // country (e.g. Infotech-only or wholly-unassigned).
+            $supported   = array(1, 2, 3, 4, 5, 6);
+            $productWids = $this->_courseWebsiteIds((int) $product->getId());
+            $viewAsWid   = 0;
+            try { $viewAsWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId(); }
+            catch (Exception $e) { $viewAsWid = 0; }
+            $isDeveloper = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('developer'));
+
             $broWid = 0;
-            try { $broWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId(); }
-            catch (Exception $e) { $broWid = 0; }
-            if ($broWid <= 0) $broWid = 1;
-            if ($broWid !== 1) {
-                throw new Exception('Brochure generation is Singapore-only for now. Switch the admin "View As" to Singapore to use it.');
+            if ($isDeveloper && in_array($viewAsWid, $supported, true)) {
+                $broWid = $viewAsWid;
+            } elseif (in_array($viewAsWid, $supported, true)
+                     && in_array($viewAsWid, $productWids, true)) {
+                $broWid = $viewAsWid;
+            } else {
+                foreach ($productWids as $wid) {
+                    if (in_array($wid, $supported, true)) {
+                        $broWid = (int) $wid;
+                        break;
+                    }
+                }
+            }
+            if ($broWid <= 0) {
+                throw new Exception($isDeveloper
+                    ? 'Brochure generation requires View As to be one of SG / MY / GH / NG / BT / IN.'
+                    : 'This course is not assigned to any of the supported country storefronts (SG / MY / GH / NG / BT / IN). Assign it to a country before generating a brochure.');
             }
 
-            $context = $this->_collectBrochureContext($product);
+            $context = $this->_collectBrochureContext($product, $broWid);
 
             $stubbed    = false;
             $stubReason = '';
@@ -1681,19 +1714,20 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
      * from that scope so the brochure is country-correct — provider
      * name, phone, currency, funding tiers all change to match.
      */
-    protected function _collectBrochureContext($product)
+    protected function _collectBrochureContext($product, $widOverride = null)
     {
         $sku = (string) $product->getSku();
 
-        // ---- Active website / store scope ---------------------------
-        // RoleManager exposes the admin's currently-selected website
-        // via helper. Default to website_id=1 (Singapore) when no
-        // selection — mirrors the storefront default.
-        $activeWid = 0;
-        try {
-            $activeWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
-        } catch (Exception $e) {
-            $activeWid = 0;
+        // ---- Active country --------------------------------------
+        // generateBrochureAction picks the country (View-As if the
+        // course is on it, else the course's smallest-id supported
+        // website) and passes it down — see the entry-gate comment.
+        // When called directly (smoke tests etc.) we fall back to the
+        // admin's View-As, then to SG (1).
+        $activeWid = (int) $widOverride;
+        if ($activeWid <= 0) {
+            try { $activeWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId(); }
+            catch (Exception $e) { $activeWid = 0; }
         }
         if ($activeWid <= 0) $activeWid = 1;
         $scopeStoreId = null;
@@ -1872,16 +1906,18 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $skillsTitle = trim($titleSrc);
         }
 
-        // ---- Standardised SG certification text ----------------------
-        // The storefront (view.phtml line 275) hardcodes the same two
-        // bullets for every SG course rather than reading the CMS
-        // block, because the legacy per-course descriptions had a dozen
-        // heading variants ("Certificate" / "Certification" / etc.)
-        // that wouldn't normalise. Mirror that logic here so the
-        // brochure carries the same official copy:
-        //   - All SG courses          → "Certificate of Completion …" bullet
-        //   - SG WSQ (TGS-* SKU) only → adds the OpenCerts bullet
-        //   - Other countries          → falls back to the CMS block
+        // ---- Country-aware certification text -----------------------
+        // Mirrors storefront view.phtml lines 275-314:
+        //   SG → hardcoded "Certificate of Completion …" + (WSQ-only)
+        //        "OpenCerts from SkillsFuture Singapore" bullets;
+        //        per-course block contributes only a Pearson Vue
+        //        supplement (CompTIA courses) if present.
+        //   Other countries → per-course `course_<sku>_certification`
+        //        CMS block wins; falls back to the per-store global
+        //        `course_certification` CMS block (created by migration
+        //        143 — carries "Certificate of Completion from Tertiary
+        //        Courses" for MY/GH/NG/BT/IN). If still empty, the
+        //        Certification card is suppressed.
         $certificateHtml = $cmsHtml('certification');
         if ($isSg) {
             $certificateHtml  = '<ul>';
@@ -1890,26 +1926,40 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $certificateHtml .= '<li><strong>OpenCerts from SkillsFuture Singapore</strong> - After passing the assessment(s) and achieving at least 75% attendance, participants will receive an OpenCert (aka Statement of Achievement) from SkillsFuture Singapore, certifying that they have achieved the Competency Standard(s) in the above Skills Framework.</li>';
             }
             $certificateHtml .= '</ul>';
-            // Per-course supplement (e.g. CompTIA's "Certification Exam
-            // at Pearson Vue" block from migration 151). Mirror the
-            // storefront regex on view.phtml line 297 so we don't
-            // double-render the standard bullets.
             $certBlock = $cmsHtml('certification');
             if ($certBlock !== '' && preg_match('#<p>\s*<strong>\s*Certification Exam at Pearson Vue\s*</strong>\s*</p>.*$#siu', $certBlock, $pvMatch)) {
                 $certificateHtml .= $pvMatch[0];
             }
+        } elseif ($certificateHtml === '') {
+            // Per-store global fallback for non-SG countries.
+            try {
+                $gb = Mage::getModel('cms/block')
+                    ->setStoreId($scopeStoreId)
+                    ->load('course_certification', 'identifier');
+                if ($gb->getId() && $gb->getIsActive()) {
+                    $certificateHtml = $this->_sanitizeRichHtml((string) $gb->getContent());
+                }
+            } catch (Exception $e) {
+                // leave certificateHtml as the empty per-course value
+            }
         }
 
         // ---- Venue (per-store CMS block) ----------------------------
-        // Mirrors rightData.phtml line 68:
-        //   MY store          → my_venue_address
-        //   SG / hydroponics  → sg_venue_address_hydroponics
-        //   SG default        → sg_venue_address
-        $venueBlockId = 'sg_venue_address';
-        if ($activeWid === 2) {
+        // Block identifier convention in this DB:
+        //   SG (1)  → sg_venue_address           (KL — Singapore HQ)
+        //   SG  ┕ special-case SKU TGS-2025053916 → sg_venue_address_hydroponics
+        //   MY/GH/NG/BT/IN (2-6) → my_venue_address scoped to the
+        //          active store (each non-SG store has its own row in
+        //          cms_block_store with that country's address). Yes,
+        //          the identifier is `my_*` for all of them — naming
+        //          legacy from when MY was the only non-SG store, but
+        //          the per-store content is correct.
+        if ($activeWid === 1) {
+            $venueBlockId = ($sku === 'TGS-2025053916')
+                ? 'sg_venue_address_hydroponics'
+                : 'sg_venue_address';
+        } else {
             $venueBlockId = 'my_venue_address';
-        } elseif ($sku === 'TGS-2025053916') {
-            $venueBlockId = 'sg_venue_address_hydroponics';
         }
         $venueHtml = '';
         try {
@@ -1962,7 +2012,14 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             'certificate_html'   => $certificateHtml,
             'funding_html'       => $cmsHtml('funding_and_grant'),
             'trainer_html'       => $this->_sanitizeRichHtml((string) $admin->getData('trainerprofile')),
-            'store_name'         => (string) ($store['name'] ?: 'Tertiary Infotech Academy'),
+            // The brochure rebrands the provider name to the academy
+            // level ("Tertiary Infotech Academy") regardless of what
+            // the storefront's general/store_information/name says
+            // (which is "Tertiary Courses Singapore" — the consumer
+            // brand). Keeps storefront/emails on the consumer brand,
+            // but the printed/distributed brochure uses the academy
+            // (training-provider) brand that pairs with the logo.
+            'store_name'         => 'Tertiary Infotech Academy',
             'store_phone'        => (string) ($store['phone'] ?? ''),
             'store_email'        => $storeEmail,
             'store_address'      => (string) ($store['address'] ?? ''),
@@ -1970,6 +2027,72 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             'registration_url'   => $registrationUrl,
             'generated_at'       => date('Y-m-d H:i'),
         );
+    }
+
+    /**
+     * Resolve a product's primary country (website_id). Mirrors
+     * MMD_RoleManager_Helper_Data::getRunIdPrefixForProduct(): pick
+     * the smallest website_id from catalog_product_website. Defaults
+     * to 1 (Singapore) when nothing's assigned — same fallback as the
+     * Run-ID prefix logic so the two never disagree for a given SKU.
+     *
+     * Cached per request: the brochure controller may invoke this
+     * twice (once in the entry gate, once in _collectBrochureContext)
+     * for the same product.
+     */
+    protected function _brochureWidForProduct($productId)
+    {
+        static $cache = array();
+        $productId = (int) $productId;
+        if ($productId <= 0) return 1;
+        if (isset($cache[$productId])) return $cache[$productId];
+        try {
+            $wid = (int) Mage::getSingleton('core/resource')->getConnection('core_read')->fetchOne(
+                "SELECT website_id FROM catalog_product_website WHERE product_id=? ORDER BY website_id LIMIT 1",
+                array($productId)
+            );
+        } catch (Exception $e) {
+            $wid = 0;
+        }
+        if ($wid <= 0) $wid = 1;
+        $cache[$productId] = $wid;
+        return $wid;
+    }
+
+    /**
+     * Every website_id a course is assigned to. Used by the entry
+     * gate to verify the admin's active country is one the course is
+     * actually on (so you can't accidentally generate an MY brochure
+     * for an SG-only course while viewing as Malaysia). Sorted ASC
+     * for stable iteration.
+     */
+    protected function _courseWebsiteIds($productId)
+    {
+        static $cache = array();
+        $productId = (int) $productId;
+        if ($productId <= 0) return array();
+        if (isset($cache[$productId])) return $cache[$productId];
+        try {
+            $rows = Mage::getSingleton('core/resource')->getConnection('core_read')->fetchCol(
+                "SELECT website_id FROM catalog_product_website WHERE product_id=? ORDER BY website_id ASC",
+                array($productId)
+            );
+            $cache[$productId] = array_map('intval', (array) $rows);
+        } catch (Exception $e) {
+            $cache[$productId] = array();
+        }
+        return $cache[$productId];
+    }
+
+    /**
+     * website_id → ISO-ish 2-letter country code used in the brochure
+     * filename. Keeps the URL human-readable and pairs naturally with
+     * MMD_RoleManager_Helper_Data's existing prefix map.
+     */
+    protected function _brochureCountryCodeForWebsite($wid)
+    {
+        $map = array(1 => 'SG', 2 => 'MY', 3 => 'GH', 4 => 'NG', 5 => 'BT', 6 => 'IN');
+        return $map[(int) $wid] ?? 'SG';
     }
 
     /**
@@ -2368,10 +2491,12 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
      */
     protected function _renderBrochurePdf($product, array $context)
     {
-        // Pick a per-country logo from the Ultimo skin dir so the
-        // brochure header always carries the right brand mark. Falls
-        // back to the legacy logo.png if the country-specific file is
-        // missing (e.g. a new market that hasn't been branded yet).
+        // Brochure logo — uses the academy-level "Tertiary Infotech
+        // Academy" brand mark for SG (the parent company carrying the
+        // training accreditation). Other countries keep their own
+        // country-specific brand when the feature opens up to them.
+        // Falls back to the legacy logo.png if neither country-specific
+        // file nor the academy mark is present.
         //
         // Embed via base64 data: URI — mPDF's SetHTMLHeader() context
         // is sandboxed and won't reliably read filesystem paths even
@@ -2379,13 +2504,11 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         // bytes inline so mPDF can decode them directly.
         $logoBase  = Mage::getBaseDir() . DS . 'skin' . DS . 'frontend'
                    . DS . 'ultimo' . DS . 'default' . DS . 'images' . DS;
-        $logoByWid = array(
-            1 => 'TertiaryCoursesSingapore.png',
-            2 => 'TertiaryCoursesMalaysia.png',
-        );
+        // Academy brand is country-agnostic — "Tertiary Infotech
+        // Academy" is the training-provider entity, not the consumer
+        // storefront. Both SG and MY brochures use the same mark.
         $candidates = array(
-            $logoBase . ($logoByWid[(int) ($context['active_wid'] ?? 1)] ?? ''),
-            $logoBase . 'TertiaryCoursesSingapore.png',
+            $logoBase . 'Infotech_Academy.png',
             $logoBase . 'logo.png',
         );
         $context['logo_uri'] = '';
@@ -2419,10 +2542,17 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         include $__tpl;
         $html = ob_get_clean();
 
-        // Where to write — make sure the dir exists.
+        // Where to write — one file per (SKU, country). Multi-country
+        // courses (E001 lives on all 6 sites) thus end up with up to
+        // six brochure PDFs side-by-side:
+        //   <SKU>-SG.pdf, <SKU>-MY.pdf, <SKU>-GH.pdf, …
+        // Per-store CMS-block textareas point each storefront at its
+        // own file.
         $sku       = (string) $product->getSku();
         $safeSku   = preg_replace('/[^A-Za-z0-9._-]/', '_', $sku !== '' ? $sku : ('product-' . $product->getId()));
-        // Output dir — same dual-owner concern as tempDir above. The
+        $cc        = $this->_brochureCountryCodeForWebsite($context['active_wid'] ?? 1);
+        $filename  = $safeSku . '-' . $cc . '.pdf';
+        // Output dir — same dual-owner concern as tempDir below. The
         // CLI smoke-test runs as root, Apache as www-data; both need to
         // be able to write the per-course PDF. Force 0777 on create AND
         // on every run so a previously-root-owned dir self-heals once
@@ -2434,7 +2564,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         }
         @chmod($brochureDir, 0777);
         umask($oldUmask);
-        $absPath = $brochureDir . DS . $safeSku . '.pdf';
+        $absPath = $brochureDir . DS . $filename;
 
         // mPDF tempDir — keep it under var/ so it survives container
         // rebuilds. We create it 0777 (and umask 0) because the same dir
@@ -2494,7 +2624,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         @chmod($absPath, 0666);
 
         $url = rtrim((string) Mage::getBaseUrl('media'), '/')
-             . '/courses/brochures/' . rawurlencode($safeSku) . '.pdf'
+             . '/courses/brochures/' . rawurlencode($filename)
              . '?v=' . (int) @filemtime($absPath);
         return $url;
     }

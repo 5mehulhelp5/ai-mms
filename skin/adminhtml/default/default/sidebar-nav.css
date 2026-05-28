@@ -4096,17 +4096,6 @@ body.adminhtml-catalog_search-index #catalogSearchGrid_table td:last-child {
     font-weight: 400 !important;
 }
 
-/* === Review add/edit — nudge content up a touch ===
-   Per request: the review form feels sparse with unused space on the
-   right. A small zoom fills it without the layout problems the old
-   global zoom:0.8 caused. Scoped to the review form pages only
-   (catalog_product_review route, hyphen + underscore body-class
-   variants) so nothing else is affected. */
-body[class*="catalog_product_review"] .admin-main .middle,
-body[class*="catalog-product-review"] .admin-main .middle {
-    zoom: 1.12;
-}
-
 /* === Reviews list (catalog_product_review) — kill the extra container ===
    The reworked Reviews page wraps the grid / mass-action in an extra
    bordered box that reads as a redundant nested container. Flatten the
@@ -4424,3 +4413,51 @@ body .admin-main .columns { gap: 0 !important; padding-left: 0 !important; }
 body .admin-main .main-col { padding-left: 0 !important; margin-left: 0 !important; }
 body .admin-main .main-col-inner { padding-left: 0 !important; }
 body .admin-main #anchor-content { padding-left: 0 !important; }
+
+/* === New / Edit Customer → Addresses tab ===
+   boxes.css §1190 paints the "Add New Address" placeholder card and
+   each saved-address `<li>` with a light-gray GIF stripe pattern
+   (sub_button_bg.gif / address_list_li.gif), which on the dark theme
+   reads as a white box punched out of the admin shell. Neutralise the
+   GIFs and re-skin both the placeholder and the address list rows
+   with the standard dark card palette (--d3 surface + --b1 border). */
+.admin-main .sub-btn-set {
+    background: var(--d3) !important;
+    background-image: none !important;
+    border: 1px solid var(--b1) !important;
+    border-radius: 8px !important;
+}
+.admin-main .address-list li,
+.admin-main .address-list li.on,
+.admin-main .address-list li.over {
+    background: var(--d3) !important;
+    background-image: none !important;
+    border-top: 1px solid var(--b1) !important;
+    color: var(--t2) !important;
+}
+.admin-main .address-list li:first-child {
+    border-top: none !important;
+}
+.admin-main .address-list li.on {
+    background: rgba(96, 165, 250, .12) !important;
+}
+.admin-main .address-list address {
+    color: var(--t2) !important;
+}
+/* Light-mode flip — slate-200 surface to match the rest of the admin
+   panels (KPI cards, cnc-card, etc). */
+:root[data-theme="light"] .admin-main .sub-btn-set,
+:root[data-theme="light"] .admin-main .address-list li,
+:root[data-theme="light"] .admin-main .address-list li.on,
+:root[data-theme="light"] .admin-main .address-list li.over {
+    background: #e2e8f0 !important;
+    background-image: none !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+}
+:root[data-theme="light"] .admin-main .address-list li.on {
+    background: rgba(37, 99, 235, .12) !important;
+}
+:root[data-theme="light"] .admin-main .address-list address {
+    color: #0f172a !important;
+}

@@ -2976,20 +2976,35 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 <div style="font-size:12px;color:#94a3b8;margin:0 0 6px;"><?php echo htmlspecialchars($_pn['hint']) ?></div>
                 <?php endif; ?>
                 <?php if ($_pn['code'] === 'brochure'):
-                    // First-cut scope: the brochure generator only supports
-                    // Singapore courses. The PDF layout, GST rate (9%), WSQ
-                    // fee tiles (Baseline 50% / MCES 70%), and venue CMS
-                    // block are all SG-specific. Show the button only when
-                    // the admin's active website is Singapore (id 1);
-                    // otherwise display a small note so other-country admins
-                    // know the feature exists but isn't ready for them yet.
-                    $_broWid = 0;
-                    try { $_broWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId(); }
-                    catch (Exception $e) { $_broWid = 0; }
-                    if ($_broWid <= 0) $_broWid = 1;
-                    $_broIsSg = ($_broWid === 1);
+                    // Button visibility mirrors the controller's gate:
+                    //   Developer role → button always shows for any
+                    //   supported View-As (regardless of whether the
+                    //   course is published in that country). Devs can
+                    //   generate a brochure for ANY country.
+                    //   Other roles → button shows when the course has
+                    //   any assignment in [1..6]. The controller will
+                    //   auto-pick View-As if it's a match, else the
+                    //   course's first supported country.
+                    $_broCourseWids = array();
+                    try {
+                        $_broCourseWids = array_map('intval',
+                            Mage::getSingleton('core/resource')->getConnection('core_read')->fetchCol(
+                                "SELECT website_id FROM catalog_product_website WHERE product_id=?",
+                                array((int) $_editProd->getId())
+                            ));
+                    } catch (Exception $e) { $_broCourseWids = array(); }
+                    $_broIsDev = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('developer'));
+                    $_broSupported = array(1, 2, 3, 4, 5, 6);
+                    if ($_broIsDev) {
+                        // Devs only need View-As (which always defaults
+                        // to a valid country) to be supported — always
+                        // true in practice for the six storefronts.
+                        $_broAllowed = true;
+                    } else {
+                        $_broAllowed = (bool) count(array_intersect($_broCourseWids, $_broSupported));
+                    }
                 ?>
-                <?php if ($_broIsSg): ?>
+                <?php if ($_broAllowed): ?>
                 <div style="display:flex;align-items:center;gap:12px;margin:0 0 8px;flex-wrap:wrap;">
                     <button type="button" class="ai-brochure-btn" data-product-id="<?php echo (int) $_editProd->getId() ?>" data-sku="<?php echo htmlspecialchars($_cmsSku) ?>" style="background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.45);color:#fb923c;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -3008,7 +3023,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 </div>
                 <?php else: ?>
                 <div style="font-size:11px;color:#94a3b8;background:rgba(148,163,184,.08);border:1px solid rgba(148,163,184,.2);padding:6px 10px;border-radius:6px;margin:0 0 8px;">
-                    Generate Brochure is available on Singapore courses only. Switch the admin "View As" to Singapore to enable it.
+                    Generate Brochure is unavailable: this course isn't assigned to any of the supported country storefronts (SG / MY / GH / NG / BT / IN). Assign it to a country in the Websites tab first.
                 </div>
                 <?php endif; ?>
                 <?php endif; ?>
