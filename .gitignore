@@ -76,6 +76,7 @@ info.php*
 
 # Environment-specific config (contains credentials)
 /app/etc/local.xml
+/app/etc/google-drive-key.json
 /docker-compose.override.yml
 
 # Composer cache (composer.lock is tracked for reproducible builds)

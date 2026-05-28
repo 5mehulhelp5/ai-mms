@@ -1626,30 +1626,31 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             }
             // Supported scope: six country storefronts (SG/MY/GH/NG/BT/IN).
             //
-            // The active country comes from the Store-View bar's
-            // current selection — the dashboard JS reads it at page
-            // render and POSTs it as `wid` so the value survives the
-            // fetch (the POST URL has no ?store= param of its own).
-            // Falls back to the rolemanager helper if `wid` is
-            // missing (direct-POST tools, smoke tests).
-            //
-            // Gating after pick:
-            //   Developer role: any supported wid is accepted, even
-            //     if the course isn't on that country. QA / ops use.
-            //   Other roles: wid must be one the course is published
-            //     in. If View-As doesn't match (e.g. admin viewing SG
-            //     for an MY-only course), fall back to the course's
-            //     smallest supported website so the button always
-            //     produces a usable brochure.
+            // Country pick:
+            //   1. Trust the POST `wid` first — that's the Store-View
+            //      pill the admin clicked on this page load. The
+            //      dashboard JS reads it at render and POSTs it
+            //      because the fetch URL has no ?store= of its own.
+            //      Falls back to the rolemanager helper if missing
+            //      (direct-POST tools, smoke tests).
+            //   2. Accept View-As ONLY when the course is actually
+            //      published there. Brochures pull country-scoped
+            //      venue / store_info / price — generating a "-SG.pdf"
+            //      for an MY-only course would produce a Frankenstein
+            //      with SG venue + product's HRDF badge + wrong price.
+            //      Roles don't override this: even developers must
+            //      have the course on the country they're generating
+            //      for. The Store-View bar already lets any role
+            //      switch country.
+            //   3. Otherwise fall back to the course's smallest-id
+            //      supported website so the button always produces a
+            //      coherent brochure.
             //
             // Throws only when the course isn't on any supported
             // country (e.g. Infotech-only or wholly-unassigned).
             $supported   = array(1, 2, 3, 4, 5, 6);
             $productWids = $this->_courseWebsiteIds((int) $product->getId());
-            $isDeveloper = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('developer'));
 
-            // 1. Trust the POST wid first — that's the Store-View pill
-            //    the admin actually clicked on this page load.
             $viewAsWid = (int) $this->getRequest()->getParam('wid');
             if ($viewAsWid <= 0) {
                 try { $viewAsWid = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId(); }
@@ -1657,10 +1658,8 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             }
 
             $broWid = 0;
-            if ($isDeveloper && in_array($viewAsWid, $supported, true)) {
-                $broWid = $viewAsWid;
-            } elseif (in_array($viewAsWid, $supported, true)
-                     && in_array($viewAsWid, $productWids, true)) {
+            if (in_array($viewAsWid, $supported, true)
+                && in_array($viewAsWid, $productWids, true)) {
                 $broWid = $viewAsWid;
             } else {
                 foreach ($productWids as $wid) {
@@ -1671,9 +1670,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 }
             }
             if ($broWid <= 0) {
-                throw new Exception($isDeveloper
-                    ? 'Brochure generation requires View As to be one of SG / MY / GH / NG / BT / IN.'
-                    : 'This course is not assigned to any of the supported country storefronts (SG / MY / GH / NG / BT / IN). Assign it to a country before generating a brochure.');
+                throw new Exception('This course is not assigned to any of the supported country storefronts (SG / MY / GH / NG / BT / IN). Assign it to a country before generating a brochure.');
             }
 
             $context = $this->_collectBrochureContext($product, $broWid);
@@ -1702,6 +1699,12 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $resp['stubbed']    = $stubbed;
             if ($stubbed) {
                 $resp['stub_reason'] = $stubReason;
+            }
+            // Drive upload result (populated inside _renderBrochurePdf
+            // via _uploadBrochureToDrive). May be null when no key file
+            // is configured on this environment.
+            if (isset($context['drive_result']) && is_array($context['drive_result'])) {
+                $resp['drive'] = $context['drive_result'];
             }
         } catch (Exception $e) {
             $resp['message'] = $e->getMessage();
@@ -1760,13 +1763,43 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             return $self->_sanitizeRichHtml((string) $b->getContent());
         };
 
-        // ---- Funding badges (plain text) ----------------------------
+        // ---- Funding badges (plain text), filtered per country ------
+        // getProductBadges() returns every funding tag set on the
+        // product — for a course on multiple sites that can include
+        // both SG schemes (WSQ, SkillsFuture Credit, etc.) AND MY's
+        // HRDF. The brochure must show only the badges that apply to
+        // the country it's being generated for, else an MY brochure
+        // ends up advertising "WSQ funding" (Singapore-only) or an SG
+        // brochure shows "HRDF" (Malaysia-only).
+        //
+        // Canonical badge map per country (CLAUDE.md):
+        //   SG → WSQ, SkillsFuture Credit, PSEA, UTAP, IBF, SFEC,
+        //        Absentee Payroll, MCES
+        //   MY → HRDF
+        //   GH/NG/BT/IN → no funding badges yet (the schemes haven't
+        //        been wired in; leave empty rather than show wrong ones)
+        $countryBadgeMap = array(
+            1 => array('WSQ', 'SkillsFuture Credit', 'PSEA', 'UTAP', 'IBF',
+                       'SFEC', 'Absentee Payroll', 'MCES'),
+            2 => array('HRDF'),
+            3 => array(),
+            4 => array(),
+            5 => array(),
+            6 => array(),
+        );
+        $allowedBadges = $countryBadgeMap[(int) $activeWid] ?? array();
         $badges = array();
         try {
             $h = Mage::helper('mmd_courseimage');
             if ($h && is_callable(array($h, 'getProductBadges'))) {
                 $b = $h->getProductBadges($admin);
-                if (is_array($b)) $badges = array_values($b);
+                if (is_array($b)) {
+                    foreach ($b as $name) {
+                        if (in_array((string) $name, $allowedBadges, true)) {
+                            $badges[] = $name;
+                        }
+                    }
+                }
             }
         } catch (Exception $e) {
             $badges = array();
@@ -2057,6 +2090,158 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             'registration_url'   => $registrationUrl,
             'generated_at'       => date('Y-m-d H:i'),
         );
+    }
+
+    /**
+     * Upload the just-generated brochure PDF to Google Drive, into the
+     * country-named subfolder under the configured parent. Mirrors the
+     * pattern of "create or update if a file with the same name already
+     * exists" so re-generating overwrites instead of accumulating
+     * duplicates — the link stays stable across regenerates.
+     *
+     * Skipped silently (no error) when the service-account JSON key
+     * isn't present at app/etc/google-drive-key.json — admins running
+     * locally without Drive set up still get a working brochure. When
+     * the key IS present, any failure (auth, network, missing folder)
+     * is captured and returned as part of the response so the JS can
+     * surface "Drive upload failed: ..." in the success line without
+     * blocking the rest of the flow.
+     *
+     * Scope: drive.file only — even with broader folder share, the SA
+     * can only see/edit files it created itself. Worst-case credential
+     * leak still can't touch anything it didn't put there.
+     *
+     * Returns ['uploaded' => bool, 'skipped' => bool, 'message' => str,
+     *          'drive_url' => str, 'folder' => str].
+     */
+    protected function _uploadBrochureToDrive($absPath, $filename, $countryCode)
+    {
+        $keyFile = Mage::getBaseDir() . '/app/etc/google-drive-key.json';
+        if (!is_readable($keyFile)) {
+            return array(
+                'uploaded' => false,
+                'skipped'  => true,
+                'message'  => 'Drive key not configured (app/etc/google-drive-key.json missing)',
+            );
+        }
+        if (!class_exists('\\Google\\Client')) {
+            return array(
+                'uploaded' => false,
+                'skipped'  => true,
+                'message'  => 'google/apiclient not installed',
+            );
+        }
+
+        // Country code → folder name (matches the actual Drive folder
+        // names exactly: "Singapore", "Malaysia", "Ghana", "Nigeria",
+        // "Bhutan", "India"). Anything else aborts cleanly.
+        $countryNames = array(
+            'SG' => 'Singapore', 'MY' => 'Malaysia', 'GH' => 'Ghana',
+            'NG' => 'Nigeria',   'BT' => 'Bhutan',   'IN' => 'India',
+        );
+        $folderName = $countryNames[strtoupper((string) $countryCode)] ?? '';
+        if ($folderName === '') {
+            return array(
+                'uploaded' => false,
+                'skipped'  => true,
+                'message'  => 'Unknown country code: ' . $countryCode,
+            );
+        }
+
+        $parentFolderId = '0B5_pAs5nKRmfRTc1akJxT1BGblE';
+
+        try {
+            $client = new \Google\Client();
+            $client->setAuthConfig($keyFile);
+            // drive.file scope = can only see files the app created.
+            // Strictly narrower than the folder share itself.
+            $client->setScopes(array(\Google\Service\Drive::DRIVE_FILE));
+            $drive = new \Google\Service\Drive($client);
+
+            // Per-request folder-ID cache so back-to-back uploads
+            // (multi-country admin workflow) don't repeat the lookup.
+            static $folderIdCache = array();
+            $cacheKey = $parentFolderId . '|' . $folderName;
+            if (!isset($folderIdCache[$cacheKey])) {
+                // Look up the country subfolder by name under the parent.
+                // Drive's search needs the parent + name + mimeType.
+                $q = sprintf(
+                    "name = '%s' and mimeType = 'application/vnd.google-apps.folder' and '%s' in parents and trashed = false",
+                    addslashes($folderName),
+                    addslashes($parentFolderId)
+                );
+                $resp = $drive->files->listFiles(array(
+                    'q'                     => $q,
+                    'fields'                => 'files(id, name)',
+                    'supportsAllDrives'     => true,
+                    'includeItemsFromAllDrives' => true,
+                    'pageSize'              => 5,
+                ));
+                $files = $resp->getFiles();
+                if (count($files) === 0) {
+                    throw new Exception("Country folder '$folderName' not found under parent — share it with the service account.");
+                }
+                $folderIdCache[$cacheKey] = $files[0]->getId();
+            }
+            $folderId = $folderIdCache[$cacheKey];
+
+            // Find existing file with the same name in that folder so
+            // we can UPDATE rather than create-a-duplicate.
+            $existingId = null;
+            $q = sprintf(
+                "name = '%s' and '%s' in parents and trashed = false",
+                addslashes($filename),
+                addslashes($folderId)
+            );
+            $resp = $drive->files->listFiles(array(
+                'q'                         => $q,
+                'fields'                    => 'files(id, name)',
+                'supportsAllDrives'         => true,
+                'includeItemsFromAllDrives' => true,
+                'pageSize'                  => 5,
+            ));
+            $existing = $resp->getFiles();
+            if (count($existing) > 0) {
+                $existingId = $existing[0]->getId();
+            }
+
+            $content = (string) file_get_contents($absPath);
+            $params = array(
+                'data'       => $content,
+                'mimeType'   => 'application/pdf',
+                'uploadType' => 'multipart',
+                'fields'     => 'id, webViewLink, webContentLink',
+                'supportsAllDrives' => true,
+            );
+
+            if ($existingId !== null) {
+                // Update existing file. Don't set name/parents in the
+                // metadata — Drive rejects "parents" on update; the
+                // existing file stays in the same folder by definition.
+                $meta = new \Google\Service\Drive\DriveFile();
+                $uploaded = $drive->files->update($existingId, $meta, $params);
+            } else {
+                $meta = new \Google\Service\Drive\DriveFile(array(
+                    'name'    => $filename,
+                    'parents' => array($folderId),
+                ));
+                $uploaded = $drive->files->create($meta, $params);
+            }
+
+            return array(
+                'uploaded'  => true,
+                'skipped'   => false,
+                'message'   => $existingId ? 'Updated existing Drive file' : 'Created new Drive file',
+                'drive_url' => (string) $uploaded->getWebViewLink(),
+                'folder'    => $folderName,
+            );
+        } catch (Throwable $e) {
+            return array(
+                'uploaded' => false,
+                'skipped'  => false,
+                'message'  => 'Drive upload failed: ' . $e->getMessage(),
+            );
+        }
     }
 
     /**
@@ -2520,7 +2705,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
      * (with a cache-bust query string keyed off mtime so the storefront
      * picks up regenerations immediately).
      */
-    protected function _renderBrochurePdf($product, array $context)
+    protected function _renderBrochurePdf($product, array &$context)
     {
         // Brochure logo — uses the academy-level "Tertiary Infotech
         // Academy" brand mark for SG (the parent company carrying the
@@ -2653,6 +2838,16 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         // world-writable so either user can overwrite. The file is a
         // public artefact in media/ anyway — no auth/secret in it.
         @chmod($absPath, 0666);
+
+        // Push the PDF to Google Drive (per-country folder). Failure
+        // here is non-fatal — the local file + storefront link still
+        // work; admin sees a "Drive upload skipped" note in the response
+        // status. Result is plumbed back to the JS via $context.
+        $context['drive_result'] = $this->_uploadBrochureToDrive(
+            $absPath,
+            $filename,
+            $this->_brochureCountryCodeForWebsite($context['active_wid'] ?? 1)
+        );
 
         // Build the brochure file URL against the CURRENT environment's
         // base media URL so admins can preview locally (localhost:8080)

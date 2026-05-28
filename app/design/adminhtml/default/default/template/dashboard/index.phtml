@@ -3143,8 +3143,21 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                         var note = j.stubbed
                             ? 'PDF generated (AI fallback used — click Save Changes to keep the link).'
                             : 'PDF generated. Click Save Changes to keep the link.';
+                        // Append Drive-upload status when present. Three
+                        // outcomes: uploaded (✓), skipped (not configured —
+                        // silent message), or failed (red, but non-blocking).
+                        if (j.drive) {
+                            if (j.drive.uploaded) {
+                                note += ' Uploaded to Drive (' + (j.drive.folder || '') + ').';
+                            } else if (!j.drive.skipped) {
+                                note += ' ⚠ ' + (j.drive.message || 'Drive upload failed');
+                            }
+                        }
                         setStatus(note, j.stubbed ? '#f59e0b' : '#22c55e');
                         if (j.stubbed) console.warn('Brochure stub used: ' + j.stub_reason);
+                        if (j.drive && !j.drive.uploaded && !j.drive.skipped) {
+                            console.warn('Drive upload failed: ' + j.drive.message);
+                        }
                     })
                     .catch(function(err) {
                         BTN.disabled = false;
