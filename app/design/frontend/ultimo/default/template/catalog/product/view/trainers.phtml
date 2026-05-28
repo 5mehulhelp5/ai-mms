@@ -1,43 +1,133 @@
 <?php
-$trainers = trim((string) $this->getProduct()->getTrainerprofile());
-if ($trainers === '') { return; }
+/**
+ * Trainers tab — wired to the View Trainers (courses_trainers) table.
+ *
+ * Source of truth: the product's `trainers` multiselect (option_ids).
+ * For each assigned option_id we resolve the canonical name via
+ * eav_attribute_option_value, then pull the bio from courses_trainers
+ * by case-insensitive title match. Same table as the Course Editor
+ * picker and the admin View Trainers grid, so updates to a trainer's
+ * profile show on the storefront on the next page load.
+ *
+ * Legacy fallback: if a product has no assigned trainers but still has
+ * the old trainerprofile EAV blob (pre-migration), parse that blob the
+ * old way so nothing silently disappears for un-migrated courses.
+ */
+$product = $this->getProduct();
 
-// Parse trainer EAV HTML into discrete cards. Source shape is typically:
-//   <p><strong>Name</strong> - bio sentence...</p>
-//   <p>continuation paragraph for same trainer...</p>
-//   <p><strong>Next Name</strong> - bio...</p>
-// A paragraph that opens with <strong>X</strong> followed by a dash starts a
-// new card; subsequent paragraphs without that prefix attach to the current
-// card. If parsing yields zero cards, fall back to raw render so nothing
-// ever disappears silently.
-$cards = [];
-$current = null;
-$pPattern = '#<p\b[^>]*>(.*?)</p>#siu';
-$dashRe   = '#^\s*<strong[^>]*>\s*(.+?)\s*</strong>\s*(?:[-–—:]\s*)(.*)$#siu';
-if (preg_match_all($pPattern, $trainers, $pm)) {
-    foreach ($pm[1] as $body) {
-        if (preg_match($dashRe, $body, $hm)) {
-            if ($current !== null) { $cards[] = $current; }
-            $current = [
-                'name' => trim(strip_tags($hm[1])),
-                'body' => [trim($hm[2])],
-            ];
-        } else {
-            $clean = trim($body);
-            if ($clean === '') { continue; }
-            if ($current === null) {
-                $current = ['name' => '', 'body' => [$clean]];
-            } else {
-                $current['body'][] = $clean;
+// The `trainers` multiselect attribute has used_in_product_listing=0 and
+// is_visible_on_front=0, so the frontend product collection doesn't load
+// it as part of $product->getData(). Pull it explicitly via the resource
+// model — falls back to store_id=0 (admin scope) when the current store
+// has no row, which matches how the Course Editor saves assignments.
+$assignedRaw = '';
+try {
+    $storeId     = (int) Mage::app()->getStore()->getId();
+    $assignedRaw = (string) $product->getResource()->getAttributeRawValue(
+        $product->getId(), 'trainers', $storeId
+    );
+} catch (Exception $e) {
+    $assignedRaw = (string) $product->getData('trainers');
+}
+$assignedRaw = trim($assignedRaw);
+$cards = array();
+
+if ($assignedRaw !== '') {
+    $optionIds = array_filter(array_map('intval', explode(',', $assignedRaw)));
+    if (!empty($optionIds)) {
+        try {
+            $read  = Mage::getSingleton('core/resource')->getConnection('core_read');
+            $tblOV = $read->getTableName('eav_attribute_option_value');
+            $tblCT = $read->getTableName('courses_trainers');
+            $placeholders = implode(',', array_fill(0, count($optionIds), '?'));
+
+            // option_id => trainer name (store_id=0 is the admin/default value)
+            $names = $read->fetchPairs(
+                "SELECT option_id, value FROM {$tblOV} "
+                . "WHERE store_id = 0 AND option_id IN ({$placeholders})",
+                $optionIds
+            );
+
+            foreach ($optionIds as $oid) {
+                if (!isset($names[$oid])) { continue; }
+                $name = trim((string) $names[$oid]);
+                if ($name === '') { continue; }
+
+                // Bio lookup: courses_trainers.title (canonical) — same
+                // shape the Course Editor picker stores into the EAV
+                // option, so an exact case-insensitive match is reliable.
+                $desc = (string) $read->fetchOne(
+                    "SELECT description FROM {$tblCT} "
+                    . "WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) AND status = 1 "
+                    . "ORDER BY trainers_id LIMIT 1",
+                    array($name)
+                );
+
+                // Strip ACTA prefix for the displayed name (the EAV
+                // option value still carries it for matching purposes).
+                $display = trim(preg_replace('/^ACTA\s+/i', '', $name));
+                if ($display === '') { $display = $name; }
+
+                $cards[] = array('name' => $display, 'desc' => $desc);
             }
+        } catch (Exception $e) {
+            // Fall through to legacy blob fallback below.
+            $cards = array();
         }
     }
-    if ($current !== null) { $cards[] = $current; }
+}
+
+// Legacy fallback — parse the trainerprofile blob the old way so
+// products that never got migrated (or had assignments cleared but
+// kept the inline bio) still render something. trainerprofile is also
+// is_visible_on_front=0 so pull it via the resource model too.
+if (empty($cards)) {
+    $trainers = '';
+    try {
+        $storeId  = (int) Mage::app()->getStore()->getId();
+        $trainers = (string) $product->getResource()->getAttributeRawValue(
+            $product->getId(), 'trainerprofile', $storeId
+        );
+    } catch (Exception $e) {
+        $trainers = (string) $product->getTrainerprofile();
+    }
+    $trainers = trim($trainers);
+    if ($trainers === '') { return; }
+
+    $current = null;
+    $pPattern = '#<p\b[^>]*>(.*?)</p>#siu';
+    $dashRe   = '#^\s*<strong[^>]*>\s*(.+?)\s*</strong>\s*(?:[-–—:]\s*)(.*)$#siu';
+    if (preg_match_all($pPattern, $trainers, $pm)) {
+        foreach ($pm[1] as $body) {
+            if (preg_match($dashRe, $body, $hm)) {
+                if ($current !== null) { $cards[] = $current; }
+                $current = array(
+                    'name' => trim(strip_tags($hm[1])),
+                    'desc' => trim($hm[2]),
+                );
+            } else {
+                $clean = trim($body);
+                if ($clean === '') { continue; }
+                if ($current === null) {
+                    $current = array('name' => '', 'desc' => $clean);
+                } else {
+                    $current['desc'] .= ($current['desc'] !== '' ? "\n" : '') . $clean;
+                }
+            }
+        }
+        if ($current !== null) { $cards[] = $current; }
+    }
+    if (empty($cards)) {
+        // Last resort: raw render so nothing ever disappears silently.
+        echo '<h2>' . $this->__('Trainers') . '</h2>';
+        echo '<div class="std course-trainers" id="trainers">' . $trainers . '</div>';
+        return;
+    }
 }
 
 $initial = function ($name) {
     $name = trim((string) $name);
-    if ($name === '') return '?';
+    if ($name === '') { return '?'; }
     $parts = preg_split('#\s+#u', $name);
     $first = mb_substr($parts[0], 0, 1, 'UTF-8');
     $last  = isset($parts[count($parts) - 1]) && count($parts) > 1
@@ -47,7 +137,6 @@ $initial = function ($name) {
 ?>
 <h2><?php echo $this->__('Trainers') ?></h2>
 <div class="std course-trainers" id="trainers">
-<?php if (!empty($cards) && !(count($cards) === 1 && $cards[0]['name'] === '')): ?>
     <div class="course-trainers__grid">
     <?php foreach ($cards as $c): ?>
         <article class="trainer-card">
@@ -56,14 +145,24 @@ $initial = function ($name) {
                 <div class="trainer-card__name"><?php echo htmlspecialchars($c['name'], ENT_QUOTES, 'UTF-8'); ?></div>
             </div>
             <div class="trainer-card__body">
-                <?php foreach ($c['body'] as $para): ?>
-                    <p><?php echo $para; ?></p>
-                <?php endforeach; ?>
+                <?php
+                $desc = trim((string)(isset($c['desc']) ? $c['desc'] : ''));
+                if ($desc === '') {
+                    // No bio in courses_trainers yet — keep the card so
+                    // the assigned trainer is still visible, with a
+                    // light placeholder line.
+                    echo '<p><em>' . $this->__('Profile coming soon.') . '</em></p>';
+                } elseif (preg_match('/<\w+/', $desc)) {
+                    // HTML markup present — render as-is (the admin
+                    // editor accepts rich HTML).
+                    echo $desc;
+                } else {
+                    // Plain text — wrap in <p> and preserve line breaks.
+                    echo '<p>' . nl2br(htmlspecialchars($desc, ENT_QUOTES, 'UTF-8')) . '</p>';
+                }
+                ?>
             </div>
         </article>
     <?php endforeach; ?>
     </div>
-<?php else: ?>
-    <?php echo $trainers; ?>
-<?php endif; ?>
 </div>
