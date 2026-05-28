@@ -182,9 +182,9 @@ h1.title  { font-size: 18pt; margin: 0 0 6pt; line-height: 1.2; font-weight: 700
 /* About / Learning Outcomes intro line */
 .lo-intro { color: #475569; font-style: italic; margin: 0 0 5pt; font-size: 9.5pt; }
 
-/* CTA box — Sign Up panel. Layout uses an outer 2-col table where the
-   right column is a FIXED 24mm wide (matching the QR + small margin)
-   so the QR can't overflow the box, and the left column expands. */
+/* CTA box — two sub-sections: Registration (link + QR) and Support
+   (email/tel/whatsapp). The registration row uses an inner 2-col
+   table with the QR cell width-locked to 24mm so it can't overflow. */
 .cta {
     margin: 6pt 0 0;
     border: 1pt solid #2563eb;
@@ -192,33 +192,28 @@ h1.title  { font-size: 18pt; margin: 0 0 6pt; line-height: 1.2; font-weight: 700
     padding: 10pt 12pt;
     page-break-inside: avoid;
 }
-.cta-tbl { width: 100%; border-collapse: collapse; }
-.cta-tbl td.cta-info { vertical-align: middle; padding-right: 8pt; }
-.cta-tbl td.cta-qr   { vertical-align: middle; text-align: center; width: 24mm; }
-.cta .cta-title {
-    font-size: 11pt;
+.cta-sub-title {
+    font-size: 9.5pt;
     font-weight: 700;
     color: #1e3a8a;
-    margin: 0 0 4pt;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
+    margin: 0 0 5pt;
+    padding: 0 0 3pt;
+    border-bottom: 0.4pt solid #c7d2fe;
 }
+.cta-sub + .cta-sub { margin-top: 10pt; }
+.reg-tbl { width: 100%; border-collapse: collapse; }
+.reg-tbl td.reg-link { vertical-align: middle; padding-right: 8pt; }
+.reg-tbl td.reg-qr   { vertical-align: middle; text-align: center; width: 24mm; }
 .cta .cta-url {
     font-family: Courier, monospace;
-    font-size: 8pt;
+    font-size: 8.5pt;
     color: #1e3a8a;
     word-break: break-all;
-    margin: 0 0 6pt;
     line-height: 1.4;
 }
 .cta .cta-url a { color: #1e3a8a; text-decoration: underline; }
-.cta .cta-contact {
-    font-size: 9pt;
-    color: #1f2937;
-    line-height: 1.7;
-}
-.cta .cta-contact div { margin: 0 0 2pt; }
-.cta .cta-contact strong { color: #0f172a; }
 .cta .cta-qr-caption {
     font-size: 7pt;
     color: #475569;
@@ -227,7 +222,10 @@ h1.title  { font-size: 18pt; margin: 0 0 6pt; line-height: 1.2; font-weight: 700
     font-weight: 700;
     margin: 3pt 0 0;
 }
-.barcode { width: 22mm; }
+.cta .cta-contact { font-size: 9pt; color: #1f2937; line-height: 1.6; }
+.cta .cta-contact div { margin: 0 0 2pt; }
+.cta .cta-contact strong { color: #0f172a; }
+.barcode { width: 20mm; }
 
 /* Per-country brand logo at the top of page 1. Width set in mm so it
    sizes consistently regardless of mPDF px-to-pt resolution. The
@@ -383,28 +381,32 @@ h1.title  { font-size: 18pt; margin: 0 0 6pt; line-height: 1.2; font-weight: 700
     </div>
 </div>
 <?php elseif ($price !== ''): ?>
-<!-- Non-WSQ courses: simple Bef/Incl GST -->
+<!-- Non-WSQ courses. When GST applies (SG non-WSQ at 9%) we show the
+     full Bef/Incl breakdown. When the country has no GST (Malaysia)
+     we collapse to a single Full Fee tile so the brochure doesn't lie
+     by labelling RM 1,000.00 as "Before GST". -->
+<?php $_hasGst = ((int) $gst_rate_pct) > 0 && $price_gst !== ''; ?>
 <div class="card">
     <div class="card-head">Course Fee</div>
     <div class="card-body">
         <table class="fee-grid" cellpadding="0" cellspacing="0">
             <tr>
-                <td class="fee-tile full">
+                <td class="fee-tile full"<?php if (!$_hasGst): ?> colspan="2"<?php endif; ?>>
                     <span class="label">Full Fee</span>
                     <span class="value"><?php echo $price ?></span>
+                    <?php if ($_hasGst): ?>
                     <span class="hint">Before GST</span>
+                    <?php endif; ?>
                 </td>
-                <?php if ($price_gst !== ''): ?>
+                <?php if ($_hasGst): ?>
                 <td class="fee-tile gst">
                     <span class="label">GST</span>
                     <span class="value"><?php echo $price_gst ?></span>
                     <span class="hint"><?php echo (int) $gst_rate_pct ?>% of fee</span>
                 </td>
-                <?php else: ?>
-                <td style="background:#ffffff;border:0;">&nbsp;</td>
                 <?php endif; ?>
             </tr>
-            <?php if ($price_incl_gst !== '' && $price_gst !== ''): ?>
+            <?php if ($_hasGst && $price_incl_gst !== ''): ?>
             <tr>
                 <td colspan="2" class="fee-tile baseline">
                     <span class="label">Total Payable</span>
@@ -434,29 +436,52 @@ h1.title  { font-size: 18pt; margin: 0 0 6pt; line-height: 1.2; font-weight: 700
 </div>
 <?php endif; ?>
 
-<!-- Sign Up CTA — last so the eye finishes on the call to action.
-     The URL is wrapped in <a href> so the PDF reader makes it a
-     clickable link. -->
-<?php if ($registration_url !== ''): ?>
+<!-- CTA — two sub-sections:
+     (1) Registration: clickable storefront link + scannable QR code
+     (2) Support: Email / Tel / WhatsApp
+     The QR is mPDF's native <barcode type="QR"> so it embeds as a
+     vector, not a base64 image. The link is wrapped in <a href> so the
+     PDF reader turns it into a real clickable hyperlink. -->
+<?php $waDigits = preg_replace('/\D+/', '', (string) $whatsapp); ?>
+<?php if ($registration_url !== '' || $store_email !== '' || $store_phone !== '' || $waDigits !== ''): ?>
 <div class="cta">
-    <div class="cta-title">Sign Up for This Course</div>
-    <div class="cta-url">
-        <a href="<?php echo htmlspecialchars($registration_url) ?>"><?php echo htmlspecialchars($registration_url) ?></a>
+
+    <?php if ($registration_url !== ''): ?>
+    <div class="cta-sub">
+        <div class="cta-sub-title">Registration</div>
+        <table class="reg-tbl" cellpadding="0" cellspacing="0">
+            <tr>
+                <td class="reg-link">
+                    <div class="cta-url">
+                        <a href="<?php echo htmlspecialchars($registration_url) ?>"><?php echo htmlspecialchars($registration_url) ?></a>
+                    </div>
+                </td>
+                <td class="reg-qr">
+                    <barcode code="<?php echo htmlspecialchars($registration_url) ?>" type="QR" class="barcode" error="M" disableborder="1" />
+                    <div class="cta-qr-caption">Scan to register</div>
+                </td>
+            </tr>
+        </table>
     </div>
-    <div class="cta-contact">
-        <?php if ($store_phone !== ''): ?>
-        <div><strong>Tel:</strong> <?php echo $store_phone ?></div>
-        <?php endif; ?>
-        <?php if ($store_email !== ''): ?>
-        <div><strong>Email:</strong> <?php echo $store_email ?></div>
-        <?php endif; ?>
-        <?php
-        $waDigits = preg_replace('/\D+/', '', (string) $whatsapp);
-        if ($waDigits !== ''):
-        ?>
-        <div><strong>WhatsApp:</strong> https://wa.me/<?php echo $waDigits ?></div>
-        <?php endif; ?>
+    <?php endif; ?>
+
+    <?php if ($store_email !== '' || $store_phone !== '' || $waDigits !== ''): ?>
+    <div class="cta-sub">
+        <div class="cta-sub-title">Support</div>
+        <div class="cta-contact">
+            <?php if ($store_email !== ''): ?>
+            <div><strong>Email:</strong> <?php echo $store_email ?></div>
+            <?php endif; ?>
+            <?php if ($store_phone !== ''): ?>
+            <div><strong>Tel:</strong> <?php echo $store_phone ?></div>
+            <?php endif; ?>
+            <?php if ($waDigits !== ''): ?>
+            <div><strong>WhatsApp:</strong> https://wa.me/<?php echo $waDigits ?></div>
+            <?php endif; ?>
+        </div>
     </div>
+    <?php endif; ?>
+
 </div>
 <?php endif; ?>
 
