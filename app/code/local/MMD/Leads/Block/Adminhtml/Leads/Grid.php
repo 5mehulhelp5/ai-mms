@@ -13,7 +13,10 @@ class MMD_Leads_Block_Adminhtml_Leads_Grid extends Mage_Adminhtml_Block_Widget_G
         $this->setDefaultSort('created_at');
         $this->setDefaultDir('DESC');
         $this->setSaveParametersInSession(true);
-        $this->setUseAjax(true);
+        // Synchronous render (no setUseAjax) — keeps the DOM identical
+        // to every other admin grid (All Reviews, URL Rewrite, etc.) so
+        // sidebar-nav-v2.js::wrapAdminGridInCard() finds the table on
+        // first paint instead of after a varienGrid AJAX swap.
     }
 
     protected function _prepareCollection()
