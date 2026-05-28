@@ -4102,47 +4102,50 @@ body.adminhtml-catalog_search-index #catalogSearchGrid_table td:last-child {
    grid wrapper + its container + the mass-action to sit flush on the
    page (same as every other grid post-§14). Scoped to the reviews
    route only (hyphen + underscore body-class variants). */
-body[class*="catalog_product_review"] .admin-main #reviwGrid,
-body[class*="catalog-product-review"] .admin-main #reviwGrid,
-body[class*="catalog_product_review"] .admin-main .grid,
-body[class*="catalog-product-review"] .admin-main .grid,
-body[class*="catalog_product_review"] .admin-main .grid-container,
-body[class*="catalog-product-review"] .admin-main .grid-container,
-body[class*="catalog_product_review"] .admin-main #reviwGrid .hor-scroll,
-body[class*="catalog-product-review"] .admin-main #reviwGrid .hor-scroll,
-body[class*="catalog_product_review"] .admin-main .massaction,
-body[class*="catalog-product-review"] .admin-main .massaction,
-body[class*="catalog_product_review"] .admin-main .massaction fieldset,
-body[class*="catalog-product-review"] .admin-main .massaction fieldset,
-body[class*="catalog_product_review"] .admin-main .massaction form,
-body[class*="catalog-product-review"] .admin-main .massaction form,
-/* widget/grid.phtml:56 wraps the toolbar/mass-action in
-   <table class="actions"> — THAT is the leftover bordered box (the
-   "0 / ACTIONS / Submit / items selected" container). Flatten the
-   table + its rows/cells too; controls stay, the box goes. */
-body[class*="catalog_product_review"] .admin-main table.actions,
-body[class*="catalog-product-review"] .admin-main table.actions,
-body[class*="catalog_product_review"] .admin-main table.actions tbody,
-body[class*="catalog-product-review"] .admin-main table.actions tbody,
-body[class*="catalog_product_review"] .admin-main table.actions tr,
-body[class*="catalog-product-review"] .admin-main table.actions tr,
-body[class*="catalog_product_review"] .admin-main table.actions td,
-body[class*="catalog-product-review"] .admin-main table.actions td,
-/* The actual bordered box (confirmed via rendered DOM): the
-   mass-action wraps Actions+Submit in
-   #reviwGrid_massaction > table.massaction > div.right >
-   div.entry-edit > form > fieldset. The generic admin .entry-edit
-   paints that as a gray card. Flatten EVERY massaction wrapper
-   (the id container, .right, .entry-edit, and any nested div) so
-   nothing draws a box — controls stay, container goes. */
-body[class*="catalog_product_review"] .admin-main [id$="_massaction"],
-body[class*="catalog-product-review"] .admin-main [id$="_massaction"],
-body[class*="catalog_product_review"] .admin-main .massaction .right,
-body[class*="catalog-product-review"] .admin-main .massaction .right,
-body[class*="catalog_product_review"] .admin-main .massaction .entry-edit,
-body[class*="catalog-product-review"] .admin-main .massaction .entry-edit,
-body[class*="catalog_product_review"] .admin-main .massaction div,
-body[class*="catalog-product-review"] .admin-main .massaction div {
+/* === CANONICAL grid flatten — applied to every wrapped grid page ===
+   The single source of truth for the "flat grid sitting inside the
+   .dcf-mag card" look. Originally scoped to catalog-product-review
+   (All Reviews); promoted to apply to every page where
+   sidebar-nav-v2.js::wrapAdminGridInCard() has stamped the body
+   with .mmd-grid-wrapped. That covers All Reviews, All Leads,
+   URL Rewrite, Funding Tags, Catalog Tags, Search Synonyms,
+   Newsletters, sales-report grids — every admin route that has a
+   .content-header + .grid pair (i.e. the universal admin grid
+   chrome rule documented in the backend-design skill).
+
+   Marker-class scoping is deliberate: edit-mode pages
+   (adminhtml-dashboard-*) also use the same widget/grid.phtml in
+   embedded tabs (Related Products, Up-sells, etc.) and we don't
+   want to flatten their nested containers — those are the boxes
+   that make the edit form readable. The marker only stamps on
+   pages where the auto-wrap fully succeeded, so this rule
+   strictly tracks the canonical chrome.
+
+   Eliminates the stock-Magento nested bordered boxes:
+   - <div id="<grid_id>"> wrapper
+   - <div class="grid"> / <div class="grid-container">
+   - <div class="hor-scroll">
+   - <div id="<grid_id>_massaction"> + table.massaction
+   - <table class="actions"> toolbar wrap from widget/grid.phtml:56
+   - <fieldset> / <form> / <.entry-edit> shells around Actions+Submit
+
+   Controls stay (Actions select, Submit button, item counter,
+   page links, mass-action checkboxes); only the boxes around them
+   go. */
+body.mmd-grid-wrapped .admin-main .grid,
+body.mmd-grid-wrapped .admin-main .grid-container,
+body.mmd-grid-wrapped .admin-main .grid .hor-scroll,
+body.mmd-grid-wrapped .admin-main .massaction,
+body.mmd-grid-wrapped .admin-main .massaction fieldset,
+body.mmd-grid-wrapped .admin-main .massaction form,
+body.mmd-grid-wrapped .admin-main table.actions,
+body.mmd-grid-wrapped .admin-main table.actions tbody,
+body.mmd-grid-wrapped .admin-main table.actions tr,
+body.mmd-grid-wrapped .admin-main table.actions td,
+body.mmd-grid-wrapped .admin-main [id$="_massaction"],
+body.mmd-grid-wrapped .admin-main .massaction .right,
+body.mmd-grid-wrapped .admin-main .massaction .entry-edit,
+body.mmd-grid-wrapped .admin-main .massaction div {
     background: transparent !important;
     border: none !important;
     border-radius: 0 !important;
