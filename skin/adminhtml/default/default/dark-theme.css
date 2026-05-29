@@ -4278,6 +4278,107 @@ ul.config-accordion li dt.accordion-toggle:focus {
     color: #fff !important;
 }
 
+/* === Registrations consolidated toolbar — counter + search + filters
+   live inside the grid's page-header strip, sharing the row with the
+   "Registrations" title and "New Registration" button. Replaces the
+   older detached <h2> + .dev-search-wrap card that floated above the
+   grid. JS in MMD_Enhancedsalesgrid_Block_Sales_Order::getGridHtml
+   relocates the staged elements into .dcf-mag-bar / .content-header. */
+.mmd-reg-toolbar {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
+    /* Flush-left (no auto-margin push) + flex:1 so the search input
+       can stretch into the remaining row width. */
+    flex: 1 1 auto !important;
+    margin: 0 12px 0 0 !important;
+    min-width: 0 !important;
+}
+/* Hide the "Registrations" title span that wrapAdminGridInCard() in
+   sidebar-nav-v2.js writes into .dcf-mag-bar — the toolbar built by
+   MMD_Enhancedsalesgrid_Block_Sales_Order takes its place flush-left
+   with "Total Registrations N" as the de-facto heading. The h3 itself
+   has to stay non-empty (wrapAdminGridInCard early-returns on blank
+   title), so we hide only the rendered span instead of the h3. */
+body[class*="adminhtml-sales_order"] .dcf-mag-bar > span:first-child:not(.mmd-auto-card-actions):not(.mmd-reg-toolbar):not([class*="mmd-bar-massaction"]),
+body[class*="adminhtml-sales-order"] .dcf-mag-bar > span:first-child:not(.mmd-auto-card-actions):not(.mmd-reg-toolbar):not([class*="mmd-bar-massaction"]) {
+    display: none !important;
+}
+.mmd-reg-toolbar .mmd-reg-total {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #cbd5e1 !important;
+    margin: 0 !important;
+    display: inline-flex !important;
+    align-items: baseline !important;
+    gap: 6px !important;
+    white-space: nowrap !important;
+}
+.mmd-reg-toolbar .mmd-reg-total span {
+    color: #22d3ee !important;
+    font-weight: 800 !important;
+}
+.mmd-reg-toolbar .mmd-reg-search-form {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    /* Let the form (search + reset + filters) absorb the remaining
+       row width so the search input grows. */
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+}
+.mmd-reg-toolbar .mmd-reg-search-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.mmd-reg-toolbar .mmd-reg-search-input-wrap svg {
+    position: absolute;
+    left: 10px;
+    color: #94a3b8;
+    pointer-events: none;
+}
+.mmd-reg-toolbar .mmd-reg-search-input {
+    width: 100% !important;
+    padding: 6px 12px 6px 32px !important;
+    background: transparent !important;
+    border: 1px solid var(--b2, #475569) !important;
+    border-radius: 8px !important;
+    color: var(--t1, #f1f5f9) !important;
+    font-size: 13px !important;
+    min-height: 32px !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    outline: none !important;
+}
+.mmd-reg-toolbar .mmd-reg-search-input:focus {
+    border-color: #60a5fa !important;
+}
+.mmd-reg-toolbar .mmd-reg-reset {
+    background: transparent !important;
+    border: none !important;
+    color: #94a3b8 !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    padding: 4px 8px !important;
+    text-decoration: none !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+}
+.mmd-reg-toolbar .mmd-reg-reset:hover { color: #e2e8f0 !important; }
+.mmd-reg-toolbar .mmd-reg-filter-slot {
+    display: inline-flex;
+    align-items: center;
+}
+
 /* === Course Manager grid: compact rows + inline icon actions === */
 body[class*="customoptions-options-index"] table.data tbody tr td,
 body[class*="customoptions-options-index"] table.data tbody tr th {
