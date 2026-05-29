@@ -65,7 +65,7 @@ if ($nameAttrId) {
         SELECT cr.run_id, cr.class_id, cr.course_sku, cr.product_id,
                cr.course_start_date, cr.course_end_date,
                cr.course_start_time, cr.course_end_time,
-               cr.vacancy, cr.trainer_option_id,
+               cr.vacancy, cr.trainer_option_id, cr.created_by,
                COALESCE(pn.value, '(deleted product)') AS course_title,
                COALESCE(en.enrolled, 0) AS enrolled
           FROM `$runsTbl` cr
@@ -159,6 +159,7 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
                 <th>Trainer</th>
                 <th>Enrolled</th>
                 <th>State</th>
+                <th>Created By</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -204,6 +205,7 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
                 <td><span class="rm-email"><?php echo $trainerName !== '' ? htmlspecialchars($trainerName) : '<span style="color:#475569">—</span>' ?></span></td>
                 <td><span class="rm-name" style="font-variant-numeric:tabular-nums"><?php echo (int)$r['enrolled'] ?></span></td>
                 <td><span class="rm-badge" style="background:<?php echo $sc['bg'] ?>;color:<?php echo $sc['color'] ?>;"><?php echo ucfirst($state) ?></span></td>
+                <td><span class="rm-email" style="font-size:11px;"><?php echo !empty($r['created_by']) ? htmlspecialchars($r['created_by']) : '<span style="color:#475569">—</span>' ?></span></td>
                 <td>
                     <div class="rm-actions">
                         <a href="<?php echo htmlspecialchars($editUrl) ?>" class="rm-icon rm-icon-edit" title="View roster" aria-label="View roster">
@@ -214,7 +216,7 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
             </tr>
         <?php endforeach; ?>
         <?php if (empty($rows)): ?>
-            <tr><td colspan="11" style="padding:48px 12px;text-align:center;color:#64748b">
+            <tr><td colspan="12" style="padding:48px 12px;text-align:center;color:#64748b">
                 <?php echo htmlspecialchars($_emptyMsg) ?>
             </td></tr>
         <?php endif; ?>
