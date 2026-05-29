@@ -205,7 +205,7 @@ h1.title  { font-size: 18pt; margin: 0 0 6pt; line-height: 1.2; font-weight: 700
 .cta-sub + .cta-sub { margin-top: 10pt; }
 .reg-tbl { width: 100%; border-collapse: collapse; }
 .reg-tbl td.reg-link { vertical-align: middle; padding-right: 8pt; }
-.reg-tbl td.reg-qr   { vertical-align: middle; text-align: center; width: 24mm; }
+.reg-tbl td.reg-qr   { vertical-align: middle; text-align: center; width: 30mm; }
 .cta .cta-url {
     font-family: Courier, monospace;
     font-size: 8.5pt;
@@ -220,12 +220,15 @@ h1.title  { font-size: 18pt; margin: 0 0 6pt; line-height: 1.2; font-weight: 700
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-weight: 700;
-    margin: 3pt 0 0;
+    margin: 4pt 0 0;
 }
 .cta .cta-contact { font-size: 9pt; color: #1f2937; line-height: 1.6; }
 .cta .cta-contact div { margin: 0 0 2pt; }
 .cta .cta-contact strong { color: #0f172a; }
-.barcode { width: 20mm; }
+/* The QR is now a pre-rendered PNG <img> (mPDF advances the text
+   cursor properly for <img> but not for <barcode>, which caused the
+   caption to overlap the bottom of the QR). */
+.qr-img { width: 26mm; height: 26mm; display: block; margin: 0 auto; }
 
 /* Per-country brand logo at the top of page 1. Width set in mm so it
    sizes consistently regardless of mPDF px-to-pt resolution. The
@@ -457,7 +460,9 @@ h1.title  { font-size: 18pt; margin: 0 0 6pt; line-height: 1.2; font-weight: 700
                     </div>
                 </td>
                 <td class="reg-qr">
-                    <barcode code="<?php echo htmlspecialchars($registration_url) ?>" type="QR" class="barcode" error="M" disableborder="1" />
+                    <?php if (!empty($qr_data_uri)): ?>
+                    <img src="<?php echo $qr_data_uri ?>" class="qr-img" alt="" />
+                    <?php endif; ?>
                     <div class="cta-qr-caption">Scan to register</div>
                 </td>
             </tr>

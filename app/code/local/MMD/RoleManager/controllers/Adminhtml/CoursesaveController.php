@@ -2088,8 +2088,36 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             'store_address'      => (string) ($store['address'] ?? ''),
             'whatsapp'           => $whatsapp,
             'registration_url'   => $registrationUrl,
+            'qr_data_uri'        => $this->_renderQrDataUri($registrationUrl),
             'generated_at'       => date('Y-m-d H:i'),
         );
+    }
+
+    /**
+     * Render the storefront registration URL as a PNG QR data URI for
+     * the brochure template.
+     *
+     * Why not mPDF's <barcode type="QR"> tag: it's inline-only and never
+     * advances the text cursor by its drawn height, so the next sibling
+     * element (the "Scan to register" caption) overlaps the bottom of
+     * the QR pixels — confirmed with the M1872-MY incident. <img> tags
+     * with explicit width respect block flow and the caption clears
+     * naturally below.
+     *
+     * 200 px is enough for any printer/scanner (20mm at 254 DPI).
+     */
+    protected function _renderQrDataUri($url)
+    {
+        $url = trim((string) $url);
+        if ($url === '') return '';
+        try {
+            $qr = new \Mpdf\QrCode\QrCode($url);
+            $png = (new \Mpdf\QrCode\Output\Png())->output($qr, 260);
+            if ($png === '' || $png === false) return '';
+            return 'data:image/png;base64,' . base64_encode($png);
+        } catch (Throwable $e) {
+            return '';
+        }
     }
 
     /**
