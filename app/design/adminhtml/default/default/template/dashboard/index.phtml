@@ -7199,6 +7199,80 @@ $gatExt = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
 </div>
 </div>
 
+<?php /* ===== PANEL 15: Agentic AI Tools (Trainer sub-view) =====
+    Sidebar has Agentic AI Tools → No Code / Low Code / Voice Agents /
+    Video Agents sub-items. Clicking the parent link previously landed
+    on a blank page because #dash-panel-agentic didn't exist. Mirror
+    the GenAI panel's card-of-pills layout, one card per sub-label. */ ?>
+<div id="dash-panel-agentic" style="display:none;">
+<div class="edt-wrap">
+    <h1 class="edt-title">Agentic AI Tools</h1>
+    <div class="gat-grid">
+
+        <div class="gat-card">
+            <h3 class="gat-card-title">No Code</h3>
+            <p class="gat-card-desc">Build AI agents visually without writing code — drag-and-drop workflow builders for chatbots and automations.</p>
+            <div class="gat-pills">
+                <a href="https://www.agentx.so/" target="_blank" class="gat-pill">AgentX <?php echo $gatExt ?></a>
+                <a href="https://relevanceai.com/" target="_blank" class="gat-pill">Relevance AI <?php echo $gatExt ?></a>
+            </div>
+        </div>
+
+        <div class="gat-card">
+            <h3 class="gat-card-title">Low Code</h3>
+            <p class="gat-card-desc">Visual workflow editors for building AI pipelines with minimal coding — connect models, APIs, and data sources.</p>
+            <div class="gat-pills">
+                <a href="https://n8n.io/" target="_blank" class="gat-pill">n8n <?php echo $gatExt ?></a>
+                <a href="https://www.langflow.org/" target="_blank" class="gat-pill">Langflow <?php echo $gatExt ?></a>
+                <a href="https://flowiseai.com/" target="_blank" class="gat-pill">Flowise <?php echo $gatExt ?></a>
+            </div>
+        </div>
+
+        <div class="gat-card">
+            <h3 class="gat-card-title">Voice Agents</h3>
+            <p class="gat-card-desc">AI-powered voice synthesis and conversational voice agents for calls, IVR, and audio content.</p>
+            <div class="gat-pills">
+                <a href="https://elevenlabs.io/" target="_blank" class="gat-pill">ElevenLabs <?php echo $gatExt ?></a>
+                <a href="https://www.retellai.com/" target="_blank" class="gat-pill">Retell AI <?php echo $gatExt ?></a>
+                <a href="https://vapi.ai/" target="_blank" class="gat-pill">Vapi <?php echo $gatExt ?></a>
+            </div>
+        </div>
+
+        <div class="gat-card">
+            <h3 class="gat-card-title">Video Agents</h3>
+            <p class="gat-card-desc">AI avatars and video-generation agents for producing presenter-style videos from text or scripts.</p>
+            <div class="gat-pills">
+                <a href="https://www.heygen.com/" target="_blank" class="gat-pill">HeyGen <?php echo $gatExt ?></a>
+                <a href="https://www.synthesia.io/" target="_blank" class="gat-pill">Synthesia <?php echo $gatExt ?></a>
+            </div>
+        </div>
+
+    </div>
+</div>
+</div>
+
+<?php /* ===== PANEL 16: Virtual Tools (Trainer sub-view) =====
+    Video-conferencing platforms used for virtual / hybrid classroom
+    delivery. Same card-of-pills layout as the Agentic AI panel. */ ?>
+<div id="dash-panel-virtual" style="display:none;">
+<div class="edt-wrap">
+    <h1 class="edt-title">Virtual Tools</h1>
+    <div class="gat-grid">
+
+        <div class="gat-card">
+            <h3 class="gat-card-title">Video Conferencing</h3>
+            <p class="gat-card-desc">Host virtual or hybrid classroom sessions — live video, screen sharing, breakout rooms, and recording.</p>
+            <div class="gat-pills">
+                <a href="https://meet.google.com/landing" target="_blank" class="gat-pill">Google Meet <?php echo $gatExt ?></a>
+                <a href="https://www.microsoft.com/en-sg/microsoft-teams/log-in" target="_blank" class="gat-pill">Microsoft Teams <?php echo $gatExt ?></a>
+                <a href="https://www.zoom.com/" target="_blank" class="gat-pill">Zoom <?php echo $gatExt ?></a>
+            </div>
+        </div>
+
+    </div>
+</div>
+</div>
+
 <?php /* ===== PANEL: View Trainers (Admin / Training Provider) =====
     NOTE: this block's wrapper id was previously "dash-panel-agentic"
     (a mislabel from the topic-panel refactor) while the content is the
