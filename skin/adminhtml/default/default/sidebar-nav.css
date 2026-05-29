@@ -1779,6 +1779,11 @@ body .admin-main [id$="_massaction"] button span span span {
 .admin-main input[type="email"],
 .admin-main input[type="number"],
 .admin-main input[type="url"],
+.admin-main input[type="tel"],
+.admin-main input[type="search"],
+.admin-main input[type="date"],
+.admin-main input[type="time"],
+.admin-main input[type="datetime-local"],
 .admin-main textarea,
 .admin-main select,
 .admin-main .input-text {
@@ -1800,6 +1805,11 @@ body .admin-main [id$="_massaction"] button span span span {
 .admin-main input[type="email"]:focus,
 .admin-main input[type="number"]:focus,
 .admin-main input[type="url"]:focus,
+.admin-main input[type="tel"]:focus,
+.admin-main input[type="search"]:focus,
+.admin-main input[type="date"]:focus,
+.admin-main input[type="time"]:focus,
+.admin-main input[type="datetime-local"]:focus,
 .admin-main textarea:focus,
 .admin-main .input-text:focus {
     background: rgba(96, 165, 250, 0.06) !important;

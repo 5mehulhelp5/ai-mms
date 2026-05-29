@@ -3379,7 +3379,9 @@ button.hsp-btn-submit{
 :root[data-theme="light"] [style*="background:#1f2937"],
 :root[data-theme="light"] [style*="background: #1f2937"],
 :root[data-theme="light"] [style*="background:#0b1220"],
-:root[data-theme="light"] [style*="background: #0b1220"] {
+:root[data-theme="light"] [style*="background: #0b1220"],
+:root[data-theme="light"] [style*="background:#131d2e"],
+:root[data-theme="light"] [style*="background: #131d2e"] {
     background: #e2e8f0 !important;
 }
 :root[data-theme="light"] [style*="border:1px dashed #334155"],
