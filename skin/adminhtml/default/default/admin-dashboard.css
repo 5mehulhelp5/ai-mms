@@ -641,10 +641,29 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                     font-size:0 !important;
                 }
                 .lsn-topic-btn:hover{background:rgba(96,165,250,.12) !important;border-color:#60a5fa !important;color:#60a5fa !important}
-                .lsn-topic-btn.lsn-del,
-                .lsn-topic-btn.lsn-del:hover,
-                .lsn-topic-btn.lsn-del:focus{color:#fb7185 !important}
-                .lsn-topic-btn.lsn-del:hover{background:rgba(248,113,113,.10) !important;border-color:#f87171 !important;color:#f87171 !important}
+                /* Delete topic button — fully static. Every state (rest,
+                   hover, focus, focus-visible, active) renders the same
+                   red border + red icon, with no box-shadow ring (the
+                   global .admin-main button:focus-visible in
+                   sidebar-nav.css ships a 3px blue ring; that was the
+                   "blue box" the user saw on click) and no transitions
+                   (any color animation would visibly flicker on
+                   mouse-cross). .admin-main prefix lifts specificity
+                   above the global button rules. */
+                .admin-main .lsn-topic-btn.lsn-del,
+                .admin-main .lsn-topic-btn.lsn-del:hover,
+                .admin-main .lsn-topic-btn.lsn-del:focus,
+                .admin-main .lsn-topic-btn.lsn-del:focus-visible,
+                .admin-main .lsn-topic-btn.lsn-del:active{
+                    background:transparent !important;
+                    background-image:none !important;
+                    border:1px solid #f87171 !important;
+                    color:#f87171 !important;
+                    box-shadow:none !important;
+                    outline:none !important;
+                    transform:none !important;
+                    transition:none !important;
+                }
                 .lsn-topic-btn svg{width:14px !important;height:14px !important;stroke:currentColor !important;fill:none !important;display:block !important}
                 .lsn-topic-body{padding:14px 16px;display:none}
                 .lsn-topic.open .lsn-topic-body{display:block}
@@ -669,8 +688,8 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 .lsn-subsec-del,
                 .lsn-subsec-del:hover,
                 .lsn-subsec-del:focus,
-                .lsn-subsec-del:active{background:transparent !important;background-image:none !important;border:1px solid #475569 !important;cursor:pointer;color:#94a3b8 !important;padding:0 !important;width:24px !important;height:24px !important;border-radius:5px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;flex-shrink:0;box-shadow:none !important;text-shadow:none !important;transform:none !important;font-size:0 !important}
-                .lsn-subsec-del:hover{background:rgba(248,113,113,.10) !important;border-color:#f87171 !important;color:#f87171 !important}
+                .lsn-subsec-del:active{background:transparent !important;background-image:none !important;border:1px solid #f87171 !important;cursor:pointer;color:#f87171 !important;padding:0 !important;width:24px !important;height:24px !important;border-radius:5px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;flex-shrink:0;box-shadow:none !important;text-shadow:none !important;transform:none !important;font-size:0 !important}
+                .lsn-subsec-del:hover{background:rgba(248,113,113,.10) !important}
                 .lsn-add-subsec{background:transparent;border:1px dashed #475569;border-radius:8px;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;padding:8px 12px;display:inline-flex;align-items:center;gap:6px;margin-bottom:14px}
                 .lsn-add-subsec:hover{border-color:#22c55e;color:#22c55e}
                 .lsn-link-title{flex:1;min-width:0;background:transparent;border:none;color:#f1f5f9;font-size:14px;font-weight:600;outline:none;padding:4px 6px;border-radius:4px;font-family:inherit}
@@ -680,8 +699,8 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 .lsn-link-del,
                 .lsn-link-del:hover,
                 .lsn-link-del:focus,
-                .lsn-link-del:active{background:transparent !important;background-image:none !important;border:1px solid #475569 !important;cursor:pointer;color:#94a3b8 !important;padding:0 !important;width:24px !important;height:24px !important;border-radius:5px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;box-shadow:none !important;text-shadow:none !important;transform:none !important;font-size:0 !important}
-                .lsn-link-del:hover{background:rgba(248,113,113,.10) !important;border-color:#f87171 !important;color:#f87171 !important}
+                .lsn-link-del:active{background:transparent !important;background-image:none !important;border:1px solid #f87171 !important;cursor:pointer;color:#f87171 !important;padding:0 !important;width:24px !important;height:24px !important;border-radius:5px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;box-shadow:none !important;text-shadow:none !important;transform:none !important;font-size:0 !important}
+                .lsn-link-del:hover{background:rgba(248,113,113,.10) !important}
                 /* Compact action row — five buttons inline, one line. The
                    higher-specificity `button.lsn-add-btn` + !important wins
                    over admin's default blue button block. */
@@ -727,14 +746,49 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 .lsn-subsec-block .lsn-add-row{padding-left:30px;margin-top:2px;border-top:none}
                 .lsn-subsec-block .lsn-link{margin-left:30px}
                 .lsn-subsec-block .lsn-subsec{margin-bottom:2px}
-                /* Hover-to-reveal the add-resource buttons. Default state
-                   is hidden so the editor stays uncluttered; hovering or
-                   focusing within the subsection block fades them in,
-                   each in its assigned color. Saved links remain visible
-                   regardless. */
-                .lsn-subsec-block .lsn-add-row{opacity:0;pointer-events:none;transition:opacity .12s ease}
-                .lsn-subsec-block:hover .lsn-add-row,
-                .lsn-subsec-block:focus-within .lsn-add-row{opacity:1;pointer-events:auto}
+                /* Add-resource buttons stay visible at all times. Previous
+                   hover-to-reveal (opacity:0 → opacity:1 with .12s fade)
+                   produced a flicker loop when the cursor sat right on
+                   the delete-section icon — sub-pixel hover boundary
+                   plus the fade transition oscillated between the two
+                   states. Five compact buttons on one line are mild
+                   clutter compared to a spastically flickering row. */
+                .lsn-subsec-block .lsn-add-row{opacity:1;pointer-events:auto}
+
+                /* Light-mode palette for the lesson editor. The .lsn-*
+                   family hardcodes slate-700/800 backgrounds and
+                   near-white text — those wash out / look like dark
+                   patches on the light page surface. Flip the outer
+                   topic card to slate-100, the head strip to slate-200,
+                   the saved-link rows to white, and all input/title
+                   text to slate-900. */
+                :root[data-theme="light"] .lsn-topic{background:#f1f5f9;border-color:#cbd5e1}
+                :root[data-theme="light"] .lsn-topic-head{background:#e2e8f0}
+                :root[data-theme="light"] .lsn-topic-drag{color:#64748b}
+                :root[data-theme="light"] .lsn-topic-drag:hover{color:#334155}
+                :root[data-theme="light"] .lsn-topic-title{color:#0f172a}
+                :root[data-theme="light"] .lsn-subsec-title{color:#0f172a}
+                :root[data-theme="light"] .lsn-subsec-block{border-bottom-color:rgba(15,23,42,.08)}
+                :root[data-theme="light"] .lsn-link{background:#ffffff;border-color:#cbd5e1}
+                :root[data-theme="light"] .lsn-link-drag{color:#94a3b8}
+                :root[data-theme="light"] .lsn-link-title{color:#0f172a}
+                :root[data-theme="light"] .lsn-link-url{color:#475569}
+                /* Caret/expand button — was a near-white chevron on white
+                   in light mode (inline color removed in the topic-row
+                   JS, so the class color rule wins). Force slate-900 +
+                   slate-300 border for visibility. Carve the .lsn-del
+                   variant out of the resting + hover rules — that
+                   button must stay red in both states, otherwise the
+                   generic hover (specificity 0,3,1 > delete-specific
+                   0,3,0) repaints it blue and the icon flickers
+                   red↔blue under the cursor. */
+                :root[data-theme="light"] .lsn-topic-btn:not(.lsn-del),
+                :root[data-theme="light"] .lsn-topic-btn:not(.lsn-del):focus,
+                :root[data-theme="light"] .lsn-topic-btn:not(.lsn-del):active{color:#0f172a !important;border-color:#cbd5e1 !important}
+                :root[data-theme="light"] .lsn-topic-btn:not(.lsn-del):hover{background:rgba(37,99,235,.08) !important;border-color:#2563eb !important;color:#2563eb !important}
+                /* (Removed light-mode .lsn-del override — the
+                   .admin-main .lsn-topic-btn.lsn-del rule above now
+                   pins red in both themes via higher specificity.) */
 
 /* --- Block 8 (template line 3270) --- */
                 .dcf-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:16px}
