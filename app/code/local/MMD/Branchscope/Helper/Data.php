@@ -177,13 +177,18 @@ class MMD_Branchscope_Helper_Data extends Mage_Core_Helper_Abstract
      */
     public function buildPillUrl($storeId)
     {
-        $req    = Mage::app()->getRequest();
-        $route  = $req->getRouteName() . '/' . $req->getControllerName() . '/' . $req->getActionName();
+        $req   = Mage::app()->getRequest();
+        $route = $req->getRouteName() . '/' . $req->getControllerName() . '/' . $req->getActionName();
+        $extra = array();
+        // Preserve path-segment params that are meaningful on specific controllers
+        // (e.g. bucket=ongoing on the Classes grid) so a store-pill click keeps
+        // the user on the same sub-view rather than silently resetting it.
+        if (($bucket = (string) $req->getParam('bucket', '')) !== '') {
+            $extra['bucket'] = $bucket;
+        }
         return Mage::helper('adminhtml')->getUrl(
             $route,
-            array(
-                '_query' => array(self::URL_PARAM => (int) $storeId),
-            )
+            $extra + array('_query' => array(self::URL_PARAM => (int) $storeId))
         );
     }
 

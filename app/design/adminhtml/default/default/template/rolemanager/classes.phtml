@@ -59,6 +59,13 @@ switch ($_bucket) {
         break;
 }
 
+// Store View filter — map active store_id to class_id prefix (SG/MY/GH/NG/BT/IN/TI)
+$_branchHelper  = Mage::helper('branchscope');
+$_activeStoreId = $_branchHelper ? (int) $_branchHelper->getActiveStoreId() : 1;
+$_storePrefixMap = array(1=>'SG', 2=>'MY', 3=>'GH', 4=>'NG', 5=>'BT', 6=>'IN', 7=>'TI');
+$_activePrefix  = isset($_storePrefixMap[$_activeStoreId]) ? $_storePrefixMap[$_activeStoreId] : null;
+$_whereStore    = $_activePrefix ? "AND cr.class_id LIKE '{$_activePrefix}%'" : '';
+
 $rows = array();
 if ($nameAttrId) {
     $rows = $read->fetchAll("
@@ -80,6 +87,7 @@ if ($nameAttrId) {
           ) en ON en.run_id = cr.run_id
          WHERE cr.course_start_date IS NOT NULL
            AND $_whereBucket
+           $_whereStore
          ORDER BY $_orderBy
     ");
 }
