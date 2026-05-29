@@ -175,14 +175,17 @@ class MMD_Leads_Block_Adminhtml_Leads_Grid extends Mage_Adminhtml_Block_Widget_G
 
     public function getGridUrl()
     {
-        // Preserve the sidebar filter_status across AJAX grid reloads
-        // (sort/page) so the filtered scope sticks.
+        // Navigate to the index page (not the grid AJAX fragment) on
+        // pager / sort / filter changes — setUseAjax is off so varienGrid
+        // hard-navigates here; pointing at gridAction would land the
+        // browser on the bare table HTML with no admin chrome.
+        // _current preserves filter_status and other request params.
         $params = array('_current' => true);
         $f = (string) $this->getRequest()->getParam('filter_status', '');
         if ($f !== '') {
             $params['filter_status'] = $f;
         }
-        return $this->getUrl('*/*/grid', $params);
+        return $this->getUrl('*/*/index', $params);
     }
 
     public function getRowUrl($row)
