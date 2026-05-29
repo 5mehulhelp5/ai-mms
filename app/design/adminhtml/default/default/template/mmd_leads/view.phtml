@@ -22,6 +22,19 @@
 .mmd-lead-view .mmd-status-replied{background:#22c55e;color:#064e3b;}
 .mmd-lead-view .mmd-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 @media (max-width:900px){.mmd-lead-view .mmd-grid2{grid-template-columns:1fr;}.mmd-lead-view dl{grid-template-columns:1fr;}}
+
+/* Light mode — slate-200 cards with slate-900 text, matching the rest
+   of the admin palette (KPI cards, cnc-card, SEO Audit). Status pills
+   and semantic action buttons (primary/danger) keep their tints. */
+:root[data-theme="light"] .mmd-lead-view .mmd-card{background:#e2e8f0;border-color:#cbd5e1;color:#0f172a;}
+:root[data-theme="light"] .mmd-lead-view h3{color:#0f172a;}
+:root[data-theme="light"] .mmd-lead-view dt{color:#475569;}
+:root[data-theme="light"] .mmd-lead-view dd{color:#0f172a;}
+:root[data-theme="light"] .mmd-lead-view .mmd-message{background:#ffffff;border-color:#cbd5e1;color:#0f172a;}
+:root[data-theme="light"] .mmd-lead-view input[type=text],
+:root[data-theme="light"] .mmd-lead-view textarea{background:#ffffff;border-color:#cbd5e1;color:#0f172a;}
+:root[data-theme="light"] .mmd-lead-view .mmd-secondary{background:#e2e8f0;color:#0f172a;border:1px solid #cbd5e1;}
+:root[data-theme="light"] .mmd-lead-view .mmd-secondary:hover{background:#cbd5e1;}
 </style>
 
 <div class="mmd-lead-view">
