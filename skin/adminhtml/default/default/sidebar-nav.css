@@ -4164,15 +4164,13 @@ body.mmd-grid-wrapped .admin-main .massaction div {
     margin: 0 !important;
 }
 
-/* === Manage Stores (/system_store/) — force full viewport width ===
-   On wider displays the page rendered centered with empty space on
-   both sides ("zoomed out" look reported by a user on a larger
-   monitor). Strip every common width constraint and force 100% width
-   on the main content + the stores table. Scoped to the system_store
-   route (hyphen + underscore body-class variants — controller keeps
-   underscores per OpenMage convention). */
-body[class*="adminhtml-system_store"] .admin-main,
-body[class*="adminhtml-system-store"] .admin-main,
+/* === Manage Stores (/system_store/) — fill the page column ===
+   The page's inner containers (.col-main, .main-col, .middle) historically
+   shrink-wrapped to content width, leaving empty space on wider displays.
+   Stretch them to full width WITHIN .admin-main — but DO NOT touch
+   .admin-main itself (§11 above keeps it at max-width: calc(100vw - 260px)
+   with overflow-x: hidden, which is what stops the three-column data
+   table + 7-pill store-view bar from overflowing under the sidebar). */
 body[class*="adminhtml-system_store"] .col-main,
 body[class*="adminhtml-system-store"] .col-main,
 body[class*="adminhtml-system_store"] .main-col,
@@ -4185,13 +4183,22 @@ body[class*="adminhtml-system-store"] .middle {
     width: auto !important;
     margin-left: 0 !important;
     margin-right: 0 !important;
+    min-width: 0 !important;
 }
+/* Stores table — full container width, but allow horizontal scroll
+   inside the auto-wrap card if the row content (long category names)
+   ever forces the table wider than the available column. */
 body[class*="adminhtml-system_store"] .admin-main table,
 body[class*="adminhtml-system-store"] .admin-main table,
 body[class*="adminhtml-system_store"] .admin-main .grid,
 body[class*="adminhtml-system-store"] .admin-main .grid {
     width: 100% !important;
-    max-width: none !important;
+    max-width: 100% !important;
+    table-layout: auto !important;
+}
+body[class*="adminhtml-system_store"] .dcf-mag-body,
+body[class*="adminhtml-system-store"] .dcf-mag-body {
+    overflow-x: auto !important;
 }
 
 /* === CMS Page edit (/cms_page/edit/) — minimal fixes ===

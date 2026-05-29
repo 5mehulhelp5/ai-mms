@@ -4306,8 +4306,8 @@ body[class*="adminhtml-sales-order"] .dcf-mag-bar > span:first-child:not(.mmd-au
     display: none !important;
 }
 .mmd-reg-toolbar .mmd-reg-total {
-    font-size: 13px !important;
-    font-weight: 600 !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
     color: #cbd5e1 !important;
     margin: 0 !important;
     display: inline-flex !important;
@@ -4317,7 +4317,7 @@ body[class*="adminhtml-sales-order"] .dcf-mag-bar > span:first-child:not(.mmd-au
 }
 .mmd-reg-toolbar .mmd-reg-total span {
     color: #22d3ee !important;
-    font-weight: 800 !important;
+    font-weight: 400 !important;
 }
 .mmd-reg-toolbar .mmd-reg-search-form {
     display: flex !important;
