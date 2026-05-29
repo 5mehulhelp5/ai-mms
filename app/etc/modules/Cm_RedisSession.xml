@@ -33,10 +33,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 <config>
   <modules>
     <Cm_RedisSession>
-      <!-- Disabled. Module rewrites core_resource/session to its own
-           Redis-backed handler, which fails when Redis isn't running.
-           Sessions live in MySQL instead (see <session_save>db</session_save>
-           in app/etc/local.xml + migration 027 for core_session table). -->
+      <!-- Disabled. The installed magento-redis-session package expects
+           Cm\RedisSession\Handler\UsernameConfigInterface (namespaced), but
+           the bundled php-redis-session-abstract version does not ship it
+           — instantiating the session model fatals on every request. Until
+           the vendor packages are upgraded in lockstep, sessions stay on
+           MySQL via migration 027 + <session_save>db</session_save>.
+           Redis is still used for the OBJECT CACHE (see <cache> block in
+           local.xml) — that path uses Cm_Cache_Backend_Redis + Credis and
+           is independent of this module. -->
       <active>false</active>
       <codePool>community</codePool>
     </Cm_RedisSession>

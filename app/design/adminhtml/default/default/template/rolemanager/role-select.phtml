@@ -6,7 +6,56 @@
     <meta name="robots" content="noindex, nofollow" />
     <title>Select Role - Tertiary Infotech Academy</title>
     <link rel="icon" href="<?php echo $logoUrl ?>" type="image/png" />
-    <link rel="stylesheet" href="<?php echo Mage::getBaseUrl('skin') . 'adminhtml/default/default/rolemanager.css' ?>" />
+    <?php /* time() (not filemtime) so every render gets a fresh URL the browser
+             hasn't seen before — defeats the 1-year text/css Expires header in
+             .htaccess that otherwise lets Chrome serve a stale CSS even with
+             ?v=<filemtime>. This page is loaded rarely (only at role-switch
+             time), so the no-cache cost is negligible. */ ?>
+    <link rel="stylesheet" href="<?php echo Mage::getBaseUrl('skin') . 'adminhtml/default/default/rolemanager.css?v=' . time() ?>" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <style>
+        /* Match the cached CSS file's selector specificity (3 classes via
+           :has) and then add an extra `html` qualifier — so even when the
+           browser is serving a stale rolemanager.css, these inline rules
+           win the cascade. */
+        html body:has(.role-select-card) .role-select-card form {
+            display: block !important;
+            width: 100% !important;
+            margin: 0 0 16px 0 !important;
+            padding: 0 !important;
+            background: transparent !important;
+            border: 0 !important;
+        }
+        html body:has(.role-select-card) .role-select-card form:last-of-type {
+            margin-bottom: 0 !important;
+        }
+        html body:has(.role-select-card) .role-select-card .role-card {
+            border: 0 !important;
+            background: rgba(15, 23, 42, 0.55) !important;
+            padding: 14px 18px !important;
+            border-radius: 10px !important;
+        }
+        html body:has(.role-select-card) .role-select-card .role-card:hover {
+            background: rgba(96, 165, 250, 0.12) !important;
+            box-shadow: 0 0 0 1px #60a5fa, 0 0 10px rgba(96, 165, 250, 0.3) !important;
+        }
+        /* Bigger subtitle + Welcome, with breathing room below Welcome */
+        html body:has(.role-select-card) .role-select-card .rs-subtitle {
+            font-size: 15px !important;
+            font-weight: 500 !important;
+            color: #cbd5e1 !important;
+            margin-bottom: 20px !important;
+        }
+        html body:has(.role-select-card) .role-select-card .rs-welcome {
+            font-size: 13.5px !important;
+            font-weight: 600 !important;
+            letter-spacing: 1.4px !important;
+            color: #93c5fd !important;
+            margin-bottom: 36px !important;
+        }
+    </style>
 </head>
 <body>
     <div class="role-select-card">
@@ -14,10 +63,9 @@
             <img src="<?php echo $logoUrl ?>" alt="Tertiary Infotech Academy" />
         </div>
         <h1 class="rs-title">Tertiary Infotech Academy</h1>
-        <p class="rs-subtitle">Magento Management System</p>
+        <p class="rs-subtitle">Learning Management System</p>
 
         <p class="rs-welcome">Welcome back, <?php echo htmlspecialchars($fullName) ?>!</p>
-        <p class="rs-instruction">You have access to multiple roles. Please select one to continue:</p>
 
         <?php foreach ($roles as $roleCode): ?>
         <form method="post" action="<?php echo $chooseUrl ?>" style="display:inline">
@@ -27,7 +75,6 @@
                 <span class="role-card-icon"><?php echo $helper->getRoleIcon($roleCode) ?></span>
                 <div class="role-card-info">
                     <div class="role-card-name"><?php echo htmlspecialchars($helper->getRoleLabel($roleCode)) ?></div>
-                    <div class="role-card-desc"><?php echo htmlspecialchars($helper->getRoleDescription($roleCode)) ?></div>
                 </div>
                 <span class="role-card-arrow">&#x203A;</span>
             </button>

@@ -37,6 +37,13 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     ftp \
     opcache
 
+# phpredis: native client used by Cm_Cache_Backend_Redis and Cm_RedisSession
+# when Redis is configured. Harmless when absent at runtime — Credis falls back
+# to a pure-PHP socket client. Install non-fatally so a transient pecl outage
+# never breaks the production build.
+RUN pecl install redis && docker-php-ext-enable redis \
+    || echo "WARNING: phpredis install failed — Magento will fall back to Credis if Redis is configured"
+
 # Enable Apache modules. brotli gives ~20% smaller text payloads vs gzip;
 # .htaccess already has AddOutputFilterByType BROTLI_COMPRESS rules.
 RUN a2enmod rewrite headers expires deflate brotli
@@ -88,12 +95,15 @@ COPY . /var/www/html/
 # on slower runners. Default 300s timeout would kill it mid-extract.
 RUN COMPOSER_PROCESS_TIMEOUT=0 composer install --no-dev --no-interaction --optimize-autoloader --ignore-platform-req=php
 
-# Disable Cm_RedisSession AFTER composer install. The magento-composer-installer
-# uses copy + magento-force, so the vendor package overwrites our git-tracked
-# app/etc/modules/Cm_RedisSession.xml with <active>true</active> on every build.
-# We don't run Redis — sessions are in MySQL via core_session — so the rewrite
-# this module installs would crash every request. Patch in place here so the
-# fix survives composer install.
+# Disable Cm_RedisSession in the PRODUCTION image. Locally, docker-compose
+# ships a redis service and the host bind mount overrides this file, so the
+# module is active in dev. Production Coolify has no Redis service (yet);
+# without this sed, every prod request would crash trying to talk to Redis.
+# Two layers force the sed: (a) magento-composer-installer's copy+magento-force
+# overwrites our git-tracked Cm_RedisSession.xml with the vendor copy
+# (active=true) on every build, and (b) our own git-tracked version is also
+# active=true (so local dev works out of the box). Patch in place.
+# REMOVE THIS sed once a Redis service is provisioned in Coolify.
 RUN sed -i 's|<active>true</active>|<active>false</active>|' \
     /var/www/html/app/etc/modules/Cm_RedisSession.xml
 

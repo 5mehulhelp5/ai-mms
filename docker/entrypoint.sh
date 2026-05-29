@@ -90,6 +90,33 @@ rm -rf /var/www/html/var/cache/* \
        /var/www/html/media/css_secure/* \
        /var/www/html/media/js/* 2>/dev/null || true
 
+# If Redis is configured as the cache backend (local dev via docker-compose),
+# flush its DBs too — otherwise stale entries from the previous container
+# survive the cache wipe above and template/config/layout changes don't show.
+# Non-fatal: missing Redis or missing redis-cli simply skips the flush.
+# Reads host/port from app/etc/local.xml so prod (no <cache> block) is a no-op.
+if grep -q "Cm_Cache_Backend_Redis" /var/www/html/app/etc/local.xml 2>/dev/null; then
+    REDIS_HOST=$(awk -F'[<>]' '/<server>/{print $3; exit}' /var/www/html/app/etc/local.xml 2>/dev/null)
+    REDIS_HOST=${REDIS_HOST:-redis}
+    if command -v redis-cli >/dev/null 2>&1; then
+        redis-cli -h "$REDIS_HOST" -n 0 FLUSHDB >/dev/null 2>&1 \
+            && echo "entrypoint: flushed Redis cache db 0 on $REDIS_HOST"
+    else
+        # Pure-PHP flush via Credis (always available in vendor) so we don't
+        # need redis-cli in the image just for this.
+        php -r "
+            require '/var/www/html/vendor/autoload.php';
+            try {
+                \$c = new Credis_Client('$REDIS_HOST', 6379, 2);
+                \$c->select(0); \$c->flushDb();
+                echo \"entrypoint: flushed Redis cache db 0 on $REDIS_HOST (via Credis)\n\";
+            } catch (Throwable \$e) {
+                echo \"entrypoint: Redis flush skipped — \" . \$e->getMessage() . \"\n\";
+            }
+        " 2>/dev/null || true
+    fi
+fi
+
 # Guarantee the merge-bundle directories exist AND are writable by Apache.
 # Required because:
 #   - .dockerignore excludes the whole `media/` tree from the image, so a

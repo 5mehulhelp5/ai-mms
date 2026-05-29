@@ -57,6 +57,52 @@
              027 ensures the table exists. Do not change to "files" without also
              configuring a persistent volume mount for /var/www/html/var/session. -->
         <session_save><![CDATA[db]]></session_save>
+
+        <!-- OPTIONAL: Redis cache + sessions.
+             Enable both blocks below ONLY if a Redis service is reachable
+             (docker-compose ships one locally; production needs one added
+             in Coolify first). When enabling for production, also remove
+             the Dockerfile sed that disables Cm_RedisSession.xml.
+             Leave the blocks commented out (or remove them) to fall back
+             to file cache + DB sessions, which is the production default.
+
+        <redis_session>
+            <host>redis</host>
+            <port>6379</port>
+            <db>1</db>
+            <timeout>2.5</timeout>
+            <compression_threshold>2048</compression_threshold>
+            <compression_lib>gzip</compression_lib>
+            <log_level>1</log_level>
+            <max_concurrency>6</max_concurrency>
+            <break_after_frontend>5</break_after_frontend>
+            <break_after_adminhtml>30</break_after_adminhtml>
+            <first_lifetime>600</first_lifetime>
+            <bot_first_lifetime>60</bot_first_lifetime>
+            <bot_lifetime>7200</bot_lifetime>
+            <disable_locking>0</disable_locking>
+            <min_lifetime>60</min_lifetime>
+            <max_lifetime>2592000</max_lifetime>
+        </redis_session>
+        <cache>
+            <backend>Cm_Cache_Backend_Redis</backend>
+            <backend_options>
+                <server>redis</server>
+                <port>6379</port>
+                <database>0</database>
+                <force_standalone>0</force_standalone>
+                <connect_retries>1</connect_retries>
+                <read_timeout>10</read_timeout>
+                <automatic_cleaning_factor>0</automatic_cleaning_factor>
+                <compress_data>1</compress_data>
+                <compress_tags>1</compress_tags>
+                <compress_threshold>20480</compress_threshold>
+                <compression_lib>gzip</compression_lib>
+                <use_lua>0</use_lua>
+            </backend_options>
+        </cache>
+        -->
+
         <!-- MMD Marketing newsletter builder.
              Read by MMD_RoleManager_Helper_Data::getMarketingApiConfig().
              Empty values flip the newsletter controller into stub mode
