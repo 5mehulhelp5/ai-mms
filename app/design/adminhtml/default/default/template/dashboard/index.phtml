@@ -9348,7 +9348,7 @@ $_credMask = function ($v) {
 };
 ?>
 <style>
-.crd-wrap { max-width: 900px; margin: 0; padding: 24px; }
+.crd-wrap { max-width: none; margin: 0; padding: 24px; }
 .crd-title { font-size: 22px; font-weight: 700; color: #f1f5f9; margin: 0 0 6px; }
 .crd-sub { color: #94a3b8; font-size: 13px; margin: 0 0 24px; }
 .crd-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px 22px; margin-bottom: 18px; }
@@ -9437,13 +9437,15 @@ $_credMask = function ($v) {
 <div id="dash-panel-credentials" style="display:none;">
 <div class="crd-wrap">
     <h1 class="crd-title">Credentials</h1>
-    <p class="crd-sub">API keys and OAuth tokens used by other modules. Saved values are masked — leave a field as-is to keep its current secret.</p>
 
     <form id="crd-form" onsubmit="return crdSubmit(event)">
 
-        <div class="crd-actions crd-actions--top">
-            <button type="button" class="crd-btn crd-btn-ghost" onclick="window.location.reload()">Cancel</button>
-            <button type="submit" class="crd-btn crd-btn-primary">Save Credentials</button>
+        <div class="crd-actions crd-actions--top" style="display:flex;align-items:center;gap:16px;justify-content:space-between;">
+            <p class="crd-sub" style="margin:0;flex:1 1 auto;">API keys and OAuth tokens used by other modules. Saved values are masked — leave a field as-is to keep its current secret.</p>
+            <div style="display:flex;gap:10px;flex:0 0 auto;">
+                <button type="button" class="crd-btn crd-btn-ghost" onclick="window.location.reload()">Cancel</button>
+                <button type="submit" class="crd-btn crd-btn-primary">Save Credentials</button>
+            </div>
         </div>
 
         <?php
