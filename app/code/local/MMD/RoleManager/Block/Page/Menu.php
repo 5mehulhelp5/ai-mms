@@ -97,6 +97,15 @@ class MMD_RoleManager_Block_Page_Menu extends Mage_Adminhtml_Block_Page_Menu
                 'children'   => array(),
                 'last'       => false,
             );
+            $menu['system']['children']['api_docs'] = array(
+                'label'      => 'API Documentation',
+                'url'        => Mage::helper('adminhtml')->getUrl('adminhtml/apidocs/index'),
+                'active'     => false,
+                'level'      => 1,
+                'sort_order' => 90,
+                'children'   => array(),
+                'last'       => false,
+            );
         }
 
         // Move Promotions under Marketing Management as a child
