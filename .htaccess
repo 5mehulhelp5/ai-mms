@@ -1,6 +1,25 @@
 SetEnvIfNoCase User-Agent "ahref" bad_bot
 Deny from env=bad_bot
 
+############################################
+## SEO: noindex utility URLs that Google has crawled despite being
+## (previously) disallowed in robots.txt — currency-switcher session
+## URLs and Magento's HTML seo_sitemap pages. The robots.txt block
+## made these "Indexed, though blocked by robots.txt" in GSC because
+## Googlebot couldn't fetch them to read a noindex signal. We now
+## ALLOW the crawl and serve X-Robots-Tag: noindex, nofollow so the
+## URLs drop from the index on the next crawl.
+##
+## The env var is set by RewriteRule [E=noindex_url:1] in the
+## mod_rewrite block below (before the front-controller rewrite to
+## /index.php — see the matching RewriteRules). mod_rewrite prefixes
+## subrequest env vars with REDIRECT_, so the Header check uses
+## REDIRECT_noindex_url. robots.txt has matching `Allow:` rules so
+## Googlebot can fetch these URLs and see the noindex header.
+<IfModule mod_headers.c>
+    Header always set X-Robots-Tag "noindex, nofollow" env=REDIRECT_noindex_url
+</IfModule>
+
 
 deny from 20.162.16.32
 deny from 78.128.113.18
@@ -367,6 +386,13 @@ Redirect 301 /project-management-sme-chinese.html https://www.tertiarycourses.co
 
 ############################################
 ## rewrite everything else to index.php
+
+    ## SEO: flag utility URLs so mod_headers can attach X-Robots-Tag: noindex
+    ## (the .htaccess Header directive runs AFTER the front-controller rewrite
+    ## below, so SetEnvIf Request_URI sees /index.php and never matches —
+    ## tag the env here via [E=] before the rewrite, then mod_headers reads it).
+    RewriteRule ^directory/currency/switch(/|$) - [E=noindex_url:1]
+    RewriteRule ^catalog/seo_sitemap(/|$) - [E=noindex_url:1]
 
     RewriteCond %{REQUEST_URI} !^/(media|skin|js)/
     RewriteCond %{REQUEST_FILENAME} !-f

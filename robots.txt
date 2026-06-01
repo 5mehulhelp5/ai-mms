@@ -1,6 +1,14 @@
 # Crawlers Setup
 User-agent: *
 
+# Allow specific paths so Googlebot can crawl them and read the
+# X-Robots-Tag: noindex header set in .htaccess. Required to remove
+# these URLs from the "Indexed, though blocked by robots.txt" report
+# in Google Search Console. Allow rules MUST come before the broader
+# Disallow rules below for both Googlebot and Bing to honour them.
+Allow: /directory/currency/switch/
+Allow: /catalog/seo_sitemap/
+
 # Directories
 Disallow: /checkout/
 Disallow: /catalogsearch/
