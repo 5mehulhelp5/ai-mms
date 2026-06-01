@@ -215,4 +215,25 @@ for i in $(seq 1 $MAX_ATTEMPTS); do
     sleep $SLEEP
 done
 
+# Warm the merged CSS/JS bundles BEFORE real traffic arrives. The cache wipe
+# at line ~85 deletes media/css/*, media/js/* on every container start;
+# Magento regenerates them on the FIRST request that loads the layout. If a
+# real admin/storefront request lands during that ~200ms window, the HTML
+# references the merge URL but the file does not yet exist → 404 → page
+# loads with no styles ("distorted, refresh fixes it" — documented in
+# CLAUDE.md). Workaround: background-warm with curl after Apache starts.
+# Touches both /tigerdragon (admin) and / (storefront) so both bundles
+# materialise. All errors silenced — warm-up is best-effort, never fatal.
+(
+    for _w in 1 2 3 4 5 6 7 8 9 10; do
+        if curl -s -o /dev/null --max-time 2 http://127.0.0.1/ 2>/dev/null; then
+            break
+        fi
+        sleep 1
+    done
+    curl -s -o /dev/null --max-time 15 -L http://127.0.0.1/ 2>/dev/null || true
+    curl -s -o /dev/null --max-time 15 -L http://127.0.0.1/tigerdragon/ 2>/dev/null || true
+    echo "entrypoint: CSS/JS merge bundles warmed"
+) &
+
 exec apache2-foreground

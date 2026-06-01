@@ -27,6 +27,9 @@
     $accountUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/system_account');
     $_p = Mage::app()->getRequest()->getPathInfo();
     function _so($k) { global $_p; foreach ((array)$k as $v) if (strpos($_p,$v)!==false) return ' open'; return ''; }
+    // Active role — used below to gate super-admin-only DB queries and
+    // expensive config-tabs enumeration to the one role that sees them.
+    $activeRole = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
 ?>
 
 <!-- Super Admin sidebar — standard Magento #nav with renames via Menu block -->
@@ -108,11 +111,25 @@
         $_auditUrl = Mage::helper('adminhtml')->getUrl('adminhtml/auditissues/index');
         $_auditActive = ($_ctrl === 'auditissues') ? ' active' : '';
         $_auditOpenCount = 0;
-        try {
-            $_aReadConn = Mage::getSingleton('core/resource')->getConnection('core_read');
-            $_aTbl = Mage::getSingleton('core/resource')->getTableName('mmd_audit_issues');
-            $_auditOpenCount = (int)$_aReadConn->fetchOne("SELECT COUNT(*) FROM {$_aTbl} WHERE status = 'open'");
-        } catch (Exception $_e) { /* table missing — silently zero */ }
+        // Cache the COUNT for 60s so this query hits the DB at most once per
+        // minute across all super-admin sessions instead of once per page load.
+        // Only runs for Super Admin — the surrounding sidebar block is hidden
+        // for other roles via JS, so executing it for them is pure waste.
+        if ($activeRole === 'training_provider') {
+            try {
+                $_aCache = Mage::app()->getCache();
+                $_aCacheKey = 'MMD_AUDIT_OPEN_COUNT';
+                $_aCached = $_aCache->load($_aCacheKey);
+                if ($_aCached !== false) {
+                    $_auditOpenCount = (int)$_aCached;
+                } else {
+                    $_aReadConn = Mage::getSingleton('core/resource')->getConnection('core_read');
+                    $_aTbl = Mage::getSingleton('core/resource')->getTableName('mmd_audit_issues');
+                    $_auditOpenCount = (int)$_aReadConn->fetchOne("SELECT COUNT(*) FROM {$_aTbl} WHERE status = 'open'");
+                    $_aCache->save((string)$_auditOpenCount, $_aCacheKey, array('MMD_AUDIT_BADGE'), 60);
+                }
+            } catch (Exception $_e) { /* table missing or cache down — silently zero */ }
+        }
     ?>
     <a href="<?php echo $_auditUrl ?>" class="lms-nav-item<?php echo $_auditActive ?>">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
@@ -157,15 +174,52 @@
         // Configuration: promoted to a top-level sidebar group (sibling of System).
         // Children are every Magento System > Configuration tab + section,
         // enumerated via the standard Tabs block so ACL filtering applies.
-        $_cfgTabs = array();
-        try {
-            $_cfgBlock = Mage::app()->getLayout()->createBlock('adminhtml/system_config_tabs');
-            if ($_cfgBlock) {
-                $_cfgBlock->initTabs();
-                $_cfgTabs = $_cfgBlock->getTabs();
+        //
+        // initTabs() walks every installed module's system.xml — one of
+        // Magento's most expensive config-load operations. Cache the extracted
+        // (label, sections) shape for 5 min so subsequent super-admin page
+        // loads skip the full enumeration. Only runs for super-admin; other
+        // roles never see this sidebar section. Cleared by Magento's CONFIG
+        // cache tag, so a config flush picks up new modules.
+        $_cfgCachedTabs = false;
+        $_cfgCacheKey = 'MMD_SIDEBAR_CFGTABS';
+        if ($activeRole === 'training_provider') {
+            try {
+                $_cfgCache = Mage::app()->getCache();
+                $_cfgRaw = $_cfgCache->load($_cfgCacheKey);
+                if ($_cfgRaw !== false) {
+                    $_cfgCachedTabs = @unserialize($_cfgRaw);
+                }
+                if (!is_array($_cfgCachedTabs)) {
+                    $_cfgCachedTabs = array();
+                    $_cfgBlock = Mage::app()->getLayout()->createBlock('adminhtml/system_config_tabs');
+                    if ($_cfgBlock) {
+                        $_cfgBlock->initTabs();
+                        foreach ($_cfgBlock->getTabs() as $_tab) {
+                            $_secs = $_tab->getSections();
+                            if (!$_secs || !count($_secs)) continue;
+                            $_secList = array();
+                            foreach ($_secs as $_sec) {
+                                $_sLabel = trim(strip_tags((string)$_sec->getLabel()));
+                                if ($_sLabel === '') {
+                                    $_sLabel = ucwords(str_replace(array('_','-'), ' ', (string)$_sec->getId()));
+                                }
+                                $_secList[] = array('id' => (string)$_sec->getId(), 'label' => $_sLabel);
+                            }
+                            $_tLabel = trim(strip_tags((string)$_tab->getLabel()));
+                            if ($_tLabel === '') {
+                                $_tLabel = ucwords(str_replace(array('_','-'), ' ', (string)$_tab->getId()));
+                            }
+                            $_cfgCachedTabs[] = array('label' => $_tLabel, 'sections' => $_secList);
+                        }
+                    }
+                    $_cfgCache->save(serialize($_cfgCachedTabs), $_cfgCacheKey, array(Mage_Core_Model_Config::CACHE_TAG), 300);
+                }
+            } catch (Exception $_e) {
+                $_cfgCachedTabs = array();
             }
-        } catch (Exception $_e) {
-            $_cfgTabs = array();
+        } else {
+            $_cfgCachedTabs = array();
         }
     ?>
     <div class="tools-group<?php echo _so(array('system_config')) ?>" id="sidebar-config-group">
@@ -175,40 +229,25 @@
             <svg class="tools-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
         <div class="tools-group-items" data-accordion="1">
-            <?php if (!empty($_cfgTabs)): ?>
-                <?php foreach ($_cfgTabs as $_cfgTab): ?>
-                    <?php $_cfgSections = $_cfgTab->getSections(); ?>
-                    <?php if (!$_cfgSections || !count($_cfgSections)) continue; ?>
-                    <?php
-                        // Some tabs (e.g. MageComp) use an <img> tag as their label
-                        // for branding — strip HTML so the sidebar shows a clean text label.
-                        $_cfgTabLabel = trim(strip_tags((string)$_cfgTab->getLabel()));
-                        if ($_cfgTabLabel === '') {
-                            $_cfgTabLabel = ucwords(str_replace(array('_','-'), ' ', (string)$_cfgTab->getId()));
-                        }
-                    ?>
+            <?php if (!empty($_cfgCachedTabs)): ?>
+                <?php foreach ($_cfgCachedTabs as $_cfgTab): ?>
                     <div class="tools-group tools-subgroup">
                         <div class="tools-group-toggle tools-sub-item" onclick="toggleToolGroup(this)">
-                            <span><?php echo htmlspecialchars($_cfgTabLabel) ?></span>
+                            <span><?php echo htmlspecialchars($_cfgTab['label']) ?></span>
                             <svg class="tools-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
                         </div>
                         <div class="tools-group-items">
-                            <?php foreach ($_cfgSections as $_cfgSection): ?>
+                            <?php foreach ($_cfgTab['sections'] as $_cfgSection): ?>
                                 <?php
-                                    $_cfgSectionLabel = trim(strip_tags((string)$_cfgSection->getLabel()));
-                                    if ($_cfgSectionLabel === '') {
-                                        $_cfgSectionLabel = ucwords(str_replace(array('_','-'), ' ', (string)$_cfgSection->getId()));
-                                    }
-                                    // Build an absolute URL to adminhtml/system_config/edit so
-                                    // the link works from any controller — the Tabs block's own
-                                    // getUrl() uses */*/* which would otherwise route back to
-                                    // the current controller (e.g. system_cache).
+                                    // Absolute URL to adminhtml/system_config/edit so the link
+                                    // works from any controller — the Tabs block's own getUrl()
+                                    // uses */*/* which would otherwise route back to current ctrl.
                                     $_cfgSectionUrl = Mage::helper('adminhtml')->getUrl(
                                         'adminhtml/system_config/edit',
-                                        array('section' => $_cfgSection->getId())
+                                        array('section' => $_cfgSection['id'])
                                     );
                                 ?>
-                                <a href="<?php echo $_cfgSectionUrl ?>" class="tools-sub-item"><span><?php echo htmlspecialchars($_cfgSectionLabel) ?></span></a>
+                                <a href="<?php echo $_cfgSectionUrl ?>" class="tools-sub-item"><span><?php echo htmlspecialchars($_cfgSection['label']) ?></span></a>
                             <?php endforeach; ?>
                         </div>
                     </div>
