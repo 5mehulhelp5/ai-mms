@@ -143,59 +143,37 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
                    .  '</a>';
         }
 
-        $bar = '<div class="dcf-store-switcher mmd-branchscope-pills"'
-            . ' role="tablist" aria-label="Store view">'
-            . '<span class="dcf-store-switcher-label">Store View:</span>'
-            . $pills
-            . '<span class="dcf-store-switcher-hint"'
-            . ' title="Global-scope fields (SKU, price, dates) save the same value across all stores regardless of which tab is active.'
-            . ' Store-view fields (titles, meta, descriptions, design overrides) save to the active store only.">'
-            . '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
-            . '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>'
-            . '<line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>Scope</span></span>'
-            . '</div>';
-
-        // "Editing for: <Country> XX" notice band — renders right under the
-        // Store View bar on every store-scoped admin page so operators
-        // always see which country's data they are looking at, regardless
-        // of role (developer / marketing / admin / super admin). Same
-        // visual treatment as the Edit Course inline notice; styles live
-        // in admin-dashboard.css (.dcf-edit-notice / .dcf-active-store-pill).
-        // Label: "Editing for" on record-edit / record-new pages, "Viewing"
-        // on listing / grid / dashboard pages. Keeps the band honest —
-        // operators on a list page aren't editing anything store-scoped.
+        // Right-side "Viewing: <Country> XX" / "Editing: <Country> XX" pill
+        // (formerly a second ribbon under the bar). Label flips to "Editing"
+        // on record-edit / record-new pages so the band stays honest about
+        // which mode the operator is in. Replaces the old "Scope" hint.
         $req       = Mage::app()->getRequest();
         $actionN   = strtolower((string) $req->getActionName());
         $editActs  = array('edit', 'new', 'save', 'editpost', 'newpost');
         $isEditing = in_array($actionN, $editActs, true)
             || $req->getParam('course_id')
             || in_array((string) $req->getParam('mode'), array('edit', 'editing'), true);
-        $label     = $isEditing ? 'Editing for:' : 'Viewing:';
-        $leftCopy  = $isEditing
-            ? 'You are in edit mode. Make your changes and click Save Changes.'
-            : 'Switch country via the Store View tabs above to filter this page.';
+        $label     = $isEditing ? 'Editing:' : 'Viewing:';
 
-        $notice = '';
+        $activePill = '';
         if ($activeName !== '') {
-            $notice = '<div class="dcf-edit-notice mmd-branchscope-notice"'
-                . ' style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:10px;">'
-                . '<span style="display:inline-flex;align-items:center;gap:8px;">'
-                . '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
-                . '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>'
-                . '<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
-                . $this->escapeHtml($leftCopy)
-                . '</span>'
-                . '<span class="dcf-active-store-pill"'
-                . ' title="Store-view-scoped fields on this page apply to this country. Switch via the Store View tabs above.">'
+            $activePill = '<span class="dcf-active-store-pill"'
+                . ' title="Store-view-scoped fields on this page apply to this country. Switch via the Store View tabs.">'
                 . '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
                 . '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/>'
                 . '<path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>'
                 . $this->escapeHtml($label) . ' <strong>' . $this->escapeHtml($activeName) . '</strong>'
                 . '<span class="dcf-active-store-code">' . $this->escapeHtml($activeCode) . '</span>'
-                . '</span>'
-                . '</div>';
+                . '</span>';
         }
 
-        return $bar . $notice;
+        $bar = '<div class="dcf-store-switcher mmd-branchscope-pills"'
+            . ' role="tablist" aria-label="Store view">'
+            . '<span class="dcf-store-switcher-label">Store View:</span>'
+            . $pills
+            . $activePill
+            . '</div>';
+
+        return $bar;
     }
 }

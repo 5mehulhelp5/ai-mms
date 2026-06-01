@@ -11,9 +11,39 @@
    every store-scoped admin page must use this strip. */
 .dcf-store-switcher{
     display:flex;align-items:center;gap:4px;flex-wrap:wrap;
-    padding:6px 10px;margin:0 0 12px;
+    padding:6px 10px;margin:0 0 4px;
     background:var(--b0,#0b1220);
     border:1px solid var(--b1,#1e293b);border-radius:8px;
+}
+/* Tight-coupling between the global Store View bar and the page title /
+   first content block that follows. Applied globally so every admin page
+   (Credentials, Dashboard panels, Reports, Catalog grid, etc.) reads as
+   a single header band rather than two stacked rows with dead space
+   between them. Targets:
+     - direct next-sibling page titles or panel wrappers
+     - dashboard-panel wraps that hardcode `padding:24px` / `padding-top:24px`
+     - the first heading inside each wrap
+   Caps padding-top at 8px instead of 24-32px and zeroes the title's
+   own margin-top. */
+.dcf-store-switcher + h1,
+.dcf-store-switcher + h2,
+.dcf-store-switcher + h3,
+.dcf-store-switcher + [class*="-title"],
+.dcf-store-switcher + .content-header,
+.dcf-store-switcher + .content-header h3{
+    margin-top:0 !important;
+    padding-top:0 !important;
+}
+.dcf-store-switcher ~ div [class$="-wrap"]:first-child,
+.dcf-store-switcher + div[id^="dash-panel-"] [class$="-wrap"]:first-child,
+.dcf-store-switcher + div[id^="dash-panel-"] > [class$="-wrap"]{
+    padding-top:8px !important;
+}
+.dcf-store-switcher + div[id^="dash-panel-"] [class$="-wrap"] > h1:first-child,
+.dcf-store-switcher + div[id^="dash-panel-"] [class$="-wrap"] > h2:first-child,
+.dcf-store-switcher + div[id^="dash-panel-"] [class$="-wrap"] > h3:first-child,
+.dcf-store-switcher + div[id^="dash-panel-"] [class$="-wrap"] > [class$="-title"]:first-child{
+    margin-top:0 !important;
 }
 /* Global injection sits at the top of .middle (which has 16px top
    padding from sidebar-nav.css §11). Pull it up so it reads as a
@@ -67,6 +97,12 @@ a.dcf-store-tab.is-active,a.dcf-store-tab.is-active:hover{
     border:1px solid rgba(34,211,238,.45);
     color:#22d3ee;font-size:12px;font-weight:600;letter-spacing:.2px;
 }
+/* When the active-store pill lives inside the Store View bar (as the
+   right-edge "Viewing: <Country>" indicator, replacing the old "Scope"
+   hint), push it to the far right. */
+.dcf-store-switcher > .dcf-active-store-pill{
+    margin-left:auto;
+}
 .dcf-active-store-pill strong{color:#e0f7fb;font-weight:700;}
 .dcf-active-store-pill .dcf-active-store-code{
     padding:1px 7px;border-radius:6px;
@@ -77,7 +113,7 @@ a.dcf-store-tab.is-active,a.dcf-store-tab.is-active:hover{
 
 /* --- Block 1 (template line 1337) --- */
 /* ---- Admin schedule dashboard ---- */
-.dash-wrap{padding:28px 0;background:var(--d1);min-height:100vh}
+.dash-wrap{padding:8px 0 28px;background:var(--d1);min-height:100vh}
 .dash-title{font-size:28px;font-weight:700;color:var(--t1);margin:0 0 28px}
 .dash-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px}
 .dash-kpi-card{background:#1f2937;border:1px solid var(--b1);border-radius:12px;padding:28px 24px;text-align:center}
@@ -1341,7 +1377,7 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
 /* Company Setting — restyled 2026-05-07 to match the cyan-edit reference
    screenshot. Header logo + name, accordion sections collapsed by default,
    each section header has its own cyan Edit pill on the right. */
-.cs-wrap{max-width:1180px;margin:0;padding:32px 36px 36px;background:#172033;border:1px solid #1e293b;border-radius:14px;box-shadow:0 1px 0 rgba(255,255,255,.02) inset}
+.cs-wrap{max-width:1180px;margin:0;padding:12px 36px 36px;background:#172033;border:1px solid #1e293b;border-radius:14px;box-shadow:0 1px 0 rgba(255,255,255,.02) inset}
 .cs-header{display:flex;align-items:center;gap:24px;padding:0 0 24px;background:transparent;border-bottom:1px solid rgba(148,163,184,.18);margin-bottom:8px}
 .cs-logo{width:78px;height:78px;border-radius:12px;background:#1e3a5f;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:800;color:#60a5fa;border:1px solid #2d4a6f}
 .cs-header-info{flex:1}
@@ -1971,7 +2007,7 @@ button.cnc-btn-primary:hover{background:#1d4ed8 !important;border-color:#1d4ed8 
 @media(max-width:900px){.cnc-row,.cnc-row-3,.cnc-row-4{grid-template-columns:1fr}}
 
 /* --- Block 27 (template line 9756) --- */
-.at-wrap{max-width:1400px;margin:0;padding:24px 0;color:#e2e8f0}
+.at-wrap{max-width:1400px;margin:0;padding:8px 0 24px;color:#e2e8f0}
 .at-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px}
 .at-title{font-size:28px;font-weight:700;color:#fff;margin:0}
 .at-back-link{color:#fff;font-size:14px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
@@ -2060,7 +2096,7 @@ button.at-pg-btn.disabled,button.at-pg-btn.disabled:hover{opacity:.45;cursor:not
 
 /* --- Block 28 (template line 10655) --- */
 /* Assign Learners — mirrors Assign Trainer styles (al- prefix). */
-.al-wrap{max-width:1400px;margin:0;padding:24px 0;color:#e2e8f0}
+.al-wrap{max-width:1400px;margin:0;padding:8px 0 24px;color:#e2e8f0}
 .al-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px}
 .al-title{font-size:28px;font-weight:700;color:var(--t1,#f1f5f9);margin:0;line-height:1.2}
 .al-back-link{color:#fff;font-size:14px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
@@ -2208,7 +2244,7 @@ button.el-btn-primary:hover{background:#1d4ed8 !important}
 @media(max-width:900px){.el-row,.el-split{grid-template-columns:1fr}}
 
 /* --- Block 31 (template line 12075) --- */
-.mn-wrap{max-width:1500px;margin:0;padding:24px 0;color:#e2e8f0}
+.mn-wrap{max-width:1500px;margin:0;padding:8px 0 24px;color:#e2e8f0}
 .mn-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:18px 22px}
 .mn-title{font-size:28px;font-weight:700;color:var(--t1,#f1f5f9);margin:0;line-height:1.2}
 .mn-sub{font-size:13px;color:#94a3b8;margin:4px 0 0}

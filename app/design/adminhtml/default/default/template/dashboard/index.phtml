@@ -9277,6 +9277,12 @@ $_credPaths = array(
     'mmd_email/google/client_secret',
     'mmd_email/google/refresh_token',
     'mmd_company/api/kael_review_key',
+    'mmd_company/whatsapp/singapore',
+    'mmd_company/whatsapp/malaysia',
+    'mmd_company/whatsapp/ghana',
+    'mmd_company/whatsapp/nigeria',
+    'mmd_company/whatsapp/bhutan',
+    'mmd_company/whatsapp/india',
 );
 $_creds = array();
 foreach ($_credPaths as $_cp) {
@@ -9348,7 +9354,7 @@ $_credMask = function ($v) {
 };
 ?>
 <style>
-.crd-wrap { max-width: none; margin: 0; padding: 24px; }
+.crd-wrap { max-width: none; margin: 0; padding: 8px 24px 24px; }
 .crd-title { font-size: 22px; font-weight: 700; color: #f1f5f9; margin: 0 0 6px; }
 .crd-sub { color: #94a3b8; font-size: 13px; margin: 0 0 24px; }
 .crd-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px 22px; margin-bottom: 18px; }
@@ -9576,6 +9582,57 @@ $_credMask = function ($v) {
             crdToast('New API key generated — click Save Credentials to persist.', 'ok');
         };
         </script>
+
+        <?php
+        $_waAny = $_creds['mmd_company/whatsapp/singapore']
+               || $_creds['mmd_company/whatsapp/malaysia']
+               || $_creds['mmd_company/whatsapp/ghana']
+               || $_creds['mmd_company/whatsapp/nigeria']
+               || $_creds['mmd_company/whatsapp/bhutan']
+               || $_creds['mmd_company/whatsapp/india'];
+        ?>
+        <div class="crd-card<?php echo $_waAny ? ' has-value' : '' ?>">
+            <h3><span class="crd-dot"></span>WhatsApp Business (per-store)</h3>
+            <p class="crd-sub" style="margin:0 0 12px;">
+                Drives the storefront WhatsApp float button. International format, digits only, no <code>+</code> or spaces. SG example: <code>6588666375</code>. MY example: <code>601123244187</code>. Leave a country blank to hide the float button on that store.
+            </p>
+            <div class="crd-row">
+                <label class="crd-label">🇸🇬 Singapore</label>
+                <input type="text" class="crd-input" name="whatsapp_singapore"
+                    value="<?php echo htmlspecialchars($_creds['mmd_company/whatsapp/singapore']) ?>"
+                    placeholder="6588666375" />
+            </div>
+            <div class="crd-row">
+                <label class="crd-label">🇲🇾 Malaysia</label>
+                <input type="text" class="crd-input" name="whatsapp_malaysia"
+                    value="<?php echo htmlspecialchars($_creds['mmd_company/whatsapp/malaysia']) ?>"
+                    placeholder="601123244187" />
+            </div>
+            <div class="crd-row">
+                <label class="crd-label">🇬🇭 Ghana</label>
+                <input type="text" class="crd-input" name="whatsapp_ghana"
+                    value="<?php echo htmlspecialchars($_creds['mmd_company/whatsapp/ghana']) ?>"
+                    placeholder="233…" />
+            </div>
+            <div class="crd-row">
+                <label class="crd-label">🇳🇬 Nigeria</label>
+                <input type="text" class="crd-input" name="whatsapp_nigeria"
+                    value="<?php echo htmlspecialchars($_creds['mmd_company/whatsapp/nigeria']) ?>"
+                    placeholder="234…" />
+            </div>
+            <div class="crd-row">
+                <label class="crd-label">🇧🇹 Bhutan</label>
+                <input type="text" class="crd-input" name="whatsapp_bhutan"
+                    value="<?php echo htmlspecialchars($_creds['mmd_company/whatsapp/bhutan']) ?>"
+                    placeholder="975…" />
+            </div>
+            <div class="crd-row">
+                <label class="crd-label">🇮🇳 India</label>
+                <input type="text" class="crd-input" name="whatsapp_india"
+                    value="<?php echo htmlspecialchars($_creds['mmd_company/whatsapp/india']) ?>"
+                    placeholder="91…" />
+            </div>
+        </div>
 
         <div class="crd-card<?php echo $_creds['mmd_email/google/refresh_token'] ? ' has-value' : '' ?>">
             <h3><span class="crd-dot"></span>Google OAuth (Gmail send-as)</h3>

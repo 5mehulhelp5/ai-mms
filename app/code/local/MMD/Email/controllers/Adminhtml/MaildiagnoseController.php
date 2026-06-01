@@ -103,6 +103,12 @@ class MMD_Email_Adminhtml_MaildiagnoseController extends Mage_Adminhtml_Controll
             'gmail_client_secret'  => 'mmd_email/google/client_secret',
             'gmail_refresh_token'  => 'mmd_email/google/refresh_token',
             'kael_review_key'      => 'mmd_company/api/kael_review_key',
+            'whatsapp_singapore'   => 'mmd_company/whatsapp/singapore',
+            'whatsapp_malaysia'    => 'mmd_company/whatsapp/malaysia',
+            'whatsapp_ghana'       => 'mmd_company/whatsapp/ghana',
+            'whatsapp_nigeria'     => 'mmd_company/whatsapp/nigeria',
+            'whatsapp_bhutan'      => 'mmd_company/whatsapp/bhutan',
+            'whatsapp_india'       => 'mmd_company/whatsapp/india',
         ];
 
         try {
