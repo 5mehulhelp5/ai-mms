@@ -1,4 +1,4 @@
-<!--@subject Re: Your enquiry about {{var subject_course}} — Tertiary Infotech Academy @-->
+<!--@subject Re: Your enquiry about {{var subject_course}} — {{var store_brand}} @-->
 <!--@vars
 {"store url=\"\"":"Store Url","skin url=\"images/logo_email.gif\" _area='frontend'":"Email Logo Image Url","escapehtml var=$lead_name":"Lead Name","var subject_course":"Subject Course","var reply_body_html":"Reply Body HTML","var sender_name":"Sender Name"}
 @-->
@@ -9,13 +9,13 @@
     <table cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px; background:#ffffff; border-radius:10px; overflow:hidden; box-shadow:0 4px 14px rgba(15,23,42,.06);">
 
       <tr><td style="padding:24px 28px 8px; background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 100%); color:#fff;">
-        <div style="font-size:13px; letter-spacing:.3px; text-transform:uppercase; opacity:.85; margin-bottom:4px;">Tertiary Infotech Academy</div>
+        <div style="font-size:13px; letter-spacing:.3px; text-transform:uppercase; opacity:.85; margin-bottom:4px;">{{var store_brand}}</div>
         <div style="font-size:22px; font-weight:700;">Thanks for your enquiry</div>
       </td></tr>
 
       <tr><td style="padding:24px 28px; font-size:15px; line-height:1.55;">
         <p style="margin:0 0 14px;">Hi {{htmlescape var=$lead_name}},</p>
-        <p style="margin:0 0 14px;">Thanks for getting in touch with Tertiary Infotech Academy. Here are the details you asked about:</p>
+        <p style="margin:0 0 14px;">Thanks for getting in touch with {{var store_brand}}. Here are the details you asked about:</p>
 
         {{var reply_body_html}}
 
@@ -23,7 +23,7 @@
 
         <p style="margin:18px 0 0;">Warm regards,<br/>
           <strong>{{var sender_name}}</strong><br/>
-          Tertiary Infotech Academy
+          {{var store_brand}}
         </p>
       </td></tr>
 

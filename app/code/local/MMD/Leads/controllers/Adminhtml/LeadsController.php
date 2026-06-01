@@ -95,12 +95,13 @@ class MMD_Leads_Adminhtml_LeadsController extends Mage_Adminhtml_Controller_Acti
                         'lead_name'       => $lead->getName(),
                         'subject_course'  => $subjectCourse,
                         'reply_body_html' => $replyHtml,
+                        'store_brand'     => Mage::helper('mmd_leads')->getStoreBrandName($storeId),
                         'sender_name'     => Mage::getStoreConfig('contacts/email/sender_email_identity', $storeId)
                             ? Mage::getStoreConfig(
                                 'trans_email/ident_' . Mage::getStoreConfig('contacts/email/sender_email_identity', $storeId) . '/name',
                                 $storeId
                             )
-                            : 'Tertiary Infotech Academy',
+                            : Mage::helper('mmd_leads')->getStoreBrandName($storeId),
                     ),
                     $storeId
                 );
