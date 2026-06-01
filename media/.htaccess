@@ -1,25 +1,44 @@
 Options All -Indexes
-<IfModule mod_php5.c>
-php_flag engine 0
-</IfModule>
-
-# AddHandler cgi-script .php .pl .py .jsp .asp .htm .shtml .sh .cgi
 Options -ExecCGI
 
+# Disable PHP execution under every loader: classic mod_php5, modern mod_php,
+# and PHP-FPM via SetHandler / proxy.
+<IfModule mod_php5.c>
+    php_flag engine 0
+</IfModule>
+<IfModule mod_php.c>
+    php_flag engine 0
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine 0
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine 0
+</IfModule>
+
+# Strip every Apache handler / AddType that could route a file to PHP, then
+# block direct requests to any PHP-ish extension. Defense in depth: even if a
+# handler survives, the FilesMatch rule still denies the request.
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .phar
+RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .phar
+
+<FilesMatch "(?i)\.(php[0-9s]?|phtml|phar|inc|hta(ccess|sswd))$">
+    Require all denied
+</FilesMatch>
+
+# Belt and suspenders: if PHP-FPM is wired via SetHandler / proxy:fcgi, force
+# the request back to the default static handler instead.
+<FilesMatch "\.ph(p[0-9]?|tml|ar)$">
+    SetHandler default-handler
+    ForceType text/plain
+</FilesMatch>
+
 <IfModule mod_rewrite.c>
-
-############################################
-## enable rewrites
-
     Options +FollowSymLinks
     RewriteEngine on
 
-############################################
-## never rewrite for existing files
+    # never rewrite for existing files
     RewriteCond %{REQUEST_FILENAME} !-f
-
-############################################
-## rewrite everything else to index.php
-
+    # rewrite everything else to Magento's media-resize entrypoint
     RewriteRule .* ../get.php [L]
 </IfModule>

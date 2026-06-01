@@ -1,0 +1,27 @@
+Options All -Indexes
+Options -ExecCGI
+
+<IfModule mod_php5.c>
+    php_flag engine 0
+</IfModule>
+<IfModule mod_php.c>
+    php_flag engine 0
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine 0
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine 0
+</IfModule>
+
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .phar
+RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .phar
+
+<FilesMatch "(?i)\.(php[0-9s]?|phtml|phar|inc|hta(ccess|sswd))$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "\.ph(p[0-9]?|tml|ar)$">
+    SetHandler default-handler
+    ForceType text/plain
+</FilesMatch>
