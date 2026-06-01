@@ -2,6 +2,19 @@ SetEnvIfNoCase User-Agent "ahref" bad_bot
 Deny from env=bad_bot
 
 ############################################
+## Hard block on Magento's stock installer + downloader.
+## These are public PHP endpoints that ship with Magento 1 and have no
+## business being reachable on a deployed instance. The installer can
+## walk an attacker through a re-install wizard (creating a new admin
+## with attacker-chosen creds) and even when bootstrap fails it leaks
+## filesystem paths in the error response. install.php has also been
+## removed from the repo as of 2026-06-01; this is belt-and-suspenders
+## in case it ever gets re-added accidentally.
+<FilesMatch "(?i)^(install|downloader)\.php$">
+    Require all denied
+</FilesMatch>
+
+############################################
 ## SEO: noindex utility URLs that Google has crawled despite being
 ## (previously) disallowed in robots.txt — currency-switcher session
 ## URLs and Magento's HTML seo_sitemap pages. The robots.txt block
