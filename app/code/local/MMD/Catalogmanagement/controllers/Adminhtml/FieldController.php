@@ -68,7 +68,8 @@ class MMD_Catalogmanagement_Adminhtml_FieldController extends Mage_Adminhtml_Con
                 $result = $this->_updateProductData($productId, $fields[$i], $values[$i]);
                 if (isset($result['success']))
                 {
-                    $responce .= "$('" . $tdKeys[$i] . "').innerHTML = '" . $result['value'] . "';";
+                    $jsHelper = Mage::helper('core');
+                    $responce .= "$('" . $jsHelper->jsQuoteEscape($tdKeys[$i]) . "').innerHTML = '" . $jsHelper->jsQuoteEscape($result['value']) . "';";
                 } elseif (isset($result['error']))
                 {
                     $errors[] = $result['message'];
@@ -152,10 +153,14 @@ class MMD_Catalogmanagement_Adminhtml_FieldController extends Mage_Adminhtml_Con
                                 if (   strpos($value, '+') != (strlen($value) - 1)  &&  strpos($value, '-') != (strlen($value) - 1)  )
                                 {
                                     $value = preg_replace('@[^0-9\.+-]@', '', $value);
-                                    try {
-                                        $toEval = '$value = ' . $value . ';';
-                                        eval($toEval);
-                                    } catch (Exception $e) {}
+                                    // Safe arithmetic — parse two operands and compute in PHP.
+                                    // Previously used eval() which is unjustified for arithmetic
+                                    // and a maintenance footgun if the strip regex is ever loosened.
+                                    if (preg_match('/^(-?\d+(?:\.\d+)?)\s*([+\-])\s*(-?\d+(?:\.\d+)?)$/', $value, $m)) {
+                                        $a = (float) $m[1];
+                                        $b = (float) $m[3];
+                                        $value = ($m[2] === '+') ? ($a + $b) : ($a - $b);
+                                    }
                                 }
                             }
                             $value = preg_replace('@[^-0-9\.]@', '', $value);

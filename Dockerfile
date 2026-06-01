@@ -1,4 +1,10 @@
-FROM php:8.2-apache
+# Pinned to a content digest so a Docker Hub tag mutation (intentional
+# update OR upstream supply-chain compromise of php:8.2-apache) can't
+# silently land a different base image in our prod build.
+# Update intentionally: docker pull php:8.2-apache &&
+# docker inspect --format='{{index .RepoDigests 0}}' php:8.2-apache
+# Current pin: php:8.2-apache as of 2026-06-01
+FROM php:8.2-apache@sha256:affc043fbd9acaa9a6394a71d162726fc0a6e4bea0400a3b94f925b6130858dd
 
 # Build trigger: 2026-05-22 (bumped to force COPY layer rebuild — Coolify
 # was reusing a stale image so migrations/112-backfill-course-image-url-from-r2.sql
