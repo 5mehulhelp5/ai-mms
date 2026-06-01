@@ -116,6 +116,44 @@ if ($_isWsq) {
                 p.parentNode.replaceChild(h3, p);
             }
         }
+
+        /* Legacy descriptions use <p>• …</p> (often wrapped in <em>) instead
+           of <ul><li>…</li></ul>, which bypasses the green-bullet card CSS.
+           Group consecutive bullet <p>s into a single <ul>, strip the leading
+           bullet glyph, and unwrap a surrounding <em>/<i> so the text isn't
+           italic. */
+        var BULLET_RE = /^\s*[•·●◦⁃∙]\s*/;
+        var children = Array.prototype.slice.call(std.children);
+        var run = null;
+        function flush() {
+            if (!run || run.items.length === 0) { run = null; return; }
+            var ul = document.createElement('ul');
+            for (var k = 0; k < run.items.length; k++) {
+                var li = document.createElement('li');
+                li.innerHTML = run.items[k];
+                ul.appendChild(li);
+            }
+            run.anchor.parentNode.insertBefore(ul, run.anchor);
+            for (var k = 0; k < run.nodes.length; k++) {
+                run.nodes[k].parentNode.removeChild(run.nodes[k]);
+            }
+            run = null;
+        }
+        for (var i = 0; i < children.length; i++) {
+            var node = children[i];
+            if (node.tagName !== 'P') { flush(); continue; }
+            var inner = node.innerHTML;
+            var unwrap = inner.match(/^\s*<(em|i)>([\s\S]*)<\/\1>\s*$/i);
+            if (unwrap) { inner = unwrap[2]; }
+            if (!BULLET_RE.test(node.textContent) && !BULLET_RE.test(inner)) {
+                flush(); continue;
+            }
+            inner = inner.replace(BULLET_RE, '');
+            if (!run) { run = { anchor: node, items: [], nodes: [] }; }
+            run.items.push(inner);
+            run.nodes.push(node);
+        }
+        flush();
     })();
     </script>
     <script type="text/javascript">

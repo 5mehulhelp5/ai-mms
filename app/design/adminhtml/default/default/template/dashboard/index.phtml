@@ -9818,7 +9818,13 @@ $_credMask = function ($v) {
             </div>
 
             <div class="crd-hint crd-hint-banner">
-                <span style="color:#65b7d5;display:inline-flex;vertical-align:-2px;margin-right:6px;"><?php echo $_icon('bulb', 14) ?></span>SMTP turns on automatically when Host + Username are filled. To <strong>disable</strong> this store, clear both fields and Save.
+                <span style="color:#65b7d5;display:inline-flex;vertical-align:-2px;margin-right:6px;"><?php echo $_icon('bulb', 14) ?></span>
+                <?php if ($_code === 'singapore'): ?>
+                    <strong>Singapore sends via Gmail OAuth (configured above) as the primary transport.</strong>
+                    These SMTP credentials are used <em>only as a fallback</em> if the OAuth path fails (token revoked, quota exceeded, Gmail API unreachable). Keep them filled so the fallback works — clearing them removes the safety net.
+                <?php else: ?>
+                    SMTP is the primary transport for this country and turns on automatically when Host + Username are filled. To <strong>disable</strong> this store, clear both fields and Save.
+                <?php endif; ?>
             </div>
 
             <div class="crd-row" style="flex-direction:row;align-items:center;gap:10px;margin-top:12px;">

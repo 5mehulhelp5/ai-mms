@@ -52,7 +52,34 @@
                 </connection>
             </default_setup>
         </resources>
-        <session_save><![CDATA[files]]></session_save>
+        <!-- Sessions on MySQL (core_session table) — Cm_RedisSession is
+             disabled due to a vendor-package interface mismatch (see
+             app/etc/modules/Cm_RedisSession.xml). Object cache still goes
+             to Redis via the <cache> block below. -->
+        <session_save><![CDATA[db]]></session_save>
+        <!-- Object cache (config, layout, blocks, EAV, collections) on Redis db 0.
+             Replaces the default file backend at var/cache. compress_data=1 trades
+             a little CPU for ~3-5x smaller memory footprint. automatic_cleaning_factor=0
+             because Redis evicts via maxmemory-policy=allkeys-lru in docker-compose. -->
+        <cache>
+            <backend>Cm_Cache_Backend_Redis</backend>
+            <backend_options>
+                <server>redis</server>
+                <port>6379</port>
+                <database>0</database>
+                <persistent></persistent>
+                <password></password>
+                <force_standalone>0</force_standalone>
+                <connect_retries>1</connect_retries>
+                <read_timeout>10</read_timeout>
+                <automatic_cleaning_factor>0</automatic_cleaning_factor>
+                <compress_data>1</compress_data>
+                <compress_tags>1</compress_tags>
+                <compress_threshold>20480</compress_threshold>
+                <compression_lib>gzip</compression_lib>
+                <use_lua>0</use_lua>
+            </backend_options>
+        </cache>
         <mmd_marketing>
             <api>
                 <anthropic_key><![CDATA[]]></anthropic_key>
