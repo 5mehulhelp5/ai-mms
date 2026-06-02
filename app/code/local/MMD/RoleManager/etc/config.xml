@@ -115,6 +115,21 @@
         </routers>
     </admin>
 
+    <!-- Public frontend route for trainer invitation accept/decline.
+         URL: /trainer_invite/respond?token=<hex>&action=accept|decline
+         No session or login required — token is the authentication. -->
+    <frontend>
+        <routers>
+            <mmd_rolemanager_trainer>
+                <use>standard</use>
+                <args>
+                    <module>MMD_RoleManager</module>
+                    <frontName>trainer_invite</frontName>
+                </args>
+            </mmd_rolemanager_trainer>
+        </routers>
+    </frontend>
+
     <adminhtml>
         <layout>
             <updates>
@@ -136,6 +151,14 @@
                 <schedule><cron_expr>* * * * *</cron_expr></schedule>
                 <run><model>mmd_rolemanager/cron_classFormation::run</model></run>
             </mmd_rolemanager_class_formation>
+            <!-- Trainer invitation auto-sweep — Mon & Thu at 10:00 SGT.
+                 Finds upcoming classes (within 30 days) with enrolled learners
+                 but no trainer and no pending invitation, then sends the next
+                 eligible trainer an invitation email. -->
+            <mmd_rolemanager_trainer_invitation>
+                <schedule><cron_expr>0 10 * * 1,4</cron_expr></schedule>
+                <run><model>mmd_rolemanager/cron_trainerInvitation::run</model></run>
+            </mmd_rolemanager_trainer_invitation>
         </jobs>
     </crontab>
 </config>

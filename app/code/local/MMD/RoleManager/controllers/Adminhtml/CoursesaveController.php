@@ -3242,4 +3242,88 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             ->setHeader('Content-Type', 'application/json', true)
             ->setBody(json_encode($resp));
     }
+
+    /**
+     * AJAX: send a trainer invitation for a class run.
+     *
+     * POST params:
+     *   run_id               (int, required)
+     *   trainer_name         (string, optional — admin override to invite a specific trainer)
+     *
+     * Returns JSON { success, message, trainer_name?, trainer_email? }
+     */
+    /**
+     * Toggle invitation_paused or invitation_replies_blocked on a course run.
+     *
+     * POST params:
+     *   run_id   (int, required)
+     *   flag     (string: invitation_paused | invitation_replies_blocked)
+     *   value    (0 | 1)
+     *
+     * Returns JSON { success, message, value }
+     */
+    public function updateInvitationFlagsAction()
+    {
+        $result = array('success' => false, 'message' => 'An error occurred.');
+        try {
+            if (!$this->getRequest()->isPost()) {
+                throw new Exception('POST required');
+            }
+            $this->_validateFormKey();
+
+            $runId = (int)    $this->getRequest()->getParam('run_id');
+            $flag  = (string) $this->getRequest()->getParam('flag');
+            $value = (int)    $this->getRequest()->getParam('value');
+
+            if (!$runId) {
+                throw new Exception('run_id is required');
+            }
+            $allowed = array('invitation_paused', 'invitation_replies_blocked');
+            if (!in_array($flag, $allowed, true)) {
+                throw new Exception('Invalid flag');
+            }
+
+            $resource = Mage::getSingleton('core/resource');
+            $write    = $resource->getConnection('core_write');
+            $write->update(
+                $resource->getTableName('course_runs'),
+                array($flag => $value ? 1 : 0),
+                array('run_id = ?' => $runId)
+            );
+
+            $result = array('success' => true, 'message' => 'Updated.', 'value' => $value ? 1 : 0);
+        } catch (Exception $e) {
+            $result = array('success' => false, 'message' => $e->getMessage());
+        }
+        $this->getResponse()
+            ->setHeader('Content-Type', 'application/json', true)
+            ->setBody(json_encode($result));
+    }
+
+    public function sendTrainerInvitationAction()
+    {
+        $result = array('success' => false, 'message' => 'An error occurred.');
+        try {
+            if (!$this->getRequest()->isPost()) {
+                throw new Exception('POST required');
+            }
+            $this->_validateFormKey();
+
+            $runId        = (int)    $this->getRequest()->getParam('run_id');
+            $trainerName  = (string) $this->getRequest()->getParam('trainer_name', '');
+            if (!$runId) {
+                throw new Exception('run_id is required');
+            }
+
+            /** @var MMD_RoleManager_Model_TrainerInvitationService $svc */
+            $svc    = Mage::getModel('mmd_rolemanager/trainerInvitationService');
+            $result = $svc->sendNextInvitation($runId, $trainerName);
+
+        } catch (Exception $e) {
+            $result = array('success' => false, 'message' => $e->getMessage());
+        }
+        $this->getResponse()
+            ->setHeader('Content-Type', 'application/json', true)
+            ->setBody(json_encode($result));
+    }
 }

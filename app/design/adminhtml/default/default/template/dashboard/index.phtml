@@ -11195,6 +11195,22 @@ window.atOpenTrainerModal = function(btn) {
     tr.parentNode.insertBefore(atmRow, tr.nextSibling);
     atmRow.style.display = '';
     atmRender();
+
+    // Populate invite trainer dropdown from the current product's trainer list.
+    var invSel = document.getElementById('atm-invite-sel');
+    if (invSel) {
+        invSel.innerHTML = '<option value="">— Next in queue —</option>';
+        for (var k = 0; k < list.length; k++) {
+            if (list[k].oid > 0) {
+                var opt = document.createElement('option');
+                opt.value = list[k].name;
+                opt.textContent = list[k].name;
+                invSel.appendChild(opt);
+            }
+        }
+        invSel.value = '';
+        atmUpdateInviteBtn();
+    }
 };
 
 window.atmClose = function() {
@@ -11494,10 +11510,74 @@ window.atmRecomputeKpis = function() {
                 <button type="button" class="atm-btn atm-btn-ghost" onclick="atmClose()">Cancel</button>
                 <button type="button" id="atm-save-btn" class="atm-btn atm-btn-primary" onclick="atmSave()">Save</button>
             </div>
+            <div style="margin-top:18px;padding-top:14px;border-top:1px solid #1e293b;">
+                <p style="color:#64748b;font-size:12px;margin:0 0 10px;">Or send an email invitation to a trainer:</p>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <select id="atm-invite-sel"
+                            onchange="atmUpdateInviteBtn()"
+                            style="background:#0f172a;color:#cbd5e1;border:1px solid #334155;border-radius:6px;padding:5px 8px;font-size:12px;max-width:190px;">
+                        <option value="">— Next in queue —</option>
+                    </select>
+                    <button type="button" id="atm-invite-btn" class="atm-btn" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3);" onclick="atmSendInvitation()">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                        <span id="atm-invite-btn-label">Send Invitation</span>
+                    </button>
+                    <span id="atm-invite-status" style="font-size:12px;color:#64748b;"></span>
+                </div>
+            </div>
         </div>
     </td>
 </tr></tbody></table>
 </div><!-- end dash-panel-assigntrainer -->
+<script type="text/javascript">
+window.atmUpdateInviteBtn = function() {
+    var sel = document.getElementById('atm-invite-sel');
+    var lbl = document.getElementById('atm-invite-btn-label');
+    if (!sel || !lbl) return;
+    var firstName = sel.value ? sel.value.split(' ')[0] : '';
+    lbl.textContent = firstName ? ('Invite: ' + firstName + '…') : 'Send Invitation';
+};
+
+window.atmSendInvitation = function() {
+    var st = window._atmState;
+    if (!st.runId) { alert('No class selected.'); return; }
+    var btn      = document.getElementById('atm-invite-btn');
+    var lbl      = document.getElementById('atm-invite-btn-label');
+    var statusEl = document.getElementById('atm-invite-status');
+    var sel      = document.getElementById('atm-invite-sel');
+    var trainerName = sel ? sel.value : '';
+    btn.disabled = true;
+    if (lbl) lbl.textContent = 'Sending…';
+    statusEl.textContent = '';
+    var fd = new FormData();
+    fd.append('run_id', st.runId);
+    fd.append('trainer_name', trainerName);
+    fd.append('form_key', window.FORM_KEY || '');
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/sendTrainerInvitation') ?>', {
+        method: 'POST',
+        body: fd,
+        credentials: 'same-origin'
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+        btn.disabled = false;
+        atmUpdateInviteBtn();
+        if (d.success) {
+            statusEl.style.color = '#10b981';
+            statusEl.textContent = '✓ ' + (d.message || 'Invitation sent.');
+        } else {
+            statusEl.style.color = '#f87171';
+            statusEl.textContent = '✗ ' + (d.message || 'Failed to send.');
+        }
+    })
+    .catch(function() {
+        btn.disabled = false;
+        atmUpdateInviteBtn();
+        statusEl.style.color = '#f87171';
+        statusEl.textContent = '✗ Network error.';
+    });
+};
+</script>
 
 <?php /* ===== PANEL: Assign Learners (Admin only) ===== */ ?>
 <?php
