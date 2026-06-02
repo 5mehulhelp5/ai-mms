@@ -3323,6 +3323,44 @@ body.adminhtml-cache-index .admin-main table.form-list td button.scalable:hover 
     background-image: var(--btn-primary-hover) !important;
 }
 
+/* Cache Management — light-mode contrast. The dark-mode palette uses
+   sky-300 headers (#7dd3fc) and slate-300 body text (#cbd5e1) which
+   both wash out against the slate-200 light card. Flip everything
+   table-text-related to slate-900 + a deeper sky header so the
+   Configuration / Layouts / Blocks HTML rows are readable. The
+   "ADDITIONAL CACHE MANAGEMENT" section + h3 sub-headers + form-list
+   row labels (Catalog Images Cache etc.) get the same treatment. */
+:root[data-theme="light"] body.adminhtml-cache-index .admin-main .grid th,
+:root[data-theme="light"] body.adminhtml-cache-index .admin-main .grid tr.headings th {
+    color: #0369a1 !important;
+}
+:root[data-theme="light"] body.adminhtml-cache-index .admin-main .grid td,
+:root[data-theme="light"] body.adminhtml-cache-index .admin-main .grid tbody tr td,
+:root[data-theme="light"] body.adminhtml-cache-index .admin-main .grid tbody tr:nth-child(even) td,
+:root[data-theme="light"] body.adminhtml-cache-index .admin-main .grid tbody tr:nth-child(odd) td {
+    color: #0f172a !important;
+}
+:root[data-theme="light"] body.adminhtml-cache-index .admin-main h3,
+:root[data-theme="light"] body.adminhtml-cache-index .admin-main .content-header h3,
+:root[data-theme="light"] body.adminhtml-cache-index .admin-main table.form-list td,
+:root[data-theme="light"] body.adminhtml-cache-index .admin-main table.form-list label {
+    color: #0f172a !important;
+}
+
+/* Index Management — light-mode contrast. Same problem as Cache —
+   sky-300 header + slate-300 body colors wash out on the light card.
+   Flip headers to sky-700 and body cells to slate-900. */
+:root[data-theme="light"] body.adminhtml-process-list .admin-main .grid th,
+:root[data-theme="light"] body.adminhtml-process-list .admin-main .grid tr.headings th {
+    color: #0369a1 !important;
+}
+:root[data-theme="light"] body.adminhtml-process-list .admin-main .grid td,
+:root[data-theme="light"] body.adminhtml-process-list .admin-main .grid tbody tr td,
+:root[data-theme="light"] body.adminhtml-process-list .admin-main .grid tbody tr:nth-child(even) td,
+:root[data-theme="light"] body.adminhtml-process-list .admin-main .grid tbody tr:nth-child(odd) td {
+    color: #0f172a !important;
+}
+
 /* === 25. Index Management — same compact treatment as Cache === */
 /* sidebar-nav-v2.js skips #indexer_processes_grid_table for KPI cards,
    per-row Actions injection and checkbox-column hiding. These rules
