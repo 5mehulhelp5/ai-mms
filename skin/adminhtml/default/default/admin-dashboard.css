@@ -2818,6 +2818,27 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .mn-head { background:#e2e8f0 !important; border-color:#64748b !important }
 :root[data-theme="light"] .mn-card h3 { color:#0f172a !important }
 
+/* Drafts list row — outer .mn-card is already flipped above, but the
+   inner .mn-draft row hardcodes #0f172a (dark fill) + #fff title.
+   Flip the row surface to white with a slate hairline, title text to
+   slate-900, body text to slate-700, meta to slate-600. Hover gets a
+   stronger slate border; active state keeps the blue accent. */
+:root[data-theme="light"] .mn-draft { background:#ffffff !important; border-color:#cbd5e1 !important }
+:root[data-theme="light"] .mn-draft:hover { border-color:#94a3b8 !important }
+:root[data-theme="light"] .mn-draft.active { background:rgba(37,99,235,0.10) !important; border-color:#2563eb !important }
+:root[data-theme="light"] .mn-draft-title { color:#0f172a !important }
+:root[data-theme="light"] .mn-draft-meta { color:#64748b !important }
+:root[data-theme="light"] button.mn-draft-body,
+:root[data-theme="light"] button.mn-draft-body:hover,
+:root[data-theme="light"] button.mn-draft-body:focus { color:#334155 !important }
+:root[data-theme="light"] button.mn-draft-body:hover { background:#f1f5f9 !important }
+:root[data-theme="light"] button.mn-draft-edit,
+:root[data-theme="light"] button.mn-draft-edit:hover,
+:root[data-theme="light"] button.mn-draft-edit:focus { color:#64748b !important; border-left-color:#cbd5e1 !important }
+:root[data-theme="light"] button.mn-draft-del,
+:root[data-theme="light"] button.mn-draft-del:hover,
+:root[data-theme="light"] button.mn-draft-del:focus { color:#64748b !important; border-left-color:#cbd5e1 !important }
+
 /* Template picker buttons */
 :root[data-theme="light"] button.mn-tpl,
 :root[data-theme="light"] button.mn-tpl:hover,
