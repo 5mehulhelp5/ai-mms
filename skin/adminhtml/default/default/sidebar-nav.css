@@ -2673,6 +2673,23 @@ button.user-avatar-btn:hover,
     border: 0;
     padding: 0;
 }
+/* Profile photo inside the avatar button. .has-photo drops the inner
+   gray background (the photo fills the circle) and the img is sized to
+   cover with object-fit so non-square uploads crop nicely instead of
+   distorting. */
+button.user-avatar-btn.has-photo,
+.header-top button.user-avatar-btn.has-photo {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+.user-avatar-btn .user-avatar-img {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    border-radius: 50% !important;
+    flex-shrink: 0 !important;
+}
 
 /* Separate date/time block next to avatar */
 .header-datetime {

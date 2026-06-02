@@ -31,6 +31,15 @@ $userName = $this->escapeHtml($this->getUser()->getEmail());
 $currentDate = date('D d M');
 $currentTime = date('h:i A');
 
+// Profile picture for the top-right avatar button. Same column +
+// directory layout used by the My Profile page
+// (template/system/account/profile.phtml). Empty / NULL → fall back
+// to the generic SVG silhouette already inline below.
+$_profileImage = (string) $this->getUser()->getData('profile_image');
+$_profileImageUrl = $_profileImage
+    ? Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_MEDIA) . 'admin/profile/' . $_profileImage
+    : '';
+
 $helper = Mage::helper('mmd_rolemanager');
 $activeRole = $helper->getActiveRoleCode();
 $activeRoleLabel = $helper->getRoleLabel($activeRole);
@@ -227,8 +236,12 @@ $roleIcons = array(
         <?php endif; ?>
 
         <div class="user-menu" id="user-menu">
-            <button type="button" class="user-avatar-btn" onclick="document.getElementById('user-menu').classList.toggle('open')" title="<?php echo $userName ?>">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            <button type="button" class="user-avatar-btn<?php echo $_profileImageUrl ? ' has-photo' : '' ?>" onclick="document.getElementById('user-menu').classList.toggle('open')" title="<?php echo $userName ?>">
+                <?php if ($_profileImageUrl): ?>
+                    <img src="<?php echo $this->escapeHtml($_profileImageUrl) ?>" alt="" class="user-avatar-img" onerror="this.parentNode.classList.remove('has-photo'); this.outerHTML='&lt;svg width=&quot;22&quot; height=&quot;22&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;currentColor&quot;&gt;&lt;path d=&quot;M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z&quot;/&gt;&lt;/svg&gt;'" />
+                <?php else: ?>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                <?php endif; ?>
             </button>
             <div class="user-menu-dropdown">
                 <a href="<?php echo $this->getUrl('adminhtml/system_account/') ?>" class="user-menu-item">
