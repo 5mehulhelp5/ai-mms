@@ -1498,6 +1498,18 @@ img[src*="rss"],
     font-size: 11px !important;
     border-radius: 5px !important;
 }
+/* Light-mode massaction selects (Actions / Status / per-page) — the
+   §20 transparent rule loses to the browser's native dark-widget
+   rendering when the user's OS is in dark mode, so the closed select
+   reads as dark-on-dark. Force a white fill + slate border + slate-900
+   text so the chosen value is visible regardless of OS theme. */
+:root[data-theme="light"] .admin-main .massaction select,
+:root[data-theme="light"] .admin-main select.scalable,
+:root[data-theme="light"] .admin-main .pager select {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+}
 /* Mass-action Submit — ONE canonical rule for every grid, every page.
    Specificity is bumped with `body` qualifier and an attribute selector
    so it unambiguously beats dark-theme.css §10's body-scoped button
