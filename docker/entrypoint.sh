@@ -246,4 +246,23 @@ done
     echo "entrypoint: CSS/JS merge bundles warmed"
 ) &
 
+# Localhost-only Magento cron loop. Production uses Coolify's scheduled
+# tasks (cron.php is fired externally), so this in-container loop is
+# gated on LOCAL_DB_MODE=1 — set by docker-compose.yml for local dev.
+# Fires cron.php every 60s; logs to var/log/cron.log so it doesn't spam
+# the entrypoint output. Background subshell so apache2-foreground can
+# still take over PID 1.
+if [ "${LOCAL_DB_MODE:-0}" = "1" ] && [ -f /var/www/html/cron.php ]; then
+    (
+        # Give Apache + DB a moment to settle before the first tick.
+        sleep 20
+        while true; do
+            su -s /bin/sh www-data -c "php /var/www/html/cron.php" \
+                >> /var/www/html/var/log/cron.log 2>&1 || true
+            sleep 60
+        done
+    ) &
+    echo "entrypoint: started local cron loop (60s interval, runs as www-data)"
+fi
+
 exec apache2-foreground

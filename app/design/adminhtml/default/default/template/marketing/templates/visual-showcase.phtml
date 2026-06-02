@@ -205,7 +205,7 @@ $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); 
 <div class="vs-hero-sub" style="margin-top:24px;font-size:18px;line-height:1.45;color:#ffffff;opacity:0.95;max-width:440px;text-shadow:0 1px 6px rgba(0,0,0,0.4);"><?php echo $h($tagline); ?></div>
 <?php endif; ?>
 <div class="vs-hero-cta" style="margin-top:36px;">
-<a href="<?php echo $h($courseUrl); ?>" style="display:inline-block;background:<?php echo $h($yellow); ?>;color:<?php echo $h($onYellow); ?>;font-size:13px;font-weight:900;letter-spacing:3px;padding:16px 32px;text-decoration:none;border-radius:0;text-transform:uppercase;"><?php echo $h($ctaLabel); ?> &rarr;</a>
+<a href="<?php echo $h($courseUrl); ?>" target="_blank" rel="noopener" style="display:inline-block;background:<?php echo $h($yellow); ?>;color:<?php echo $h($onYellow); ?>;font-size:13px;font-weight:900;letter-spacing:3px;padding:16px 32px;text-decoration:none;border-radius:0;text-transform:uppercase;"><?php echo $h($ctaLabel); ?> &rarr;</a>
 </div>
 </td></tr>
 </table>
@@ -340,7 +340,7 @@ $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); 
 <tr><td align="center" class="vs-cta-pad" style="padding:64px 48px;color:#ffffff;">
 <div style="font-family:Georgia,'Times New Roman',serif;font-size:14px;font-style:italic;color:<?php echo $h($yellow); ?>;letter-spacing:3px;text-transform:uppercase;margin-bottom:18px;">Take the next step</div>
 <div class="vs-cta-head" style="font-size:34px;font-weight:900;line-height:1.15;color:#ffffff;letter-spacing:-0.8px;max-width:480px;margin:0 auto 32px auto;text-shadow:0 2px 8px rgba(0,0,0,0.4);">Ready to start? Your seat is waiting.</div>
-<a href="<?php echo $h($courseUrl); ?>" style="display:inline-block;background:<?php echo $h($yellow); ?>;color:<?php echo $h($onYellow); ?>;font-size:14px;font-weight:900;letter-spacing:3px;padding:20px 48px;text-decoration:none;text-transform:uppercase;box-shadow:0 8px 24px rgba(0,0,0,0.3);"><?php echo $h($ctaLabel); ?> NOW &rarr;</a>
+<a href="<?php echo $h($courseUrl); ?>" target="_blank" rel="noopener" style="display:inline-block;background:<?php echo $h($yellow); ?>;color:<?php echo $h($onYellow); ?>;font-size:14px;font-weight:900;letter-spacing:3px;padding:20px 48px;text-decoration:none;text-transform:uppercase;box-shadow:0 8px 24px rgba(0,0,0,0.3);"><?php echo $h($ctaLabel); ?> NOW &rarr;</a>
 <?php if ($courseDates): ?>
 <div style="margin-top:24px;font-size:12px;color:rgba(255,255,255,0.8);letter-spacing:2px;text-transform:uppercase;">Next intake: <?php echo $courseDates; ?></div>
 <?php endif; ?>

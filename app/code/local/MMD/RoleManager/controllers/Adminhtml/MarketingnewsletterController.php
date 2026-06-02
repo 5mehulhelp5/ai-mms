@@ -2261,6 +2261,117 @@ class MMD_RoleManager_Adminhtml_MarketingnewsletterController extends Mage_Admin
         return $campaignId;
     }
 
+    /**
+     * Save the auto-newsletter schedule (day_of_week / hour /
+     * send_delay_hours / enabled) into core_config_data. Writes back
+     * the same five paths the AutoNewsletter cron reads.
+     *
+     * country_code is fixed at SG for v1 — the marketing UI can't
+     * change which country the cron fires for (yet). When MY/GH/NG/BT/IN
+     * are added, expose that knob too.
+     */
+    public function saveScheduleAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $req = $this->getRequest();
+
+            $enabled = ((int) $req->getParam('enabled')) === 1 ? 1 : 0;
+            $day     = max(1, min(7,  (int) $req->getParam('day_of_week', 1)));
+            $hour    = max(0, min(23, (int) $req->getParam('hour', 9)));
+            $delay   = max(1, min(168,(int) $req->getParam('send_delay_hours', 4)));
+
+            $cfg = Mage::getConfig();
+            $cfg->saveConfig('mmd_marketing/auto_newsletter/enabled',          (string) $enabled);
+            $cfg->saveConfig('mmd_marketing/auto_newsletter/day_of_week',      (string) $day);
+            $cfg->saveConfig('mmd_marketing/auto_newsletter/hour',             (string) $hour);
+            $cfg->saveConfig('mmd_marketing/auto_newsletter/send_delay_hours', (string) $delay);
+            // Reinit so the value Mage::getStoreConfig() returns next call is fresh.
+            $cfg->reinit();
+            Mage::app()->getCacheInstance()->cleanType('config');
+
+            $result['success'] = true;
+            $result['saved']   = array(
+                'enabled'          => $enabled,
+                'day_of_week'      => $day,
+                'hour'             => $hour,
+                'send_delay_hours' => $delay,
+            );
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        return $this->_json($result);
+    }
+
+    /**
+     * Manually fire the AutoNewsletter cron — bypasses the day-of-week +
+     * hour gate so you can verify the full course-pick → Claude → MailerLite
+     * → schedule pipeline without waiting for the actual Monday 9 AM window.
+     *
+     * Wired by the "Fire scheduler now" button in the Marketing dashboard's
+     * Campaigns card.
+     */
+    public function fireScheduledNowAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $cron = Mage::getModel('mmd_marketing/cron_autoNewsletter');
+            if (!is_object($cron)) throw new Exception('AutoNewsletter model not loadable');
+            $newsletterId = $cron->run(true);
+            $result['success']       = true;
+            $result['newsletter_id'] = (int) $newsletterId;
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        return $this->_json($result);
+    }
+
+    /**
+     * Bulk-refresh MailerLite analytics for every newsletter row in the
+     * admin's country that has a mailerlite_id from the last 30 days.
+     * Writes the cached open/click rate back to the DB so the dashboard
+     * renders fast.
+     */
+    public function refreshAnalyticsAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $cc = $this->_currentCountry();
+            $helper = Mage::helper('mmd_marketing/mailerlite');
+            $helper->clearAnalyticsCache();
+
+            $rows = $this->_db('read')->fetchAll(
+                "SELECT newsletter_id, mailerlite_id FROM " . $this->_tbl()
+              . " WHERE country_code = ? AND mailerlite_id IS NOT NULL AND mailerlite_id <> ''"
+              . "   AND mailerlite_id NOT LIKE 'STUB-%'"
+              . "   AND created_at > NOW() - INTERVAL 30 DAY",
+                array($cc)
+            );
+            $synced = 0;
+            foreach ($rows as $row) {
+                $stats = $helper->getCampaignAnalytics($row['mailerlite_id']);
+                if (!$stats) continue;
+                $this->_db('write')->update($this->_tbl(), array(
+                    'analytics_opens'      => $stats['opens'],
+                    'analytics_clicks'     => $stats['clicks'],
+                    'analytics_open_rate'  => $stats['open_rate'],
+                    'analytics_click_rate' => $stats['click_rate'],
+                    'analytics_synced_at'  => date('Y-m-d H:i:s'),
+                ), array('newsletter_id = ?' => (int) $row['newsletter_id']));
+                $synced++;
+            }
+            $result['success'] = true;
+            $result['synced']  = $synced;
+            $result['total']   = count($rows);
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        return $this->_json($result);
+    }
+
     protected function _isAllowed()
     {
         return Mage::helper('mmd_rolemanager')->isRoleAllowed(array('marketing', 'admin', 'developer'));

@@ -325,7 +325,7 @@ $cardColors = array($palette['accent'], $palette['sub'], $palette['primary'], $p
     <?php ob_start(); ?>
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
         <tr><td align="center" style="padding-top:6px;">
-          <a href="<?php echo htmlspecialchars($ctaUrl) ?>" style="text-decoration:none;display:inline-block;">
+          <a href="<?php echo htmlspecialchars($ctaUrl) ?>" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;">
             <img src="<?php echo htmlspecialchars($qrUrl) ?>" alt="Scan to register" width="150" height="150" style="display:block;border:0;outline:none;text-decoration:none;background:#ffffff;border:6px solid #ffffff;border-radius:6px;">
           </a>
           <div style="margin-top:6px;font-size:11px;color:<?php echo $palette['dark'] ?>;letter-spacing:.5px;text-transform:uppercase;font-weight:700;">Scan to register</div>
@@ -385,7 +385,7 @@ $cardColors = array($palette['accent'], $palette['sub'], $palette['primary'], $p
           Elevate Your Leadership Skills<br>With Us Today!
         </td>
         <td valign="middle" align="right" width="160" class="mn-cta-cell">
-          <a href="<?php echo htmlspecialchars($ctaUrl) ?>" class="mn-cta-button" style="display:inline-block;background:<?php echo $palette['yellow'] ?>;color:#1a1a1a;text-decoration:none;font-size:14px;font-weight:900;padding:13px 32px;border-radius:26px;letter-spacing:.6px;">
+          <a href="<?php echo htmlspecialchars($ctaUrl) ?>" target="_blank" rel="noopener" class="mn-cta-button" style="display:inline-block;background:<?php echo $palette['yellow'] ?>;color:#1a1a1a;text-decoration:none;font-size:14px;font-weight:900;padding:13px 32px;border-radius:26px;letter-spacing:.6px;">
             <?php echo htmlspecialchars($v('cta_label') ?: 'REGISTER') ?>
           </a>
         </td>

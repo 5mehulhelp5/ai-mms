@@ -46,5 +46,18 @@
                 <class>MMD_Marketing_Block</class>
             </mmd_marketing>
         </blocks>
+        <models>
+            <mmd_marketing>
+                <class>MMD_Marketing_Model</class>
+            </mmd_marketing>
+        </models>
     </global>
+    <crontab>
+        <jobs>
+            <mmd_marketing_auto_newsletter>
+                <schedule><cron_expr>*/5 * * * *</cron_expr></schedule>
+                <run><model>mmd_marketing/cron_autoNewsletter::run</model></run>
+            </mmd_marketing_auto_newsletter>
+        </jobs>
+    </crontab>
 </config>
