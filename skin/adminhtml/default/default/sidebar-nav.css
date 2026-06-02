@@ -3550,6 +3550,33 @@ body.adminhtml-process-list .admin-main .massaction label {
     letter-spacing: 0.4px !important;
     margin: 0 !important;
 }
+/* ACTION column action-select dropdown — the row-level "Reindex Data"
+   widget. Magento renders it as <select class="action-select"> with a
+   placeholder option (which is what was showing as the "strange box"
+   next to each row). Strip the select chrome so it reads as a clean
+   link. */
+body.adminhtml-process-list .admin-main .grid td .action-select,
+body.adminhtml-process-list .admin-main .grid td select.action-select {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    color: var(--brand-2, #60a5fa) !important;
+    font: 600 12px/1.4 ui-sans-serif, system-ui, sans-serif !important;
+    cursor: pointer !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+}
+body.adminhtml-process-list .admin-main .grid td .action-select:hover {
+    color: #93c5fd !important;
+    text-decoration: underline !important;
+}
+/* Hide the empty placeholder option that ships as the first <option>. */
+body.adminhtml-process-list .admin-main .grid td .action-select option[value=""] {
+    display: none !important;
+}
+
 body.adminhtml-process-list .admin-main .massaction select {
     min-height: 24px !important;
     height: 24px !important;

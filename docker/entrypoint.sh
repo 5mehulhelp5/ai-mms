@@ -250,6 +250,13 @@ su -s /bin/sh www-data -c "php /var/www/html/shell/indexer.php --reindex catalog
 # Script is idempotent — on a flat DB it skips every category. Gated by a
 # sentinel so we don't pay the ~30s scan on every restart; delete the file
 # to force a re-run.
+# One-shot cleanup of unused media folders (dhl, downloadable, providers,
+# trainers, infortis, MagentoCaptcha, xmlconnect). Idempotent — skips
+# missing folders, gated by var/.cleaned-unused-media-2026-06-02 sentinel.
+# bankpayment is NOT touched (customer payment proofs).
+bash /var/www/html/scripts/maintenance/cleanup-unused-media.sh \
+    || echo "entrypoint: WARNING — unused-media cleanup errored (non-fatal)"
+
 # Fix the -1 collision suffix bug introduced by the first force-flatten run.
 # Runs on every boot until manually disabled — idempotent (no-op on clean DB).
 echo "entrypoint: fixing -N collision suffix on category canonical rewrites..."

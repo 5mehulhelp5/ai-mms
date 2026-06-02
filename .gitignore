@@ -130,3 +130,6 @@ skin/frontend/base/default/hitpay/css/
 
 # Windows null-device artifact
 /nul
+
+# Magento backup files — never push (large, may contain credentials/PII)
+.magento/
