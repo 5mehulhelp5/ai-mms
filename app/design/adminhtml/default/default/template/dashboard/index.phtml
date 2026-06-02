@@ -13847,7 +13847,15 @@ document.addEventListener('keydown', function (ev) {
             'Trainer':           'dash-panel-learner',
             'Developer':         'dash-panel-developer'
         };
-        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting','dash-panel-cp-coursedetails','dash-panel-cp-aboutcourse','dash-panel-cp-whatlearn','dash-panel-cp-bgparta','dash-panel-cp-bgpartb','dash-panel-cp-learningoutcomes','dash-panel-cp-instructmethods','dash-panel-cp-assessmethods','dash-panel-cp-lusequencing','dash-panel-cp-courseoutline','dash-panel-cp-entryreq','dash-panel-cp-jobroles','dash-panel-cp-lessonplan','dash-panel-cp-cpvalidation','dash-panel-api_summary','dash-panel-credentials'];
+        // Includes BOTH the developer-role panels (course-detail / -edit
+        // / -cp-*) AND the admin-role sub-panels (trainers / createclass
+        // / assigntrainer / assignlearner / enrolllearner / marketing-
+        // newsletter). When an admin user navigates from Assign Trainer
+        // to Manage Courses, this hide-loop fires; without the admin
+        // sub-panels listed here, the previously-visible
+        // dash-panel-assigntrainer stays display:block and stacks at
+        // the bottom of the Course Manager view.
+        var all = ['dash-panel-admin','dash-panel-superadmin','dash-panel-developer','dash-panel-learner','dash-panel-billing','dash-panel-edtools','dash-panel-problemsolving','dash-panel-dataanalytics','dash-panel-finance','dash-panel-statistical','dash-panel-doe','dash-panel-spc','dash-panel-sustainability','dash-panel-blockchain','dash-panel-genai','dash-panel-agentic','dash-panel-virtual','dash-panel-course-detail','dash-panel-course-edit','dash-panel-companysetting','dash-panel-cp-coursedetails','dash-panel-cp-aboutcourse','dash-panel-cp-whatlearn','dash-panel-cp-bgparta','dash-panel-cp-bgpartb','dash-panel-cp-learningoutcomes','dash-panel-cp-instructmethods','dash-panel-cp-assessmethods','dash-panel-cp-lusequencing','dash-panel-cp-courseoutline','dash-panel-cp-entryreq','dash-panel-cp-jobroles','dash-panel-cp-lessonplan','dash-panel-cp-cpvalidation','dash-panel-api_summary','dash-panel-credentials','dash-panel-trainers','dash-panel-createclass','dash-panel-assigntrainer','dash-panel-assignlearner','dash-panel-enrolllearner','dash-panel-marketing-newsletter'];
         for (var i=0; i<all.length; i++) {
             var el = document.getElementById(all[i]);
             if (el) el.style.display = 'none';
