@@ -233,15 +233,15 @@ done
 # so trigger it here, once per volume. Sentinel lives on the Coolify volume
 # at var/.reindexed-flat-urls — delete the file to force a re-run on next
 # boot (e.g. after a category-tree change that needs URL regeneration).
-REINDEX_MARKER=/var/www/html/var/.reindexed-flat-urls
-if [ ! -f "$REINDEX_MARKER" ]; then
-    echo "entrypoint: first-run reindex of catalog_url + catalog_category_flat (MMD_FlatCategoryUrl)..."
-    su -s /bin/sh www-data -c "php /var/www/html/shell/indexer.php --reindex catalog_url,catalog_category_flat" 2>&1 \
-        && touch "$REINDEX_MARKER" \
-        && chown www-data:www-data "$REINDEX_MARKER" \
-        && echo "entrypoint: flat-URL reindex complete" \
-        || echo "entrypoint: WARNING — flat-URL reindex failed (non-fatal, container continues)"
-fi
+# Flat-URL reindex. Marker is INTENTIONALLY ignored for now because prod's
+# first-run marker may have been created by a botched reindex (module not
+# loaded yet / stale config cache) — re-runs are cheap (~60s) and produce
+# the only correct output we have. Reinstate the marker gate once prod is
+# stable and verified flat.
+echo "entrypoint: reindexing catalog_url + catalog_category_flat (MMD_FlatCategoryUrl)..."
+su -s /bin/sh www-data -c "php /var/www/html/shell/indexer.php --reindex catalog_url,catalog_category_flat" 2>&1 \
+    && echo "entrypoint: flat-URL reindex complete" \
+    || echo "entrypoint: WARNING — flat-URL reindex failed (non-fatal, container continues)"
 
 # Always run the flat-URL diagnostic dumper so /media/flat-url-debug.json is
 # fresh on every boot. Public read; reports module-active, runtime URL class,
