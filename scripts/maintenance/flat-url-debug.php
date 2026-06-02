@@ -37,10 +37,22 @@ try {
     );
 
     $urlPaths = [];
+    $urlKeys = [];
+    $overrideOutput = [];
     foreach ([1, 2, 3, 4, 5, 6, 7] as $sid) {
         try {
             $cat = Mage::getModel('catalog/category')->setStoreId($sid)->load($catId);
             $urlPaths[$sid] = $cat->getId() ? (string) $cat->getUrlPath() : null;
+            $urlKeys[$sid]  = $cat->getId() ? (string) $cat->getUrlKey() : null;
+            // Directly call the override method to see what it WOULD produce
+            // during a reindex right now. Bypass _rewrites cache by clearing it.
+            if ($cat->getId()) {
+                $urlModel = Mage::getModel('catalog/url');
+                // The indexer normally calls this with parentPath set; pass null
+                // so it falls back to getResource()->getCategoryParentPath().
+                $cat->setStoreId($sid);
+                $overrideOutput[$sid] = $urlModel->getCategoryRequestPath($cat, null);
+            }
         } catch (Throwable $e) {
             $urlPaths[$sid] = 'ERR: ' . $e->getMessage();
         }

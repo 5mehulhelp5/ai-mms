@@ -243,6 +243,25 @@ su -s /bin/sh www-data -c "php /var/www/html/shell/indexer.php --reindex catalog
     && echo "entrypoint: flat-URL reindex complete" \
     || echo "entrypoint: WARNING — flat-URL reindex failed (non-fatal, container continues)"
 
+# Force-flatten every category URL using MMD_FlatCategoryUrl directly. This
+# runs INDEPENDENT of the catalog_url indexer because on prod the indexer
+# silently produced deep paths (OPcache + autoload race during the very first
+# reindex post-deploy meant our class fell back to stock Mage_Catalog_Model_Url).
+# Script is idempotent — on a flat DB it skips every category. Gated by a
+# sentinel so we don't pay the ~30s scan on every restart; delete the file
+# to force a re-run.
+FLATTEN_MARKER=/var/www/html/var/.force-flattened-category-urls
+if [ ! -f "$FLATTEN_MARKER" ]; then
+    echo "entrypoint: force-flatten category URLs (one-shot)..."
+    if php /var/www/html/scripts/maintenance/force-flatten-category-urls.php; then
+        touch "$FLATTEN_MARKER"
+        chown www-data:www-data "$FLATTEN_MARKER"
+        echo "entrypoint: force-flatten complete"
+    else
+        echo "entrypoint: WARNING — force-flatten failed (non-fatal, container continues)"
+    fi
+fi
+
 # Always run the flat-URL diagnostic dumper so /media/flat-url-debug.json is
 # fresh on every boot. Public read; reports module-active, runtime URL class,
 # rewrite rows + url_path for category 196. Lets us debug remote prod state
