@@ -3165,8 +3165,21 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .at-table tbody tr:hover { background:rgba(37,99,235,0.05) !important }
 :root[data-theme="light"] .at-course-code { color:#1e293b !important }
 :root[data-theme="light"] .at-trainer-empty { color:#64748b !important }
-/* Trainer pills + action buttons (edit/assign) already use semantic
-   blue/green tints — read fine on both themes */
+/* Status badges, trainer pills, and Edit/Assign action buttons all
+   use 300-weight pastel text on a 15% tinted bg — fine on dark slate
+   but washed out on the light card. Deepen the text to the 700/800
+   shade of the same hue and bump the bg tint a touch so they still
+   read as colored chips, not bare text. */
+:root[data-theme="light"] .at-badge-confirmed { background:rgba(34,197,94,.18) !important; color:#15803d !important; border-color:rgba(21,128,61,.45) !important }
+:root[data-theme="light"] .at-badge-pending   { background:rgba(245,158,11,.18) !important; color:#b45309 !important; border-color:rgba(180,83,9,.45) !important }
+:root[data-theme="light"] .at-badge-cancelled { background:rgba(239,68,68,.18) !important; color:#b91c1c !important; border-color:rgba(185,28,28,.45) !important }
+:root[data-theme="light"] .at-trainer-pill    { background:rgba(37,99,235,.12) !important; color:#1d4ed8 !important; border-color:rgba(29,78,216,.4) !important }
+:root[data-theme="light"] button.at-action-edit,
+:root[data-theme="light"] button.at-action-edit:hover,
+:root[data-theme="light"] button.at-action-edit:focus { background:rgba(37,99,235,.12) !important; color:#1d4ed8 !important; border-color:rgba(29,78,216,.4) !important }
+:root[data-theme="light"] button.at-action-assign,
+:root[data-theme="light"] button.at-action-assign:hover,
+:root[data-theme="light"] button.at-action-assign:focus { background:rgba(34,197,94,.15) !important; color:#15803d !important; border-color:rgba(21,128,61,.45) !important }
 
 /* ============================================================
    Light theme — API Summary + Credentials panels (.cs-* family)
