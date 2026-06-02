@@ -65,9 +65,18 @@ class MMD_Marketing_Model_Cron_AutoNewsletter
             $copy = $this->_generateCopy($course, $templateKey);
             $this->_log('copy ' . ($copy['stubbed'] ? '(STUB)' : '(LIVE)') . ' subject=' . $copy['subject']);
 
-            $html = $this->_renderHtml($course, $copy, $templateKey);
+            // Pin the design variant once. _renderHtml uses this seed to
+            // produce the HTML that ships to MailerLite; _insertDraft
+            // persists the same seed inside body_blocks so the Newsletter
+            // Builder preview later picks the SAME variant (otherwise
+            // it falls back to crc32(title+pids), which produces a
+            // different design and an inconsistent admin view).
+            $designSeed = (int) (crc32($course['sku'] . '|' . $templateKey) & 0x7fffffff);
+            if ($designSeed <= 0) $designSeed = 1;
 
-            $newsletterId = $this->_insertDraft($course, $copy, $templateKey, $html);
+            $html = $this->_renderHtml($course, $copy, $templateKey, $designSeed);
+
+            $newsletterId = $this->_insertDraft($course, $copy, $templateKey, $html, $designSeed);
             $this->_log('inserted newsletter_id=' . $newsletterId);
 
             // Push to MailerLite + schedule send if a key is configured.
@@ -336,74 +345,91 @@ class MMD_Marketing_Model_Cron_AutoNewsletter
     // HTML rendering — minimal email-safe template
     // ------------------------------------------------------------------
 
-    protected function _renderHtml(array $course, array $copy, $templateKey)
+    /**
+     * Render the email body by delegating to MarketingnewsletterController's
+     * _renderTemplate(). This guarantees the cron's pushed MailerLite HTML
+     * is byte-identical to what a marketing admin sees in the Newsletter
+     * Builder preview — both go through the same course-promo.phtml /
+     * visual-showcase.phtml templates.
+     *
+     * The controller method is `protected`, so we instantiate the
+     * controller (no request/response needed — _renderTemplate only reads
+     * configs and queries the DB) and invoke via Reflection. Falls back to
+     * a small built-in HTML shell if the template can't be reached so the
+     * cron never fails the push step.
+     */
+    protected function _renderHtml(array $course, array $copy, $templateKey, $designSeed)
     {
-        $accent = ($templateKey === 'visual_showcase') ? '#258bb6' : '#22d3ee';
-        $courseUrl = $this->_buildCourseUrl($course);
-        $h = function($s) { return htmlspecialchars((string) $s, ENT_QUOTES | ENT_HTML5, 'UTF-8'); };
-        $tagline = $h($copy['tagline']);
+        $blocks = array(
+            'body_block_1' => (string) ($copy['tagline'] ?? ''),
+            'body_block_2' => implode("\n", (array) ($copy['bullets'] ?? array())),
+            'body_block_3' => '',
+            '_design_seed' => (int) $designSeed,
+        );
 
-        // Bullets as a "What You'll Learn" card grid — visually matches
-        // the marketing/templates/course-promo.phtml layout so the cron
-        // output and Newsletter Builder preview agree.
-        $bulletsHtml = '';
-        if (!empty($copy['bullets'])) {
-            $bulletsHtml = '<div style="margin:20px 0;">'
-                         . '<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:' . $accent . ';margin-bottom:10px;">What You\'ll Learn</div>'
-                         . '<ul style="margin:0;padding:0;list-style:none;font-size:14px;line-height:1.6;color:#374151;">';
-            foreach ($copy['bullets'] as $b) {
-                $bulletsHtml .= '<li style="padding:6px 0;border-bottom:1px solid #f3f4f6;">'
-                              . '<span style="color:' . $accent . ';font-weight:700;margin-right:8px;">&#10003;</span>'
-                              . $h($b) . '</li>';
-            }
-            $bulletsHtml .= '</ul></div>';
+        try {
+            require_once Mage::getBaseDir('code')
+                . '/local/MMD/RoleManager/controllers/Adminhtml/MarketingnewsletterController.php';
+            $controller = new ReflectionClass('MMD_RoleManager_Adminhtml_MarketingnewsletterController');
+            $instance   = $controller->newInstanceWithoutConstructor();
+            $method     = $controller->getMethod('_renderTemplate');
+            $method->setAccessible(true);
+
+            $html = $method->invoke(
+                $instance,
+                $templateKey,
+                /* title         */ $course['name'],
+                /* subject       */ $copy['subject'],
+                /* preview_text  */ $copy['preview_text'],
+                $blocks,
+                /* pids          */ array((int) $course['pid']),
+                /* country_code  */ 'SG',
+                /* images        */ array()
+            );
+            return (string) $html;
+        } catch (Exception $e) {
+            $this->_log('render via controller failed (' . $e->getMessage() . '), using minimal fallback');
+            return $this->_renderMinimalFallback($course, $copy);
         }
+    }
 
-        return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' . $h($copy['subject']) . '</title></head>'
-            . '<body style="margin:0;padding:0;background:#f5f7fb;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">'
-            . '<div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:#f5f7fb;">'
-            . $h($copy['preview_text']) . '</div>'
-            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f7fb;padding:24px 0;"><tr><td align="center">'
-            . '<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">'
-            . '<tr><td style="background:' . $accent . ';color:#ffffff;padding:24px 32px;font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Tertiary Infotech Academy</td></tr>'
-            . '<tr><td style="padding:32px;">'
-            .   '<h1 style="margin:0 0 12px;font-size:24px;line-height:1.3;color:#111827;">' . $h($course['name']) . '</h1>'
-            .   '<p style="margin:0 0 20px;font-size:14px;color:#6b7280;">Course code: ' . $h($course['sku']) . '</p>'
-            .   '<div style="font-size:15px;line-height:1.6;color:#374151;">'
-            .     '<p>' . $tagline . '</p>'
-            .   '</div>'
-            .   $bulletsHtml
-            .   '<div style="margin:32px 0 0;text-align:center;">'
-            .     '<a href="' . $h($courseUrl) . '" target="_blank" rel="noopener" style="display:inline-block;background:' . $accent . ';color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;font-size:14px;">' . $h($copy['cta']) . '</a>'
-            .   '</div>'
-            . '</td></tr>'
-            . '<tr><td style="background:#f9fafb;padding:20px 32px;font-size:12px;color:#6b7280;text-align:center;border-top:1px solid #e5e7eb;">'
-            .   'Tertiary Infotech Academy · Singapore<br>'
-            .   '<a href="{$unsubscribe}" style="color:#6b7280;">Unsubscribe</a> · '
-            .   '<a href="{$url}" style="color:#6b7280;">View in browser</a>'
-            . '</td></tr>'
-            . '</table>'
-            . '</td></tr></table>'
-            . '</body></html>';
+    /**
+     * Last-resort fallback if the shared controller template can't load.
+     * Keeps the cron alive even when the templates blow up; doesn't try
+     * to match the elaborate design.
+     */
+    protected function _renderMinimalFallback(array $course, array $copy)
+    {
+        $h = function($s) { return htmlspecialchars((string) $s, ENT_QUOTES | ENT_HTML5, 'UTF-8'); };
+        $url = $this->_buildCourseUrl($course);
+        return '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:24px;">'
+             . '<h1>' . $h($course['name']) . '</h1>'
+             . '<p>' . $h($copy['tagline']) . '</p>'
+             . '<p><a href="' . $h($url) . '" target="_blank" rel="noopener">' . $h($copy['cta']) . '</a></p>'
+             . '</body></html>';
     }
 
     // ------------------------------------------------------------------
     // DB write
     // ------------------------------------------------------------------
 
-    protected function _insertDraft(array $course, array $copy, $templateKey, $html)
+    protected function _insertDraft(array $course, array $copy, $templateKey, $html, $designSeed)
     {
         // The marketing/templates/*.phtml templates expect body_block_1
         // (tagline) and body_block_2 as newline-separated bullets. Match
         // those keys so that opening this cron-generated draft in the
         // Newsletter Builder UI renders correctly (not the placeholder
-        // "Bullet points appear here" copy).
+        // "Bullet points appear here" copy). The _design_seed pins the
+        // visual variant — both the cron's MailerLite push and the
+        // Builder's later preview read this seed, so they render the
+        // exact same palette / hero / card style.
         $bulletsText = implode("\n", $copy['bullets']);
         $blocks = array(
             'body_block_1' => $copy['tagline'],
             'body_block_2' => $bulletsText,
             'body_block_3' => '', // pricing block — left empty for v1
             'cta'          => $copy['cta'],
+            '_design_seed' => (int) $designSeed,
             '_auto'        => 1,
         );
         $this->_db('write')->insert($this->_tbl(), array(

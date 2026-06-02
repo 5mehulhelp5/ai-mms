@@ -13236,7 +13236,6 @@ window._mnState = {
     var delayIn = document.getElementById('mn-sched-delay');
     var status = document.getElementById('mn-sched-status');
     var saveUrl = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/saveSchedule')) ?>;
-    var fireUrl = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/fireScheduledNow')) ?>;
 
     enabledIn.addEventListener('change', function(){
         enabledLbl.textContent = enabledIn.checked ? 'ON' : 'OFF';
@@ -13248,16 +13247,12 @@ window._mnState = {
         setTimeout(function(){ status.classList.remove('show'); }, 2400);
     }
 
-    function formKey() {
-        return window.FORM_KEY || <?php echo json_encode(Mage::getSingleton('core/session')->getFormKey()) ?>;
-    }
-
     saveBtn.addEventListener('click', function(){
         var orig = saveBtn.textContent;
         saveBtn.disabled = true;
         saveBtn.textContent = 'Saving…';
         var fd = new FormData();
-        fd.append('form_key', formKey());
+        fd.append('form_key', window.FORM_KEY || <?php echo json_encode(Mage::getSingleton('core/session')->getFormKey()) ?>);
         fd.append('enabled', enabledIn.checked ? '1' : '0');
         fd.append('day_of_week', dayIn.value);
         fd.append('hour', hourIn.value);
@@ -13265,31 +13260,10 @@ window._mnState = {
         fetch(saveUrl, { method:'POST', body: fd, credentials:'same-origin' })
             .then(function(r){ return r.json().catch(function(){ return { success:false, message:'invalid response' }; }); })
             .then(function(j){
-                if (!j || !j.success) {
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = orig;
-                    flash('Failed: ' + ((j && j.message) || 'unknown'), false);
-                    return;
-                }
-                // Save OK — immediately fire the scheduler so the user sees a
-                // fresh newsletter for the new settings. Chained on the same
-                // click; no separate button press needed.
-                saveBtn.textContent = 'Generating…';
-                var fd2 = new FormData();
-                fd2.append('form_key', formKey());
-                return fetch(fireUrl, { method:'POST', body: fd2, credentials:'same-origin' })
-                    .then(function(r){ return r.json().catch(function(){ return { success:false, message:'invalid response' }; }); })
-                    .then(function(fj){
-                        saveBtn.disabled = false;
-                        saveBtn.textContent = orig;
-                        if (fj && fj.success) {
-                            flash('Saved + generated #' + (fj.newsletter_id || '?'), true);
-                            // Reload after the flash so the Campaigns card shows the new row.
-                            setTimeout(function(){ window.location.reload(); }, 1200);
-                        } else {
-                            flash('Saved but generation failed: ' + ((fj && fj.message) || 'unknown'), false);
-                        }
-                    });
+                saveBtn.disabled = false;
+                saveBtn.textContent = orig;
+                if (j && j.success) flash('Saved — cron will fire at the configured time', true);
+                else                flash('Failed: ' + ((j && j.message) || 'unknown'), false);
             })
             .catch(function(err){
                 saveBtn.disabled = false;
