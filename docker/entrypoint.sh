@@ -225,6 +225,24 @@ for i in $(seq 1 $MAX_ATTEMPTS); do
     sleep $SLEEP
 done
 
+# One-shot reindex: catalog_url + catalog_category_flat. Required after the
+# MMD_FlatCategoryUrl module shipped — module changes the URL builder but
+# does NOT itself rewrite existing core_url_rewrite rows or category url_path
+# attributes; only a reindex does that. Admin's Index Management page can't
+# bulk-reindex (Varien mass-action doesn't actually fire on index_process),
+# so trigger it here, once per volume. Sentinel lives on the Coolify volume
+# at var/.reindexed-flat-urls — delete the file to force a re-run on next
+# boot (e.g. after a category-tree change that needs URL regeneration).
+REINDEX_MARKER=/var/www/html/var/.reindexed-flat-urls
+if [ ! -f "$REINDEX_MARKER" ]; then
+    echo "entrypoint: first-run reindex of catalog_url + catalog_category_flat (MMD_FlatCategoryUrl)..."
+    su -s /bin/sh www-data -c "php /var/www/html/shell/indexer.php --reindex catalog_url,catalog_category_flat" 2>&1 \
+        && touch "$REINDEX_MARKER" \
+        && chown www-data:www-data "$REINDEX_MARKER" \
+        && echo "entrypoint: flat-URL reindex complete" \
+        || echo "entrypoint: WARNING — flat-URL reindex failed (non-fatal, container continues)"
+fi
+
 # Warm the merged CSS/JS bundles BEFORE real traffic arrives. The cache wipe
 # at line ~85 deletes media/css/*, media/js/* on every container start;
 # Magento regenerates them on the FIRST request that loads the layout. If a
