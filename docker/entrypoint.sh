@@ -250,6 +250,12 @@ su -s /bin/sh www-data -c "php /var/www/html/shell/indexer.php --reindex catalog
 # Script is idempotent — on a flat DB it skips every category. Gated by a
 # sentinel so we don't pay the ~30s scan on every restart; delete the file
 # to force a re-run.
+# Fix the -1 collision suffix bug introduced by the first force-flatten run.
+# Runs on every boot until manually disabled — idempotent (no-op on clean DB).
+echo "entrypoint: fixing -N collision suffix on category canonical rewrites..."
+php /var/www/html/scripts/maintenance/fix-collision-suffix.php \
+    || echo "entrypoint: WARNING — collision-suffix fix errored (non-fatal)"
+
 FLATTEN_MARKER=/var/www/html/var/.force-flattened-category-urls
 if [ ! -f "$FLATTEN_MARKER" ]; then
     echo "entrypoint: force-flatten category URLs (one-shot)..."
