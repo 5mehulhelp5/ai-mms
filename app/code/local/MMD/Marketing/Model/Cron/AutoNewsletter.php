@@ -37,6 +37,15 @@ class MMD_Marketing_Model_Cron_AutoNewsletter
      */
     public function run($force = false)
     {
+        // === HARD KILL-SWITCH (disabled 2026-06-02) ===
+        // Auto-newsletter sending is OFF at the code level. This no-op
+        // supersedes the mmd_marketing/auto_newsletter/enabled config AND the
+        // admin "Fire scheduler now" (force=true) button — neither can push a
+        // campaign to MailerLite while this guard is in place. The gated logic
+        // below is left intact; delete this block to re-enable.
+        $this->_log('run() suppressed by hard kill-switch (force=' . ($force ? '1' : '0') . ')');
+        return;
+
         try {
             $cfg = $this->_loadScheduleConfig();
             if (!$force && !$this->_shouldFire($cfg)) {
