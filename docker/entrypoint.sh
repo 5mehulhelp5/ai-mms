@@ -129,6 +129,16 @@ mkdir -p /var/www/html/media/css /var/www/html/media/css_secure /var/www/html/me
 chown -R www-data:www-data /var/www/html/media/css /var/www/html/media/css_secure /var/www/html/media/js
 chmod -R u+rwX,g+rwX /var/www/html/media/css /var/www/html/media/css_secure /var/www/html/media/js
 
+# Admin My Profile avatar uploads land in media/admin/profile/ via
+# MMD_Adminhtml_System_AccountController. On a fresh container the
+# directory doesn't exist (media/ is .dockerignored), so the first
+# upload would fail with "Destination folder is not writable or
+# does not exist." Pre-create with www-data ownership so the very
+# first Save Changes click already works.
+mkdir -p /var/www/html/media/admin/profile
+chown -R www-data:www-data /var/www/html/media/admin
+chmod -R u+rwX,g+rwX /var/www/html/media/admin
+
 # Seed transactional-email logo into media/email/logo/default/.
 # The `media/` directory is Coolify-volume-mounted in production, so baked
 # COPY assets get shadowed — seed at runtime so the unified logo referenced

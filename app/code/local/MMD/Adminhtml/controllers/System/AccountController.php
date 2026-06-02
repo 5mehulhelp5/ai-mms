@@ -46,14 +46,35 @@ class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_Accou
         // Profile image upload
         if (isset($_FILES['profile_image']) && $_FILES['profile_image']['name']) {
             try {
+                $path = Mage::getBaseDir('media') . DS . 'admin' . DS . 'profile';
+
+                // Ensure the target directory exists. .dockerignore keeps the
+                // whole media/ tree out of the image, so on a fresh container
+                // (or a Coolify volume mount that didn't seed media/admin/),
+                // this path doesn't exist until the first upload — and
+                // Varien_File_Uploader::save() throws "Destination folder is
+                // not writable or does not exist." rather than mkdir for us.
+                // Create it on demand with www-data-writable perms.
+                if (!is_dir($path)) {
+                    if (!@mkdir($path, 0775, true) && !is_dir($path)) {
+                        throw new Exception('Could not create upload directory: ' . $path);
+                    }
+                }
+
                 $uploader = new Varien_File_Uploader('profile_image');
                 $uploader->setAllowedExtensions(array('jpg', 'jpeg', 'png', 'gif'));
                 $uploader->setAllowRenameFiles(true);
                 $uploader->setFilesDispersion(false);
 
-                $path = Mage::getBaseDir('media') . DS . 'admin' . DS . 'profile';
-                $filename = 'user_' . $userId . '_' . time() . '.' . pathinfo($_FILES['profile_image']['name'], PATHINFO_EXTENSION);
-                $uploader->save($path, $filename);
+                $ext = strtolower(pathinfo($_FILES['profile_image']['name'], PATHINFO_EXTENSION));
+                $filename = 'user_' . $userId . '_' . time() . '.' . $ext;
+                $result = $uploader->save($path, $filename);
+
+                // Varien_File_Uploader::save returns an array with the
+                // actual saved file (renamed when collisions occur). Use
+                // that, not the input filename — otherwise a renamed
+                // upload would persist the wrong name to the DB.
+                $savedName = isset($result['file']) ? ltrim($result['file'], '/\\') : $filename;
 
                 // Delete old image
                 $resource = Mage::getSingleton('core/resource');
@@ -61,15 +82,16 @@ class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_Accou
                     'SELECT profile_image FROM ' . $resource->getTableName('admin/user') . ' WHERE user_id = ?',
                     array($userId)
                 );
-                if ($oldImage) {
+                if ($oldImage && $oldImage !== $savedName) {
                     $oldPath = $path . DS . $oldImage;
                     if (file_exists($oldPath)) {
                         @unlink($oldPath);
                     }
                 }
 
-                $profileData['profile_image'] = $filename;
+                $profileData['profile_image'] = $savedName;
             } catch (Exception $e) {
+                Mage::logException($e);
                 Mage::getSingleton('adminhtml/session')->addError('Image upload failed: ' . $e->getMessage());
             }
         }
