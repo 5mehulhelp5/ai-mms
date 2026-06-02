@@ -196,6 +196,38 @@ PRIORITISED ACTION PLAN
 4. Long-term (content strategy, link building)
 ```
 
+## Invariants — these are HARD RULES, never recommend changing them
+
+These two are non-negotiable. Past audits suggested touching them and broke
+the storefront / clobbered structured data. Flag any audit finding that
+*depends* on changing either as "won't fix" with a one-line reason.
+
+1. **Course title (product `name`) is immutable.**
+   The `catalog_product_entity_varchar.value` for `name` is the H1 on the
+   product page, the `name` in JSON-LD Course schema, the anchor text on
+   every internal link, the line item on every order/registration, the
+   subject in transactional emails, and the source of the URL key. Do NOT
+   recommend rewriting it for SEO keyword density, brand suffix injection,
+   title-length compliance, or duplicate-content disambiguation. If a meta
+   improvement requires a longer/shorter title, put the change in
+   `meta_title` only — never in `name`. Same rule for course `sku`.
+   Reference: [[feedback_product_name_is_sacred]] in `.claude/memory/`.
+
+2. **Category URLs are short-path only — `/<url_key>.html`, never
+   `/parent/.../<url_key>.html`.**
+   Enforced by the `MMD_FlatCategoryUrl` module (class-rewrite of
+   `Mage_Catalog_Model_Url::getCategoryRequestPath`). Do NOT recommend:
+   - Re-enabling the deep category path for "breadcrumb URL parity" or
+     similar SEO intuitions — deep paths are explicitly unwanted.
+   - Disabling `MMD_FlatCategoryUrl` or reverting it to stock behavior.
+   - Setting `catalog/seo/product_use_categories = 1` to "improve internal
+     link signals" — products are also short-path (no category prefix).
+   - Adding observers / class rewrites that prepend parent path on
+     `_refreshCategoryRewrites` or `getCategoryUrlPath`.
+   If a recommendation would change a URL, it must result in a flatter
+   URL, not a deeper one. Existing long-path rewrites stay as 301 sources
+   (save-rewrites-history); never delete them — they preserve link equity.
+
 ## Anti-patterns — don't recommend
 
 - Don't recommend rel=canonical from country domain to SG. That suppresses the country domain. Self-canonical per store.
