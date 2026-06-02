@@ -12999,17 +12999,6 @@ if ($_mnActive) {
     } catch (Exception $e) {}
 }
 
-// Auto-newsletter schedule config (SG only for v1). Same five keys the
-// AutoNewsletter cron reads. Editable here so marketing admins don't have
-// to touch core_config_data manually.
-$_mnSched = array(
-    'enabled'          => (int)    Mage::getStoreConfig('mmd_marketing/auto_newsletter/enabled'),
-    'day_of_week'      => (int)    Mage::getStoreConfig('mmd_marketing/auto_newsletter/day_of_week'),
-    'hour'             => (int)    Mage::getStoreConfig('mmd_marketing/auto_newsletter/hour'),
-    'send_delay_hours' => (int)    Mage::getStoreConfig('mmd_marketing/auto_newsletter/send_delay_hours'),
-    'country_code'     => (string) Mage::getStoreConfig('mmd_marketing/auto_newsletter/country_code'),
-);
-$_mnDayLabels = array(1=>'Monday',2=>'Tuesday',3=>'Wednesday',4=>'Thursday',5=>'Friday',6=>'Saturday',7=>'Sunday');
 ?>
 <div id="dash-panel-marketing-newsletter" style="display:none;">
 
@@ -13021,78 +13010,6 @@ $_mnDayLabels = array(1=>'Monday',2=>'Tuesday',3=>'Wednesday',4=>'Thursday',5=>'
         </div>
         <button type="button" class="mn-btn mn-btn-ghost" onclick="mnNewDraft()">+ New Newsletter</button>
     </div>
-
-    <?php /* ===== Auto-Newsletter schedule (editable) ===== */ ?>
-    <div class="mn-card mn-sched-card">
-        <div class="mn-sched-head">
-            <div class="mn-sched-head-l">
-                <h3 style="margin:0;">Auto-Newsletter Schedule</h3>
-                <p class="mn-sched-help">When to auto-generate + push the weekly campaign. Currently <strong><?php echo $_mnSched['country_code'] ?></strong>-only.</p>
-            </div>
-            <label class="mn-sched-toggle">
-                <input type="checkbox" id="mn-sched-enabled" <?php echo $_mnSched['enabled'] ? 'checked' : '' ?> />
-                <span class="mn-sched-toggle-track"><span class="mn-sched-toggle-knob"></span></span>
-                <span class="mn-sched-toggle-label" id="mn-sched-enabled-label"><?php echo $_mnSched['enabled'] ? 'ON' : 'OFF' ?></span>
-            </label>
-        </div>
-        <div class="mn-sched-grid">
-            <label class="mn-sched-fld">
-                <span class="mn-sched-fld-lbl">Generate on</span>
-                <select id="mn-sched-day">
-                    <?php foreach ($_mnDayLabels as $_d => $_dl): ?>
-                        <option value="<?php echo $_d ?>"<?php echo $_d === $_mnSched['day_of_week'] ? ' selected' : '' ?>><?php echo $_dl ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <label class="mn-sched-fld">
-                <span class="mn-sched-fld-lbl">at hour</span>
-                <select id="mn-sched-hour">
-                    <?php for ($_h = 0; $_h < 24; $_h++): ?>
-                        <option value="<?php echo $_h ?>"<?php echo $_h === $_mnSched['hour'] ? ' selected' : '' ?>><?php echo sprintf('%02d:00', $_h) ?></option>
-                    <?php endfor; ?>
-                </select>
-                <span class="mn-sched-hint">server time</span>
-            </label>
-            <label class="mn-sched-fld">
-                <span class="mn-sched-fld-lbl">Push to MailerLite, then send</span>
-                <select id="mn-sched-delay">
-                    <?php foreach (array(1,2,4,6,12,24,48) as $_dh): ?>
-                        <option value="<?php echo $_dh ?>"<?php echo $_dh === $_mnSched['send_delay_hours'] ? ' selected' : '' ?>><?php echo $_dh ?> hour<?php echo $_dh===1?'':'s'?> later</option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <div class="mn-sched-actions">
-                <button type="button" class="mn-btn mn-btn-primary" id="mn-sched-save">Save schedule</button>
-                <span id="mn-sched-status" class="mn-sched-status"></span>
-            </div>
-        </div>
-    </div>
-
-    <style>
-        .mn-sched-card{margin-bottom:14px;}
-        .mn-sched-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:12px;}
-        .mn-sched-head-l h3{font-size:14px;font-weight:700;color:var(--t1);}
-        .mn-sched-help{font-size:12px;color:var(--t2);margin:4px 0 0;}
-        .mn-sched-toggle{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none;}
-        .mn-sched-toggle input{position:absolute;opacity:0;pointer-events:none;}
-        .mn-sched-toggle-track{display:inline-block;width:38px;height:20px;background:rgba(148,163,184,.3);border-radius:999px;position:relative;transition:background .15s;}
-        .mn-sched-toggle-knob{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:999px;transition:left .15s;box-shadow:0 1px 3px rgba(0,0,0,.3);}
-        .mn-sched-toggle input:checked + .mn-sched-toggle-track{background:#10b981;}
-        .mn-sched-toggle input:checked + .mn-sched-toggle-track .mn-sched-toggle-knob{left:20px;}
-        .mn-sched-toggle-label{font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--t2);min-width:24px;}
-        .mn-sched-grid{display:grid;grid-template-columns:1.2fr .8fr 1.4fr auto;gap:14px;align-items:end;}
-        .mn-sched-fld{display:flex;flex-direction:column;gap:5px;}
-        .mn-sched-fld-lbl{font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;}
-        .mn-sched-fld select{padding:8px 10px;background:var(--d2);border:1px solid var(--b1);border-radius:6px;color:var(--t1);font-size:13px;cursor:pointer;}
-        .mn-sched-fld select:focus{outline:none;border-color:rgba(37,139,182,.6);}
-        .mn-sched-hint{font-size:11px;color:var(--t3);margin-top:3px;}
-        .mn-sched-actions{display:flex;align-items:center;gap:10px;}
-        .mn-sched-status{font-size:12px;font-weight:600;opacity:0;transition:opacity .25s;}
-        .mn-sched-status.show{opacity:1;}
-        .mn-sched-status.ok{color:#10b981;}
-        .mn-sched-status.err{color:#ef4444;}
-        @media (max-width:900px){.mn-sched-grid{grid-template-columns:1fr 1fr;}.mn-sched-actions{grid-column:1/-1;}}
-    </style>
 
     <!-- TOP ROW: template picker + drafts list (full width, side-by-side) -->
     <div class="mn-toprow">
@@ -13224,54 +13141,6 @@ window._mnState = {
     bodyBlocks: { body_block_1: '', body_block_2: '', body_block_3: '' },
     images: [] // [{name, type, dataUrl}] — base64 data URLs, sent on next AI call
 };
-
-// ===== Auto-Newsletter schedule save handler =====
-(function(){
-    var saveBtn = document.getElementById('mn-sched-save');
-    if (!saveBtn) return;
-    var enabledIn = document.getElementById('mn-sched-enabled');
-    var enabledLbl = document.getElementById('mn-sched-enabled-label');
-    var dayIn  = document.getElementById('mn-sched-day');
-    var hourIn = document.getElementById('mn-sched-hour');
-    var delayIn = document.getElementById('mn-sched-delay');
-    var status = document.getElementById('mn-sched-status');
-    var saveUrl = <?php echo json_encode(Mage::helper('adminhtml')->getUrl('adminhtml/marketingnewsletter/saveSchedule')) ?>;
-
-    enabledIn.addEventListener('change', function(){
-        enabledLbl.textContent = enabledIn.checked ? 'ON' : 'OFF';
-    });
-
-    function flash(text, ok) {
-        status.textContent = text;
-        status.className = 'mn-sched-status show ' + (ok ? 'ok' : 'err');
-        setTimeout(function(){ status.classList.remove('show'); }, 2400);
-    }
-
-    saveBtn.addEventListener('click', function(){
-        var orig = saveBtn.textContent;
-        saveBtn.disabled = true;
-        saveBtn.textContent = 'Saving…';
-        var fd = new FormData();
-        fd.append('form_key', window.FORM_KEY || <?php echo json_encode(Mage::getSingleton('core/session')->getFormKey()) ?>);
-        fd.append('enabled', enabledIn.checked ? '1' : '0');
-        fd.append('day_of_week', dayIn.value);
-        fd.append('hour', hourIn.value);
-        fd.append('send_delay_hours', delayIn.value);
-        fetch(saveUrl, { method:'POST', body: fd, credentials:'same-origin' })
-            .then(function(r){ return r.json().catch(function(){ return { success:false, message:'invalid response' }; }); })
-            .then(function(j){
-                saveBtn.disabled = false;
-                saveBtn.textContent = orig;
-                if (j && j.success) flash('Saved — cron will fire at the configured time', true);
-                else                flash('Failed: ' + ((j && j.message) || 'unknown'), false);
-            })
-            .catch(function(err){
-                saveBtn.disabled = false;
-                saveBtn.textContent = orig;
-                flash('Network error: ' + err.message, false);
-            });
-    });
-})();
 
 window.mnPickTpl = function(btn) {
     var all = document.querySelectorAll('.mn-tpl');

@@ -303,30 +303,4 @@ php /var/www/html/scripts/maintenance/flat-url-debug.php \
     echo "entrypoint: CSS/JS merge bundles warmed"
 ) &
 
-# Magento cron loop. Required by the weekly auto-newsletter job
-# (mmd_marketing_auto_newsletter) — without this, no scheduled task
-# ever fires and the Newsletter Builder's "Auto-Newsletter Schedule"
-# card is a no-op.
-#
-# Runs in BOTH local dev and production. Magento's cron itself dedups
-# jobs by name, so this is safe to layer on top of any external
-# Coolify scheduled task that might also be calling cron.php — at most
-# one job runs at a time per name.
-#
-# Fires cron.php every 60s; logs to var/log/cron.log so the entrypoint
-# output stays clean. Background subshell so apache2-foreground stays
-# at PID 1.
-if [ -f /var/www/html/cron.php ]; then
-    (
-        # Give Apache + DB a moment to settle before the first tick.
-        sleep 20
-        while true; do
-            su -s /bin/sh www-data -c "php /var/www/html/cron.php" \
-                >> /var/www/html/var/log/cron.log 2>&1 || true
-            sleep 60
-        done
-    ) &
-    echo "entrypoint: started cron loop (60s interval, runs as www-data)"
-fi
-
 exec apache2-foreground
