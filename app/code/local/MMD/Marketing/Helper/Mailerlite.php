@@ -103,18 +103,33 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
      */
     public function getNextCampaign()
     {
+        // limit must be one of MailerLite's allowed values; 20 (and 15)
+        // are rejected with HTTP 422 "The selected limit is invalid."
+        // Allowed: 10, 25, 50, 100. We use 25 here — enough headroom
+        // to find the soonest upcoming campaign without paging.
         $data = $this->_getCached('campaigns_ready', function () {
-            return $this->_getJson('/campaigns?filter[status]=ready&limit=20');
+            return $this->_getJson('/campaigns?filter[status]=ready&limit=25');
         });
         if (!is_array($data) || empty($data['data'])) {
             return null;
         }
+        // MailerLite returns scheduled_for as a naive UTC timestamp.
+        // PHP's strtotime() interprets naive strings in the runtime's
+        // default TZ — Asia/Singapore here — which would shift a UTC
+        // timestamp 8 hours into the past, causing the "in the future?"
+        // check to drop legitimately-upcoming campaigns. Parse with an
+        // explicit UTC zone so the comparison is honest.
         $best = null;
         $bestTs = PHP_INT_MAX;
+        $utc = new DateTimeZone('UTC');
         foreach ($data['data'] as $c) {
             $when = isset($c['scheduled_for']) ? (string)$c['scheduled_for'] : '';
             if ($when === '') continue;
-            $ts = strtotime($when);
+            try {
+                $ts = (new DateTime($when, $utc))->getTimestamp();
+            } catch (Exception $e) {
+                continue;
+            }
             if (!$ts || $ts < time()) continue;
             if ($ts < $bestTs) {
                 $bestTs = $ts;
@@ -167,7 +182,18 @@ class MMD_Marketing_Helper_Mailerlite extends Mage_Core_Helper_Abstract
         curl_close($ch);
 
         if ($raw === false || $raw === '' || $code < 200 || $code >= 300) {
-            Mage::log('MailerLite ' . $path . ' http=' . $code . ' err=' . $err, null, 'mailerlite.log', true);
+            // Mage::log silently drops writes to non-default log files
+            // when dev/log/allowedFileExtensions is empty (OpenMage default
+            // on this install). Write directly so a future bug like "the
+            // limit param was wrong" is visible immediately, not a silent
+            // null return.
+            @file_put_contents(
+                Mage::getBaseDir('var') . '/log/mailerlite.log',
+                '[' . date('Y-m-d H:i:s') . '] '
+              . 'MailerLite GET ' . $path . ' http=' . $code
+              . ' err=' . $err . ' body=' . substr((string) $raw, 0, 600) . "\n",
+                FILE_APPEND
+            );
             return null;
         }
         $data = json_decode($raw, true);
