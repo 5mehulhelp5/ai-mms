@@ -243,6 +243,13 @@ if [ ! -f "$REINDEX_MARKER" ]; then
         || echo "entrypoint: WARNING — flat-URL reindex failed (non-fatal, container continues)"
 fi
 
+# Always run the flat-URL diagnostic dumper so /media/flat-url-debug.json is
+# fresh on every boot. Public read; reports module-active, runtime URL class,
+# rewrite rows + url_path for category 196. Lets us debug remote prod state
+# without shell access.
+php /var/www/html/scripts/maintenance/flat-url-debug.php \
+    || echo "entrypoint: WARNING — flat-URL diagnostic dump failed (non-fatal)"
+
 # Warm the merged CSS/JS bundles BEFORE real traffic arrives. The cache wipe
 # at line ~85 deletes media/css/*, media/js/* on every container start;
 # Magento regenerates them on the FIRST request that loads the layout. If a
