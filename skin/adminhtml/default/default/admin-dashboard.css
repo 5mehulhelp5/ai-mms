@@ -1216,6 +1216,17 @@ a.lmc-card,a.lmc-card:hover,a.lmc-card:focus,a.lmc-card:active{text-decoration:n
 @media (max-width:1100px){.gat-grid{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:760px){.gat-grid{grid-template-columns:1fr}}
 
+/* Light-mode palette for the trainer-role tool cards (GenAI Tools,
+   Agentic AI Tools, Virtual Tools). #131d2e cards on a light page
+   read as dark patches; cyan-300 pill text washes out. Flip to the
+   standard slate-100 surface + slate-900 text, with deeper cyan
+   pills so the tool labels stay legible. */
+:root[data-theme="light"] .gat-card{background:#f1f5f9 !important;border-color:#cbd5e1 !important}
+:root[data-theme="light"] .gat-card-title{color:#0f172a !important}
+:root[data-theme="light"] .gat-card-desc{color:#475569 !important}
+:root[data-theme="light"] .gat-pill{background:rgba(8,145,178,.08) !important;border-color:rgba(8,145,178,.3) !important;color:#0e7490 !important}
+:root[data-theme="light"] .gat-pill:hover{background:rgba(8,145,178,.16) !important;border-color:rgba(8,145,178,.5) !important;color:#155e75 !important}
+
 /* --- Block 20 (template line 6597) --- */
 <?php $gatExt2 = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'; ?>
 <div class="edt-wrap">
