@@ -1,9 +1,18 @@
 <?php
-// EMERGENCY: cancel every "ready" Course Spotlight campaign on
-// MailerLite so it cannot send. Moves each one back to draft via the
-// /cancel endpoint. The cron-side stop is handled by removing the
-// crontab registration (same commit); this script handles the already-
-// queued sends that wouldn't be affected by code changes.
+// EMERGENCY: nuke every cron-pattern campaign on MailerLite, in any
+// state (draft OR ready). DELETE means gone, not paused — recoverable
+// only from MailerLite's deleted-items if they keep one. The user
+// wants ALL creation and sending stopped until they say so; this is
+// the comprehensive sweep.
+//
+// Cron-pattern names: "Course Spotlight: ..." or "Auto: ..." — those
+// are the exact prefixes the AutoNewsletter cron used. Manually-
+// authored campaigns with other names are NOT touched.
+//
+// Run repeatedly. Each call:
+//   1. lists every ready + every draft campaign matching the pattern
+//   2. DELETEs each via /api/campaigns/{id}
+// Idempotent: re-running on an empty MailerLite is a no-op.
 
 require_once dirname(__DIR__, 2) . '/app/Mage.php';
 Mage::app();
@@ -37,33 +46,51 @@ function ml($key, $method, $path, $body = null) {
     return array($code, $raw);
 }
 
+function isCronPattern($name) {
+    return stripos($name, 'Course Spotlight:') === 0
+        || stripos($name, 'Auto:') === 0;
+}
+
+$totalCancelled = 0;
+$totalDeleted   = 0;
+$totalFailed    = 0;
+
+// ---- Pass 1: cancel every ready campaign (moves to draft) ----
 list($code, $raw) = ml($key, 'GET', '/campaigns?filter[status]=ready&limit=100');
 $rsp = json_decode($raw, true);
 $ready = $rsp['data'] ?? array();
-echo "ready campaigns on MailerLite: " . count($ready) . "\n";
-
-$targets = array();
+echo "[ready]  total=" . count($ready) . "\n";
 foreach ($ready as $c) {
     $name = (string) ($c['name'] ?? '');
-    if (stripos($name, 'Course Spotlight:') === 0 || stripos($name, 'Auto:') === 0) {
-        $targets[] = $c;
-    }
-}
-echo "matching cron-pattern (Course Spotlight: / Auto:): " . count($targets) . "\n\n";
-
-$ok = 0; $fail = 0;
-foreach ($targets as $c) {
-    $id = $c['id'];
-    $name = substr((string) ($c['name'] ?? ''), 0, 70);
-    $sched = (string) ($c['scheduled_for'] ?? '');
-    echo "  $id  sched=$sched  $name\n";
-    list($ccode, $craw) = ml($key, 'POST', '/campaigns/' . $id . '/cancel');
-    if ($ccode >= 200 && $ccode < 300) {
-        echo "    CANCELLED (http $ccode)\n";
-        $ok++;
+    if (!isCronPattern($name)) continue;
+    list($cc, $cr) = ml($key, 'POST', '/campaigns/' . $c['id'] . '/cancel');
+    if ($cc >= 200 && $cc < 300) {
+        echo "  cancelled  " . $c['id'] . "  " . substr($name, 0, 60) . "\n";
+        $totalCancelled++;
     } else {
-        echo "    FAILED http=$ccode body=" . substr($craw, 0, 150) . "\n";
-        $fail++;
+        echo "  FAILED cancel " . $c['id'] . " http=$cc\n";
+        $totalFailed++;
     }
 }
-echo "\nresult: cancelled=$ok failed=$fail\n";
+
+// ---- Pass 2: delete every draft campaign matching cron pattern ----
+// (includes anything just cancelled above + anything the cron is
+//  still creating between sweeps)
+list($code, $raw) = ml($key, 'GET', '/campaigns?filter[status]=draft&limit=100');
+$rsp = json_decode($raw, true);
+$drafts = $rsp['data'] ?? array();
+echo "[draft]  total=" . count($drafts) . "\n";
+foreach ($drafts as $c) {
+    $name = (string) ($c['name'] ?? '');
+    if (!isCronPattern($name)) continue;
+    list($cc, $cr) = ml($key, 'DELETE', '/campaigns/' . $c['id']);
+    if ($cc >= 200 && $cc < 300) {
+        echo "  DELETED    " . $c['id'] . "  " . substr($name, 0, 60) . "\n";
+        $totalDeleted++;
+    } else {
+        echo "  FAILED delete " . $c['id'] . " http=$cc body=" . substr($cr, 0, 100) . "\n";
+        $totalFailed++;
+    }
+}
+
+echo "\nresult: cancelled=$totalCancelled deleted=$totalDeleted failed=$totalFailed\n";
