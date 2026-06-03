@@ -904,26 +904,30 @@ body.sidebar-collapsed .admin-main {
 }
 
 /* === 14. Grid Overhaul ===
-   Converged to the .mm-table aesthetic (the dashboard "Latest 20
-   Registrations" look): the grid sits FLUSH on the page surface —
-   no card bg, no border, no radius, no glow — with uppercase muted
-   headers, transparent cells, and a single 1px hairline between rows
-   (no zebra, no per-cell borders, no hover fill). Tokens only. */
+   Every .grid in the admin reads as a gray card by default so admin /
+   developer / marketing roles see the same containment everywhere —
+   no dependence on JS wrap firing or per-page rules. When a grid IS
+   already inside a .dcf-mag.mmd-auto-card wrap (the canonical title-
+   bar pattern from wrapAdminGridInCard()), the override at the
+   bottom of this file flattens it back so the outer card's chrome
+   takes over and we don't double-nest two visible borders. */
 .admin-main .grid {
-    background: transparent !important;
-    border: none !important;
-    border-radius: 0 !important;
-    overflow-x: auto !important;
-    box-shadow: none !important;
-    margin-top: 0 !important;
+    background: #2a3548 !important;
+    border: 1px solid #475569 !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.35) !important;
+    margin: 8px 0 16px !important;
 }
 
-/* Grid table scrollable container */
+/* Grid table scrollable container — transparent so the .grid card
+   bg shows through; horizontal scroll preserved for wide grids. */
 .admin-main .grid .hor-scroll,
 .admin-main .grid > table {
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
+    background: transparent !important;
 }
 .admin-main .grid table {
     width: 100% !important;
@@ -933,10 +937,11 @@ body.sidebar-collapsed .admin-main {
 
 /* ===== FUTURISTIC GRID THEME ===== */
 
-/* Flush, transparent table — no card bg / border / radius / glow. */
+/* Flush, transparent inner tables — let the .grid card surface show
+   through. (.grid itself is removed from this selector — it owns
+   the card chrome now per the rule above.) */
 .admin-main .grid table,
 .admin-main .grid .data,
-.admin-main .grid,
 .admin-main .grid table.data {
     background: transparent !important;
     border: none !important;
@@ -1098,20 +1103,23 @@ body table.data tr.selected td a {
 }
 .row-action-item:hover { background: #334155; color: #fff; }
 
-/* Grid wrapper / container — force dark bg on everything outside the table */
+/* Grid wrappers — gray card surface (#2a3548), matching the canonical
+   .dcf-mag card. Was previously var(--d1) (#0f172a) which painted the
+   table area the same as the page bg, hiding the card chrome the rest
+   of the admin uses. Inner tables / hor-scroll stay transparent so the
+   gray wrapper shows through. */
 .admin-main .grid,
-.admin-main .grid-container,
-.admin-main .box,
-.admin-main .entry-edit,
-.admin-main .entry-edit-head,
 .admin-main #sales_order_grid,
+.admin-main [id$="_grid"] {
+    background: #2a3548 !important;
+    background-color: #2a3548 !important;
+}
 .admin-main #sales_order_grid_table,
-.admin-main [id$="_grid"],
 .admin-main [id$="_grid"] .grid,
 .admin-main .grid .hor-scroll,
 .admin-main .grid > table {
-    background: var(--d1) !important;
-    background-color: var(--d1) !important;
+    background: transparent !important;
+    background-color: transparent !important;
 }
 
 /* Remove any white/light borders around grid sections */
@@ -1120,12 +1128,12 @@ body table.data tr.selected td a {
     border-color: var(--d2) !important;
 }
 
-/* Grid heading row bar — match dark bg */
+/* Grid heading row bar — transparent so the .grid card surface shows. */
 .admin-main .grid .actions,
 .admin-main .grid .filter,
 .admin-main .grid .headings,
 .admin-main .hor-scroll {
-    background: var(--d1) !important;
+    background: transparent !important;
 }
 
 /* Select Visible / Unselect links + items selected text */
@@ -3741,23 +3749,99 @@ body.adminhtml-process-list .admin-main br {
    This rule paints the card chrome directly on the .grid wrapper for
    any page where the JS wrap didn't run. When it DID run, the body
    class suppresses this rule, so we never double-paint. */
-body:not(.mmd-grid-wrapped):not(.adminhtml-dashboard-index):not(.adminhtml-dashboard-edit) .admin-main .grid {
+/* When the grid is already inside a .dcf-mag.mmd-auto-card wrap (the
+   canonical title-bar pattern), flatten the inner .grid so we don't
+   show two stacked borders/shadows. Outer wrap chrome wins. */
+.dcf-mag.mmd-auto-card .dcf-mag-body .admin-main .grid,
+.dcf-mag.mmd-auto-card .dcf-mag-body .grid,
+.admin-main .dcf-mag.mmd-auto-card .dcf-mag-body .grid {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+}
+
+/* Dashboard pages have their own chrome — don't apply the grid card
+   treatment there (would double-stack inside dashboard tiles). */
+body.adminhtml-dashboard-index .admin-main .grid,
+body.adminhtml-dashboard-edit .admin-main .grid {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+/* Registrations (sales_order index) explicit override — the
+   MMD_Enhancedsalesgrid block hoists the toolbar into .dcf-mag-bar
+   AND the grid lives inside .dcf-mag-body, so the flatten rule
+   above makes .grid transparent and the body bg should show. Force
+   that body bg with a very-high-specificity rule keyed on the body
+   class so any unforeseen override is also beaten. Also paint the
+   #sales_order_grid wrapper itself in case the wrap silently fails. */
+body[class*="adminhtml-sales_order_index"] .dcf-mag.mmd-auto-card,
+body[class*="adminhtml-sales-order-index"] .dcf-mag.mmd-auto-card,
+body[class*="adminhtml-sales_order_index"] .dcf-mag.mmd-auto-card .dcf-mag-body,
+body[class*="adminhtml-sales-order-index"] .dcf-mag.mmd-auto-card .dcf-mag-body,
+body[class*="adminhtml-sales_order_index"] #sales_order_grid,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid,
+body[class*="adminhtml-sales_order_index"] .admin-main .grid,
+body[class*="adminhtml-sales-order-index"] .admin-main .grid {
     background: #2a3548 !important;
+}
+body[class*="adminhtml-sales_order_index"] #sales_order_grid,
+body[class*="adminhtml-sales-order-index"] #sales_order_grid {
     border: 1px solid #475569 !important;
     border-radius: 10px !important;
     overflow: hidden !important;
-    margin-bottom: 16px !important;
     box-shadow: 0 1px 3px rgba(0,0,0,0.35) !important;
+    margin: 8px 0 16px !important;
 }
-body:not(.mmd-grid-wrapped):not(.adminhtml-dashboard-index):not(.adminhtml-dashboard-edit) .admin-main .grid .hor-scroll,
-body:not(.mmd-grid-wrapped):not(.adminhtml-dashboard-index):not(.adminhtml-dashboard-edit) .admin-main .grid table.data {
-    background: #2a3548 !important;
+
+/* Force the data table itself transparent (ID selector — beats every
+   class-based override in cascade). DevTools showed table.data was
+   computed to rgb(15,23,42) = --d1 on this page despite our
+   .dcf-mag.mmd-auto-card chain, so a higher-specificity rule
+   somewhere was winning. The ID wins everything class-based. Once
+   the table is transparent the gray .dcf-mag-body / #sales_order_grid
+   chrome painted above shows through. */
+#sales_order_grid_table,
+#sales_order_grid_table tbody,
+#sales_order_grid_table thead,
+#sales_order_grid_table tr,
+#sales_order_grid_table td,
+#sales_order_grid_table th {
+    background: transparent !important;
+    background-color: transparent !important;
 }
-:root[data-theme="light"] body:not(.mmd-grid-wrapped):not(.adminhtml-dashboard-index):not(.adminhtml-dashboard-edit) .admin-main .grid,
-:root[data-theme="light"] body:not(.mmd-grid-wrapped):not(.adminhtml-dashboard-index):not(.adminhtml-dashboard-edit) .admin-main .grid .hor-scroll,
-:root[data-theme="light"] body:not(.mmd-grid-wrapped):not(.adminhtml-dashboard-index):not(.adminhtml-dashboard-edit) .admin-main .grid table.data {
+:root[data-theme="light"] #sales_order_grid_table,
+:root[data-theme="light"] #sales_order_grid_table tbody,
+:root[data-theme="light"] #sales_order_grid_table thead,
+:root[data-theme="light"] #sales_order_grid_table tr,
+:root[data-theme="light"] #sales_order_grid_table td,
+:root[data-theme="light"] #sales_order_grid_table th {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Light-mode mirror — white card with slate-300 border. */
+
+/* Light-mode mirror — white card with slate-300 border. */
+:root[data-theme="light"] .admin-main .grid {
     background: #ffffff !important;
     border-color: #cbd5e1 !important;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.08) !important;
+}
+:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body .grid {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+:root[data-theme="light"] body.adminhtml-dashboard-index .admin-main .grid,
+:root[data-theme="light"] body.adminhtml-dashboard-edit .admin-main .grid {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
 /* Order Statuses grid — compact single-line rows. */
