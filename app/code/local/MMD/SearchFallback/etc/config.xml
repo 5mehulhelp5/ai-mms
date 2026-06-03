@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_SearchFallback>
+            <version>1.0.0</version>
+        </MMD_SearchFallback>
+    </modules>
+    <frontend>
+        <routers>
+            <catalogsearch>
+                <args>
+                    <modules>
+                        <MMD_SearchFallback before="Mage_CatalogSearch">MMD_SearchFallback</MMD_SearchFallback>
+                    </modules>
+                </args>
+            </catalogsearch>
+        </routers>
+    </frontend>
+</config>

@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_SearchFallback>
+            <active>true</active>
+            <codePool>local</codePool>
+            <depends>
+                <Mage_CatalogSearch/>
+            </depends>
+        </MMD_SearchFallback>
+    </modules>
+</config>
