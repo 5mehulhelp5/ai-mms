@@ -4606,3 +4606,92 @@ body .admin-main #anchor-content { padding-left: 0 !important; }
 :root[data-theme="light"] .admin-main .address-list address {
     color: #0f172a !important;
 }
+
+/* ===========================================================
+   TYPOGRAPHY — Canonical admin header hierarchy
+   -----------------------------------------------------------
+   One font family + weight scale across the whole admin so
+   every page reads as part of the same system. Sizes tier by
+   role (h1 page-title → h6 smallest meta) — different levels
+   keep different visual weight, but family / weight / line-
+   height are unified.
+
+   Placed at the bottom of sidebar-nav.css (last-loaded admin
+   CSS) so it beats earlier per-page overrides without having
+   to grep + patch each one. .admin-main prefix gives matching
+   specificity (0,1,1) for unscoped header rules and beats
+   `body[class*=…] .admin-main h3` style scoping via cascade
+   order. !important neutralizes the dozens of legacy
+   per-page h3/h4 overrides scattered across the file.
+   =========================================================== */
+.admin-main h1,
+.admin-main h2,
+.admin-main h3,
+.admin-main h4,
+.admin-main h5,
+.admin-main h6 {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-weight: 700 !important;
+    line-height: 1.4 !important;
+    text-shadow: none !important;
+    margin: 0 0 8px !important;
+}
+/* H1 — page-level. Reserved for top-of-page titles that
+   aren't inside a .dcf-mag-bar (rare). */
+.admin-main h1 { font-size: 22px !important; letter-spacing: 0 !important; text-transform: none !important; }
+/* H2 — large card / section-major (e.g. config section split). */
+.admin-main h2 { font-size: 18px !important; letter-spacing: 0 !important; text-transform: none !important; }
+/* H3 — standard card title. The everyday case. */
+.admin-main h3 { font-size: 14px !important; letter-spacing: 0 !important; text-transform: none !important; }
+/* H4 — form-panel head (.entry-edit-head h4, .box-head h4). */
+.admin-main h4 { font-size: 13px !important; letter-spacing: 0 !important; text-transform: none !important; }
+/* H5 — small uppercase sub-label (e.g. "Additional Cache Management"). */
+.admin-main h5 { font-size: 12px !important; letter-spacing: 0.6px !important; text-transform: uppercase !important; color: var(--t4, #94a3b8) !important; }
+/* H6 — smallest meta label. */
+.admin-main h6 { font-size: 11px !important; letter-spacing: 0.6px !important; text-transform: uppercase !important; color: var(--t4, #94a3b8) !important; }
+
+/* Page title bar — the .dcf-mag-bar title (wrapAdminGridInCard
+   pulls the page name into a <span> inside the bar). Align it
+   to the H1 scale so the page-title strip on every grid page
+   reads the same size + font everywhere. The bar's own
+   font-size:15px in admin-dashboard.css §603 wins on the bar
+   element itself; this rule retunes the inner title span. */
+.admin-main .dcf-mag-bar {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    line-height: 1.4 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+}
+.admin-main .dcf-mag-bar > span:first-child {
+    font-family: inherit !important;
+    font-size: inherit !important;
+    font-weight: inherit !important;
+    letter-spacing: inherit !important;
+    text-transform: inherit !important;
+}
+
+/* Card / section titles — align to H3 scale. */
+.admin-main .dcf-section-title,
+.admin-main .entry-edit-head h4,
+.admin-main .box-head h4,
+.admin-main .box-head h3 {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    line-height: 1.4 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+}
+
+/* Sidebar section labels — align to H5 scale (sub-label). */
+.admin-main .sidebar-section-label,
+.admin-sidebar-layout .sidebar-section-label {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    line-height: 1.4 !important;
+    letter-spacing: 0.6px !important;
+    text-transform: uppercase !important;
+}
