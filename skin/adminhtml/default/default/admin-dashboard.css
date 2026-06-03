@@ -3266,8 +3266,22 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .crd-sub { color:#64748b !important }
 :root[data-theme="light"] .crd-card { background:#e2e8f0 !important; border-color:#64748b !important }
 :root[data-theme="light"] .crd-card h3 { color:#0f172a !important }
-:root[data-theme="light"] .crd-card h3 .crd-dot { background:#cbd5e1 !important }
-/* .has-value dot keeps cyan tint, semantic — works on both */
+/* Inactive dot — hollow ring on light card so it reads as "off"
+   (slate-300 fill on white was nearly invisible vs the lit cyan).
+   Lit dot — saturated brand blue with a stronger outer ring so the
+   on/off contrast is unmistakable in light mode. */
+:root[data-theme="light"] .crd-card h3 .crd-dot {
+    background: #ffffff !important;
+    border: 2px solid #94a3b8 !important;
+    box-shadow: none !important;
+    width: 10px !important;
+    height: 10px !important;
+}
+:root[data-theme="light"] .crd-card.has-value h3 .crd-dot {
+    background: #2563eb !important;
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 4px rgba(37,99,235,0.22) !important;
+}
 :root[data-theme="light"] .crd-label { color:#64748b !important }
 :root[data-theme="light"] .crd-input { background:#ffffff !important; border-color:#64748b !important; color:#0f172a !important }
 :root[data-theme="light"] .crd-input::placeholder { color:#94a3b8 !important }
