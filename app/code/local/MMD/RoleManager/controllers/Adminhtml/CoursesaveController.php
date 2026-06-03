@@ -3300,6 +3300,50 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             ->setBody(json_encode($result));
     }
 
+    /**
+     * Master toggle for the automated trainer-invitation cron sweep.
+     *
+     * Stored in core_config_data at mmd/trainer_invitation/auto_enabled.
+     * Absent/0 = disabled (fail-safe default — the cron self-skips). Manual
+     * "Send Invitation" actions are NOT affected by this flag.
+     *
+     * Restricted to administrative roles (Admin / Super Admin / Developer) —
+     * trainers must not flip the global automation switch.
+     *
+     * POST params: value (0 | 1)
+     * Returns JSON { success, message, value }
+     */
+    public function setAutoInvitationEnabledAction()
+    {
+        $result = array('success' => false, 'message' => 'An error occurred.');
+        try {
+            if (!$this->getRequest()->isPost()) {
+                throw new Exception('POST required');
+            }
+            $this->_validateFormKey();
+
+            if (!Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', 'training_provider', 'developer'))) {
+                throw new Exception('Not authorized to change this setting.');
+            }
+
+            $value = (int) $this->getRequest()->getParam('value') ? 1 : 0;
+
+            Mage::getConfig()->saveConfig('mmd/trainer_invitation/auto_enabled', $value, 'default', 0);
+            Mage::getConfig()->reinit();
+
+            $result = array(
+                'success' => true,
+                'message' => $value ? 'Automated invitations enabled.' : 'Automated invitations disabled.',
+                'value'   => $value,
+            );
+        } catch (Exception $e) {
+            $result = array('success' => false, 'message' => $e->getMessage());
+        }
+        $this->getResponse()
+            ->setHeader('Content-Type', 'application/json', true)
+            ->setBody(json_encode($result));
+    }
+
     public function sendTrainerInvitationAction()
     {
         $result = array('success' => false, 'message' => 'An error occurred.');

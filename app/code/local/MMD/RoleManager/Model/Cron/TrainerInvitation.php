@@ -11,12 +11,22 @@
  */
 class MMD_RoleManager_Model_Cron_TrainerInvitation
 {
-    const LOG_FILE         = 'trainer-invitations.log';
-    const DAYS_IN_ADVANCE  = 30;
-    const LOCK_CONFIG_PATH = 'mmd/trainer_invitation_sweep/running';
+    const LOG_FILE          = 'trainer-invitations.log';
+    const DAYS_IN_ADVANCE    = 30;
+    const LOCK_CONFIG_PATH    = 'mmd/trainer_invitation_sweep/running';
+    const ENABLED_CONFIG_PATH = 'mmd/trainer_invitation/auto_enabled';
 
     public function run()
     {
+        // Master kill-switch for the automated sweep. Absent config = disabled,
+        // so the sweep ships fail-safe OFF and stays inert even if Magento cron
+        // is (re)enabled — until an admin explicitly turns it on in the UI.
+        // Manual "Send Invitation" actions are NOT gated by this flag.
+        if (!Mage::getStoreConfigFlag(self::ENABLED_CONFIG_PATH)) {
+            Mage::log('TrainerInvitation sweep skipped — automated invitations disabled.', Zend_Log::INFO, self::LOG_FILE);
+            return;
+        }
+
         // Global in-flight lock — prevent overlapping runs.
         $running = Mage::getStoreConfig(self::LOCK_CONFIG_PATH);
         if ($running) {

@@ -144,6 +144,11 @@ try {
 $_sendInviteUrl  = Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/sendTrainerInvitation');
 $_updateFlagsUrl = Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/updateInvitationFlags');
 
+// Master automated-invitation toggle. Absent config = disabled (fail-safe).
+$_autoInviteUrl     = Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/setAutoInvitationEnabled');
+$_autoInviteEnabled = Mage::getStoreConfigFlag('mmd/trainer_invitation/auto_enabled');
+$_canToggleAuto     = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', 'training_provider', 'developer'));
+
 $storeColors = array(
     'SG' => array('bg' => 'rgba(59,130,246,.12)',  'color' => '#60a5fa'),
     'MY' => array('bg' => 'rgba(245,158,11,.12)',  'color' => '#f59e0b'),
@@ -162,6 +167,28 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
         <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_query' => array('panel' => 'create_class'))) ?>"
            style="padding:8px 18px;background:#2563eb;color:#fff !important;border:none;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none !important;white-space:nowrap;">+ Create Class</a>
     </div>
+
+    <?php if ($_canToggleAuto): ?>
+    <!-- Automated invitation master toggle -->
+    <div id="auto-inv-banner" style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 16px;margin-bottom:16px;border-radius:10px;border:1px solid <?php echo $_autoInviteEnabled ? 'rgba(34,197,94,.3)' : 'rgba(100,116,139,.25)' ?>;background:<?php echo $_autoInviteEnabled ? 'rgba(34,197,94,.08)' : 'rgba(100,116,139,.06)' ?>;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="<?php echo $_autoInviteEnabled ? '#22c55e' : '#64748b' ?>" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+            </svg>
+            <div>
+                <div style="font-size:13px;font-weight:600;color:#e2e8f0;">Automated trainer invitations</div>
+                <div style="font-size:11px;color:#64748b;margin-top:1px;">When ON, the twice-weekly cron sweep emails the next eligible trainer for upcoming classes. Manual "Invite" still works regardless.</div>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+            <span id="auto-inv-spinner" style="font-family:monospace;font-size:16px;line-height:1;color:#60a5fa;width:12px;display:inline-block;text-align:center;"></span>
+            <label class="dcf-toggle-sw" title="<?php echo $_autoInviteEnabled ? 'Automated invitations ON' : 'Automated invitations OFF' ?>" style="flex-shrink:0;">
+                <input type="checkbox" id="auto-inv-cb" <?php echo $_autoInviteEnabled ? 'checked' : '' ?> onchange="autoInvSet(this)">
+                <span class="dcf-toggle-slider"></span>
+            </label>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Bucket tabs -->
     <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:1px solid #1e293b;">
@@ -358,6 +385,77 @@ var RM_PAGE_SIZE = 50;
 var rmCurrentPage = 1;
 var CLS_SEND_INVITE_URL  = '<?php echo $this->jsQuoteEscape($_sendInviteUrl) ?>';
 var CLS_UPDATE_FLAGS_URL = '<?php echo $this->jsQuoteEscape($_updateFlagsUrl) ?>';
+var CLS_AUTO_INV_URL     = '<?php echo $this->jsQuoteEscape($_autoInviteUrl) ?>';
+
+var _autoInvSpin = null;
+var _autoInvResultTimer = null;
+function autoInvStartSpin() {
+    var el = document.getElementById('auto-inv-spinner');
+    if (!el) return;
+    if (_autoInvResultTimer) { clearTimeout(_autoInvResultTimer); _autoInvResultTimer = null; }
+    el.style.color = '#60a5fa';
+    el.removeAttribute('title');
+    var frames = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
+    var i = 0;
+    el.textContent = frames[0];
+    _autoInvSpin = setInterval(function(){ i = (i + 1) % frames.length; el.textContent = frames[i]; }, 80);
+}
+function autoInvStopSpin() {
+    if (_autoInvSpin) { clearInterval(_autoInvSpin); _autoInvSpin = null; }
+}
+function autoInvShowResult(ok, msg) {
+    var el = document.getElementById('auto-inv-spinner');
+    if (!el) return;
+    el.textContent = ok ? '✓' : '✗';
+    el.style.color = ok ? '#22c55e' : '#ef4444';
+    if (msg) el.setAttribute('title', msg); else el.removeAttribute('title');
+    _autoInvResultTimer = setTimeout(function(){
+        el.textContent = '';
+        el.style.color = '#60a5fa';
+        el.removeAttribute('title');
+        _autoInvResultTimer = null;
+    }, 2500);
+}
+
+function autoInvSet(cb) {
+    var val = cb.checked ? 1 : 0;
+    // Hold the knob at its previous position until the server confirms — the
+    // native checkbox already flipped on click, so revert the visual now and
+    // only commit it on a successful response.
+    cb.checked = (val === 0);
+    if (val === 1 && !confirm('Enable automated trainer invitation emails?\n\nThe cron sweep will email the next eligible trainer for upcoming classes twice a week.')) {
+        return; // cancelled — knob stays at previous state
+    }
+    cb.disabled = true;
+    autoInvStartSpin();
+    var fd = new FormData();
+    fd.append('value', val);
+    fd.append('form_key', window.FORM_KEY || '');
+    fetch(CLS_AUTO_INV_URL, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            cb.disabled = false;
+            autoInvStopSpin();
+            if (!d.success) {
+                autoInvShowResult(false, d.message || 'Failed to update'); // knob unchanged
+                return;
+            }
+            var on = (d.value === 1);
+            cb.checked = on; // commit the knob only on success
+            cb.closest('.dcf-toggle-sw').setAttribute('title', on ? 'Automated invitations ON' : 'Automated invitations OFF');
+            var banner = document.getElementById('auto-inv-banner');
+            if (banner) {
+                banner.style.borderColor = on ? 'rgba(34,197,94,.3)' : 'rgba(100,116,139,.25)';
+                banner.style.background   = on ? 'rgba(34,197,94,.08)' : 'rgba(100,116,139,.06)';
+            }
+            autoInvShowResult(true);
+        })
+        .catch(function(){
+            cb.disabled = false;
+            autoInvStopSpin();
+            autoInvShowResult(false, 'Network error'); // knob unchanged
+        });
+}
 
 function clsToggleExpand(runId) {
     var row = document.getElementById('cls-expand-' + runId);
