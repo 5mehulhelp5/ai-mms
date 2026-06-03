@@ -2209,7 +2209,12 @@ document.observe('dom:loaded', function() {
         if (!contentHeader || !grid) return;
         var h3 = contentHeader.querySelector('h3');
         var title = h3 ? h3.textContent.trim() : '';
-        if (!title) return;
+        // Empty / missing h3 used to early-return, which left pages like
+        // sales_order_status without the gray .dcf-mag-bar card chrome
+        // every other admin grid gets. Allow empty-title wraps — the
+        // title span still renders (just empty / hidden via the body-
+        // scoped span:first-child CSS rule on order-related routes),
+        // and the form-buttons row still hoists into the bar.
 
         // Grid wrapper div — closest ancestor div with an id (Magento
         // emits <div id="<grid_id>">…<div id="<grid_id>_massaction">…

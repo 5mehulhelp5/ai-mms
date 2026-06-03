@@ -600,10 +600,23 @@ button.dcf-btn-save{background:#2563eb !important;color:#fff !important}
 .dcf-section-title{font-size:16px;font-weight:700;color:#fff;margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:8px}
 /* Magento-style section: header bar + body. Used for the new Magento-aligned
    tabs (General, Prices, Meta, Inventory, etc.). */
-.dcf-mag{background:#1e293b;border:1px solid #334155;border-radius:10px;margin-bottom:16px;overflow:hidden}
-.dcf-mag-bar{background:linear-gradient(to bottom,#334155,#2a374a);color:#f1f5f9;padding:13px 22px;font-size:15px;font-weight:700;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.dcf-mag{background:#2a3548;border:1px solid #475569;border-radius:10px;margin-bottom:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.35)}
+.dcf-mag-bar{background:linear-gradient(to bottom,#3b4a63,#2f3d52);color:#f1f5f9;padding:13px 22px;font-size:15px;font-weight:700;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .dcf-mag-bar .dcf-mag-action{background:#0e7490;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
-.dcf-mag-body{padding:8px 24px}
+.dcf-mag-body{padding:8px 24px;background:#2a3548}
+/* Auto-wrapped grid pages: the table needs to read as a solid gray
+   card surface. Override the global `.admin-main .grid { background:
+   transparent }` rule inside the wrap so the card surface paints
+   through grid + hor-scroll + the .data table itself — gives the
+   same visible card body that Transactional Emails / Manage Tax
+   Rules have. Row cells stay transparent (global rule) so the gray
+   shows behind every cell. */
+.dcf-mag.mmd-auto-card .dcf-mag-body,
+.dcf-mag.mmd-auto-card .dcf-mag-body .grid,
+.dcf-mag.mmd-auto-card .dcf-mag-body .hor-scroll,
+.dcf-mag.mmd-auto-card .dcf-mag-body table.data {
+    background:#2a3548 !important;
+}
 /* Magento-style 3-column row: label | input | scope tag */
 .dcf-row{display:grid;grid-template-columns:220px minmax(0,1fr) 110px;gap:18px;align-items:flex-start;padding:6px 0;border-bottom:none}
 .dcf-row-label{font-size:13.5px;color:#cbd5e1;line-height:1.4;padding-top:9px}
@@ -2953,6 +2966,11 @@ button.hsp-btn-submit{
 /* Magento-styled inner card (.dcf-mag) and its bar */
 :root[data-theme="light"] .dcf-mag { background:#ffffff !important; border-color:#64748b !important }
 :root[data-theme="light"] .dcf-mag-bar { background:linear-gradient(to bottom,#f1f5f9,#e2e8f0) !important; color:#0f172a !important; border-bottom-color:#e2e8f0 !important }
+:root[data-theme="light"] .dcf-mag-body { background:#ffffff !important }
+:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body,
+:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body .grid,
+:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body .hor-scroll,
+:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body table.data { background:#ffffff !important }
 
 /* Rows / labels */
 :root[data-theme="light"] .dcf-row-label { color:#1e293b !important }

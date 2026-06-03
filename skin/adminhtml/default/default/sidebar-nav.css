@@ -3729,6 +3729,37 @@ body.adminhtml-process-list .admin-main br {
     50%      { box-shadow: 0 0 0 6px rgba(96, 165, 250, 0); }
 }
 
+/* ===== Fallback grid card chrome =====
+   When wrapMmdGridInCard() (sidebar-nav-v2.js) successfully wraps a
+   page's .grid into a .dcf-mag card, it stamps `mmd-grid-wrapped` on
+   <body>. Some admin grids (sales_order_status is the canonical
+   example) don't get wrapped — the container/header/grid combo doesn't
+   match the JS selectors, or the script bails for a reason that's
+   hard to diagnose at runtime. Without the wrap they sit naked on the
+   page with no gray card behind them, while every neighbouring admin
+   grid is on a card.
+   This rule paints the card chrome directly on the .grid wrapper for
+   any page where the JS wrap didn't run. When it DID run, the body
+   class suppresses this rule, so we never double-paint. */
+body:not(.mmd-grid-wrapped):not(.adminhtml-dashboard-index):not(.adminhtml-dashboard-edit) .admin-main .grid {
+    background: #2a3548 !important;
+    border: 1px solid #475569 !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    margin-bottom: 16px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.35) !important;
+}
+body:not(.mmd-grid-wrapped):not(.adminhtml-dashboard-index):not(.adminhtml-dashboard-edit) .admin-main .grid .hor-scroll,
+body:not(.mmd-grid-wrapped):not(.adminhtml-dashboard-index):not(.adminhtml-dashboard-edit) .admin-main .grid table.data {
+    background: #2a3548 !important;
+}
+:root[data-theme="light"] body:not(.mmd-grid-wrapped):not(.adminhtml-dashboard-index):not(.adminhtml-dashboard-edit) .admin-main .grid,
+:root[data-theme="light"] body:not(.mmd-grid-wrapped):not(.adminhtml-dashboard-index):not(.adminhtml-dashboard-edit) .admin-main .grid .hor-scroll,
+:root[data-theme="light"] body:not(.mmd-grid-wrapped):not(.adminhtml-dashboard-index):not(.adminhtml-dashboard-edit) .admin-main .grid table.data {
+    background: #ffffff !important;
+    border-color: #cbd5e1 !important;
+}
+
 /* Order Statuses grid — compact single-line rows. */
 body.adminhtml-sales_order_status-index .admin-main .grid table.data td,
 body.adminhtml-sales_order_status-index .admin-main .grid table.data tbody tr td,

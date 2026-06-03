@@ -4444,6 +4444,19 @@ body[class*="customoptions-options-index"] #customoptionsOptionsGrid table.massa
     text-decoration: none !important;
     transition: background 0.12s, color 0.12s, border-color 0.12s !important;
 }
+/* Text-only actions (no SVG icon child) render as an auto-width pill —
+   otherwise the 26x26 fixed square clips labels like "Reindex Data"
+   that show up on Index Management. :has() is widely supported and
+   precisely targets the empty / text-only links so SVG icon buttons
+   on every other grid keep their square shape. */
+.mmd-grid-action:not(:has(svg)) {
+    width: auto !important;
+    height: auto !important;
+    padding: 4px 12px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    white-space: nowrap !important;
+}
 .mmd-grid-action:hover { background: rgba(96, 165, 250, 0.12) !important; }
 .mmd-grid-action--view:hover   { color: #60a5fa !important; border-color: #60a5fa !important; }
 .mmd-grid-action--edit:hover   { color: #60a5fa !important; border-color: #60a5fa !important; }
