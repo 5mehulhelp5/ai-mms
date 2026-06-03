@@ -154,6 +154,48 @@
 				$_inner = preg_replace('#<h[1-6][^>]*>.*?</h[1-6]>#siu', '', $_inner);
 			}
 
+			// Fallback — when a course has the UTAP badge (pill) but its
+			// funding narrative doesn't contain a UTAP section (the badge
+			// is set via tags, narrative is freeform short_description /
+			// CMS block, so they can drift apart), inject the canonical
+			// UTAP <h3> + <p> so the preg_replace_callback below wraps it
+			// into a .wsq-sub--utap card alongside the other schemes.
+			// Same gap could exist for PSEA / SFC / SFEC — left those
+			// alone for now (narrow fix per the request that surfaced
+			// this); extend the array below if the pattern recurs.
+			try {
+				$_courseBadges = Mage::helper('mmd_courseimage')->getProductBadges($_product);
+			} catch (Exception $_e) {
+				$_courseBadges = array();
+			}
+			// Each fallback declares the HTML to inject AND the heading
+			// it should insert BEFORE so the funding stack stays in its
+			// canonical order (SFC → UTAP → PSEA → SFEC) — matches how
+			// authored courses display. If the anchor heading isn't
+			// present, append to the end as a safety net.
+			$_fundingFallbacks = array(
+				'UTAP' => array(
+					'html' => '<h3>UTAP</h3>'
+						. '<p>Eligible NTUC members can apply for 50% of the unfunded fee from UTAP, '
+						. 'capped up to $250/year and for members aged 40 and above, capped up to $500/year. '
+						. '<a href="https://www.ntuc.org.sg/wps/portal/up2/home/eserviceslanding?id=6bc1ca2c-ce81-4acb-a28f-c0be586e185f" target="_blank">'
+						. '<span style="color: #ff0000; text-decoration-line: underline;">Click here to submit UTAP</span></a></p>',
+					'before' => 'PSEA',
+				),
+			);
+			foreach ($_fundingFallbacks as $_badgeName => $_fallback) {
+				if (!in_array($_badgeName, $_courseBadges, true)) continue;
+				if (stripos($_inner, '>' . $_badgeName . '<') !== false
+					|| stripos($_inner, '>' . $_badgeName . ' ') !== false) continue;
+				$_anchor = $_fallback['before'];
+				$_anchorPattern = '#<h[1-6][^>]*>' . $_WS . '*' . preg_quote($_anchor, '#') . '\b#siu';
+				if ($_anchor !== '' && preg_match($_anchorPattern, $_inner, $_am, PREG_OFFSET_CAPTURE)) {
+					$_inner = substr($_inner, 0, $_am[0][1]) . $_fallback['html'] . substr($_inner, $_am[0][1]);
+				} else {
+					$_inner .= $_fallback['html'];
+				}
+			}
+
 			// Wrap each remaining <h[1-6]>…(body until next h)…</h> into its
 			// own .wsq-sub block so the SFC / UTAP / PSEA / SFEC sub-sections
 			// render as visually separated mini-cards instead of flat text.
