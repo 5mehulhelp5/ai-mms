@@ -4894,3 +4894,16 @@ body .admin-main #anchor-content { padding-left: 0 !important; }
     letter-spacing: 0.6px !important;
     text-transform: uppercase !important;
 }
+
+/* Form-list rows that only contain hidden inputs render as empty
+   horizontal bands with the row's bottom border still drawn. The
+   Promotions edit page (promo_quote / promo_catalog) is the visible
+   case — Mage_Adminhtml_Block_Promo_Quote_Edit_Tab_Main adds
+   `rule_id` and `product_ids` as hidden fields to the same fieldset
+   as the visible inputs, so two ghost rows show up between
+   "General Information" and "Rule Name". Hide any .form-list <tr>
+   that has no select / textarea AND every input inside is
+   type="hidden". :has() and :not() are widely supported. */
+.admin-main table.form-list tr:not(:has(select)):not(:has(textarea)):not(:has(input:not([type="hidden"]))):not(:has(button)) {
+    display: none !important;
+}
