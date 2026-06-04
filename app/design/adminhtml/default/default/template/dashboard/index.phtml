@@ -5254,6 +5254,74 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
     .ql-picker.ql-font .ql-picker-label[data-value="georgia"]::before,         .ql-picker.ql-font .ql-picker-item[data-value="georgia"]::before         { content: "Georgia"; font-family: Georgia; }
     .ql-picker.ql-font .ql-picker-label[data-value="tahoma"]::before,          .ql-picker.ql-font .ql-picker-item[data-value="tahoma"]::before          { content: "Tahoma"; font-family: Tahoma; }
     .ql-picker.ql-font .ql-picker-label[data-value="trebuchet-ms"]::before,    .ql-picker.ql-font .ql-picker-item[data-value="trebuchet-ms"]::before    { content: "Trebuchet MS"; font-family: "Trebuchet MS"; }
+
+    /* === Light theme overrides for the Quill editor ===
+       Dark theme above hardcodes text colors (#e2e8f0 / #f1f5f9 /
+       #cbd5e1) on .ql-editor body / headings / strong / blockquote.
+       In light mode the WYSIWYG content area sits on a white card, so
+       slate-200 text reads as ghost-white. Flip every text color to
+       slate-900 / slate-700 (preserving the on-white contrast that
+       the dark theme had on slate-800). Toolbar pickers + container
+       borders also re-tone to slate-300 / slate-900. */
+    :root[data-theme="light"] .qrt-wrap .ql-toolbar.ql-snow{
+        border-color: rgba(15,23,42,.15) !important;
+        background: #f8fafc;
+    }
+    :root[data-theme="light"] .qrt-wrap .ql-toolbar.ql-snow .ql-stroke{ stroke: #1e293b !important; }
+    :root[data-theme="light"] .qrt-wrap .ql-toolbar.ql-snow .ql-fill { fill: #1e293b !important; }
+    :root[data-theme="light"] .qrt-wrap .ql-toolbar.ql-snow button:hover .ql-stroke,
+    :root[data-theme="light"] .qrt-wrap .ql-toolbar.ql-snow button.ql-active .ql-stroke{ stroke: #2563eb !important; }
+    :root[data-theme="light"] .qrt-wrap .ql-toolbar.ql-snow button:hover .ql-fill,
+    :root[data-theme="light"] .qrt-wrap .ql-toolbar.ql-snow button.ql-active .ql-fill{ fill: #2563eb !important; }
+    :root[data-theme="light"] .qrt-wrap .ql-toolbar.ql-snow .ql-picker-label{ color: #1e293b !important; }
+    :root[data-theme="light"] .qrt-wrap .ql-toolbar.ql-snow .ql-picker-item{ color: #1e293b !important; }
+    :root[data-theme="light"] .qrt-wrap .ql-toolbar.ql-snow .ql-picker-item:hover,
+    :root[data-theme="light"] .qrt-wrap .ql-toolbar.ql-snow .ql-picker-item.ql-selected{ color: #2563eb !important; }
+    :root[data-theme="light"] .qrt-wrap .ql-container.ql-snow{
+        border-color: rgba(15,23,42,.15) !important;
+        background: #ffffff !important;
+    }
+    :root[data-theme="light"] .qrt-wrap .ql-editor{ color: #0f172a !important; }
+    :root[data-theme="light"] .qrt-wrap .ql-editor.ql-blank::before{ color: #94a3b8 !important; }
+    :root[data-theme="light"] .qrt-wrap .ql-editor h1,
+    :root[data-theme="light"] .qrt-wrap .ql-editor h2,
+    :root[data-theme="light"] .qrt-wrap .ql-editor h3,
+    :root[data-theme="light"] .qrt-wrap .ql-editor h4,
+    :root[data-theme="light"] .qrt-wrap .ql-editor h5,
+    :root[data-theme="light"] .qrt-wrap .ql-editor h6{ color: #0f172a !important; }
+    :root[data-theme="light"] .qrt-wrap .ql-editor strong,
+    :root[data-theme="light"] .qrt-wrap .ql-editor b{ color: #0f172a !important; }
+    :root[data-theme="light"] .qrt-wrap .ql-editor a{ color: #2563eb !important; }
+    :root[data-theme="light"] .qrt-wrap .ql-editor blockquote{
+        border-left-color: #cbd5e1 !important;
+        color: #475569 !important;
+    }
+    :root[data-theme="light"] .qrt-wrap .ql-editor pre.ql-syntax{
+        background: #f1f5f9 !important;
+        color: #0f172a !important;
+        border: 1px solid #cbd5e1;
+    }
+    :root[data-theme="light"] .qrt-wrap .ql-editor table,
+    :root[data-theme="light"] .qrt-wrap .ql-editor td,
+    :root[data-theme="light"] .qrt-wrap .ql-editor th{
+        color: #0f172a !important;
+        border-color: #cbd5e1 !important;
+    }
+    /* Inline `color:` styles saved in the content (e.g. SFEC link in
+       red) often pick up dark-mode color values from the storefront
+       theme. Force-override common pale-on-white colors so saved
+       content stays legible in the editor — does NOT touch the
+       saved HTML, only the display. */
+    :root[data-theme="light"] .qrt-wrap .ql-editor [style*="color:#e2e8f0"],
+    :root[data-theme="light"] .qrt-wrap .ql-editor [style*="color:#f1f5f9"],
+    :root[data-theme="light"] .qrt-wrap .ql-editor [style*="color:#cbd5e1"],
+    :root[data-theme="light"] .qrt-wrap .ql-editor [style*="color:#94a3b8"],
+    :root[data-theme="light"] .qrt-wrap .ql-editor [style*="color: #e2e8f0"],
+    :root[data-theme="light"] .qrt-wrap .ql-editor [style*="color: #f1f5f9"],
+    :root[data-theme="light"] .qrt-wrap .ql-editor [style*="color: #cbd5e1"],
+    :root[data-theme="light"] .qrt-wrap .ql-editor [style*="color: #94a3b8"]{
+        color: #0f172a !important;
+    }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
 

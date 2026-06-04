@@ -3016,6 +3016,27 @@ button.hsp-btn-submit{
 :root[data-theme="light"] button.dcf-btn-save-cont { background:#94a3b8 !important; color:#ffffff !important }
 :root[data-theme="light"] button.dcf-btn-save-cont:hover { background:#64748b !important }
 
+/* "Back to Manage Courses" + image-upload + similar mm-btn-ghost
+   buttons on the course-edit page. Dark theme set color #cbd5e1 in
+   dark-theme.css §5165 with no light flip, so the label sat as
+   slate-300 on the white dcf header — borderline-invisible. */
+:root[data-theme="light"] .admin-main button.mm-btn,
+:root[data-theme="light"] .admin-main button.mm-btn-ghost,
+:root[data-theme="light"] .admin-main a.mm-btn,
+:root[data-theme="light"] .admin-main a.mm-btn-ghost {
+    background: #f1f5f9 !important;
+    color: #1e293b !important;
+    border-color: #64748b !important;
+}
+:root[data-theme="light"] .admin-main button.mm-btn:hover,
+:root[data-theme="light"] .admin-main button.mm-btn-ghost:hover,
+:root[data-theme="light"] .admin-main a.mm-btn:hover,
+:root[data-theme="light"] .admin-main a.mm-btn-ghost:hover {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+    border-color: #94a3b8 !important;
+}
+
 /* ============================================================
    Light theme — DCE (course detail edit-mode view) class family
    ============================================================
