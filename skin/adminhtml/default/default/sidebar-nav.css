@@ -3826,8 +3826,15 @@ body[class*="adminhtml-sales-order-index"] #sales_order_grid {
 
 /* Light-mode mirror — white card with slate-300 border. */
 
-/* Light-mode mirror — white card with slate-300 border. */
-:root[data-theme="light"] .admin-main .grid {
+/* Light-mode mirror — white card with slate-300 border.
+   ID-selector twin (#sales_order_grid + [id$="_grid"]) is required
+   to beat the (1,1,0) specificity of the dark-mode wrapper rules
+   above; without it the slate #2a3548 leaks into light mode on
+   Registrations / Invoices / Transactions and any other grid that
+   ships its own id. */
+:root[data-theme="light"] .admin-main .grid,
+:root[data-theme="light"] .admin-main #sales_order_grid,
+:root[data-theme="light"] .admin-main [id$="_grid"] {
     background: #ffffff !important;
     border-color: #cbd5e1 !important;
     box-shadow: 0 1px 3px rgba(15,23,42,0.08) !important;
@@ -3836,6 +3843,114 @@ body[class*="adminhtml-sales-order-index"] #sales_order_grid {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
+}
+/* Store View bar — was dark in light mode because admin-dashboard.css
+   §12 hardcodes var(--b0, #0b1220) without a light-mode flip. */
+:root[data-theme="light"] .dcf-store-switcher {
+    background: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+}
+:root[data-theme="light"] .dcf-store-switcher * {
+    color: #0f172a !important;
+}
+
+/* Brute-force light surface on every layer of the auto-wrapped grid
+   card — outer .dcf-mag, .dcf-mag-body, all .dcf-mag-body direct
+   children, the trailing Magento <table class="actions"> footer
+   that some grids render below the pagination, and any nested
+   wrapper. Earlier overrides existed for .dcf-mag and .dcf-mag-body
+   alone but a dark slate strip kept showing up below the pagination
+   row — likely the `actions` table footer Magento emits, or a
+   grid-wrapper `<div>` sitting at the bottom of .dcf-mag-body. The
+   wildcard descendant rule below makes sure no inherited slate fill
+   leaks through in light mode regardless of which sub-element it
+   was painted on. */
+:root[data-theme="light"] .dcf-mag,
+:root[data-theme="light"] .dcf-mag.mmd-auto-card,
+:root[data-theme="light"] .dcf-mag .dcf-mag-body,
+:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body,
+:root[data-theme="light"] .dcf-mag-body > div,
+:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body > div,
+:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body > div > div,
+:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body table.actions,
+:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body table.actions tbody,
+:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body table.actions tr,
+:root[data-theme="light"] .dcf-mag.mmd-auto-card .dcf-mag-body table.actions td {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+}
+/* And the inner `<table class="actions">` cells (often hold the
+   pagination + per-page select) need transparent so the white
+   surface above shows through cleanly. */
+:root[data-theme="light"] .admin-main table.actions,
+:root[data-theme="light"] .admin-main table.actions tbody,
+:root[data-theme="light"] .admin-main table.actions tr,
+:root[data-theme="light"] .admin-main table.actions td {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: #475569 !important;
+}
+/* Pagination row — every variant. The pager wrapper class differs
+   per panel (`.modern-pagination` on grids, `.dev-pagination` /
+   `.rm-pagination` on developer panels, `.dash-pager` / `.al-pager`
+   / `.at-pager` / `.mm-pager` on custom tables) so we sweep all of
+   them with attribute wildcards. Force transparent so the white
+   grid / panel surface above shows through, and re-tone every muted
+   token (info text, perpage selector, page buttons, ellipsis). */
+:root[data-theme="light"] [class*="pagination"],
+:root[data-theme="light"] [class*="-pager"],
+:root[data-theme="light"] [class*="-pager-info"],
+:root[data-theme="light"] [class*="-pager-ctrls"],
+:root[data-theme="light"] .pagination-info,
+:root[data-theme="light"] .pagination-perpage,
+:root[data-theme="light"] .pagination-pages,
+:root[data-theme="light"] .pagination-ellipsis {
+    background: transparent !important;
+    color: #475569 !important;
+}
+:root[data-theme="light"] [class*="pager-info"] strong,
+:root[data-theme="light"] .pagination-info strong { color: #0f172a !important; }
+/* Page buttons / links — default tone */
+:root[data-theme="light"] [class*="pagination"] a,
+:root[data-theme="light"] [class*="pagination"] button,
+:root[data-theme="light"] [class*="-pager"] a,
+:root[data-theme="light"] [class*="-pager"] button,
+:root[data-theme="light"] button[class*="-pg-btn"],
+:root[data-theme="light"] a[class*="-pg-btn"],
+:root[data-theme="light"] button[class*="-page-btn"],
+:root[data-theme="light"] a[class*="-page-btn"],
+:root[data-theme="light"] button.pagination-btn,
+:root[data-theme="light"] a.pagination-btn { color: #475569 !important; }
+/* Active page — brand blue, bold */
+:root[data-theme="light"] [class*="pagination"] a.active,
+:root[data-theme="light"] [class*="pagination"] button.active,
+:root[data-theme="light"] [class*="-pager"] a.active,
+:root[data-theme="light"] [class*="-pager"] button.active,
+:root[data-theme="light"] button[class*="-pg-btn"].active,
+:root[data-theme="light"] a[class*="-pg-btn"].active,
+:root[data-theme="light"] button[class*="-page-btn"].active,
+:root[data-theme="light"] a[class*="-page-btn"].active,
+:root[data-theme="light"] button.pagination-btn.active,
+:root[data-theme="light"] a.pagination-btn.active { color: #2563eb !important; font-weight: 700 !important; }
+/* Hover — darker slate */
+:root[data-theme="light"] [class*="pagination"] a:hover:not(.disabled),
+:root[data-theme="light"] [class*="pagination"] button:hover:not(.disabled),
+:root[data-theme="light"] [class*="-pager"] a:hover:not(.disabled),
+:root[data-theme="light"] [class*="-pager"] button:hover:not(.disabled),
+:root[data-theme="light"] button[class*="-pg-btn"]:hover:not(.disabled),
+:root[data-theme="light"] a[class*="-pg-btn"]:hover:not(.disabled),
+:root[data-theme="light"] button[class*="-page-btn"]:hover:not(.disabled),
+:root[data-theme="light"] a[class*="-page-btn"]:hover:not(.disabled),
+:root[data-theme="light"] button.pagination-btn:hover:not(.disabled),
+:root[data-theme="light"] a.pagination-btn:hover:not(.disabled) { color: #0f172a !important; }
+/* Per-page selector — ensure light fill regardless of which pager
+   wrapper it sits in. */
+:root[data-theme="light"] [class*="pagination"] select,
+:root[data-theme="light"] [class*="-pager"] select,
+:root[data-theme="light"] .pagination-perpage select {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
 }
 :root[data-theme="light"] body.adminhtml-dashboard-index .admin-main .grid,
 :root[data-theme="light"] body.adminhtml-dashboard-edit .admin-main .grid {
