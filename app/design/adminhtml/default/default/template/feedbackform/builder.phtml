@@ -68,6 +68,52 @@ $autofills  = $h->getAutofillOptions();
 .fbb-req-wrap{display:flex;align-items:center;padding-bottom:2px;}
 .fbb-req-wrap label{font-size:11px;color:#64748b;display:flex;align-items:center;gap:4px;cursor:pointer;}
 .fbb-req-wrap input[type=checkbox]{accent-color:#2563eb;width:13px;height:13px;}
+
+/* ── Light theme — every .fbb-* token hardcoded above gets a slate
+   light counterpart. Card surfaces flip to slate-100 / white,
+   inputs to white with slate-300 borders, body text to slate-900,
+   muted labels to slate-600. Brand-blue accents (primary buttons,
+   focus border, accent-color on checkbox) keep their hue. */
+:root[data-theme="light"] .fbb-card{background:#f1f5f9;border-color:#cbd5e1;}
+:root[data-theme="light"] .fbb-title{color:#0f172a;}
+:root[data-theme="light"] .fbb-subtitle{color:#64748b;}
+:root[data-theme="light"] .fbb-label{color:#475569;}
+:root[data-theme="light"] .fbb-input,
+:root[data-theme="light"] .fbb-select,
+:root[data-theme="light"] .fbb-input-sm,
+:root[data-theme="light"] .fbb-select-sm,
+:root[data-theme="light"] .fbb-section-title{background:#ffffff;border-color:#cbd5e1;color:#0f172a;}
+:root[data-theme="light"] .fbb-input::placeholder,
+:root[data-theme="light"] .fbb-input-sm::placeholder,
+:root[data-theme="light"] .fbb-section-title::placeholder{color:#94a3b8;}
+:root[data-theme="light"] .fbb-input:focus,
+:root[data-theme="light"] .fbb-select:focus,
+:root[data-theme="light"] .fbb-input-sm:focus,
+:root[data-theme="light"] .fbb-select-sm:focus,
+:root[data-theme="light"] .fbb-section-title:focus{border-color:#2563eb;}
+:root[data-theme="light"] .fbb-btn-secondary{border-color:#cbd5e1;color:#475569;}
+:root[data-theme="light"] .fbb-btn-secondary:hover{border-color:#2563eb;color:#0f172a;background:#e2e8f0;}
+:root[data-theme="light"] .fbb-btn-outline{border-color:#cbd5e1;color:#475569;}
+:root[data-theme="light"] .fbb-btn-outline.active{border-color:#2563eb;color:#2563eb;background:rgba(37,99,235,.08);}
+:root[data-theme="light"] .fbb-btn-icon{color:#64748b;}
+:root[data-theme="light"] .fbb-btn-icon:hover{color:#0f172a;background:rgba(15,23,42,.06);}
+:root[data-theme="light"] .fbb-section{background:#ffffff;border-color:#cbd5e1;}
+:root[data-theme="light"] .fbb-field{background:#f8fafc;border-color:#e2e8f0;}
+:root[data-theme="light"] .fbb-add-field-btn,
+:root[data-theme="light"] .fbb-add-section-btn{border-color:#cbd5e1;color:#64748b;background:transparent;}
+:root[data-theme="light"] .fbb-add-field-btn:hover,
+:root[data-theme="light"] .fbb-add-section-btn:hover{border-color:#2563eb;color:#2563eb;}
+/* Preview panel */
+:root[data-theme="light"] .fbb-preview-title{color:#0f172a;}
+:root[data-theme="light"] .fbb-preview-sub{color:#64748b;}
+:root[data-theme="light"] .fbb-preview-form-title{color:#475569;}
+:root[data-theme="light"] .fbb-preview-section-title{color:#475569;border-bottom-color:#e2e8f0;}
+:root[data-theme="light"] .fbb-preview-label{color:#475569;}
+:root[data-theme="light"] .fbb-preview-input{background:#ffffff;border-color:#cbd5e1;color:#94a3b8;}
+:root[data-theme="light"] .fbb-preview-star{color:#cbd5e1;}
+:root[data-theme="light"] .fbb-preview-star-legend,
+:root[data-theme="light"] .fbb-preview-empty{color:#94a3b8;}
+:root[data-theme="light"] .fbb-req-wrap label{color:#475569;}
 </style>
 
 <div class="rm-wrap">

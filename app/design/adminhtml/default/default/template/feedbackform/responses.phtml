@@ -61,6 +61,50 @@ $deleteUrl = Mage::helper('adminhtml')->getUrl('adminhtml/responses/delete');
 .fbr-answer-input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px;box-sizing:border-box;}
 .fbr-answer-textarea{width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px;box-sizing:border-box;resize:vertical;}
 pre.fbr-json{background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:12px;font-size:11px;color:#94a3b8;overflow-x:auto;white-space:pre-wrap;word-break:break-word;}
+
+/* ── Light theme — same pattern as builder.phtml. Card surfaces
+   slate-100 / white, inputs white, body text slate-900, muted
+   labels slate-600. Table thead gets a slate-100 strip with
+   slate-600 uppercase labels. Brand-blue accents preserved. */
+:root[data-theme="light"] .fbr-card{background:#f1f5f9;border-color:#cbd5e1;}
+:root[data-theme="light"] .fbr-title{color:#0f172a;}
+:root[data-theme="light"] .fbr-subtitle{color:#64748b;}
+:root[data-theme="light"] .fbr-label{color:#475569;}
+:root[data-theme="light"] .fbr-input,
+:root[data-theme="light"] .fbr-modal-input,
+:root[data-theme="light"] .fbr-answer-input,
+:root[data-theme="light"] .fbr-answer-textarea{background:#ffffff;border-color:#cbd5e1;color:#0f172a;}
+:root[data-theme="light"] .fbr-input::placeholder,
+:root[data-theme="light"] .fbr-modal-input::placeholder,
+:root[data-theme="light"] .fbr-answer-input::placeholder,
+:root[data-theme="light"] .fbr-answer-textarea::placeholder{color:#94a3b8;}
+:root[data-theme="light"] .fbr-input:focus,
+:root[data-theme="light"] .fbr-modal-input:focus,
+:root[data-theme="light"] .fbr-answer-input:focus,
+:root[data-theme="light"] .fbr-answer-textarea:focus{border-color:#2563eb;}
+:root[data-theme="light"] .fbr-btn-outline{border-color:#cbd5e1;color:#475569;}
+:root[data-theme="light"] .fbr-btn-outline:hover{border-color:#2563eb;color:#0f172a;background:#e2e8f0;}
+:root[data-theme="light"] .fbr-btn-icon:hover{background:rgba(15,23,42,.06);}
+:root[data-theme="light"] .fbr-btn-sm{border-color:#cbd5e1;color:#475569;}
+:root[data-theme="light"] .fbr-btn-sm:hover{border-color:#2563eb;color:#0f172a;background:#e2e8f0;}
+/* Table */
+:root[data-theme="light"] .fbr-table thead th{background:#e2e8f0;color:#475569;}
+:root[data-theme="light"] .fbr-table tbody tr{border-top-color:#e2e8f0;}
+:root[data-theme="light"] .fbr-table tbody tr.selected{background:rgba(37,99,235,.08);}
+:root[data-theme="light"] .fbr-table tbody td{color:#0f172a;}
+:root[data-theme="light"] .fbr-table tbody td.muted{color:#64748b;}
+/* Pagination */
+:root[data-theme="light"] .fbr-pagination{border-top-color:#e2e8f0;color:#64748b;}
+/* Modal */
+:root[data-theme="light"] .fbr-modal-backdrop{background:rgba(15,23,42,.45);}
+:root[data-theme="light"] .fbr-modal{background:#ffffff;border-color:#cbd5e1;}
+:root[data-theme="light"] .fbr-modal-title{color:#0f172a;}
+:root[data-theme="light"] .fbr-modal-meta{color:#64748b;}
+:root[data-theme="light"] .fbr-modal-close{color:#64748b;}
+:root[data-theme="light"] .fbr-modal-close:hover{color:#0f172a;background:rgba(15,23,42,.06);}
+:root[data-theme="light"] .fbr-modal-input-label{color:#475569;}
+:root[data-theme="light"] .fbr-answer-key{color:#475569;}
+:root[data-theme="light"] pre.fbr-json{background:#f1f5f9;border-color:#e2e8f0;color:#0f172a;}
 </style>
 
 <div class="rm-wrap">
