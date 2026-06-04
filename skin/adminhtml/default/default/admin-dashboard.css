@@ -3327,6 +3327,44 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .crd-btn-ghost:hover { color:#0f172a !important; border-color:#94a3b8 !important }
 /* .crd-btn-primary keeps its cyan gradient — works on both surfaces */
 
+/* Chip-style pagination buttons (.al-pg-btn on Assign Learners,
+   .at-pg-btn on Assign Trainers) were hardcoded background:#0f172a
+   with no light-mode override — in light mode the Prev / 2 / Next
+   pills sat as slate-900 dark chips with slate-300 text, hard to
+   read on the white card. Flip bg + border to slate-50 + slate-300,
+   text to slate-700, hover to slate-100. Active stays brand-blue
+   (looks fine on both). */
+:root[data-theme="light"] button.al-pg-btn,
+:root[data-theme="light"] button.al-pg-btn:focus,
+:root[data-theme="light"] button.at-pg-btn,
+:root[data-theme="light"] button.at-pg-btn:focus {
+    background: #f1f5f9 !important;
+    color: #1e293b !important;
+    border-color: #cbd5e1 !important;
+}
+:root[data-theme="light"] button.al-pg-btn:hover:not(.disabled):not(.active),
+:root[data-theme="light"] button.at-pg-btn:hover:not(.disabled):not(.active) {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+    border-color: #94a3b8 !important;
+}
+:root[data-theme="light"] button.al-pg-btn.active,
+:root[data-theme="light"] button.al-pg-btn.active:hover,
+:root[data-theme="light"] button.at-pg-btn.active,
+:root[data-theme="light"] button.at-pg-btn.active:hover {
+    background: #2563eb !important;
+    border-color: #2563eb !important;
+    color: #ffffff !important;
+}
+:root[data-theme="light"] button.al-pg-btn.disabled,
+:root[data-theme="light"] button.al-pg-btn.disabled:hover,
+:root[data-theme="light"] button.at-pg-btn.disabled,
+:root[data-theme="light"] button.at-pg-btn.disabled:hover {
+    background: #f1f5f9 !important;
+    color: #94a3b8 !important;
+    border-color: #cbd5e1 !important;
+}
+
 /* Course Edit (DCE) — read-only courseware URL boxes (Lesson Plan,
    Learner/Trainer Slides, Courseware Link, Brochure). Previously inline
    `background:#283548; border:#384a60; color:#60a5fa` — fine in dark,
