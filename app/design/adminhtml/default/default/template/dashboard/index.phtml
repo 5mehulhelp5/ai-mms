@@ -6448,11 +6448,21 @@ if (isset($_lmcRunMap[$_lcdCourseId])) {
                         <span class="lmc-card-value"><?php echo $_c['end_date'] ?></span>
                     </div>
                 </div>
-                <div class="lmc-card-footer">
-                    <span>View Course</span>
-                    <div class="lmc-arrow">
-                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#fff" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+                <div class="lmc-card-footer" style="display:flex;align-items:center;justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span>View Course</span>
+                        <div class="lmc-arrow">
+                            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#fff" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+                        </div>
                     </div>
+                    <?php if (!empty($_c['cr_run_id'])): ?>
+                    <button type="button"
+                            onclick="event.preventDefault();event.stopPropagation();lmcShowFeedback(<?php echo (int)$_c['cr_run_id'] ?>, '<?php echo $this->jsQuoteEscape($_c['name']) ?>', '<?php echo $this->jsQuoteEscape($_c['sku']) ?>');"
+                            title="Course Feedback QR"
+                            style="background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:#60a5fa;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">
+                        Feedback QR
+                    </button>
+                    <?php endif; ?>
                 </div>
             </a>
             <?php endforeach; ?>
@@ -6460,6 +6470,89 @@ if (isset($_lmcRunMap[$_lcdCourseId])) {
         <?php endif; ?>
         <?php /* per-panel footer removed — the single site footer is page.phtml's .admin-page-footer */ ?>
     </div>
+
+<!-- Feedback QR modal (shared for learner + trainer panels) -->
+<div id="lmc-feedback-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+    <!-- inner card matches LMS exactly -->
+    <div style="position:relative;border:1px solid #334155;border-radius:12px;overflow:hidden;max-width:320px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+        <!-- close button top-right, outside the blue bar -->
+        <button onclick="document.getElementById('lmc-feedback-modal').style.display='none'"
+                style="position:absolute;top:6px;right:8px;background:none;border:none;color:rgba(255,255,255,.7);font-size:16px;cursor:pointer;line-height:1;z-index:1;">✕</button>
+        <!-- blue header: centered icon + label (matches LMS bg-blue-600) -->
+        <div style="background:#2563eb;padding:10px 16px;display:flex;align-items:center;justify-content:center;gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+                <rect x="9" y="3" width="6" height="4" rx="1" ry="1"/>
+                <path d="M9 12l2 2 4-4"/>
+            </svg>
+            <span style="font-size:14px;font-weight:600;color:#fff;">Course Feedback</span>
+        </div>
+        <!-- content area: bg-surface equivalent -->
+        <div style="background:#1e2132;padding:20px;display:flex;flex-direction:column;align-items:center;gap:12px;">
+            <!-- QR image in white padded box (matches LMS bg-white p-3 rounded-xl border shadow-sm) -->
+            <div style="background:#fff;padding:12px;border-radius:12px;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,.1);">
+                <img id="lmc-feedback-qr-img" src="" alt="Course Feedback QR Code"
+                     width="144" height="144" style="display:block;object-fit:contain;">
+            </div>
+            <!-- "Scan to share your feedback" (matches LMS text-sm text-on-surface-secondary text-center) -->
+            <p style="font-size:13px;color:#94a3b8;margin:0;text-align:center;">Scan to share your feedback</p>
+            <!-- URL text (matches LMS text-xs break-all px-1) -->
+            <p id="lmc-feedback-url-text" style="font-size:11px;color:#64748b;word-break:break-all;margin:0;padding:0 4px;text-align:center;width:100%;"></p>
+            <!-- buttons: Open Link (flex-1 blue) + Copy (bordered) -->
+            <div style="display:flex;gap:8px;width:100%;">
+                <a id="lmc-feedback-open-link" href="#" target="_blank" rel="noopener"
+                   style="flex:1;text-align:center;font-size:13px;font-weight:500;background:#2563eb;color:#fff;border-radius:8px;padding:8px 0;text-decoration:none;display:block;">
+                    Open Link
+                </a>
+                <button onclick="lmcCopyFeedbackUrl()"
+                        style="padding:8px 12px;font-size:13px;font-weight:500;border:1px solid #334155;background:transparent;color:#94a3b8;border-radius:8px;cursor:pointer;white-space:nowrap;">
+                    Copy
+                </button>
+            </div>
+            <!-- course ref line (matches LMS "Course Ref: [code]") -->
+            <p id="lmc-feedback-ref" style="font-size:11px;color:#64748b;margin:0;text-align:center;"></p>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+var LMC_FEEDBACK_BASE = '<?php echo rtrim(Mage::getBaseUrl(), '/') ?>/feedback/respond/index';
+var _lmcFeedbackUrl = '';
+
+function lmcShowFeedback(runId, courseTitle, courseSku) {
+    _lmcFeedbackUrl = LMC_FEEDBACK_BASE + '?run_id=' + runId;
+    var qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(_lmcFeedbackUrl);
+    document.getElementById('lmc-feedback-qr-img').src           = qrSrc;
+    document.getElementById('lmc-feedback-url-text').textContent = _lmcFeedbackUrl;
+    document.getElementById('lmc-feedback-open-link').href       = _lmcFeedbackUrl;
+    var refEl = document.getElementById('lmc-feedback-ref');
+    if (refEl) refEl.innerHTML = courseSku
+        ? 'Course Ref: <strong style="color:#e2e8f0;">' + courseSku + '</strong>'
+        : '';
+    document.getElementById('lmc-feedback-modal').style.display  = 'flex';
+}
+
+function lmcCopyFeedbackUrl() {
+    if (!_lmcFeedbackUrl) return;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(_lmcFeedbackUrl).then(function(){ alert('URL copied!'); });
+    } else {
+        var ta = document.createElement('textarea');
+        ta.value = _lmcFeedbackUrl;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        alert('URL copied!');
+    }
+}
+
+// Close modal on backdrop click.
+document.getElementById('lmc-feedback-modal').addEventListener('click', function(e){
+    if (e.target === this) this.style.display = 'none';
+});
+</script>
+
 <script type="text/javascript">
 function lmcFilter(type, btn) {
     var tabs = document.querySelectorAll('.lmc-tab');
