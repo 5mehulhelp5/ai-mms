@@ -76,7 +76,26 @@ class MMD_Courses_Adminhtml_ProvidersController extends Mage_Adminhtml_Controlle
  
 	public function saveAction() {
 		if ($data = $this->getRequest()->getPost()) {
-			
+
+			// Snapshot the trainer's OLD email BEFORE the save runs.
+			// Drives the reverse sync into admin_user below: if the
+			// editor changed the email, we still need to find the
+			// matching admin_user row by the previous value.
+			$_oldTrainerEmail = '';
+			$_postedId = (int) $this->getRequest()->getParam('id');
+			if ($_postedId > 0) {
+				try {
+					$_resourceSnap = Mage::getSingleton('core/resource');
+					$_oldTrainerEmail = strtolower((string) $_resourceSnap->getConnection('core_read')->fetchOne(
+						'SELECT email FROM ' . $_resourceSnap->getTableName('courses_trainers')
+						. ' WHERE trainers_id = ?',
+						array($_postedId)
+					));
+				} catch (Exception $_snapEx) {
+					Mage::logException($_snapEx);
+				}
+			}
+
 			if(isset($_FILES['profile_image']['name']) && $_FILES['profile_image']['name'] != '') {
 				try {	
 					/* Starting upload */	
@@ -137,6 +156,87 @@ class MMD_Courses_Adminhtml_ProvidersController extends Mage_Adminhtml_Controlle
 				}	
 				
 				$model->save();
+
+				// Reverse sync: mirror shared columns from the saved
+				// courses_trainers row back into admin_user, matched by
+				// email. Keeps My Profile in sync with edits made on
+				// the View Trainers grid. Skips fields with no
+				// admin_user equivalent (status, area_of_expertise,
+				// trainer_type, region, address, etc.) and skips
+				// profile_image (path scheme differs — admin uploads
+				// land in /media/admin/profile/, trainer uploads in
+				// /media/providers/). Best-effort: a stale admin_user
+				// schema or an email that matches no admin must not
+				// fail the trainer save.
+				try {
+					$_resSync   = Mage::getSingleton('core/resource');
+					$_writeSync = $_resSync->getConnection('core_write');
+					$_newTrainerEmail = strtolower((string) $model->getEmail());
+					$_lookupEmail     = $_newTrainerEmail !== ''
+						? $_newTrainerEmail
+						: $_oldTrainerEmail;
+
+					if ($_lookupEmail !== '') {
+						$_userSync = array();
+
+						// title → firstname + lastname. Split on the
+						// first whitespace so "Evan Pang Wei Ming"
+						// becomes firstname="Evan", lastname="Pang
+						// Wei Ming" (matches how Magento splits names
+						// elsewhere). Skip the field if title is
+						// empty so we don't blank the user's name.
+						$_title = trim((string) $model->getTitle());
+						if ($_title !== '') {
+							$_parts = preg_split('/\s+/', $_title, 2);
+							$_userSync['firstname'] = $_parts[0];
+							$_userSync['lastname']  = isset($_parts[1]) ? $_parts[1] : '';
+						}
+
+						$_telSync = (string) $model->getTelephone();
+						if ($_telSync !== '' || array_key_exists('telephone', $data)) {
+							$_userSync['tel'] = $_telSync !== '' ? $_telSync : null;
+						}
+						$_genderSync = (string) $model->getGender();
+						if ($_genderSync !== '' || array_key_exists('gender', $data)) {
+							$_userSync['gender'] = $_genderSync !== '' ? $_genderSync : null;
+						}
+						$_linkedinSync = (string) $model->getLinkedinUrl();
+						if ($_linkedinSync !== '' || array_key_exists('linkedin_url', $data)) {
+							$_userSync['linkedin_url'] = $_linkedinSync !== '' ? $_linkedinSync : null;
+						}
+						$_descSync = (string) $model->getDescription();
+						if ($_descSync !== '' || array_key_exists('description', $data)) {
+							$_userSync['trainer_description'] = $_descSync !== '' ? $_descSync : null;
+						}
+
+						// If the trainer's email changed, rewrite the
+						// admin_user row's email FIRST (matched by the
+						// old value), then continue updating the rest
+						// against the new email. Without this step,
+						// renaming a trainer's email here would orphan
+						// the join from My Profile's perspective.
+						if ($_oldTrainerEmail !== ''
+							&& $_newTrainerEmail !== ''
+							&& $_oldTrainerEmail !== $_newTrainerEmail) {
+							$_writeSync->update(
+								$_resSync->getTableName('admin/user'),
+								array('email' => $_newTrainerEmail),
+								array('email = ?' => $_oldTrainerEmail)
+							);
+						}
+
+						if ($_userSync) {
+							$_writeSync->update(
+								$_resSync->getTableName('admin/user'),
+								$_userSync,
+								array('email = ?' => $_lookupEmail)
+							);
+						}
+					}
+				} catch (Exception $_revSyncEx) {
+					Mage::logException($_revSyncEx);
+				}
+
 				Mage::getSingleton('adminhtml/session')->addSuccess(Mage::helper('courses')->__('Item was successfully saved'));
 				Mage::getSingleton('adminhtml/session')->setFormData(false);
 

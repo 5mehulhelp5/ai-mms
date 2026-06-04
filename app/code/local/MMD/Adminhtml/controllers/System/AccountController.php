@@ -28,6 +28,13 @@ class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_Accou
         $userId = Mage::getSingleton('admin/session')->getUser()->getId();
         $user = Mage::getModel('admin/user')->load($userId);
 
+        // Snapshot the email BEFORE setEmail() rewrites it. If the user
+        // changes their email on My Profile, the courses_trainers row
+        // is matched by the OLD email (the existing key) — we then
+        // re-write that row's email column to the new value so the
+        // join stays intact for future saves.
+        $oldEmail = strtolower((string) $user->getEmail());
+
         $user->setId($userId)
             ->setUsername($this->getRequest()->getParam('username', $user->getUsername()))
             ->setFirstname($this->getRequest()->getParam('firstname', false))
@@ -125,20 +132,68 @@ class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_Accou
                 'user_id = ' . (int)$userId
             );
 
-            // Mirror trainer_description into courses_trainers.description
-            // for the trainer row that shares this user's email — keeps
-            // the View Trainers grid in sync with what the trainer just
-            // saved on their My Profile page. Silent no-op if no match.
-            if (array_key_exists('trainer_description', $profileData)) {
-                try {
+            // Mirror My Profile fields into the courses_trainers row
+            // that shares this user's email, so the View Trainers grid
+            // stays in sync with what the trainer just saved. Silent
+            // no-op if no matching row exists by email. Sync field map
+            // (admin_user → courses_trainers):
+            //   firstname + lastname → title (display name)
+            //   tel                  → telephone
+            //   gender               → gender
+            //   linkedin_url         → linkedin_url
+            //   trainer_description  → description
+            // Skipped (no equivalent in courses_trainers):
+            //   race, dob, nric_fin
+            // Skipped (path scheme differs — admin uploads to
+            // /media/admin/profile/, trainer uploads to
+            // /media/courses/trainers/):
+            //   profile_image
+            try {
+                $trainerSync = array();
+
+                $titleParts = array_filter(array(
+                    trim((string) $user->getFirstname()),
+                    trim((string) $user->getLastname()),
+                ), 'strlen');
+                if ($titleParts) {
+                    $trainerSync['title'] = implode(' ', $titleParts);
+                }
+                if (array_key_exists('tel', $profileData)) {
+                    $trainerSync['telephone'] = $profileData['tel'];
+                }
+                if (array_key_exists('gender', $profileData)) {
+                    $trainerSync['gender'] = $profileData['gender'];
+                }
+                if (array_key_exists('linkedin_url', $profileData)) {
+                    $trainerSync['linkedin_url'] = $profileData['linkedin_url'];
+                }
+                if (array_key_exists('trainer_description', $profileData)) {
+                    $trainerSync['description'] = $profileData['trainer_description'];
+                }
+
+                // If the user changed their email, rewrite the match
+                // key on courses_trainers FIRST (using the snapshotted
+                // old email), then continue updating the rest of the
+                // fields against the new email. Without this step the
+                // sync would silently start hitting zero rows.
+                $newEmail = strtolower((string) $user->getEmail());
+                if ($oldEmail !== '' && $newEmail !== '' && $oldEmail !== $newEmail) {
                     $write->update(
                         $resource->getTableName('courses_trainers'),
-                        ['description' => $profileData['trainer_description']],
-                        ['email = ?' => $user->getEmail()]
+                        ['email' => $newEmail],
+                        ['email = ?' => $oldEmail]
                     );
-                } catch (Exception $_syncEx) {
-                    Mage::logException($_syncEx);
                 }
+
+                if ($trainerSync) {
+                    $write->update(
+                        $resource->getTableName('courses_trainers'),
+                        $trainerSync,
+                        ['email = ?' => $newEmail !== '' ? $newEmail : $oldEmail]
+                    );
+                }
+            } catch (Exception $_syncEx) {
+                Mage::logException($_syncEx);
             }
 
             Mage::getSingleton('adminhtml/session')->addSuccess(
