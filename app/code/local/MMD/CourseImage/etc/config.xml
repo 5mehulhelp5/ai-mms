@@ -16,6 +16,17 @@
             <mmd_courseimage>
                 <class>MMD_CourseImage_Model</class>
             </mmd_courseimage>
+            <!--
+                Emit category banner URLs straight from Cloudflare R2 instead of
+                /media/catalog/category/ (which is absent from the prod image and
+                only resolves via the media/.htaccess 302 fallback). Direct R2 URL
+                drops the redirect hop and makes the storefront src visibly R2.
+            -->
+            <catalog>
+                <rewrite>
+                    <category>MMD_CourseImage_Model_Catalog_Category</category>
+                </rewrite>
+            </catalog>
         </models>
     </global>
 
