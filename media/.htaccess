@@ -37,6 +37,16 @@ RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .phar
     Options +FollowSymLinks
     RewriteEngine on
 
+    # Category banners are NOT shipped in the Docker image (media/catalog/category
+    # is excluded in .dockerignore to keep the build context small) — they live on
+    # Cloudflare R2, uploaded by scripts/maintenance/upload-category-images-to-r2.php.
+    # When the original isn't on disk (i.e. on prod), redirect to its R2 public URL
+    # instead of falling through to get.php, which 500s for an absent original and
+    # breaks every category banner. On localhost the file IS present, so !-f is
+    # false and this rule never fires — local dev still serves the real file.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^catalog/category/(.+)$ https://pub-77c0dec029944b0386e40673ce81081f.r2.dev/catalog/category/$1 [R=302,L]
+
     # never rewrite for existing files
     RewriteCond %{REQUEST_FILENAME} !-f
     # rewrite everything else to Magento's media-resize entrypoint
