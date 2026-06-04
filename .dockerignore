@@ -24,6 +24,32 @@ media/
 !media/favicon/**
 !media/whatsapp.png
 
+# Re-exclude Ultimo *demo* media that the broad `!media/wysiwyg/**` negation
+# above would otherwise pull back into the image. These are theme demo assets
+# (sample patterns/backgrounds/swatches/slideshow), not live brand assets, and
+# were removed from the media volume to reclaim space. Keep them out of builds.
+# (Order matters: last-matching pattern wins, so these must follow the negation.)
+media/wysiwyg/infortis/
+media/wysiwyg/demo/
+media/wysiwyg/swatches/
+# Magento WYSIWYG media-browser thumbnail cache — regenerated on demand by the
+# CMS image manager, never referenced by the storefront. ~7MB of pure cache the
+# `!media/wysiwyg/**` negation would otherwise bake into the image.
+media/wysiwyg/.thumbs/
+
+# The dirs below live under media/ and are therefore ALREADY excluded by the
+# blanket `media/` rule above (no `!` negation re-includes them) — they cannot
+# bloat the build today. Listed explicitly only to document intent and guard
+# against a future broad negation accidentally pulling them in:
+#   media/dhl/         — DHL shipping module images (no shipping in this LMS)
+#   media/downloadable/ — Magento downloadable-product samples (unused)
+#   media/providers/   — legacy provider logos (2013-era, orphaned)
+#   media/trainers/    — legacy trainer banner (orphaned; trainer photos live in wysiwyg/)
+media/dhl/
+media/downloadable/
+media/providers/
+media/trainers/
+
 # IDE and OS files
 .idea/
 .vscode/
