@@ -23,6 +23,29 @@ class MMD_Adminhtml_Block_Catalog_Search_Grid
         if ($storeId > 0 && $this->getCollection()) {
             $this->getCollection()->addStoreFilter($storeId);
         }
+
+        // Free-text search via ?q= — driven by the custom search input
+        // injected into .dcf-mag-bar (see catalog_search block in
+        // sidebar-nav-v2.js). Matches against query_text, synonym_for
+        // and redirect so a single search reaches every column the user
+        // can scan visually. Wildcards both ends so partial matches
+        // ("photo" hits "photoshop") work.
+        $q = trim((string) $this->getRequest()->getParam('q', ''));
+        if ($q !== '' && $this->getCollection()) {
+            $like = '%' . $q . '%';
+            // OpenMage / Magento 1 OR-filter syntax: parallel arrays —
+            // first arg is the list of column names, second arg is the
+            // matching list of condition specs. Generates
+            // `WHERE (query_text LIKE ? OR synonym_for LIKE ? OR redirect LIKE ?)`.
+            $this->getCollection()->addFieldToFilter(
+                array('query_text', 'synonym_for', 'redirect'),
+                array(
+                    array('like' => $like),
+                    array('like' => $like),
+                    array('like' => $like),
+                )
+            );
+        }
         return $this;
     }
 

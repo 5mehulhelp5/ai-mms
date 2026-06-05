@@ -511,6 +511,19 @@ document.observe('dom:loaded', function() {
             // Skip the massaction checkbox column
             if (cell.down('.head-massaction') || headerText === '') return;
 
+            // Skip the "Search Query" filter on the catalog_search
+            // (Search Terms) admin page — it's replaced by a dedicated
+            // search box in the page's .dcf-mag-bar (see catalogSearch
+            // bar injection block further down). Keeping it in the
+            // advanced filter panel duplicates the input and confuses
+            // users who already typed in the bar.
+            var _bc = document.body.className || '';
+            if (headerText === 'Search Query'
+                && (_bc.indexOf('adminhtml-catalog_search') !== -1
+                    || _bc.indexOf('adminhtml-catalog-search') !== -1)) {
+                return;
+            }
+
             // Detect range fields (From/To)
             var rangeLines = cell.select('.range-line, .range div');
             var isRange = rangeLines.length > 0 || inputs.length > 1;
@@ -2358,6 +2371,105 @@ document.observe('dom:loaded', function() {
             }
         });
     }
+
+    // ============================================================
+    // Catalog Search — dedicated search bar in the title strip
+    // ============================================================
+    // The admin Search Terms grid (Mage_Adminhtml_Block_Catalog_Search_Grid)
+    // has a "Search Query" column with a working filter input, but the
+    // user reported it didn't behave intuitively (had to expand the
+    // advanced panel, type, then click Apply). Inject a plain search
+    // input straight into .dcf-mag-bar so a single Enter keystroke
+    // reloads the grid with ?q=<value>. Server-side filter lives in
+    // MMD_Adminhtml_Block_Catalog_Search_Grid::_beforeLoadCollection
+    // (matches against query_text + synonym_for + redirect).
+    function injectCatalogSearchBar() {
+        var bc = document.body.className || '';
+        if (bc.indexOf('adminhtml-catalog_search') === -1
+            && bc.indexOf('adminhtml-catalog-search') === -1) return;
+
+        var bar = document.querySelector('.dcf-mag-bar');
+        if (!bar) return;
+        if (bar.querySelector('.mmd-cs-search')) return; // already injected
+
+        // Read current ?q= so the input stays populated after submit.
+        var qs = window.location.search || '';
+        var qMatch = qs.match(/[?&]q=([^&]*)/);
+        var qVal = qMatch ? decodeURIComponent(qMatch[1].replace(/\+/g, ' ')) : '';
+
+        var wrap = document.createElement('span');
+        wrap.className = 'mmd-cs-search';
+        wrap.style.cssText = 'display:inline-flex;align-items:center;gap:6px;'
+            + 'flex:1;margin:0 14px;min-width:0;max-width:560px;';
+
+        var input = document.createElement('input');
+        input.type = 'search';
+        input.placeholder = 'Search by query, synonym, or redirect URL…';
+        input.value = qVal;
+        input.className = 'mmd-cs-search-input';
+        input.style.cssText = 'flex:1;min-width:0;height:30px;padding:4px 12px;'
+            + 'background:transparent;border:1px solid var(--b2,#475569);'
+            + 'border-radius:6px;color:var(--t1,#f1f5f9);font-size:13px;'
+            + 'outline:none;';
+
+        function submitSearch() {
+            var u = new URL(window.location.href);
+            var v = input.value.trim();
+            if (v) u.searchParams.set('q', v); else u.searchParams.delete('q');
+            // Drop Magento grid's filter+page params so a fresh search
+            // doesn't land on a stale paginated/filtered slice.
+            u.searchParams.delete('filter');
+            u.searchParams.delete('p');
+            window.location.href = u.toString();
+        }
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); submitSearch(); }
+        });
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = 'Search';
+        btn.style.cssText = 'height:30px;padding:0 14px;background:#2563eb;'
+            + 'border:1px solid #2563eb;border-radius:6px;color:#fff;'
+            + 'font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;';
+        btn.addEventListener('click', submitSearch);
+
+        wrap.appendChild(input);
+        wrap.appendChild(btn);
+
+        if (qVal) {
+            var reset = document.createElement('a');
+            reset.href = (function(){
+                var u = new URL(window.location.href);
+                u.searchParams.delete('q');
+                u.searchParams.delete('filter');
+                u.searchParams.delete('p');
+                return u.toString();
+            })();
+            reset.textContent = 'Reset';
+            reset.style.cssText = 'color:#94a3b8;font-size:12px;text-decoration:none;'
+                + 'white-space:nowrap;padding:0 4px;';
+            wrap.appendChild(reset);
+        }
+
+        // Insert before the form-buttons (Add New Search Term etc.) so
+        // the input sits inline between the page title and the actions.
+        var actions = bar.querySelector('.mmd-auto-card-actions');
+        if (actions) bar.insertBefore(wrap, actions);
+        else bar.appendChild(wrap);
+    }
+
+    // Poll for .dcf-mag-bar — it's created by wrapMmdGridInCard at
+    // staggered intervals (200/800/1800ms). Same cadence so the
+    // injector always lands after the bar exists.
+    [300, 900, 2000].forEach(function (d) {
+        setTimeout(injectCatalogSearchBar, d);
+    });
+    document.addEventListener('instant-nav:after-swap', function () {
+        [300, 900, 2000].forEach(function (d) {
+            setTimeout(injectCatalogSearchBar, d);
+        });
+    });
 
     // ============================================================
     // Product Options → Table Conversion (Order Detail Page)
