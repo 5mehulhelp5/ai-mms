@@ -1828,7 +1828,16 @@ document.observe('dom:loaded', function() {
             dataRows.forEach(function (row) {
                 var editUrl = row.getAttribute('title');
                 if (!editUrl || editUrl.indexOf('/edit/') === -1) return;
+                // Build a delete URL by swapping the route segment AND
+                // stripping the EDIT route's secret-key segment.
+                // Magento's admin URL key is per-action — copying the
+                // edit key onto a delete URL makes the controller
+                // reject the request and bounce to the login page
+                // ("Username or password is not correct"). We POST
+                // form_key instead so the URL key check is bypassed
+                // entirely.
                 var deleteUrl = editUrl.replace('/edit/', '/delete/');
+                deleteUrl = deleteUrl.replace(/\/key\/[^\/]+\/?$/, '/');
 
                 var td = document.createElement('td');
                 td.className = 'row-edit-actions';
@@ -1847,11 +1856,33 @@ document.observe('dom:loaded', function() {
                 del.title = 'Delete';
                 del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
                 del.onclick = function (e) {
+                    e.preventDefault();
                     e.stopPropagation();
                     if (!confirm('Delete this record? This cannot be undone.')) {
-                        e.preventDefault();
                         return false;
                     }
+                    // Read form_key from any existing hidden input on
+                    // the page (admin pages always render one). Falls
+                    // back to a meta or global var if a particular
+                    // grid view lacks the input. If we genuinely can't
+                    // find one, navigate directly and let Magento
+                    // surface whatever error it has.
+                    var keyInput = document.querySelector('input[name="form_key"]');
+                    var formKey  = keyInput ? keyInput.value
+                                 : (window.FORM_KEY || '');
+                    if (!formKey) { window.location.href = deleteUrl; return false; }
+                    var f = document.createElement('form');
+                    f.method = 'POST';
+                    f.action = deleteUrl;
+                    f.style.display = 'none';
+                    var fk = document.createElement('input');
+                    fk.type = 'hidden';
+                    fk.name = 'form_key';
+                    fk.value = formKey;
+                    f.appendChild(fk);
+                    document.body.appendChild(f);
+                    f.submit();
+                    return false;
                 };
 
                 td.appendChild(edit);
