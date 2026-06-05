@@ -19,16 +19,25 @@
  */
 class MMD_Courses_Api_ContactController extends Mage_Core_Controller_Front_Action
 {
-    const CONFIG_PATH_API_KEY = 'courses/general/wsq_schedule_api_key';
+    const CONFIG_PATH_API_KEY         = 'courses/general/wsq_schedule_api_key';
+    const CONFIG_PATH_TRAINER_API_KEY = 'courses/general/trainer_reminders_api_key';
 
     public function indexAction()
     {
-        $expected = trim((string) Mage::getStoreConfig(self::CONFIG_PATH_API_KEY));
-        if ($expected === '') {
-            return $this->_json(503, $this->_errEnvelope('api_disabled', 'API key not configured.'));
+        // Accept EITHER the customer-reply key or the trainer-reminders role
+        // key. The trainer-reminders bot needs to read this endpoint so it
+        // can quote the canonical `trainer_bot_redirect_message` verbatim
+        // when a customer-style question slips into the trainer channel.
+        $keyCustomer = trim((string) Mage::getStoreConfig(self::CONFIG_PATH_API_KEY));
+        $keyTrainer  = trim((string) Mage::getStoreConfig(self::CONFIG_PATH_TRAINER_API_KEY));
+        if ($keyCustomer === '' && $keyTrainer === '') {
+            return $this->_json(503, $this->_errEnvelope('api_disabled', 'No API keys configured.'));
         }
-        $provided = (string) $this->getRequest()->getHeader('X-API-Key');
-        if (!hash_equals($expected, $provided)) {
+        $provided = trim((string) $this->getRequest()->getHeader('X-API-Key'));
+        $ok = false;
+        if ($keyCustomer !== '' && hash_equals($keyCustomer, $provided)) { $ok = true; }
+        if ($keyTrainer  !== '' && hash_equals($keyTrainer,  $provided)) { $ok = true; }
+        if (!$ok) {
             return $this->_json(401, $this->_errEnvelope('unauthorized', 'Invalid or missing X-API-Key.'));
         }
 
@@ -80,6 +89,11 @@ class MMD_Courses_Api_ContactController extends Mage_Core_Controller_Front_Actio
                     'bot_hours'         => '24/7 — bot replies anytime',
                     'human_hours'       => '9 AM - 6 PM daily SGT (escalation channel only)',
                     'instruction'       => 'You (the bot) reply to customers 24/7 — always attempt to answer immediately using data from this API, regardless of time of day. Never refuse to reply because of office hours. Only escalate when you genuinely cannot answer with confidence (API returned confidence: low or error). When escalating, tell the customer: "I\'m not 100% sure about that. Please call +65 6100 0613 or email enquiry@tertiaryinfotech.com — our team is available 9 AM - 6 PM daily and will respond within 1 business day." Never invent facts; only use data returned from this API.',
+                    // For the trainer-reminders agent (separate role/key):
+                    // it must NEVER attempt to answer customer-style questions.
+                    // Reply with `trainer_bot_redirect_message` verbatim instead.
+                    'trainer_bot_redirect_message' => 'Hi! This channel handles trainer reminders only. For course enquiries, fees, schedules, or funding questions, please contact our team at +65 6100 0613 or email enquiry@tertiaryinfotech.com. We respond within 1 business day (Mon-Sun, 9 AM - 6 PM SGT). Thank you!',
+                    'trainer_bot_instruction'      => 'You are the trainer-reminders agent — your ONLY scope is sending and acknowledging upcoming-class reminders to assigned trainers. You must NOT attempt to answer course enquiries, pricing questions, funding questions, schedule lookups, or any other customer-style question. If a customer-style message comes in, reply with the `trainer_bot_redirect_message` field above verbatim — do not improvise, do not look up data from /api_search or /api_courses (you do not have access to those endpoints anyway). Only respond substantively to trainer-focused content (reminder confirmations, class details, "I cannot make it" messages, etc.).',
                 ),
             ),
         ));
