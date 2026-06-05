@@ -67,8 +67,37 @@ $_storePrefixMap = array(1=>'SG', 2=>'MY', 3=>'GH', 4=>'NG', 5=>'BT', 6=>'IN', 7
 $_activePrefix  = isset($_storePrefixMap[$_activeStoreId]) ? $_storePrefixMap[$_activeStoreId] : null;
 $_whereStore    = $_activePrefix ? "AND cr.class_id LIKE '{$_activePrefix}%'" : '';
 
+// Server-side pagination. Without this the query returned every
+// course_runs row matching the bucket+store (often thousands on
+// the SG store), each rendering as TWO <tr>s with full inline
+// controls + per-row data attributes. The result was a multi-MB
+// HTML payload that crashed the browser tab on slower hardware.
+$_pageSize  = 50;
+$_curPage   = max(1, (int) Mage::app()->getRequest()->getParam('page', 1));
+$_totalRows = 0;
+$_offset    = ($_curPage - 1) * $_pageSize;
+
 $rows = array();
 if ($nameAttrId) {
+    // 1) COUNT first so the pager has a total. Use the same filters
+    // as the data query — no joins needed for the count.
+    $_totalRows = (int) $read->fetchOne("
+        SELECT COUNT(*)
+          FROM `$runsTbl` cr
+         WHERE cr.course_start_date IS NOT NULL
+           AND $_whereBucket
+           $_whereStore
+    ");
+
+    // Clamp the requested page to the available range so a stale
+    // bookmark from a deleted-class trim doesn't 404 the user into
+    // an empty grid.
+    $_totalPages = $_totalRows > 0 ? (int) ceil($_totalRows / $_pageSize) : 1;
+    if ($_curPage > $_totalPages) {
+        $_curPage = $_totalPages;
+        $_offset  = ($_curPage - 1) * $_pageSize;
+    }
+
     $rows = $read->fetchAll("
         SELECT cr.run_id, cr.class_id, cr.course_sku, cr.product_id,
                cr.course_start_date, cr.course_end_date,
@@ -99,8 +128,10 @@ if ($nameAttrId) {
            AND $_whereBucket
            $_whereStore
          ORDER BY $_orderBy
+         LIMIT $_pageSize OFFSET $_offset
     ");
 }
+$_totalPages = $_totalRows > 0 ? (int) ceil($_totalRows / $_pageSize) : 1;
 
 $trainerMap = array();
 try {
@@ -374,15 +405,62 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
     </table>
     </div>
 
-    <div class="rm-pagination" id="rm-pagination">
-        <div class="rm-pagination-summary" id="rm-pagination-summary"></div>
-        <div class="rm-pagination-controls" id="rm-pagination-controls"></div>
+    <?php
+        // Server-rendered pagination. Each link preserves the current
+        // bucket (?bucket=all|ongoing|upcoming|completed) and bumps
+        // ?page=. Old client-side paginator (rm-pagination-summary /
+        // -controls) hid rows in JS but still had every row in the
+        // DOM — same browser-crash problem.
+        $_pageBase = Mage::helper('adminhtml')->getUrl(
+            '*/*/index',
+            array('bucket' => $_bucket, '_query' => array())
+        );
+        $_pageBase = preg_replace('#[?&]page=\d+#i', '', $_pageBase);
+        $_pageBase = rtrim($_pageBase, '?&');
+        $_pageJoin = strpos($_pageBase, '?') === false ? '?' : '&';
+        $_firstOfPage = $_totalRows > 0 ? (($_curPage - 1) * $_pageSize + 1) : 0;
+        $_lastOfPage  = $_totalRows > 0 ? min($_curPage * $_pageSize, $_totalRows) : 0;
+    ?>
+    <div class="rm-pagination">
+        <div class="rm-pagination-summary">
+            <?php if ($_totalRows > 0): ?>
+                Showing <?php echo $_firstOfPage ?>–<?php echo $_lastOfPage ?> of <?php echo number_format($_totalRows) ?>
+            <?php else: ?>
+                No classes
+            <?php endif; ?>
+        </div>
+        <div class="rm-pagination-controls">
+            <?php if ($_totalPages > 1): ?>
+                <?php $_prev = max(1, $_curPage - 1); $_next = min($_totalPages, $_curPage + 1); ?>
+                <a href="<?php echo $_pageBase . $_pageJoin . 'page=' . $_prev ?>"
+                   class="rm-pagination-btn<?php echo $_curPage <= 1 ? ' disabled' : '' ?>"
+                   <?php echo $_curPage <= 1 ? 'onclick="event.preventDefault()"' : '' ?>>&#8249;</a>
+
+                <?php
+                    // Compact page list: 1, current-1, current, current+1, last, with ellipses.
+                    $_toShow = array_unique(array_filter(
+                        array(1, $_curPage - 1, $_curPage, $_curPage + 1, $_totalPages),
+                        function($n) use ($_totalPages) { return $n >= 1 && $n <= $_totalPages; }
+                    ));
+                    sort($_toShow);
+                    $_last = 0;
+                    foreach ($_toShow as $_n):
+                        if ($_last && ($_n - $_last) > 1): ?>
+                            <span class="rm-pagination-ellipsis">…</span>
+                        <?php endif; ?>
+                        <a href="<?php echo $_pageBase . $_pageJoin . 'page=' . $_n ?>"
+                           class="rm-pagination-btn<?php echo $_n === $_curPage ? ' active' : '' ?>"><?php echo $_n ?></a>
+                    <?php $_last = $_n; endforeach; ?>
+
+                <a href="<?php echo $_pageBase . $_pageJoin . 'page=' . $_next ?>"
+                   class="rm-pagination-btn<?php echo $_curPage >= $_totalPages ? ' disabled' : '' ?>"
+                   <?php echo $_curPage >= $_totalPages ? 'onclick="event.preventDefault()"' : '' ?>>&#8250;</a>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
 
 <script type="text/javascript">
-var RM_PAGE_SIZE = 50;
-var rmCurrentPage = 1;
 var CLS_SEND_INVITE_URL  = '<?php echo $this->jsQuoteEscape($_sendInviteUrl) ?>';
 var CLS_UPDATE_FLAGS_URL = '<?php echo $this->jsQuoteEscape($_updateFlagsUrl) ?>';
 var CLS_AUTO_INV_URL     = '<?php echo $this->jsQuoteEscape($_autoInviteUrl) ?>';
@@ -529,12 +607,17 @@ function clsToggleFlag(runId, flag, btn) {
         .catch(function() { btn.disabled = false; });
 }
 
-function rmFilter(resetPage) {
-    if (resetPage !== false) rmCurrentPage = 1;
-    var q  = document.getElementById('rm-search').value.toLowerCase();
-    var sf = document.getElementById('rm-state-filter').value;
+// Search + state filter — only hides/shows rows on the CURRENT
+// server-rendered page. With server-side pagination, the full
+// dataset isn't in the DOM anymore, so cross-page search is a
+// PHP-level concern. Acceptable trade-off: every page only has
+// 50 rows now, so the user can flip through quickly. If/when
+// cross-page search is needed, push `q=` into the SQL where
+// clause alongside the pagination params.
+function rmFilter() {
+    var q  = (document.getElementById('rm-search') || {value: ''}).value.toLowerCase();
+    var sf = (document.getElementById('rm-state-filter') || {value: ''}).value;
     var rows = document.querySelectorAll('.rm-row');
-    var matched = [];
     for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
         var hay = (r.getAttribute('data-class-id') || '') + ' ' +
@@ -542,58 +625,18 @@ function rmFilter(resetPage) {
                   (r.getAttribute('data-title') || '');
         var matchQ = !q || hay.indexOf(q) >= 0;
         var matchS = !sf || r.getAttribute('data-state') === sf;
-        if (matchQ && matchS) matched.push(r);
-        else r.style.display = 'none';
-    }
-    var total  = matched.length;
-    var pages  = Math.max(1, Math.ceil(total / RM_PAGE_SIZE));
-    if (rmCurrentPage > pages) rmCurrentPage = pages;
-    var start = (rmCurrentPage - 1) * RM_PAGE_SIZE;
-    var end   = start + RM_PAGE_SIZE;
-    for (var k = 0; k < matched.length; k++) {
-        matched[k].style.display = (k >= start && k < end) ? '' : 'none';
-    }
-    rmRenderPagination(total, pages);
-    // Keep expansion rows in sync: hide when their parent row is hidden.
-    var expRows = document.querySelectorAll('[data-expand-for]');
-    for (var ei = 0; ei < expRows.length; ei++) {
-        var runId   = expRows[ei].getAttribute('data-expand-for');
-        var parent  = document.querySelector('[data-run-id="' + runId + '"]');
-        if (parent && parent.style.display === 'none') {
-            expRows[ei].style.display = 'none';
+        var show = matchQ && matchS;
+        r.style.display = show ? '' : 'none';
+        // Keep expansion row in sync with its parent.
+        var runId = r.getAttribute('data-run-id');
+        if (runId) {
+            var exp = document.getElementById('cls-expand-' + runId);
+            if (exp && !show) exp.style.display = 'none';
         }
     }
 }
 
-function rmGoToPage(p) { rmCurrentPage = p; rmFilter(false); }
-
-function rmRenderPagination(total, pages) {
-    var sum = document.getElementById('rm-pagination-summary');
-    var ctl = document.getElementById('rm-pagination-controls');
-    if (!sum || !ctl) return;
-    if (total === 0) { sum.textContent = 'No classes'; ctl.innerHTML = ''; return; }
-    var firstOfPage = (rmCurrentPage - 1) * RM_PAGE_SIZE + 1;
-    var lastOfPage  = Math.min(rmCurrentPage * RM_PAGE_SIZE, total);
-    sum.textContent = 'Showing ' + firstOfPage + '–' + lastOfPage + ' of ' + total;
-    var html = '';
-    var prevDisabled = rmCurrentPage <= 1     ? ' disabled' : '';
-    var nextDisabled = rmCurrentPage >= pages ? ' disabled' : '';
-    html += '<button class="rm-pagination-btn" onclick="rmGoToPage(' + (rmCurrentPage - 1) + ')"' + prevDisabled + '>&#8249;</button>';
-    var shown = {};
-    var toShow = [1, pages, rmCurrentPage, rmCurrentPage - 1, rmCurrentPage + 1].filter(function(n){ return n >= 1 && n <= pages; });
-    toShow.sort(function(a, b){ return a - b; });
-    var last = 0;
-    for (var i = 0; i < toShow.length; i++) {
-        var n = toShow[i];
-        if (shown[n]) continue;
-        if (last && n - last > 1) html += '<span class="rm-pagination-ellipsis">…</span>';
-        var active = n === rmCurrentPage ? ' active' : '';
-        html += '<button class="rm-pagination-btn' + active + '" onclick="rmGoToPage(' + n + ')">' + n + '</button>';
-        shown[n] = true; last = n;
-    }
-    html += '<button class="rm-pagination-btn" onclick="rmGoToPage(' + (rmCurrentPage + 1) + ')"' + nextDisabled + '>&#8250;</button>';
-    ctl.innerHTML = html;
-}
-
+// Initial pass picks up any state retained by the browser's
+// back/forward cache (e.g. user typed in search then hit back).
 (function() { rmFilter(); })();
 </script>
