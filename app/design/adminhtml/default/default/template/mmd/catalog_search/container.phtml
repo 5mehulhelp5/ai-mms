@@ -1,10 +1,66 @@
 <?php
 /** @var MMD_Adminhtml_Block_Catalog_Search $this */
+
+/* Pre-fill the search box from an active "search_query" grid filter so the
+ * input reflects the current view after a server-side reload. The grid's
+ * filter is base64(parse_str) under the standard "filter" request var. */
+$_grid       = $this->getChild('grid');
+$_gridJsName = $_grid ? $_grid->getJsObjectName() : 'catalog_search_gridJsObject';
+$_filterVar  = $_grid ? $_grid->getVarNameFilter() : 'filter';
+
+$_searchVal = '';
+$_filterParam = $this->getRequest()->getParam($_filterVar);
+if ($_filterParam) {
+    $_decoded = base64_decode($_filterParam);
+    if ($_decoded !== false) {
+        parse_str($_decoded, $_parsed);
+        if (!empty($_parsed['search_query'])) {
+            $_searchVal = $_parsed['search_query'];
+        }
+    }
+}
 ?>
+<style type="text/css">
+    .content-header td.mmd-st-search-cell { width: 320px; padding: 0 14px; vertical-align: middle; }
+    .mmd-st-search { position: relative; display: inline-flex; align-items: center; width: 100%; }
+    .mmd-st-search input {
+        width: 100%; padding: 9px 34px 9px 38px;
+        background: #1f2937; border: 1px solid #374151; border-radius: 10px;
+        color: #f1f5f9; font-size: 13px; line-height: 1.2; outline: none; box-sizing: border-box;
+        transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .mmd-st-search input:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,.18); }
+    .mmd-st-search input::placeholder { color: #64748b; }
+    .mmd-st-search .mmd-st-ico {
+        position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+        color: #64748b; pointer-events: none;
+    }
+    .mmd-st-search .mmd-st-clear {
+        position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+        width: 22px; height: 22px; border: none; background: none; color: #64748b;
+        cursor: pointer; font-size: 17px; line-height: 1; padding: 0; border-radius: 6px;
+        display: <?php echo $_searchVal !== '' ? 'flex' : 'none' ?>; align-items: center; justify-content: center;
+    }
+    .mmd-st-search .mmd-st-clear:hover { background: rgba(148,163,184,.18); color: #f1f5f9; }
+    :root[data-theme="light"] .mmd-st-search input {
+        background: #fff; border-color: #cbd5e1; color: #0f172a;
+    }
+    :root[data-theme="light"] .mmd-st-search input::placeholder { color: #94a3b8; }
+    :root[data-theme="light"] .mmd-st-search .mmd-st-ico { color: #94a3b8; }
+</style>
 <div class="content-header">
     <table cellspacing="0">
         <tr>
             <td style="<?php echo $this->getHeaderWidth() ?>"><?php echo $this->getHeaderHtml() ?></td>
+            <td class="mmd-st-search-cell">
+                <div class="mmd-st-search">
+                    <svg class="mmd-st-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    <input type="text" id="mmd-st-search-input" autocomplete="off"
+                           placeholder="<?php echo Mage::helper('catalog')->quoteEscape($this->__('Search query…')) ?>"
+                           value="<?php echo Mage::helper('catalog')->quoteEscape($_searchVal) ?>" />
+                    <button type="button" id="mmd-st-search-clear" class="mmd-st-clear" title="<?php echo Mage::helper('catalog')->quoteEscape($this->__('Clear')) ?>">&times;</button>
+                </div>
+            </td>
             <td class="form-buttons"><?php echo $this->getButtonsHtml() ?></td>
         </tr>
     </table>
@@ -12,3 +68,42 @@
 <div>
     <?php echo $this->getGridHtml() ?>
 </div>
+<script type="text/javascript">
+//<![CDATA[
+(function () {
+    function applySearch() {
+        var input = document.getElementById('mmd-st-search-input');
+        if (!input) { return; }
+        var grid = window[<?php echo Mage::helper('core')->jsonEncode($_gridJsName) ?>];
+        if (!grid || typeof grid.reload !== 'function' || !grid.filterVar) { return; }
+        var v = input.value.strip();
+        var encoded = v.length ? encode_base64('search_query=' + encodeURIComponent(v)) : '';
+        grid.reload(grid.addVarToUrl(grid.filterVar, encoded));
+    }
+
+    function init() {
+        var input = document.getElementById('mmd-st-search-input');
+        var clear = document.getElementById('mmd-st-search-clear');
+        if (!input) { return; }
+
+        input.observe('keydown', function (e) {
+            if (e.keyCode === Event.KEY_RETURN) { Event.stop(e); applySearch(); }
+        });
+        input.observe('input', function () {
+            if (clear) { clear.style.display = input.value.length ? 'flex' : 'none'; }
+        });
+        if (clear) {
+            clear.observe('click', function (e) {
+                Event.stop(e);
+                input.value = '';
+                clear.style.display = 'none';
+                input.focus();
+                applySearch();
+            });
+        }
+    }
+
+    if (document.loaded) { init(); } else { document.observe('dom:loaded', init); }
+})();
+//]]>
+</script>

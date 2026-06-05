@@ -414,6 +414,8 @@ document.observe('dom:loaded', function() {
         if (isDetailViewPage()) return;
         // Manage Class Schedule has its own inline search box — skip injection.
         if (document.body && /customoptions-options-index/.test(document.body.className)) return;
+        // Search Terms page has its own inline search box — skip injection.
+        if (document.body && /adminhtml-catalog_search-index/.test(document.body.className)) return;
         var grids = $$('.grid');
         var anyFilterFound = false;
         grids.each(function(grid) {
