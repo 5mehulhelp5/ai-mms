@@ -178,46 +178,60 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
         $trainerName  = trim((string) ($r['trainer_name']  ?? ''));
         $trainerEmail = trim((string) ($r['trainer_email'] ?? ''));
         $trainerPhone = trim((string) ($r['trainer_phone'] ?? ''));
-        $firstName    = $trainerName !== '' ? strtok($trainerName, ' ') : 'Trainer';
 
         $courseUrl = $this->_courseUrl($r['product_id'], $r['course_sku']);
-        $dateLabel = date('D, j M Y', strtotime($startDate));
 
-        $whenLabel = ($daysAhead === 0) ? 'TODAY' : (($daysAhead === 1) ? 'TOMORROW' : 'on ' . $dateLabel);
+        // Date format: "1 Jun 2026" (day no leading zero, abbr month, 4-digit year)
+        $startDateFmt = date('j M Y', strtotime($startDate));
+        $endDateFmt   = date('j M Y', strtotime($endDate));
 
-        $formatted = "Hi {$firstName},\n\n"
-            . "This is a friendly reminder that you are scheduled to teach a class {$whenLabel}:\n\n"
-            . "📚 Course: " . $r['course_title'] . " (" . $r['course_sku'] . ")\n"
-            . "📅 Date: " . $dateLabel . "\n"
-            . "🕒 Time: " . $time . " SGT\n"
-            . "📍 Venue: " . $venueText . "\n"
-            . "💻 Mode: " . $modeLabel . "\n"
-            . "👥 Enrolled: " . (int) $r['enrolled'] . " learner" . (((int) $r['enrolled']) === 1 ? '' : 's') . "\n\n"
-            . "Course details:\n" . $courseUrl . "\n\n"
-            . "Please arrive 15 minutes early to set up.\n\n"
-            . "If you CANNOT make it for any reason, WhatsApp " . self::ESCALATION_WHATSAPP
-            . " IMMEDIATELY so we can arrange a substitute.\n\n"
-            . "— Tertiary Infotech Academy";
+        // Duration in days, inclusive of start and end day
+        $durationDays = 1;
+        $startTs = strtotime($startDate);
+        $endTs   = strtotime($endDate);
+        if ($startTs && $endTs && $endTs >= $startTs) {
+            $durationDays = (int) floor(($endTs - $startTs) / 86400) + 1;
+        }
+        $durationText = $durationDays . ' day' . ($durationDays === 1 ? '' : 's');
+
+        // Per Tertiary Infotech standard format — no emojis, official tone,
+        // LMS-TMS portal link for E-Attendance.
+        $formatted = "Dear " . $trainerName . "\n"
+            . "This is a gentle reminder for your upcoming training below.\n"
+            . "Course Title: " . $r['course_title'] . "\n"
+            . "Course Code: " . $r['course_sku'] . "\n"
+            . "Course Run ID: " . (int) $r['run_id'] . "\n"
+            . "Start Date: " . $startDateFmt . "\n"
+            . "End Date: " . $endDateFmt . "\n"
+            . "Course Duration: " . $durationText . "\n"
+            . "Mode of Training: " . $modeLabel . "\n"
+            . "To view E-Attendance and course-related materials, please log in below:\n"
+            . "https://lms-tms.tertiaryinfotech.com\n"
+            . "Training Admin, Tertiary Infotech Academy";
 
         return array(
-            'class_id'         => (string) ($r['class_id'] ?? ''),
-            'run_id'           => (int)    $r['run_id'],
-            'course_code'      => (string) $r['course_sku'],
-            'course_name'      => (string) $r['course_title'],
-            'course_url'       => $courseUrl,
-            'start_date'       => $startDate,
-            'end_date'         => $endDate,
-            'time'             => $time,
-            'mode'             => $modeLabel,
-            'venue'            => $venueText,
-            'enrolled'         => (int) $r['enrolled'],
-            'trainer'          => array(
+            'class_id'              => (string) ($r['class_id'] ?? ''),
+            'run_id'                => (int)    $r['run_id'],
+            'course_code'           => (string) $r['course_sku'],
+            'course_name'           => (string) $r['course_title'],
+            'course_url'            => $courseUrl,
+            'start_date'            => $startDate,
+            'end_date'              => $endDate,
+            'start_date_formatted'  => $startDateFmt,
+            'end_date_formatted'    => $endDateFmt,
+            'course_duration_days'  => $durationDays,
+            'course_duration_text'  => $durationText,
+            'time'                  => $time,
+            'mode'                  => $modeLabel,
+            'venue'                 => $venueText,
+            'enrolled'              => (int) $r['enrolled'],
+            'trainer'               => array(
                 'name'      => $trainerName,
                 'email'     => $trainerEmail,
                 'telephone' => $trainerPhone,
                 'roster_id' => isset($r['roster_id']) ? (int) $r['roster_id'] : null,
             ),
-            'formatted_message' => $formatted,
+            'formatted_message'     => $formatted,
         );
     }
 
@@ -248,10 +262,12 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
 
     private function _modeLabel($v)
     {
+        // Per Tertiary Infotech standard wording for trainer reminders:
+        // 1 = Physical (in-person classroom), 2 = Online, 3 = Hybrid.
         switch ((int) $v) {
-            case 2: return 'Live Online';
-            case 3: return 'Hybrid (Classroom + Online)';
-            default: return 'Classroom';
+            case 2: return 'Online';
+            case 3: return 'Hybrid';
+            default: return 'Physical';
         }
     }
 
