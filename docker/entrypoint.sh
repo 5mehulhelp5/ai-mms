@@ -282,23 +282,6 @@ fi
 php /var/www/html/scripts/maintenance/flat-url-debug.php \
     || echo "entrypoint: WARNING — flat-URL diagnostic dump failed (non-fatal)"
 
-# Regenerate the per-store Google sitemaps on every boot. The files live at the
-# web root (/var/www/html/sitemap_<store>.xml, mapped per-host by .htaccess) and
-# are NOT baked into the image, so a fresh Coolify container serves /sitemap.xml
-# as a 404 until the next daily cron tick — meaning Google hits a missing
-# sitemap right after every deploy. Generating HERE (after the catalog_url
-# reindex + force-flatten + collision-suffix fix above, so every <loc> is the
-# final flat /<url_key>.html) guarantees each host's sitemap exists, is current,
-# and contains only live flat URLs before the first request lands. Idempotent
-# (~5s); the daily Magento cron keeps it fresh between deploys.
-echo "entrypoint: generating per-store Google sitemaps..."
-if php /var/www/html/scripts/seo/generate-sitemaps.php 2>&1; then
-    chown www-data:www-data /var/www/html/sitemap_*.xml 2>/dev/null || true
-    echo "entrypoint: sitemap generation complete"
-else
-    echo "entrypoint: WARNING — sitemap generation failed (non-fatal, container continues)"
-fi
-
 # Warm the merged CSS/JS bundles BEFORE real traffic arrives. The cache wipe
 # at line ~85 deletes media/css/*, media/js/* on every container start;
 # Magento regenerates them on the FIRST request that loads the layout. If a

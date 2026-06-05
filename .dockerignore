@@ -64,9 +64,3 @@ var/tmp/
 
 # Node modules
 node_modules/
-
-# Generated per-store Google sitemaps. Dockerfile does `COPY . /var/www/html/`,
-# so a locally-generated sitemap_<store>.xml (localhost <loc>s) would be baked
-# into the image and served until the entrypoint regenerates it. Exclude them;
-# docker/entrypoint.sh generates correct per-host sitemaps on every boot.
-sitemap_*.xml
