@@ -225,8 +225,57 @@ the storefront / clobbered structured data. Flag any audit finding that
    - Adding observers / class rewrites that prepend parent path on
      `_refreshCategoryRewrites` or `getCategoryUrlPath`.
    If a recommendation would change a URL, it must result in a flatter
-   URL, not a deeper one. Existing long-path rewrites stay as 301 sources
-   (save-rewrites-history); never delete them — they preserve link equity.
+   URL, not a deeper one. Existing long-path *deep-path* rewrites stay as
+   301 sources (save-rewrites-history) — they preserve link equity.
+
+3. **Every active category MUST resolve at the clean `/<url_key>.html`
+   with NO collision suffix — `-1`, `-2`, … `-33` on a live category URL
+   is a BUG, not a valid URL.**
+   The canonical request_path of an enabled (`is_active=1`) category must
+   be exactly `<url_key>.html`. A suffixed canonical
+   (`aws-practice-exams-33.html`) means the clean base path is squatted by
+   a *stale* rewrite and the flat-URL job kept bumping the suffix on every
+   reindex. This is the one case where you DO clean up rewrites:
+   - **A save-history redirect that squats a base url_key needed by a
+     different *live* category must yield.** A 301 from a former url_key of
+     category X that now blocks the live category Y from claiming
+     `/<url_key>.html` is link-equity-negative *and* breaks Y's canonical —
+     delete (or re-point) the squatter so Y gets the clean path. This is
+     the exception to "never delete redirects": deep-path → flat redirects
+     are kept; base-key squatters that collide with a live category are not.
+   - **Suffix explosion is real on this install.** Repeated
+     reindex/force-flatten runs accumulate temporary `XXXXXXXX_TIMESTAMP`
+     id_path save-history rewrites (thousands of them) that each bump the
+     next canonical suffix. Purging the stale temp-suffix redirect chain
+     for a category lets its canonical fall back to the clean base path.
+   - **Detection (run this in every audit):** enumerate every
+     `is_active=1` category's canonical rewrite per store and flag any whose
+     `request_path` matches `-[0-9]+\.html$`, plus any that 404 or 301 when
+     fetched. A genuinely duplicate url_key between two *live* sibling
+     categories is a content fix (rename one url_key), not a suffix.
+   ```sql
+   -- collision-suffixed canonicals on LIVE categories (per store_id)
+   SELECT r.store_id, r.category_id, r.request_path
+   FROM core_url_rewrite r
+   JOIN catalog_category_entity_int a
+     ON a.entity_id = r.category_id AND a.store_id = 0
+     AND a.attribute_id = (SELECT attribute_id FROM eav_attribute
+        WHERE attribute_code='is_active' AND entity_type_id=3)
+   WHERE r.product_id IS NULL AND r.options IS NULL
+     AND r.id_path LIKE 'category/%' AND a.value = 1
+     AND r.request_path REGEXP '-[0-9]+\\.html$';
+   ```
+   ```bash
+   # accessibility sweep — every category URL must be 200, no 301/404
+   # (build /tmp/cats.txt from the per-store request_path list first)
+   awk '{print "url = \"https://www.<host>/" $0 "\""; print "output = \"/dev/null\""}' \
+     /tmp/cats.txt > /tmp/cfg
+   curl -Z --parallel-max 12 -s -K /tmp/cfg \
+     --write-out '%{http_code} %{url_effective} -> [%{redirect_url}]\n' \
+     | grep -v '^200 '   # anything printed is a category that is not cleanly reachable
+   ```
+   Disabled (`is_active=0`) categories and other-store categories correctly
+   404 on a given host — do NOT flag those.
 
 ## Anti-patterns — don't recommend
 

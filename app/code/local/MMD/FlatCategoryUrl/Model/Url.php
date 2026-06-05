@@ -6,6 +6,28 @@
  *
  * Collision handling is delegated to the stock getUnusedPathByUrlKey(), so
  * sibling categories with the same url_key auto-append -1, -2, etc.
+ *
+ * HARD RULE — accessibility + no collision (do NOT regress):
+ *   Every ACTIVE category MUST resolve at the clean `<url_key>.html` and
+ *   return HTTP 200. A canonical request_path that carries a numeric suffix
+ *   (`aws-practice-exams-33.html`) on a live category is a BUG: it means the
+ *   clean base path is squatted by a STALE rewrite and repeated reindex/
+ *   force-flatten runs kept bumping the suffix (-1 -> -2 -> ... -> -33).
+ *
+ *   The legitimate `-N` suffix case is ONLY two *live* sibling categories
+ *   that genuinely share a url_key — fix that by renaming one url_key, not by
+ *   shipping a suffixed canonical. Everything else is rewrite-table debt:
+ *     - Orphan / former-url_key save-history 301s that squat a base path an
+ *       active category needs MUST yield (delete or re-point the squatter) so
+ *       the live category reclaims `<url_key>.html`. (This is the documented
+ *       exception to the seo-audit "never delete redirects" rule — deep-path
+ *       -> flat redirects are kept; base-key squatters of a live category are
+ *       not.)
+ *     - Temporary `XXXXXXXX_TIMESTAMP` id_path save-history rows accumulate in
+ *       the thousands across reindexes and each one bumps the next canonical
+ *       suffix. Purge the stale chain so the canonical falls back to the base.
+ *   See [[feedback_flat_url_collision_suffix_explosion]] in memory and the
+ *   seo-audit skill invariant #3 for the detection queries + remediation.
  */
 class MMD_FlatCategoryUrl_Model_Url extends Mage_Catalog_Model_Url
 {
