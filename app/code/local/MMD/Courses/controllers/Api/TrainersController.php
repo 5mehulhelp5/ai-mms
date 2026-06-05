@@ -23,17 +23,26 @@
  */
 class MMD_Courses_Api_TrainersController extends Mage_Core_Controller_Front_Action
 {
-    const CONFIG_PATH_API_KEY = 'courses/general/wsq_schedule_api_key';
-    const SG_STORE_ID         = 1;
+    const CONFIG_PATH_API_KEY         = 'courses/general/wsq_schedule_api_key';
+    const CONFIG_PATH_TRAINER_API_KEY = 'courses/general/trainer_reminders_api_key';
+    const SG_STORE_ID                 = 1;
 
     public function indexAction()
     {
-        $expected = trim((string) Mage::getStoreConfig(self::CONFIG_PATH_API_KEY));
-        if ($expected === '') {
-            return $this->_json(503, $this->_errEnvelope('api_disabled', 'API key not configured.'));
+        // Accept EITHER the customer-reply key or the trainer-reminders role
+        // key. Trainer-reminders bot uses its own role key for audit /
+        // rotation independence; customer-reply bot may still need to look
+        // up trainers when answering "who teaches X?" questions.
+        $keyCustomer = trim((string) Mage::getStoreConfig(self::CONFIG_PATH_API_KEY));
+        $keyTrainer  = trim((string) Mage::getStoreConfig(self::CONFIG_PATH_TRAINER_API_KEY));
+        if ($keyCustomer === '' && $keyTrainer === '') {
+            return $this->_json(503, $this->_errEnvelope('api_disabled', 'No API keys configured.'));
         }
-        $provided = (string) $this->getRequest()->getHeader('X-API-Key');
-        if (!hash_equals($expected, $provided)) {
+        $provided = trim((string) $this->getRequest()->getHeader('X-API-Key'));
+        $ok = false;
+        if ($keyCustomer !== '' && hash_equals($keyCustomer, $provided)) { $ok = true; }
+        if ($keyTrainer  !== '' && hash_equals($keyTrainer,  $provided)) { $ok = true; }
+        if (!$ok) {
             return $this->_json(401, $this->_errEnvelope('unauthorized', 'Invalid or missing X-API-Key.'));
         }
 

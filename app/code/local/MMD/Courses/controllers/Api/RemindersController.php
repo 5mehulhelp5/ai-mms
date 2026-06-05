@@ -42,18 +42,27 @@
  */
 class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Action
 {
-    const CONFIG_PATH_API_KEY = 'courses/general/wsq_schedule_api_key';
-    const SG_STORE_ID         = 1;
-    const ESCALATION_WHATSAPP = '+65 8866 6375';
+    const CONFIG_PATH_API_KEY         = 'courses/general/wsq_schedule_api_key';
+    const CONFIG_PATH_TRAINER_API_KEY = 'courses/general/trainer_reminders_api_key';
+    const SG_STORE_ID                 = 1;
+    const ESCALATION_WHATSAPP         = '+65 8866 6375';
 
     public function indexAction()
     {
-        $expected = trim((string) Mage::getStoreConfig(self::CONFIG_PATH_API_KEY));
-        if ($expected === '') {
-            return $this->_json(503, $this->_errEnvelope('api_disabled', 'API key not configured.'));
+        // Accept EITHER the customer-reply key or the trainer-reminders role
+        // key. This endpoint is dual-purpose: the customer-reply bot may
+        // also need schedule data, while the trainer-reminders bot has its
+        // own role key for audit/rotation independence.
+        $keyCustomer = trim((string) Mage::getStoreConfig(self::CONFIG_PATH_API_KEY));
+        $keyTrainer  = trim((string) Mage::getStoreConfig(self::CONFIG_PATH_TRAINER_API_KEY));
+        if ($keyCustomer === '' && $keyTrainer === '') {
+            return $this->_json(503, $this->_errEnvelope('api_disabled', 'No API keys configured.'));
         }
-        $provided = (string) $this->getRequest()->getHeader('X-API-Key');
-        if (!hash_equals($expected, $provided)) {
+        $provided = trim((string) $this->getRequest()->getHeader('X-API-Key'));
+        $ok = false;
+        if ($keyCustomer !== '' && hash_equals($keyCustomer, $provided)) { $ok = true; }
+        if ($keyTrainer  !== '' && hash_equals($keyTrainer,  $provided)) { $ok = true; }
+        if (!$ok) {
             return $this->_json(401, $this->_errEnvelope('unauthorized', 'Invalid or missing X-API-Key.'));
         }
 
