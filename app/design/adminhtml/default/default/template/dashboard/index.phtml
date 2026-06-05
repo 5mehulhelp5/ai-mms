@@ -11099,6 +11099,15 @@ if ($_atActive) {
         <a class="at-back-link" href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/dashboard') ?>">Back to Dashboard</a>
     </div>
 
+    <!-- Pointer to LMS-synced trainer accounts (Users / Role Management) -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:10px;padding:12px 16px;margin-bottom:18px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <div style="font-size:12px;color:#94a3b8;">Trainers with accounts &amp; emails are managed on the <strong style="color:#e2e8f0;">Users</strong> page — pull the latest from LMS there so they can be invited &amp; confirmed for classes.</div>
+        </div>
+        <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement') ?>" style="padding:7px 14px;background:#2563eb;color:#fff !important;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none !important;white-space:nowrap;flex-shrink:0;">Manage LMS Trainers →</a>
+    </div>
+
     <div class="at-kpis">
         <div class="at-kpi"><div class="at-kpi-num at-num-up" id="at-kpi-classes"><?php echo number_format($_atKpi['upcoming']) ?></div><div class="at-kpi-lbl" id="at-kpi-classes-lbl">Upcoming Classes</div></div>
         <div class="at-kpi"><div class="at-kpi-num at-num-assigned" id="at-kpi-assigned"><?php echo number_format($_atKpi['assigned']) ?></div><div class="at-kpi-lbl">Trainers Assigned</div></div>

@@ -159,6 +159,12 @@
                 <schedule><cron_expr>0 10 * * 1,4</cron_expr></schedule>
                 <run><model>mmd_rolemanager/cron_trainerInvitation::run</model></run>
             </mmd_rolemanager_trainer_invitation>
+            <!-- Daily trainer import from LMS — fail-safe gated by
+                 mmd/trainer_import/auto_enabled (absent = OFF). 03:30 SGT. -->
+            <mmd_rolemanager_trainer_import>
+                <schedule><cron_expr>30 3 * * *</cron_expr></schedule>
+                <run><model>mmd_rolemanager/cron_trainerImport::run</model></run>
+            </mmd_rolemanager_trainer_import>
         </jobs>
     </crontab>
 </config>

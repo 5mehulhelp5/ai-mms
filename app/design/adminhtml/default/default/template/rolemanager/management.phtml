@@ -186,11 +186,111 @@ $badgeColors = array(
 );
 ?>
 
+<?php
+// LMS trainer sync controls (admin-level only).
+$_tiCanManage = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', 'training_provider', 'developer'));
+$_tiSvc       = Mage::getModel('mmd_rolemanager/trainerImportService');
+$_tiLmsUrl    = $_tiSvc->getLmsUrl();
+$_tiHasKey    = $_tiSvc->getApiKey() !== '';
+$_tiAutoOn    = $_tiSvc->isAutoEnabled();
+$_tiPullUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/trainerimport/pull');
+$_tiToggleUrl = Mage::helper('adminhtml')->getUrl('adminhtml/trainerimport/setAutoEnabled');
+$_tiCfgUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/trainerimport/saveConfig');
+$_tiLast      = null;
+try {
+    $_tiLast = $read->fetchRow("SELECT * FROM " . $resource->getTableName('mmd_trainer_import_log') . " ORDER BY log_id DESC LIMIT 1");
+} catch (Exception $e) {}
+?>
 <div class="rm-wrap">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
         <h2 class="rm-title" style="margin:0"><?php echo htmlspecialchars($pageTitle) ?></h2>
         <button type="button" onclick="rmNew()" style="padding:8px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">+ Add User</button>
     </div>
+
+    <?php if ($_tiCanManage): ?>
+    <!-- ===== Sync Trainers from LMS ===== -->
+    <div id="ti-card" style="background:#1e2132;border:1px solid #334155;border-radius:12px;padding:18px 20px;margin-bottom:20px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:260px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                    <span style="font-size:14px;font-weight:600;color:#e2e8f0;">Sync Trainers from LMS</span>
+                </div>
+                <p style="font-size:12px;color:#64748b;margin:4px 0 0;">Pulls trainer accounts + roles from AI-LMS-TMS. New emails create accounts (with their LMS roles); existing emails gain the Trainer role. Going forward, assign trainers using these accounts.</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+                <span style="font-size:11px;color:#94a3b8;">Daily auto-pull</span>
+                <span id="ti-spinner" style="font-family:monospace;font-size:16px;line-height:1;color:#60a5fa;width:12px;display:inline-block;text-align:center;"></span>
+                <label class="dcf-toggle-sw" title="<?php echo $_tiAutoOn ? 'Auto-pull ON' : 'Auto-pull OFF' ?>" style="flex-shrink:0;">
+                    <input type="checkbox" id="ti-cb" <?php echo $_tiAutoOn ? 'checked' : '' ?> onchange="tiToggle(this)">
+                    <span class="dcf-toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- connection settings -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:14px;padding-top:14px;border-top:1px solid #1e293b;">
+            <div style="flex:2;min-width:240px;">
+                <label style="display:block;font-size:11px;color:#64748b;margin-bottom:4px;">LMS Base URL</label>
+                <input type="text" id="ti-url" value="<?php echo htmlspecialchars($_tiLmsUrl, ENT_QUOTES) ?>" placeholder="https://ai-lms-tms.tertiaryinfo.tech" style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:13px;box-sizing:border-box;">
+            </div>
+            <div style="flex:1;min-width:180px;">
+                <label style="display:block;font-size:11px;color:#64748b;margin-bottom:4px;">API Key <?php echo $_tiHasKey ? '<span style="color:#22c55e;">(set)</span>' : '' ?></label>
+                <input type="password" id="ti-key" value="" placeholder="<?php echo $_tiHasKey ? '•••••••• (leave blank to keep)' : 'x-api-key value' ?>" style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:13px;box-sizing:border-box;">
+            </div>
+            <button type="button" class="rm-btn-ghost" onclick="tiSaveConfig(this)" style="padding:8px 14px;background:transparent;border:1px solid #334155;color:#94a3b8;border-radius:8px;font-size:13px;cursor:pointer;">Save</button>
+            <button type="button" id="ti-pull-btn" onclick="tiPull(this)" style="padding:8px 16px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Pull from LMS now</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+            <span id="ti-status" style="font-size:12px;color:#64748b;"></span>
+            <?php if ($_tiLast): ?>
+            <span id="ti-last" style="font-size:11px;color:#475569;">Last sync: <?php echo htmlspecialchars($_tiLast['run_at']) ?> — created <?php echo (int)$_tiLast['accounts_created'] ?>, roles+ <?php echo (int)$_tiLast['roles_added'] ?>, emails <?php echo (int)$_tiLast['emails_backfilled'] ?>, errors <?php echo (int)$_tiLast['errors'] ?></span>
+            <?php endif; ?>
+        </div>
+    </div>
+    <script>
+    var TI_PULL_URL='<?php echo $this->jsQuoteEscape($_tiPullUrl) ?>';
+    var TI_TOGGLE_URL='<?php echo $this->jsQuoteEscape($_tiToggleUrl) ?>';
+    var TI_CFG_URL='<?php echo $this->jsQuoteEscape($_tiCfgUrl) ?>';
+    var TI_FORM_KEY='<?php echo $this->jsQuoteEscape($formKey) ?>';
+    function tiStatus(msg, ok){ var s=document.getElementById('ti-status'); if(!s)return; s.style.color = ok===true?'#22c55e':(ok===false?'#f87171':'#64748b'); s.textContent=msg||''; }
+    function tiSaveConfig(btn){
+        var url=document.getElementById('ti-url').value.trim();
+        var key=document.getElementById('ti-key').value;
+        btn.disabled=true; tiStatus('Saving…');
+        var fd=new FormData(); fd.append('lms_url',url); fd.append('api_key',key); fd.append('form_key',TI_FORM_KEY);
+        fetch(TI_CFG_URL,{method:'POST',body:fd,credentials:'same-origin'}).then(function(r){return r.json();}).then(function(d){
+            btn.disabled=false; tiStatus((d.success?'✓ ':'✗ ')+(d.message||''), d.success);
+            if(d.success){ document.getElementById('ti-key').value=''; }
+        }).catch(function(){ btn.disabled=false; tiStatus('✗ Network error', false); });
+    }
+    function tiPull(btn){
+        if(!confirm('Pull trainers from LMS now? This creates/updates accounts and roles in MMS.')) return;
+        btn.disabled=true; var orig=btn.textContent; btn.textContent='Pulling…'; tiStatus('Contacting LMS…');
+        var fd=new FormData(); fd.append('form_key',TI_FORM_KEY);
+        fetch(TI_PULL_URL,{method:'POST',body:fd,credentials:'same-origin'}).then(function(r){return r.json();}).then(function(d){
+            btn.disabled=false; btn.textContent=orig;
+            tiStatus((d.success?'✓ ':'✗ ')+(d.message||''), d.success);
+        }).catch(function(){ btn.disabled=false; btn.textContent=orig; tiStatus('✗ Network error', false); });
+    }
+    var _tiSpin=null,_tiRes=null;
+    function tiSpinStart(){var el=document.getElementById('ti-spinner');if(!el)return;if(_tiRes){clearTimeout(_tiRes);_tiRes=null;}el.style.color='#60a5fa';var f=['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'],i=0;el.textContent=f[0];_tiSpin=setInterval(function(){i=(i+1)%f.length;el.textContent=f[i];},80);}
+    function tiSpinStop(){if(_tiSpin){clearInterval(_tiSpin);_tiSpin=null;}}
+    function tiSpinResult(ok){var el=document.getElementById('ti-spinner');if(!el)return;el.textContent=ok?'✓':'✗';el.style.color=ok?'#22c55e':'#ef4444';_tiRes=setTimeout(function(){el.textContent='';el.style.color='#60a5fa';},2500);}
+    function tiToggle(cb){
+        var val=cb.checked?1:0; cb.checked=(val===0);
+        if(val===1 && !confirm('Enable the daily automatic trainer pull from LMS?')) return;
+        cb.disabled=true; tiSpinStart();
+        var fd=new FormData(); fd.append('value',val); fd.append('form_key',TI_FORM_KEY);
+        fetch(TI_TOGGLE_URL,{method:'POST',body:fd,credentials:'same-origin'}).then(function(r){return r.json();}).then(function(d){
+            cb.disabled=false; tiSpinStop();
+            if(!d.success){ tiSpinResult(false); tiStatus('✗ '+(d.message||'Failed'),false); return; }
+            cb.checked=(d.value===1); cb.closest('.dcf-toggle-sw').setAttribute('title', d.value===1?'Auto-pull ON':'Auto-pull OFF');
+            tiSpinResult(true);
+        }).catch(function(){ cb.disabled=false; tiSpinStop(); tiSpinResult(false); });
+    }
+    </script>
+    <?php endif; ?>
 
     <div class="rm-filters">
         <div class="rm-search">

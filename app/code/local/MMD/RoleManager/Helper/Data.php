@@ -412,7 +412,13 @@ class MMD_RoleManager_Helper_Data extends Mage_Core_Helper_Abstract
             ));
         }
 
-        Mage::getSingleton('admin/session')->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
+        // Refresh the live session ACL only in a web (admin) request. In CLI
+        // — cron sweeps, bulk trainer import — there is no admin session, and
+        // touching admin/session there triggers a session_start error. The DB
+        // 'U' row written above is all that login/auth actually needs.
+        if (PHP_SAPI !== 'cli') {
+            Mage::getSingleton('admin/session')->setAcl(Mage::getResourceModel('admin/acl')->loadAcl());
+        }
         return true;
     }
 
