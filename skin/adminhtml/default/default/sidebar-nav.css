@@ -4907,3 +4907,39 @@ body .admin-main #anchor-content { padding-left: 0 !important; }
 .admin-main table.form-list tr:not(:has(select)):not(:has(textarea)):not(:has(input:not([type="hidden"]))):not(:has(button)) {
     display: none !important;
 }
+
+/* ===== Calendar trigger icon — global replacement =====
+   Varien_Data_Form_Element_Date renders the date-picker trigger as a
+   bare <img id="<field>_trig" class="v-middle" src="images/grid-cal.gif">
+   on EVERY admin date input (customer DOB, sales rule from/to, custom-
+   option date, system_config datetime fields, etc.). The stock .gif
+   reads as a tiny pixel-art calendar with a contrasting orange corner
+   — fine in legacy Magento, but jarring against the modern dark/light
+   theme. Replace the img content with an inline SVG calendar via the
+   `content:` property (works on <img>; the original src is ignored).
+   Single rule covers every date trigger in the admin without touching
+   any block / template.
+
+   Stroke color = brand blue #60a5fa, which is the same accent the
+   admin uses for focus rings + active links. Readable on both themes
+   (slate-900 dark surface AND slate-50 light surface). No theme
+   override needed. */
+.admin-main img[id$="_trig"],
+img[id$="_trig"] {
+    width: 22px !important;
+    height: 22px !important;
+    vertical-align: middle !important;
+    margin-left: 6px !important;
+    cursor: pointer !important;
+    content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='18' rx='2' ry='2'/><line x1='16' y1='2' x2='16' y2='6'/><line x1='8' y1='2' x2='8' y2='6'/><line x1='3' y1='10' x2='21' y2='10'/></svg>") !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+.admin-main img[id$="_trig"]:hover,
+img[id$="_trig"]:hover {
+    opacity: 0.75 !important;
+}
