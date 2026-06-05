@@ -148,6 +148,12 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
             $reminders[] = $this->_buildReminder($r, $daysAhead);
         }
 
+        // Fallback diagnostic: when reminders count is 0 (or low), surface
+        // WHY by listing every class on this date that isn't confirmed.
+        // Operators can read this to decide: are trainers genuinely missing,
+        // or is the invitation flow stuck somewhere?
+        $diagnostic = $this->_buildDiagnostic($filterDate, count($reminders));
+
         return $this->_json(200, array(
             'source_url'   => 'https://www.tertiarycourses.com.sg/',
             'last_updated' => gmdate('c'),
@@ -158,8 +164,151 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
                 'count'       => count($reminders),
                 'note'        => 'MMS does NOT send these reminders. Pull this endpoint from your scheduler and decide on the consumer side whether to actually deliver each formatted_message.',
                 'reminders'   => $reminders,
+                'fallback_check' => $diagnostic,
             ),
         ));
+    }
+
+    /**
+     * Fallback diagnostic — when the primary reminders array is empty (or
+     * suspiciously short), show every class on the target date with its
+     * trainer status across all sources we know about:
+     *
+     *   1. course_runs.trainer_option_id        (confirmed assignment)
+     *   2. course_run_trainer_invitations       (accepted / pending / declined)
+     *
+     * Surfaces a "classes_needing_attention" list so the operator can see
+     * exactly which classes need trainer assignment. Each entry includes a
+     * recommended next action.
+     */
+    private function _buildDiagnostic($filterDate, $primaryCount)
+    {
+        try {
+            $allClasses = $this->_db()->fetchAll(
+                "SELECT cr.run_id, cr.class_id, cr.course_sku, cr.product_id,
+                        cr.trainer_option_id, cr.invitation_paused,
+                        cr.invitation_replies_blocked,
+                        COALESCE(pn.value, '(deleted product)') AS course_title,
+                        latest_inv.status AS invitation_status,
+                        latest_inv.trainer_name AS invitation_trainer_name,
+                        latest_inv.trainer_email AS invitation_trainer_email,
+                        latest_inv.sent_at AS invitation_sent_at
+                   FROM course_runs cr
+              LEFT JOIN catalog_product_entity_varchar pn
+                     ON pn.entity_id = cr.product_id
+                    AND pn.attribute_id = (SELECT attribute_id FROM eav_attribute
+                                            WHERE entity_type_id = (SELECT entity_type_id FROM eav_entity_type WHERE entity_type_code = 'catalog_product')
+                                              AND attribute_code = 'name' LIMIT 1)
+                    AND pn.store_id = 0
+              LEFT JOIN (
+                    SELECT i.run_id, i.status, i.trainer_name, i.trainer_email, i.sent_at
+                      FROM course_run_trainer_invitations i
+                     INNER JOIN (
+                         SELECT run_id, MAX(id) AS max_id
+                           FROM course_run_trainer_invitations
+                          GROUP BY run_id
+                     ) latest ON latest.run_id = i.run_id AND latest.max_id = i.id
+                ) latest_inv ON latest_inv.run_id = cr.run_id
+                  WHERE cr.course_start_date = ?
+                  ORDER BY cr.run_id ASC",
+                array($filterDate)
+            );
+        } catch (Exception $e) {
+            return array(
+                'error' => 'diagnostic_query_failed',
+                'message' => $e->getMessage(),
+            );
+        }
+
+        $total = count($allClasses);
+        $confirmed     = 0;
+        $accepted      = 0;
+        $pending       = 0;
+        $declined      = 0;
+        $paused        = 0;
+        $noTrainerInfo = 0;
+        $needAttention = array();
+
+        foreach ($allClasses as $c) {
+            $optId  = (int) ($c['trainer_option_id'] ?? 0);
+            $status = (string) ($c['invitation_status'] ?? '');
+
+            $hasTrainer = $optId > 0;
+            if ($hasTrainer)                  { $confirmed++; }
+            if ($status === 'accepted')       { $accepted++; }
+            if ($status === 'pending')        { $pending++; }
+            if ($status === 'declined')       { $declined++; }
+            if ((int) $c['invitation_paused'] === 1) { $paused++; }
+
+            // What does this class need?
+            $action = null;
+            if ($hasTrainer && (int) $c['invitation_paused'] === 0) {
+                // Already counted in primary reminders — no action needed
+                continue;
+            }
+            if ((int) $c['invitation_paused'] === 1) {
+                $action = 'invitation_paused — admin needs to unpause this class';
+            } elseif ($status === 'pending') {
+                $action = 'invitation_pending — waiting on trainer to accept (sent ' . $c['invitation_sent_at'] . ')';
+            } elseif ($status === 'declined') {
+                $action = 'invitation_declined — admin needs to invite a different trainer';
+            } elseif ($status === 'accepted' && !$hasTrainer) {
+                $action = 'invitation_accepted_not_synced — admin needs to sync trainer_option_id (data drift bug)';
+            } else {
+                $action = 'no_trainer_assigned — admin needs to assign a trainer via Class Management';
+                $noTrainerInfo++;
+            }
+
+            $needAttention[] = array(
+                'run_id'             => (int) $c['run_id'],
+                'class_id'           => (string) $c['class_id'],
+                'store_code'         => $this->_storeFromClassId($c['class_id']),
+                'course_sku'         => (string) $c['course_sku'],
+                'course_title'       => (string) $c['course_title'],
+                'has_trainer'        => $hasTrainer,
+                'invitation_status'  => $status ?: 'never_invited',
+                'invitation_trainer' => $c['invitation_trainer_name'] ?: null,
+                'invitation_sent_at' => $c['invitation_sent_at'] ?: null,
+                'invitation_paused'  => (int) $c['invitation_paused'] === 1,
+                'action_needed'      => $action,
+            );
+        }
+
+        return array(
+            'summary' => sprintf(
+                '%d total classes on %s; %d confirmed (in reminders[]); %d need attention',
+                $total, $filterDate, $confirmed, count($needAttention)
+            ),
+            'totals' => array(
+                'total_classes_on_date'      => $total,
+                'with_confirmed_trainer'     => $confirmed,
+                'with_accepted_invitation'   => $accepted,
+                'with_pending_invitation'    => $pending,
+                'with_declined_invitation'   => $declined,
+                'invitation_paused'          => $paused,
+                'no_trainer_no_invitation'   => $noTrainerInfo,
+            ),
+            'classes_needing_attention' => $needAttention,
+            'interpretation' => $primaryCount === 0
+                ? ($total === 0
+                    ? 'No classes scheduled for this date. Bot should skip / post "no reminders today".'
+                    : 'Classes exist but none are ready. See classes_needing_attention[].action_needed for each.')
+                : 'Primary reminders array populated. classes_needing_attention[] shows what else needs fixing.',
+        );
+    }
+
+    /**
+     * Class IDs are formatted "<STORE_CODE>######" (e.g. SG000042, GH000001).
+     * Strip the digits to extract the store code.
+     */
+    private function _storeFromClassId($classId)
+    {
+        $classId = (string) $classId;
+        if ($classId === '') return null;
+        if (preg_match('/^([A-Z]{2})/', $classId, $m)) {
+            return $m[1]; // SG, MY, GH, NG, BT, IN
+        }
+        return null;
     }
 
     private function _buildReminder($r, $daysAhead)
