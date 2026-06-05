@@ -119,9 +119,36 @@ Before `git push`:
    class file alongside it, but never running `git add` on the new file. The
    rewrite ships without its implementation and production fatals.
 
-If any of the four checks fails, **do not push** — fix locally first, re-run
+5. **For ANY new/changed migration — dry-run the REAL `apply.php`, never the
+   `mysql` client.** Production runs `apply.php`, whose PDO DSN is
+   `charset=utf8` and which **aborts the whole chain on the first failed
+   statement** → the container exits non-zero → **every host 502s** until a
+   fixed build deploys. `mysql < file` connects latin1 and silently tolerates
+   bad bytes, giving false confidence.
+   ```bash
+   docker exec ai-mms-web-1 php /var/www/html/migrations/apply.php   # must print "applying: NNN ... OK"
+   ```
+   - **Any INSERT that pulls data from a legacy table** (`catalogsearch_query`,
+     old EAV values, anything historically written over a latin1 connection)
+     **MUST be UTF-8-sanitised**, or `apply.php` dies on `error 1366 Incorrect
+     string value: '\x96…'`. Cheapest safe filter for ASCII data:
+     `WHERE LENGTH(col) = CHAR_LENGTH(col)`. `QUOTE()` does NOT fix this — the
+     bytes are invalid UTF-8, not an escaping problem. (Real outage 2026-06-05;
+     see memory `feedback_migration_applyphp_utf8_outage`.)
+   - **Search-term redirect migrations specifically** (`catalogsearch_query.redirect`):
+     restore/remap is data-only, never code. Validate every target returns
+     200/302 on **its own store domain** (SG→com.sg, MY→com.my, GH→com.gh,
+     BT→tertiarycourses.bt) before shipping — a target that 404s or 301-chains
+     re-introduces the dead-ends. Prefer **product page > flat category page >
+     empty** (let Magento search); skip homepage bounces. **Only fill
+     `redirect IS NULL/''`** — never overwrite an existing intentional
+     (product-page) redirect. Match quality: stopword-filtered token overlap,
+     drop low-confidence matches rather than ship a wrong redirect.
+
+If any of the five checks fails, **do not push** — fix locally first, re-run
 the checks, then push. After pushing, watch `/version.txt` to confirm the
-new build timestamp before considering the change live.
+new build timestamp **and** poll `https://www.tertiarycourses.com.sg/` until it
+returns 200 (a failed migration shows up here as a sustained 502).
 
 ## Development Commands
 
