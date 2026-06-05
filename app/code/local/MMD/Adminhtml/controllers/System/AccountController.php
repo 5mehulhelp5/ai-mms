@@ -50,53 +50,48 @@ class MMD_Adminhtml_System_AccountController extends Mage_Adminhtml_System_Accou
             $profileData[$field] = ($value !== '' && $value !== null) ? $value : null;
         }
 
-        // Profile image upload
+        // Profile image upload — pushed to Cloudflare R2 so it survives
+        // Coolify redeploys (which wipe /media/admin/profile/ because
+        // that dir isn't a persistent volume and is .dockerignored from
+        // the build context). The full R2 public URL is stored in
+        // admin_user.profile_image; the template renderers check for
+        // an http(s)://-prefixed value and use it as-is.
         if (isset($_FILES['profile_image']) && $_FILES['profile_image']['name']) {
             try {
-                $path = Mage::getBaseDir('media') . DS . 'admin' . DS . 'profile';
-
-                // Ensure the target directory exists. .dockerignore keeps the
-                // whole media/ tree out of the image, so on a fresh container
-                // (or a Coolify volume mount that didn't seed media/admin/),
-                // this path doesn't exist until the first upload — and
-                // Varien_File_Uploader::save() throws "Destination folder is
-                // not writable or does not exist." rather than mkdir for us.
-                // Create it on demand with www-data-writable perms.
-                if (!is_dir($path)) {
-                    if (!@mkdir($path, 0775, true) && !is_dir($path)) {
-                        throw new Exception('Could not create upload directory: ' . $path);
-                    }
-                }
-
-                $uploader = new Varien_File_Uploader('profile_image');
-                $uploader->setAllowedExtensions(array('jpg', 'jpeg', 'png', 'gif'));
-                $uploader->setAllowRenameFiles(true);
-                $uploader->setFilesDispersion(false);
-
-                $ext = strtolower(pathinfo($_FILES['profile_image']['name'], PATHINFO_EXTENSION));
-                $filename = 'user_' . $userId . '_' . time() . '.' . $ext;
-                $result = $uploader->save($path, $filename);
-
-                // Varien_File_Uploader::save returns an array with the
-                // actual saved file (renamed when collisions occur). Use
-                // that, not the input filename — otherwise a renamed
-                // upload would persist the wrong name to the DB.
-                $savedName = isset($result['file']) ? ltrim($result['file'], '/\\') : $filename;
-
-                // Delete old image
-                $resource = Mage::getSingleton('core/resource');
-                $oldImage = $resource->getConnection('core_read')->fetchOne(
-                    'SELECT profile_image FROM ' . $resource->getTableName('admin/user') . ' WHERE user_id = ?',
-                    array($userId)
+                $tmpName    = (string) $_FILES['profile_image']['tmp_name'];
+                $clientName = (string) $_FILES['profile_image']['name'];
+                $ext        = strtolower(pathinfo($clientName, PATHINFO_EXTENSION));
+                $allowed    = array(
+                    'jpg'  => 'image/jpeg',
+                    'jpeg' => 'image/jpeg',
+                    'png'  => 'image/png',
+                    'gif'  => 'image/gif',
                 );
-                if ($oldImage && $oldImage !== $savedName) {
-                    $oldPath = $path . DS . $oldImage;
-                    if (file_exists($oldPath)) {
-                        @unlink($oldPath);
-                    }
+                if (!isset($allowed[$ext])) {
+                    throw new Exception('Only jpg / jpeg / png / gif uploads are allowed.');
+                }
+                if (!is_uploaded_file($tmpName)) {
+                    throw new Exception('Upload failed (not a valid uploaded file).');
+                }
+                $bytes = @file_get_contents($tmpName);
+                if ($bytes === false || $bytes === '') {
+                    throw new Exception('Upload appears empty.');
+                }
+                if (strlen($bytes) > 8 * 1024 * 1024) {
+                    throw new Exception('Profile image must be under 8 MB.');
                 }
 
-                $profileData['profile_image'] = $savedName;
+                // R2 key — include user_id + timestamp for cache-busting
+                // on re-upload (R2 PUT overwrites by key; a fresh key
+                // means the browser fetches the new image even when the
+                // CDN cached the old one under the previous URL).
+                $r2Key = 'admin/profile/user_' . $userId . '_' . time() . '.' . $ext;
+                $r2    = Mage::helper('mmd_courseimage/r2');
+                $res   = $r2->putObject($r2Key, $bytes, $allowed[$ext]);
+                if (empty($res['url'])) {
+                    throw new Exception('R2 putObject returned no url.');
+                }
+                $profileData['profile_image'] = $res['url'];
             } catch (Exception $e) {
                 Mage::logException($e);
                 Mage::getSingleton('adminhtml/session')->addError('Image upload failed: ' . $e->getMessage());

@@ -46,8 +46,16 @@ if ($isTrainer) {
         $trainerDescription = (string) $user->getData('trainer_description');
     }
 }
-$profileImage = $user->getData('profile_image');
-$profileImageUrl = $profileImage ? Mage::getBaseUrl('media') . 'admin/profile/' . $profileImage : '';
+// profile_image is an absolute R2 URL for new uploads, a bare
+// filename for legacy pre-R2 rows. Branch on the http(s) prefix.
+$profileImage = (string) $user->getData('profile_image');
+if ($profileImage === '') {
+    $profileImageUrl = '';
+} elseif (preg_match('#^https?://#i', $profileImage)) {
+    $profileImageUrl = $profileImage;
+} else {
+    $profileImageUrl = Mage::getBaseUrl('media') . 'admin/profile/' . $profileImage;
+}
 
 // Mask NRIC for display
 $nricDisplay = '';

@@ -35,10 +35,17 @@ $currentTime = date('h:i A');
 // directory layout used by the My Profile page
 // (template/system/account/profile.phtml). Empty / NULL → fall back
 // to the generic SVG silhouette already inline below.
+// profile_image is either an absolute R2 URL (new uploads since the
+// switch to R2) or a legacy filename (pre-R2). Branch on the prefix.
 $_profileImage = (string) $this->getUser()->getData('profile_image');
-$_profileImageUrl = $_profileImage
-    ? Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_MEDIA) . 'admin/profile/' . $_profileImage
-    : '';
+if ($_profileImage === '') {
+    $_profileImageUrl = '';
+} elseif (preg_match('#^https?://#i', $_profileImage)) {
+    $_profileImageUrl = $_profileImage;
+} else {
+    $_profileImageUrl = Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_MEDIA)
+        . 'admin/profile/' . $_profileImage;
+}
 
 $helper = Mage::helper('mmd_rolemanager');
 $activeRole = $helper->getActiveRoleCode();
