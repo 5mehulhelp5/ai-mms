@@ -6523,28 +6523,45 @@ function lmcSetView(view, btn) {
                     if (empty($_lc['end_date']) || $_lc['end_date'] === '—') continue;
                     $_certRows[] = $_lc;
                 }
+                // Real issued certificates for this learner, keyed by run_id.
+                $_certByRun = array();
+                if (!empty($_loggedInEmail)) {
+                    try {
+                        $_cRes  = Mage::getSingleton('core/resource');
+                        $_cRead = $_cRes->getConnection('core_read');
+                        $_cTbl  = $_cRes->getTableName('mmd_course_run_certificate');
+                        foreach ($_cRead->fetchAll(
+                            "SELECT run_id, token FROM `$_cTbl` WHERE LOWER(learner_email) = ? AND status = 'sent'",
+                            array(strtolower($_loggedInEmail))
+                        ) as $_cc) {
+                            $_certByRun[(int)$_cc['run_id']] = $_cc['token'];
+                        }
+                    } catch (Exception $e) { /* table may not exist pre-migration */ }
+                }
+                $_certDlBase = rtrim(Mage::getBaseUrl(), '/') . '/certificate/download/index?token=';
                 ?>
                 <?php if (empty($_certRows)): ?>
                 <tr><td colspan="5" style="padding:40px;text-align:center;color:#64748b;">No certificate history yet. Certificates appear here after a course ends.</td></tr>
                 <?php else: ?>
                 <?php foreach ($_certRows as $_cr):
-                    $_endTs = strtotime((string)$_cr['end_date']);
-                    $_isIssued = $_endTs && $_endTs < time();
+                    $_runId   = isset($_cr['cr_run_id']) ? (int)$_cr['cr_run_id'] : 0;
+                    $_token   = ($_runId && isset($_certByRun[$_runId])) ? $_certByRun[$_runId] : '';
+                    $_hasCert = $_token !== '';
                 ?>
                 <tr style="border-bottom:1px solid #1a2535;">
                     <td style="padding:10px 16px;color:#cbd5e1;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?php echo htmlspecialchars($_cr['name']) ?></td>
                     <td style="padding:10px 16px;color:#94a3b8;white-space:nowrap;"><?php echo htmlspecialchars($_cr['start_date']) ?></td>
                     <td style="padding:10px 16px;color:#94a3b8;white-space:nowrap;"><?php echo htmlspecialchars($_cr['end_date']) ?></td>
                     <td style="padding:10px 16px;text-align:center;">
-                        <?php if ($_isIssued): ?>
+                        <?php if ($_hasCert): ?>
                         <span style="display:inline-flex;align-items:center;gap:5px;color:#10b981;font-size:12px;font-weight:500;"><span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;"></span> Issued</span>
                         <?php else: ?>
                         <span style="display:inline-flex;align-items:center;gap:5px;color:#f59e0b;font-size:12px;font-weight:500;"><span style="width:6px;height:6px;border-radius:50%;background:#f59e0b;display:inline-block;"></span> Pending</span>
                         <?php endif; ?>
                     </td>
                     <td style="padding:10px 16px;text-align:center;">
-                        <?php if ($_isIssued): ?>
-                        <a href="<?php echo htmlspecialchars($_cr['detail_url']) ?>#certificate" style="color:#22d3ee;text-decoration:none;font-size:12px;font-weight:500;">View</a>
+                        <?php if ($_hasCert): ?>
+                        <a href="<?php echo htmlspecialchars($_certDlBase . $_token) ?>" target="_blank" rel="noopener" style="color:#22d3ee;text-decoration:none;font-size:12px;font-weight:500;">Download</a>
                         <?php else: ?>
                         <span style="color:#64748b;font-size:12px;">—</span>
                         <?php endif; ?>

@@ -184,6 +184,93 @@ class MMD_Email_Helper_Gmail extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Send an HTML email with a single binary attachment (e.g. a PDF
+     * certificate) via the Gmail API. Builds a multipart/mixed RFC 2822
+     * message: part 1 = HTML body (quoted-printable), part 2 = attachment
+     * (base64). Mirrors send() for the transport/auth.
+     *
+     * @param string $to
+     * @param string $subject
+     * @param string $bodyHtml
+     * @param string $attachBytes   Raw attachment bytes.
+     * @param string $attachName    Filename shown to the recipient.
+     * @param string $attachMime    e.g. 'application/pdf'
+     * @param string $fromName
+     * @param array  $cc
+     * @param string $replyTo
+     * @return string Gmail message id
+     * @throws Exception
+     */
+    public function sendWithAttachment($to, $subject, $bodyHtml, $attachBytes, $attachName,
+                                       $attachMime = 'application/pdf', $fromName = '', array $cc = array(), $replyTo = '')
+    {
+        $c = $this->getConfig();
+        $from = $fromName !== '' ? '"' . str_replace('"', '\"', $fromName) . '" <' . $c['user'] . '>'
+                                 : $c['user'];
+        $boundary = 'mmd_' . md5(uniqid('', true));
+
+        $headers = array(
+            'From: ' . $from,
+            'To: ' . $to,
+            'Subject: ' . $this->_encodeHeader($subject),
+            'MIME-Version: 1.0',
+            'Content-Type: multipart/mixed; boundary="' . $boundary . '"',
+        );
+        $cc = array_values(array_filter(array_map('trim', $cc)));
+        if (!empty($cc)) {
+            $headers[] = 'Cc: ' . implode(', ', $cc);
+        }
+        if ($replyTo !== '') {
+            $headers[] = 'Reply-To: ' . $replyTo;
+        }
+
+        $nl = "\r\n";
+        $body  = '--' . $boundary . $nl;
+        $body .= 'Content-Type: text/html; charset=UTF-8' . $nl;
+        $body .= 'Content-Transfer-Encoding: quoted-printable' . $nl . $nl;
+        $body .= quoted_printable_encode($bodyHtml) . $nl;
+        $body .= '--' . $boundary . $nl;
+        $body .= 'Content-Type: ' . $attachMime . '; name="' . $attachName . '"' . $nl;
+        $body .= 'Content-Transfer-Encoding: base64' . $nl;
+        $body .= 'Content-Disposition: attachment; filename="' . $attachName . '"' . $nl . $nl;
+        $body .= chunk_split(base64_encode($attachBytes), 76, $nl) . $nl;
+        $body .= '--' . $boundary . '--';
+
+        $rfc = implode($nl, $headers) . $nl . $nl . $body;
+        $raw = rtrim(strtr(base64_encode($rfc), '+/', '-_'), '=');
+
+        $token    = $this->getAccessToken();
+        $userPath = urlencode($c['user']);
+
+        $ch = curl_init('https://gmail.googleapis.com/gmail/v1/users/' . $userPath . '/messages/send');
+        curl_setopt_array($ch, array(
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode(array('raw' => $raw)),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 45,
+            CURLOPT_CONNECTTIMEOUT => 8,
+            CURLOPT_HTTPHEADER     => array(
+                'Authorization: Bearer ' . $token,
+                'Content-Type: application/json',
+            ),
+        ));
+        $rspRaw = curl_exec($ch);
+        $code   = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err    = curl_error($ch);
+        curl_close($ch);
+
+        if ($rspRaw === false || $rspRaw === '') {
+            throw new Exception('Gmail send unreachable: ' . ($err ?: 'no response'));
+        }
+        $rsp = json_decode($rspRaw, true);
+        if ($code >= 400) {
+            $msg = isset($rsp['error']['message']) ? $rsp['error']['message'] : substr($rspRaw, 0, 300);
+            throw new Exception('Gmail send failed (' . $code . '): ' . $msg);
+        }
+        return isset($rsp['id']) ? (string) $rsp['id'] : '';
+    }
+
+    /**
      * Encode a header value with RFC 2047 base64 encoding when it
      * contains non-ASCII characters. Subjects are the usual culprit.
      */

@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<layout version="0.1.0">
+    <adminhtml_attendance_index>
+        <reference name="content">
+            <block type="core/template" name="mmd.attendance.index"
+                   template="attendance/index.phtml"/>
+        </reference>
+    </adminhtml_attendance_index>
+</layout>

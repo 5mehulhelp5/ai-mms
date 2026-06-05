@@ -1,0 +1,429 @@
+<?php
+/** @var MMD_Attendance_Helper_Data $h */
+$h        = Mage::helper('mmd_attendance');
+$req      = Mage::app()->getRequest();
+$bucket   = $req->getParam('bucket') === 'completed' ? 'completed' : 'active';
+$preRun   = (int) $req->getParam('run_id');
+$readonly = ($bucket === 'completed');
+
+$classes  = $h->getClassList($bucket);
+
+$loadUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/load');
+$saveUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/save');
+$addUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/addLearner');
+$removeUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/removeLearner');
+$activeUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/index', array('bucket' => 'active'));
+$compUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/index', array('bucket' => 'completed'));
+
+// Certificate controls
+$certSendUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/certificate/sendForClass');
+$certToggleUrl = Mage::helper('adminhtml')->getUrl('adminhtml/certificate/setAutoEnabled');
+$certHelper    = Mage::helper('mmd_certificate');
+$certAutoOn    = $certHelper->isAutoEnabled();
+$certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', 'training_provider', 'developer'));
+?>
+<style>
+.att-card{background:#1e2132;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:16px;}
+.att-title{font-size:22px;font-weight:700;color:#e2e8f0;margin:0 0 4px;}
+.att-sub{font-size:13px;color:#64748b;margin:0 0 18px;}
+.att-label{display:block;font-size:11px;color:#64748b;font-weight:600;margin-bottom:5px;}
+.att-select{width:100%;max-width:560px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:9px 12px;color:#e2e8f0;font-size:13px;box-sizing:border-box;}
+.att-select:focus{outline:none;border-color:#3b82f6;}
+.att-pill{display:inline-flex;align-items:center;gap:6px;background:#0f172a;border:1px solid #334155;border-radius:999px;padding:5px 12px;font-size:12px;color:#94a3b8;margin:8px 8px 0 0;}
+.att-pill b{color:#e2e8f0;font-weight:600;}
+.att-tabs{display:inline-flex;border:1px solid #334155;border-radius:999px;padding:2px;margin-bottom:16px;}
+.att-tab{padding:5px 16px;border-radius:999px;font-size:12px;font-weight:600;color:#94a3b8;text-decoration:none;}
+.att-tab.active{background:#2563eb;color:#fff;}
+.att-counter{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;}
+.att-c-present{background:rgba(34,197,94,.15);color:#22c55e;}
+.att-c-absent{background:rgba(239,68,68,.15);color:#f87171;}
+.att-c-total{background:rgba(100,116,139,.15);color:#94a3b8;}
+.att-btn{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid transparent;}
+.att-btn-primary{background:#2563eb;color:#fff;border:none;}
+.att-btn-primary:hover{background:#1d4ed8;}
+.att-btn-primary:disabled{opacity:.5;cursor:default;}
+.att-btn-ghost{background:transparent;border:1px solid #334155;color:#94a3b8;}
+.att-btn-ghost:hover{border-color:#60a5fa;color:#e2e8f0;}
+.att-btn-green{background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);}
+.att-btn-danger{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+.att-table{width:100%;font-size:13px;border-collapse:collapse;}
+.att-table thead th{background:#0f172a;padding:8px 12px;text-align:left;color:#64748b;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;}
+.att-table tbody tr{border-top:1px solid #1e293b;}
+.att-table tbody tr.walkin{background:rgba(37,99,235,.06);}
+.att-table tbody td{padding:9px 12px;color:#e2e8f0;vertical-align:middle;}
+.att-badge-walkin{font-size:10px;font-weight:600;color:#60a5fa;background:rgba(59,130,246,.15);border-radius:6px;padding:1px 6px;margin-left:6px;}
+.att-present-lbl{font-size:12px;font-weight:600;}
+.att-reason{width:100%;max-width:260px;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:12px;box-sizing:border-box;}
+.att-status{font-size:12px;}
+.att-modal-bd{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:16px;}
+.att-modal{background:#1e2132;border:1px solid #334155;border-radius:14px;width:100%;max-width:440px;padding:24px;}
+.att-modal h3{font-size:16px;font-weight:700;color:#e2e8f0;margin:0 0 4px;}
+.att-modal p.note{font-size:12px;color:#64748b;margin:0 0 16px;}
+.att-modal label{display:block;font-size:11px;color:#64748b;font-weight:600;margin:10px 0 4px;}
+.att-modal input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:13px;box-sizing:border-box;}
+.att-empty{padding:36px 12px;text-align:center;color:#64748b;font-size:13px;}
+.att-kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
+.att-kpi{background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:18px 20px;text-align:center;}
+.att-kpi-num{font-size:28px;font-weight:700;line-height:1.1;margin-bottom:4px;}
+.att-kpi-lbl{font-size:12px;color:#64748b;}
+</style>
+
+<div class="rm-wrap">
+    <h1 class="att-title">E-Attendance</h1>
+    <p class="att-sub"><?php echo $readonly
+        ? 'View attendance for completed classes (read-only).'
+        : 'Select a class, mark each learner present or absent, then save.' ?></p>
+
+    <!-- Active / Completed switch -->
+    <div class="att-tabs">
+        <a class="att-tab <?php echo $readonly ? '' : 'active' ?>" href="<?php echo $activeUrl ?>">Take Attendance</a>
+        <a class="att-tab <?php echo $readonly ? 'active' : '' ?>" href="<?php echo $compUrl ?>">Past Attendance</a>
+    </div>
+
+    <?php if ($certCanToggle): ?>
+    <!-- Auto-send certificates master toggle -->
+    <div id="cert-banner" style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 16px;margin-bottom:16px;border-radius:10px;border:1px solid <?php echo $certAutoOn ? 'rgba(34,197,94,.3)' : 'rgba(100,116,139,.25)' ?>;background:<?php echo $certAutoOn ? 'rgba(34,197,94,.08)' : 'rgba(100,116,139,.06)' ?>;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="<?php echo $certAutoOn ? '#22c55e' : '#64748b' ?>" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="12" cy="15" r="2"/></svg>
+            <div>
+                <div style="font-size:13px;font-weight:600;color:#e2e8f0;">Auto-send Certificate of Achievement after class</div>
+                <div style="font-size:11px;color:#64748b;margin-top:1px;">When ON, a daily sweep emails certificates to learners marked Present once their class has ended. Manual sending below always works.</div>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+            <span id="cert-spinner" style="font-family:monospace;font-size:16px;line-height:1;color:#60a5fa;width:12px;display:inline-block;text-align:center;"></span>
+            <label class="dcf-toggle-sw" title="<?php echo $certAutoOn ? 'Auto-send ON' : 'Auto-send OFF' ?>" style="flex-shrink:0;">
+                <input type="checkbox" id="cert-cb" <?php echo $certAutoOn ? 'checked' : '' ?> onchange="certToggle(this)">
+                <span class="dcf-toggle-slider"></span>
+            </label>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- Class selection -->
+    <div class="att-card">
+        <label class="att-label" for="att-class">Class</label>
+        <select id="att-class" class="att-select" onchange="attSelectClass(this.value)">
+            <option value="">— Select a class —</option>
+            <?php foreach ($classes as $c):
+                $start = $c['course_start_date'] ? date('d M Y', strtotime($c['course_start_date'])) : '—';
+                $label = $c['class_id'] . ' · ' . $c['course_title'] . ' · ' . $start
+                       . ' · ' . (int)$c['enrolled'] . ' enrolled';
+            ?>
+            <option value="<?php echo (int)$c['run_id'] ?>"
+                    data-class-id="<?php echo htmlspecialchars($c['class_id'], ENT_QUOTES) ?>"
+                    data-sku="<?php echo htmlspecialchars($c['course_sku'], ENT_QUOTES) ?>"
+                    data-title="<?php echo htmlspecialchars($c['course_title'], ENT_QUOTES) ?>"
+                    data-start="<?php echo htmlspecialchars($c['course_start_date'], ENT_QUOTES) ?>"
+                    data-end="<?php echo htmlspecialchars($c['course_end_date'], ENT_QUOTES) ?>"
+                    data-trainer="<?php echo htmlspecialchars($c['trainer_name'], ENT_QUOTES) ?>"
+                    <?php echo ($preRun && (int)$c['run_id'] === $preRun) ? 'selected' : '' ?>>
+                <?php echo htmlspecialchars($label) ?>
+            </option>
+            <?php endforeach; ?>
+        </select>
+        <?php if (empty($classes)): ?>
+        <p style="font-size:12px;color:#64748b;margin-top:10px;">No <?php echo $readonly ? 'completed' : 'active' ?> classes for the current store view.</p>
+        <?php endif; ?>
+        <div id="att-pills"></div>
+    </div>
+
+    <!-- Roster -->
+    <div class="att-card" id="att-roster-card" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <span class="att-counter att-c-present">Present: <span id="att-cnt-present">0</span></span>
+                <span class="att-counter att-c-absent">Absent: <span id="att-cnt-absent">0</span></span>
+                <span class="att-counter att-c-total">Total: <span id="att-cnt-total">0</span></span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <?php if (!$readonly): ?>
+                <button type="button" class="att-btn att-btn-green" onclick="attAllPresent()">All Present</button>
+                <button type="button" class="att-btn att-btn-ghost" onclick="attOpenAdd()">+ Add Learner</button>
+                <?php endif; ?>
+                <button type="button" id="cert-send-btn" class="att-btn att-btn-ghost" style="border-color:rgba(34,211,238,.4);color:#22d3ee;" onclick="certSendForClass(this)">Send Certificates</button>
+                <span id="cert-send-status" style="font-size:11px;color:#64748b;"></span>
+            </div>
+        </div>
+
+        <!-- KPI cards (completed/read-only) -->
+        <div id="att-kpis" class="att-kpi-row" style="display:none;"></div>
+
+        <div style="overflow-x:auto;">
+        <table class="att-table" id="att-table">
+            <thead>
+                <tr>
+                    <th style="width:40px;">#</th>
+                    <th>Learner</th>
+                    <th>Email</th>
+                    <th style="width:150px;">Attendance</th>
+                    <?php if (!$readonly): ?><th>Reason of Absence</th><th style="width:60px;"></th><?php endif; ?>
+                </tr>
+            </thead>
+            <tbody id="att-tbody"></tbody>
+        </table>
+        </div>
+
+        <?php if (!$readonly): ?>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid #1e293b;">
+            <span id="att-save-status" class="att-status"></span>
+            <button type="button" id="att-save-btn" class="att-btn att-btn-primary" onclick="attSave()">Save Attendance</button>
+        </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- Add Learner modal -->
+<div id="att-add-modal" class="att-modal-bd">
+    <div class="att-modal">
+        <h3>Add Learner</h3>
+        <p class="note">For someone physically present but not enrolled. A customer account is created and they're added to this class.</p>
+        <label>Full Name <span style="color:#f87171">*</span></label>
+        <input type="text" id="att-add-name" placeholder="e.g. John Tan">
+        <label>Email Address <span style="color:#f87171">*</span></label>
+        <input type="email" id="att-add-email" placeholder="e.g. john@example.com">
+        <div id="att-add-err" style="color:#f87171;font-size:12px;margin-top:10px;display:none;"></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;">
+            <button type="button" class="att-btn att-btn-ghost" onclick="document.getElementById('att-add-modal').style.display='none'">Cancel</button>
+            <button type="button" id="att-add-btn" class="att-btn att-btn-primary" onclick="attAddLearner()">Add Learner</button>
+        </div>
+    </div>
+</div>
+
+<script>
+var ATT_LOAD_URL   = '<?php echo $this->jsQuoteEscape($loadUrl) ?>';
+var ATT_SAVE_URL   = '<?php echo $this->jsQuoteEscape($saveUrl) ?>';
+var ATT_ADD_URL    = '<?php echo $this->jsQuoteEscape($addUrl) ?>';
+var ATT_REMOVE_URL = '<?php echo $this->jsQuoteEscape($removeUrl) ?>';
+var ATT_FORM_KEY   = window.FORM_KEY || '';
+var ATT_READONLY   = <?php echo $readonly ? 'true' : 'false' ?>;
+var CERT_SEND_URL   = '<?php echo $this->jsQuoteEscape($certSendUrl) ?>';
+var CERT_TOGGLE_URL = '<?php echo $this->jsQuoteEscape($certToggleUrl) ?>';
+var attRunId = 0;
+var attRoster = [];
+
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// ── Certificate: manual send for the selected class ──────────────────────────
+function certSendForClass(btn) {
+    if (!attRunId) { alert('Select a class first.'); return; }
+    if (!confirm('Generate and email a Certificate of Achievement to every learner marked Present in this class who does not already have one?')) return;
+    var st = document.getElementById('cert-send-status');
+    var orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Sending…'; if (st) st.textContent = '';
+    fetch(CERT_SEND_URL, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'run_id=' + attRunId + '&form_key=' + encodeURIComponent(ATT_FORM_KEY)
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+        btn.disabled = false; btn.textContent = orig;
+        if (st) { st.style.color = d.success ? '#22c55e' : '#f87171'; st.textContent = (d.success ? '✓ ' : '✗ ') + (d.message || ''); }
+    })
+    .catch(function(){ btn.disabled=false; btn.textContent=orig; if(st){st.style.color='#f87171';st.textContent='✗ Network error';} });
+}
+
+// ── Certificate: auto-send fail-safe toggle (braille spinner + tick/cross) ────
+var _certSpin = null, _certResultTimer = null;
+function certSpinStart(){ var el=document.getElementById('cert-spinner'); if(!el)return; if(_certResultTimer){clearTimeout(_certResultTimer);_certResultTimer=null;} el.style.color='#60a5fa'; el.removeAttribute('title'); var f=['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'],i=0; el.textContent=f[0]; _certSpin=setInterval(function(){i=(i+1)%f.length;el.textContent=f[i];},80); }
+function certSpinStop(){ if(_certSpin){clearInterval(_certSpin);_certSpin=null;} }
+function certResult(ok,msg){ var el=document.getElementById('cert-spinner'); if(!el)return; el.textContent=ok?'✓':'✗'; el.style.color=ok?'#22c55e':'#ef4444'; if(msg)el.setAttribute('title',msg); _certResultTimer=setTimeout(function(){el.textContent='';el.style.color='#60a5fa';el.removeAttribute('title');_certResultTimer=null;},2500); }
+
+function certToggle(cb) {
+    var val = cb.checked ? 1 : 0;
+    cb.checked = (val === 0); // hold until server confirms
+    if (val === 1 && !confirm('Enable automatic certificate emails?\n\nA daily sweep will email certificates to learners marked Present once their class has ended.')) return;
+    cb.disabled = true; certSpinStart();
+    var fd = new FormData(); fd.append('value', val); fd.append('form_key', ATT_FORM_KEY);
+    fetch(CERT_TOGGLE_URL, { method:'POST', body:fd, credentials:'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            cb.disabled = false; certSpinStop();
+            if (!d.success) { certResult(false, d.message || 'Failed'); return; }
+            var on = (d.value === 1); cb.checked = on;
+            cb.closest('.dcf-toggle-sw').setAttribute('title', on ? 'Auto-send ON' : 'Auto-send OFF');
+            var b = document.getElementById('cert-banner');
+            if (b) { b.style.borderColor = on?'rgba(34,197,94,.3)':'rgba(100,116,139,.25)'; b.style.background = on?'rgba(34,197,94,.08)':'rgba(100,116,139,.06)'; }
+            certResult(true);
+        })
+        .catch(function(){ cb.disabled=false; certSpinStop(); certResult(false,'Network error'); });
+}
+
+function attSelectClass(runId) {
+    attRunId = parseInt(runId, 10) || 0;
+    var card = document.getElementById('att-roster-card');
+    var pills = document.getElementById('att-pills');
+    if (!attRunId) { card.style.display = 'none'; pills.innerHTML = ''; return; }
+
+    var opt = document.querySelector('#att-class option[value="' + attRunId + '"]');
+    if (opt) {
+        var start = opt.getAttribute('data-start'); var end = opt.getAttribute('data-end');
+        var fmt = function(d){ if(!d) return '—'; var x=new Date(d); return isNaN(x)? d : x.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); };
+        pills.innerHTML =
+            '<span class="att-pill">Class ID <b>' + esc(opt.getAttribute('data-class-id')) + '</b></span>' +
+            '<span class="att-pill">Code <b>' + esc(opt.getAttribute('data-sku')) + '</b></span>' +
+            '<span class="att-pill">Start <b>' + fmt(start) + '</b></span>' +
+            '<span class="att-pill">End <b>' + fmt(end) + '</b></span>' +
+            (opt.getAttribute('data-trainer') ? '<span class="att-pill">Trainer <b>' + esc(opt.getAttribute('data-trainer')) + '</b></span>' : '');
+    }
+
+    fetch(ATT_LOAD_URL + '?run_id=' + attRunId, { credentials: 'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (!d.success) { alert('Error: ' + (d.message || 'load failed')); return; }
+            attRoster = d.roster || [];
+            attRender();
+            card.style.display = '';
+        })
+        .catch(function(){ alert('Network error loading roster.'); });
+}
+
+function attRender() {
+    var tb = document.getElementById('att-tbody');
+    var html = '';
+    if (!attRoster.length) {
+        var cols = ATT_READONLY ? 4 : 6;
+        document.getElementById('att-table').style.display = attRoster.length ? '' : 'none';
+        tb.innerHTML = '';
+        var empty = document.getElementById('att-empty-row');
+        document.getElementById('att-roster-card').querySelector('#att-kpis').style.display = 'none';
+        tb.innerHTML = '<tr><td colspan="' + cols + '" class="att-empty">No learners enrolled' + (ATT_READONLY ? '' : '. Use “+ Add Learner”.') + '</td></tr>';
+        attUpdateCounters();
+        return;
+    }
+    document.getElementById('att-table').style.display = '';
+    attRoster.forEach(function(r, i) {
+        var present = !!r.is_present;
+        var rowCls = r.is_walkin ? ' class="walkin"' : '';
+        html += '<tr' + rowCls + ' data-idx="' + i + '">'
+            + '<td style="color:#64748b">' + (i + 1) + '</td>'
+            + '<td>' + esc(r.learner_name || '—') + (r.is_walkin ? '<span class="att-badge-walkin">Walk-in</span>' : '') + '</td>'
+            + '<td style="color:#94a3b8;font-size:12px;">' + esc(r.learner_email) + '</td>';
+        if (ATT_READONLY) {
+            html += '<td>' + (present
+                ? '<span class="att-present-lbl" style="color:#22c55e">✓ Present</span>'
+                : '<span class="att-present-lbl" style="color:#f87171">✗ Absent</span>') + '</td>';
+        } else {
+            html += '<td>'
+                + '<label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;">'
+                + '<input type="checkbox" ' + (present ? 'checked' : '') + ' onchange="attToggle(' + i + ', this.checked)" style="width:16px;height:16px;accent-color:#22c55e;">'
+                + '<span class="att-present-lbl" id="att-lbl-' + i + '" style="color:' + (present ? '#22c55e' : '#f87171') + '">' + (present ? '✓ Present' : '✗ Absent') + '</span>'
+                + '</label></td>'
+                + '<td><input type="text" class="att-reason" id="att-reason-' + i + '" placeholder="Enter reason..." value="' + esc(r.reason_of_absence) + '" oninput="attReason(' + i + ', this.value)"' + (present ? ' style="display:none;"' : '') + '></td>'
+                + '<td>' + (r.is_walkin ? '<button type="button" class="att-btn att-btn-danger" style="padding:3px 8px;" onclick="attRemove(' + i + ')">Remove</button>' : '') + '</td>';
+        }
+        html += '</tr>';
+    });
+    document.getElementById('att-tbody').innerHTML = html;
+    attUpdateCounters();
+    if (ATT_READONLY) attRenderKpis();
+}
+
+function attToggle(i, checked) {
+    attRoster[i].is_present = checked ? 1 : 0;
+    var lbl = document.getElementById('att-lbl-' + i);
+    var reason = document.getElementById('att-reason-' + i);
+    if (lbl) { lbl.textContent = checked ? '✓ Present' : '✗ Absent'; lbl.style.color = checked ? '#22c55e' : '#f87171'; }
+    if (reason) { reason.style.display = checked ? 'none' : ''; if (checked) { reason.value=''; attRoster[i].reason_of_absence=''; } }
+    attUpdateCounters();
+}
+function attReason(i, val) { attRoster[i].reason_of_absence = val; }
+
+function attAllPresent() {
+    attRoster.forEach(function(r){ r.is_present = 1; r.reason_of_absence = ''; });
+    attRender();
+}
+
+function attUpdateCounters() {
+    var p = 0; attRoster.forEach(function(r){ if (r.is_present) p++; });
+    document.getElementById('att-cnt-present').textContent = p;
+    document.getElementById('att-cnt-absent').textContent = attRoster.length - p;
+    document.getElementById('att-cnt-total').textContent = attRoster.length;
+}
+
+function attRenderKpis() {
+    var kp = document.getElementById('att-kpis');
+    var total = attRoster.length;
+    var present = 0; attRoster.forEach(function(r){ if (r.is_present) present++; });
+    var pct = total ? Math.round((present / total) * 100) : 0;
+    var col = pct >= 75 ? '#22c55e' : (pct >= 50 ? '#f59e0b' : '#f87171');
+    kp.innerHTML =
+        '<div class="att-kpi"><div class="att-kpi-num" style="color:#e2e8f0">' + total + '</div><div class="att-kpi-lbl">No. of Learners</div></div>' +
+        '<div class="att-kpi"><div class="att-kpi-num" style="color:#22c55e">' + present + '</div><div class="att-kpi-lbl">Present</div></div>' +
+        '<div class="att-kpi"><div class="att-kpi-num" style="color:' + col + '">' + pct + '%</div><div class="att-kpi-lbl">Attendance Rate</div></div>';
+    kp.style.display = '';
+}
+
+function attSave() {
+    var btn = document.getElementById('att-save-btn');
+    var st = document.getElementById('att-save-status');
+    btn.disabled = true; btn.textContent = 'Saving…'; st.textContent = '';
+    fetch(ATT_SAVE_URL, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ run_id: attRunId, form_key: ATT_FORM_KEY, records: attRoster })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+        btn.disabled = false; btn.textContent = 'Save Attendance';
+        st.style.color = d.success ? '#22c55e' : '#f87171';
+        st.textContent = (d.success ? '✓ ' : '✗ ') + (d.message || '');
+        setTimeout(function(){ st.textContent=''; }, 3000);
+    })
+    .catch(function(){ btn.disabled=false; btn.textContent='Save Attendance'; st.style.color='#f87171'; st.textContent='✗ Network error'; });
+}
+
+function attOpenAdd() {
+    document.getElementById('att-add-name').value = '';
+    document.getElementById('att-add-email').value = '';
+    document.getElementById('att-add-err').style.display = 'none';
+    document.getElementById('att-add-modal').style.display = 'flex';
+}
+document.getElementById('att-add-modal').addEventListener('click', function(e){ if (e.target === this) this.style.display='none'; });
+
+function attAddLearner() {
+    var name = document.getElementById('att-add-name').value.trim();
+    var email = document.getElementById('att-add-email').value.trim();
+    var err = document.getElementById('att-add-err');
+    if (!name || !email) { err.textContent = 'Name and email are required.'; err.style.display='block'; return; }
+    if (email.indexOf('@') < 0) { err.textContent = 'Please enter a valid email address.'; err.style.display='block'; return; }
+    var btn = document.getElementById('att-add-btn');
+    btn.disabled = true; btn.textContent = 'Adding…';
+    fetch(ATT_ADD_URL, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ run_id: attRunId, full_name: name, email: email, form_key: ATT_FORM_KEY })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+        btn.disabled = false; btn.textContent = 'Add Learner';
+        if (!d.success) { err.textContent = d.message || 'Failed to add.'; err.style.display='block'; return; }
+        document.getElementById('att-add-modal').style.display = 'none';
+        attSelectClass(attRunId); // reload roster
+    })
+    .catch(function(){ btn.disabled=false; btn.textContent='Add Learner'; err.textContent='Network error.'; err.style.display='block'; });
+}
+
+function attRemove(i) {
+    var r = attRoster[i];
+    if (!r || !confirm('Remove walk-in ' + (r.learner_name || r.learner_email) + ' from this class?')) return;
+    fetch(ATT_REMOVE_URL, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ run_id: attRunId, learner_email: r.learner_email, form_key: ATT_FORM_KEY })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+        if (!d.success) { alert('Error: ' + (d.message || 'remove failed')); return; }
+        attSelectClass(attRunId);
+    })
+    .catch(function(){ alert('Network error.'); });
+}
+
+// Deep-link / preselect
+(function(){
+    var sel = document.getElementById('att-class');
+    if (sel && sel.value) attSelectClass(sel.value);
+})();
+</script>

@@ -1,0 +1,80 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_Attendance>
+            <version>1.0.0</version>
+        </MMD_Attendance>
+    </modules>
+
+    <global>
+        <helpers>
+            <mmd_attendance>
+                <class>MMD_Attendance_Helper</class>
+            </mmd_attendance>
+        </helpers>
+        <models>
+            <mmd_attendance>
+                <class>MMD_Attendance_Model</class>
+                <resourceModel>mmd_attendance_resource</resourceModel>
+            </mmd_attendance>
+            <mmd_attendance_resource>
+                <class>MMD_Attendance_Model_Resource</class>
+                <entities>
+                    <attendance>
+                        <table>mmd_course_run_attendance</table>
+                    </attendance>
+                </entities>
+            </mmd_attendance_resource>
+        </models>
+        <resources>
+            <mmd_attendance_setup>
+                <setup><module>MMD_Attendance</module></setup>
+                <connection><use>core_setup</use></connection>
+            </mmd_attendance_setup>
+            <mmd_attendance_write>
+                <connection><use>core_write</use></connection>
+            </mmd_attendance_write>
+            <mmd_attendance_read>
+                <connection><use>core_read</use></connection>
+            </mmd_attendance_read>
+        </resources>
+    </global>
+
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <MMD_Attendance before="Mage_Adminhtml">MMD_Attendance_Adminhtml</MMD_Attendance>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+
+    <adminhtml>
+        <acl>
+            <resources>
+                <admin>
+                    <children>
+                        <mmd>
+                            <title>MMD</title>
+                            <children>
+                                <attendance translate="title" module="mmd_attendance">
+                                    <title>Attendance</title>
+                                </attendance>
+                            </children>
+                        </mmd>
+                    </children>
+                </admin>
+            </resources>
+        </acl>
+        <layout>
+            <updates>
+                <mmd_attendance>
+                    <file>attendance.xml</file>
+                </mmd_attendance>
+            </updates>
+        </layout>
+    </adminhtml>
+</config>

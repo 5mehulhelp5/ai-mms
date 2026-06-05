@@ -1,0 +1,94 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_Certificate>
+            <version>1.0.0</version>
+        </MMD_Certificate>
+    </modules>
+
+    <global>
+        <helpers>
+            <mmd_certificate>
+                <class>MMD_Certificate_Helper</class>
+            </mmd_certificate>
+        </helpers>
+        <models>
+            <mmd_certificate>
+                <class>MMD_Certificate_Model</class>
+                <resourceModel>mmd_certificate_resource</resourceModel>
+            </mmd_certificate>
+            <mmd_certificate_resource>
+                <class>MMD_Certificate_Model_Resource</class>
+                <entities>
+                    <certificate>
+                        <table>mmd_course_run_certificate</table>
+                    </certificate>
+                </entities>
+            </mmd_certificate_resource>
+        </models>
+        <resources>
+            <mmd_certificate_setup>
+                <setup><module>MMD_Certificate</module></setup>
+                <connection><use>core_setup</use></connection>
+            </mmd_certificate_setup>
+            <mmd_certificate_write><connection><use>core_write</use></connection></mmd_certificate_write>
+            <mmd_certificate_read><connection><use>core_read</use></connection></mmd_certificate_read>
+        </resources>
+    </global>
+
+    <!-- Public download: /certificate/download?token=<hex> -->
+    <frontend>
+        <routers>
+            <mmd_certificate_frontend>
+                <use>standard</use>
+                <args>
+                    <module>MMD_Certificate</module>
+                    <frontName>certificate</frontName>
+                </args>
+            </mmd_certificate_frontend>
+        </routers>
+    </frontend>
+
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <MMD_Certificate before="Mage_Adminhtml">MMD_Certificate_Adminhtml</MMD_Certificate>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+
+    <adminhtml>
+        <acl>
+            <resources>
+                <admin>
+                    <children>
+                        <mmd>
+                            <title>MMD</title>
+                            <children>
+                                <certificate translate="title" module="mmd_certificate">
+                                    <title>Certificates</title>
+                                </certificate>
+                            </children>
+                        </mmd>
+                    </children>
+                </admin>
+            </resources>
+        </acl>
+    </adminhtml>
+
+    <!-- Auto-send cron — daily 18:30 SGT. Mirrors LMS auto_create_certificates.
+         GATED by a fail-safe enable flag (mmd/certificate/auto_enabled). Absent
+         config = OFF, so it ships inert and never fires until an admin opts in. -->
+    <crontab>
+        <jobs>
+            <mmd_certificate_auto_send>
+                <schedule><cron_expr>30 18 * * *</cron_expr></schedule>
+                <run><model>mmd_certificate/cron_autoSend::run</model></run>
+            </mmd_certificate_auto_send>
+        </jobs>
+    </crontab>
+</config>
