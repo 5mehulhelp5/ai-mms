@@ -1,19 +1,19 @@
 -- 191: Add "most sensible" redirects for search terms whose curated redirect was
 -- dropped in migration 189 (their old target was dead/corrupted).
 --
--- Policy (per request): a search term should never dead-end. Preference order is
--- product page > flat category page > homepage > empty (let Magento search).
--- These dropped terms are overwhelmingly TOPIC-level ("blockchain", "tableau",
--- "arduino", "photoshop"), so the correct tier for them is the flat CATEGORY
--- page; product-level intent was already covered by the 189 restore. Each term
--- is matched (search text + old slug, stopword-filtered token overlap) to the
--- best CURRENT active category, and the target was validated to return HTTP 200
--- ON THAT STORE'S OWN DOMAIN (SG term -> com.sg, MY -> com.my, GH -> com.gh,
--- BT -> tertiarycourses.bt). Terms with no confident match are left WITHOUT a
--- redirect on purpose -> Magento search shows relevant courses (the "empty" tier).
+-- Policy: a search term should never dead-end. Preference order is product page >
+-- flat category page > homepage > empty (Magento search). These dropped terms are
+-- overwhelmingly TOPIC-level ("blockchain", "tableau", "arduino"), so the correct
+-- tier is the flat CATEGORY page; product-level intent was already covered by the
+-- 189 restore. Each term is matched (search text + old slug, stopword-filtered
+-- token overlap) to the best CURRENT active category, validated HTTP 200 ON THAT
+-- STORE'S OWN DOMAIN (SG->com.sg, MY->com.my, GH->com.gh, BT->tertiarycourses.bt).
+-- No-match terms left WITHOUT a redirect on purpose -> Magento search ("empty").
 --
--- Store-scoped, idempotent temp-table UPDATE + INSERT-missing. Re-running is a
--- no-op. Does not touch the 189-restored redirects (these are dropped terms only).
+-- query_text is restricted to ASCII (utf8-safe under the apply.php PDO charset);
+-- 4 non-ASCII terms were dropped. Store-scoped, idempotent temp-table UPDATE +
+-- INSERT-missing. NON-OVERWRITING: only fills redirect IS NULL/'' so existing
+-- intentional product-page redirects and the 189 restores are untouched.
 
 DROP TEMPORARY TABLE IF EXISTS _sensible_redirects;
 CREATE TEMPORARY TABLE _sensible_redirects (
@@ -415,9 +415,6 @@ INSERT INTO _sensible_redirects (query_text, store_id, redirect) VALUES
 ('NICF - Robotics Process Automation (RPA) for Beginners',1,'https://www.tertiarycourses.com.sg/rpa-api-it-automation-courses.html'),
 ('NICF - Search Engine Optimization (SEO) for e-Commerce',1,'https://www.tertiarycourses.com.sg/search-engine-optimisation-seo-training-courses.html'),
 ('NICF - System integration with Robot Operating System (ROS)',1,'https://www.tertiarycourses.com.sg/robot-operating-system-ros-courses.html'),
-('NICF – Natural Language Processing (NLP) with Python for Beginners',1,'https://www.tertiarycourses.com.sg/python-programming.html'),
-('NICF – Software Automation with Excel VBA Programming',1,'https://www.tertiarycourses.com.sg/vba-training-courses.html'),
-('NICF – Software Design with Vue.js Framework',1,'https://www.tertiarycourses.com.sg/microsoft-software-training.html'),
 ('Non fungible token',1,'https://www.tertiarycourses.com.sg/non-fungible-tokens-nft-courses.html'),
 ('nurse',1,'https://www.tertiarycourses.com.sg/life-science-courses-training.html'),
 ('NURSING',1,'https://www.tertiarycourses.com.sg/life-science-courses-training.html'),
@@ -616,7 +613,6 @@ INSERT INTO _sensible_redirects (query_text, store_id, redirect) VALUES
 ('wsq vba',1,'https://www.tertiarycourses.com.sg/vba-training-courses.html'),
 ('wsq vue',1,'https://www.tertiarycourses.com.sg/pearson-vue-test-registration.html'),
 ('wsq vue.js',1,'https://www.tertiarycourses.com.sg/pearson-vue-test-registration.html'),
-('WSQ – Software Automation with Excel VBA Programming',1,'https://www.tertiarycourses.com.sg/vba-training-courses.html'),
 ('xamarin form',1,'https://www.tertiarycourses.com.sg/assessment-appeal-form.html'),
 ('xero',1,'https://www.tertiarycourses.com.sg/xero-software-training.html'),
 ('Xero account',1,'https://www.tertiarycourses.com.sg/xero-software-training.html'),
@@ -770,8 +766,6 @@ INSERT INTO _sensible_redirects (query_text, store_id, redirect) VALUES
 ('How to Setup a Successful Online Store',5,'https://www.tertiarycourses.bt/shpify-online-store-training.html'),
 ('neo4j',5,'https://www.tertiarycourses.bt/graph-database-courses.html');
 
--- Only set a redirect where the term has none yet (don't overwrite 189 restores
--- or any manually-curated redirect).
 UPDATE catalogsearch_query q
   JOIN _sensible_redirects r
     ON q.query_text = r.query_text AND q.store_id = r.store_id
