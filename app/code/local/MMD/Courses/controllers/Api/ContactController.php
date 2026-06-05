@@ -74,10 +74,12 @@ class MMD_Courses_Api_ContactController extends Mage_Core_Controller_Front_Actio
                 // Bot escalation contacts. Use these when the bot cannot answer
                 // a customer's question with confidence — DO NOT make up facts.
                 'escalation' => array(
-                    'customer_phone'  => '+65 6100 0613',
-                    'customer_email'  => 'enquiry@tertiaryinfotech.com',
+                    'customer_phone'    => '+65 6100 0613',
+                    'customer_email'    => 'enquiry@tertiaryinfotech.com',
                     'internal_kb_email' => 'lms-tms@tertiaryinfotech.com',
-                    'instruction'     => 'If the API returns confidence: low or error, OR you are uncertain how to answer the customer, escalate by asking them to call +65 6100 0613 or email enquiry@tertiaryinfotech.com during office hours (9 AM - 6 PM daily SGT). Never invent facts; only use data returned from this API.',
+                    'bot_hours'         => '24/7 — bot replies anytime',
+                    'human_hours'       => '9 AM - 6 PM daily SGT (escalation channel only)',
+                    'instruction'       => 'You (the bot) reply to customers 24/7 — always attempt to answer immediately using data from this API, regardless of time of day. Never refuse to reply because of office hours. Only escalate when you genuinely cannot answer with confidence (API returned confidence: low or error). When escalating, tell the customer: "I\'m not 100% sure about that. Please call +65 6100 0613 or email enquiry@tertiaryinfotech.com — our team is available 9 AM - 6 PM daily and will respond within 1 business day." Never invent facts; only use data returned from this API.',
                 ),
             ),
         ));
