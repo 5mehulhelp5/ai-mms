@@ -58,13 +58,47 @@ class MMD_Adminhtml_Block_Catalog_Search_Grid
         }
 
         if (!Mage::app()->isSingleStoreMode()) {
+            // Branch column is informational only — the page is already scoped
+            // by the global Store View bar (?store=N), so a per-column Branch
+            // filter is redundant. 'filter' => false drops it from the Filters
+            // panel while keeping the column visible in the grid.
             $this->addColumnAfter('store_id', array(
                 'header'   => Mage::helper('catalog')->__('Branch'),
                 'index'    => 'store_id',
                 'renderer' => 'MMD_Adminhtml_Block_Widget_Grid_Column_Renderer_Branch',
                 'sortable' => false,
+                'filter'   => false,
             ), 'search_query');
         }
+
+        // Drop the "Display in Suggested Terms" filter field (low signal). Its
+        // filter block is built at column construction (setGrid → getFilter),
+        // so a post-hoc setData('filter', false) is ignored — the column must
+        // be rebuilt with 'filter' => false. Column stays visible in the grid;
+        // only its filter input is removed.
+        if ($this->getColumn('display_in_terms')) {
+            $this->removeColumn('display_in_terms');
+            $this->addColumnAfter('display_in_terms', array(
+                'header'  => Mage::helper('catalog')->__('Display in Suggested Terms'),
+                'index'   => 'display_in_terms',
+                'type'    => 'options',
+                'width'   => '100px',
+                'options' => array(
+                    '1' => Mage::helper('catalog')->__('Yes'),
+                    '0' => Mage::helper('catalog')->__('No'),
+                ),
+                'align'   => 'left',
+                'filter'  => false,
+            ), 'redirect');
+        }
+
+        // parent::_prepareColumns() ran sortColumnsByOrder() BEFORE our
+        // addColumnAfter() calls above registered their order, so the
+        // re-added columns would otherwise render appended at the end
+        // (Branch after the Action column, etc). Re-sort now so Branch
+        // sits after Search Query and Display-in-Suggested-Terms after
+        // Redirect, with Action last.
+        $this->sortColumnsByOrder();
 
         return $this;
     }

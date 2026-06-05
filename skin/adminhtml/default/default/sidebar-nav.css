@@ -4307,12 +4307,6 @@ body.adminhtml-catalog_search-index #catalogSearchGrid_table td:last-child {
     width: 72px !important;
     text-align: center !important;
 }
-/* This page has its own header search box (mmd-st-search) and skips the
-   Advanced Filters panel (see sidebar-nav-v2.js). Without the panel, the
-   stock per-column filter row would render raw under the headers — hide it. */
-body.adminhtml-catalog_search-index .admin-main .grid table.data tr.filter {
-    display: none !important;
-}
 
 /* === Review add/edit — Detailed Rating matrix full-width ===
    The rating matrix (rating/detailed.phtml -> table#product-review-table,
