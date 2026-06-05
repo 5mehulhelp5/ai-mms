@@ -121,3 +121,10 @@ skin/frontend/base/default/hitpay/css/
 
 # Magento backup files — never push (large, may contain credentials/PII)
 .magento/
+
+# Generated per-store Google sitemaps. Written to the web root by
+# scripts/seo/generate-sitemaps.php (daily cron + docker/entrypoint.sh on every
+# boot) using each store's live base_url. A locally-generated copy carries
+# localhost URLs — never commit it, or a `git add .` would ship localhost
+# <loc>s. Prod regenerates with the correct per-host domain on each deploy.
+/sitemap_*.xml
