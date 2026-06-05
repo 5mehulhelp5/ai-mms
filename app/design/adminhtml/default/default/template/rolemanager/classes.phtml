@@ -102,7 +102,7 @@ if ($nameAttrId) {
         SELECT cr.run_id, cr.class_id, cr.course_sku, cr.product_id,
                cr.course_start_date, cr.course_end_date,
                cr.course_start_time, cr.course_end_time,
-               cr.vacancy, cr.trainer_option_id, cr.invitation_paused,
+               cr.vacancy, cr.trainer_option_id, cr.trainer_user_id, cr.invitation_paused,
                cr.invitation_replies_blocked, cr.created_by,
                COALESCE(pn.value, '(deleted product)') AS course_title,
                COALESCE(en.enrolled, 0) AS enrolled,
@@ -172,6 +172,38 @@ try {
     }
 } catch (Exception $e) { /* non-fatal */ }
 
+// Phase 2 — account-first trainer resolution. A run's assigned trainer is
+// resolved from the account pointer (trainer_user_id) first, then the legacy
+// EAV pointer (trainer_option_id). Batch resolver = two queries, no N+1.
+$runTrainerNames = array(); // run_id => trainer name
+try {
+    $runTrainerNames = Mage::helper('mmd_rolemanager/trainer')->resolveRunTrainerNames($rows);
+} catch (Exception $e) { /* non-fatal */ }
+
+// Account-based approved pool per product (mmd_product_trainer) for the
+// invite dropdown — preferred over the legacy EAV list (hybrid fallback).
+$productAccountMap = array(); // product_id => [{uid, name}, ...]
+try {
+    if (!empty($rows)) {
+        $ptTbl   = $resource->getTableName('mmd_product_trainer');
+        $auTbl   = $resource->getTableName('admin_user');
+        $pids    = array_values(array_unique(array_map(function($r){ return (int)$r['product_id']; }, $rows)));
+        $pidList = implode(',', $pids);
+        $accRows = $read->fetchAll(
+            "SELECT pt.product_id, pt.user_id,
+                    TRIM(CONCAT(COALESCE(u.firstname,''),' ',COALESCE(u.lastname,''))) AS name, u.email
+               FROM `$ptTbl` pt
+               JOIN `$auTbl` u ON u.user_id = pt.user_id
+              WHERE pt.product_id IN ($pidList)
+              ORDER BY pt.product_id, pt.sort_order, pt.id"
+        );
+        foreach ($accRows as $ar) {
+            $nm = trim((string)$ar['name']); if ($nm === '') $nm = (string)$ar['email'];
+            $productAccountMap[(int)$ar['product_id']][] = array('uid' => (int)$ar['user_id'], 'name' => $nm);
+        }
+    }
+} catch (Exception $e) { /* non-fatal */ }
+
 $_sendInviteUrl  = Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/sendTrainerInvitation');
 $_updateFlagsUrl = Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/updateInvitationFlags');
 
@@ -179,6 +211,10 @@ $_updateFlagsUrl = Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/updat
 $_autoInviteUrl     = Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/setAutoInvitationEnabled');
 $_autoInviteEnabled = Mage::getStoreConfigFlag('mmd/trainer_invitation/auto_enabled');
 $_canToggleAuto     = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', 'training_provider', 'developer'));
+// Look-ahead window (days) the sweep considers. Configurable; default 30.
+$_autoWindowUrl     = Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/setInvitationWindow');
+$_autoWindow        = (int) Mage::getStoreConfig('mmd/trainer_invitation/window_days');
+if ($_autoWindow < 1) $_autoWindow = 30;
 
 $storeColors = array(
     'SG' => array('bg' => 'rgba(59,130,246,.12)',  'color' => '#60a5fa'),
@@ -211,7 +247,10 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
                 <div style="font-size:11px;color:#64748b;margin-top:1px;">When ON, the twice-weekly cron sweep emails the next eligible trainer for upcoming classes. Manual "Invite" still works regardless.</div>
             </div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#94a3b8;white-space:nowrap;">Window
+                <input type="number" id="auto-inv-window" min="1" max="365" value="<?php echo (int)$_autoWindow ?>" onchange="autoInvWindowSet(this)" style="width:60px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:5px 8px;font-size:12px;"> days
+            </label>
             <span id="auto-inv-spinner" style="font-family:monospace;font-size:16px;line-height:1;color:#60a5fa;width:12px;display:inline-block;text-align:center;"></span>
             <label class="dcf-toggle-sw" title="<?php echo $_autoInviteEnabled ? 'Automated invitations ON' : 'Automated invitations OFF' ?>" style="flex-shrink:0;">
                 <input type="checkbox" id="auto-inv-cb" <?php echo $_autoInviteEnabled ? 'checked' : '' ?> onchange="autoInvSet(this)">
@@ -281,8 +320,13 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
             if (!empty($r['course_start_time']) && !empty($r['course_end_time'])) {
                 $timeStr = date('H:i', strtotime($r['course_start_time'])) . '–' . date('H:i', strtotime($r['course_end_time']));
             }
-            $trainerName = isset($trainerMap[(int)$r['trainer_option_id']]) ? $trainerMap[(int)$r['trainer_option_id']] : '';
-            $state = ((int)$r['trainer_option_id'] > 0) ? 'confirmed' : 'pending';
+            // Account-first: resolved name (trainer_user_id → trainer_option_id),
+            // then fall back to the EAV option label for fully-legacy rows.
+            $trainerName = isset($runTrainerNames[(int)$r['run_id']]) ? $runTrainerNames[(int)$r['run_id']] : '';
+            if ($trainerName === '' && isset($trainerMap[(int)$r['trainer_option_id']])) {
+                $trainerName = $trainerMap[(int)$r['trainer_option_id']];
+            }
+            $state = ((int)$r['trainer_user_id'] > 0 || (int)$r['trainer_option_id'] > 0) ? 'confirmed' : 'pending';
             $stateColor = array(
                 'pending'   => array('bg'=>'rgba(245,158,11,.15)', 'color'=>'#f59e0b'),
                 'confirmed' => array('bg'=>'rgba(34,197,94,.15)',  'color'=>'#22c55e'),
@@ -291,7 +335,11 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
             $editUrl = $assignBase . '#class-' . $classId;
         ?>
             <?php
-                $approvedTrainers = isset($productTrainerMap[(int)$r['product_id']]) ? $productTrainerMap[(int)$r['product_id']] : array();
+                // Prefer the account-based approved pool; fall back to the
+                // legacy EAV list when a course has no account trainers yet.
+                $approvedTrainers = isset($productAccountMap[(int)$r['product_id']]) && !empty($productAccountMap[(int)$r['product_id']])
+                    ? $productAccountMap[(int)$r['product_id']]
+                    : (isset($productTrainerMap[(int)$r['product_id']]) ? $productTrainerMap[(int)$r['product_id']] : array());
                 $isPaused   = !empty($r['invitation_paused']);
                 $isBlocked  = !empty($r['invitation_replies_blocked']);
             ?>
@@ -464,6 +512,18 @@ $assignBase = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('_q
 var CLS_SEND_INVITE_URL  = '<?php echo $this->jsQuoteEscape($_sendInviteUrl) ?>';
 var CLS_UPDATE_FLAGS_URL = '<?php echo $this->jsQuoteEscape($_updateFlagsUrl) ?>';
 var CLS_AUTO_INV_URL     = '<?php echo $this->jsQuoteEscape($_autoInviteUrl) ?>';
+var CLS_WINDOW_URL       = '<?php echo $this->jsQuoteEscape($_autoWindowUrl) ?>';
+
+// Save the auto-invite look-ahead window (days). Shares the spinner/result UI.
+function autoInvWindowSet(inp) {
+    var d = parseInt(inp.value, 10) || 30; if (d < 1) d = 1; if (d > 365) d = 365; inp.value = d;
+    inp.disabled = true; autoInvStartSpin();
+    var fd = new FormData(); fd.append('days', d); fd.append('form_key', window.FORM_KEY || '');
+    fetch(CLS_WINDOW_URL, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(j){ inp.disabled = false; autoInvStopSpin(); autoInvShowResult(!!j.success, j.success ? ('Window: ' + j.days + ' days') : (j.message || 'Failed')); })
+        .catch(function(){ inp.disabled = false; autoInvStopSpin(); autoInvShowResult(false, 'Network error'); });
+}
 
 var _autoInvSpin = null;
 var _autoInvResultTimer = null;

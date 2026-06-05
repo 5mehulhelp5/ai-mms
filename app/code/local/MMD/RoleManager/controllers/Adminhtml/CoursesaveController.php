@@ -67,12 +67,14 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             if (($v = $req->getParam('training_hours')) !== null && $v !== '') $product->setData('duration', $v);
             if (($v = $req->getParam('price'))        !== null && $v !== '') $product->setPrice((float)$v);
 
-            // Trainer multiselect (primary source)
-            $trainerIdsChanged = false;
-            if (($v = $req->getParam('trainer_ids')) !== null) {
-                $ids = array_filter(array_map('intval', explode(',', $v)));
-                $product->setData('trainers', implode(',', $ids));
-                $trainerIdsChanged = true;
+            // Trainer pool (account-based — Phase 2). The Edit Course →
+            // Trainer Details tab posts trainer_user_ids (admin_user ids of
+            // trainer-role accounts); persist to mmd_product_trainer. The
+            // legacy EAV `trainers` multiselect is no longer written here —
+            // it stays as a hybrid display/invite fallback only.
+            $trainerProfileChanged = false;
+            if (($v = $req->getParam('trainer_user_ids')) !== null) {
+                $this->_persistProductTrainerPool($courseId, $v);
             }
             // Strip legacy trainer names from the trainerprofile HTML when the × was clicked
             $legacyRemove = trim((string)$req->getParam('legacy_trainer_remove', ''));
@@ -97,6 +99,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                         );
                     }
                     $product->setData('trainerprofile', $currentTp);
+                    $trainerProfileChanged = true;
                 }
             }
             // Only write trainerprofile if the form actually submitted trainer_names (legacy textarea).
@@ -109,6 +112,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                     $html .= '<p><strong>' . htmlspecialchars($line) . ':</strong></p>' . "\n";
                 }
                 $product->setData('trainerprofile', $html);
+                $trainerProfileChanged = true;
             }
             if (($v = $req->getParam('learning_outcomes')) !== null) $product->setData('description', $v);
             if (($v = $req->getParam('course_description')) !== null) $product->setData('short_description', $v);
@@ -635,10 +639,10 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 }
             }
 
-            // Force-save the multiselect trainers attribute directly to catalog_product_entity_text
-            // in case Magento's normal save didn't persist it correctly for multiselects
-            if ($trainerIdsChanged) {
-                $product->getResource()->saveAttribute($product, 'trainers');
+            // Force-save trainerprofile (bio HTML) directly when it changed —
+            // Magento's normal save can miss text attributes. Trainer pool is
+            // account-based now (mmd_product_trainer), so no EAV `trainers` write.
+            if ($trainerProfileChanged) {
                 $product->getResource()->saveAttribute($product, 'trainerprofile');
             }
 
@@ -697,7 +701,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             if (!$this->getRequest()->isPost()) throw new Exception('POST required');
             $req = $this->getRequest();
             $sku       = trim((string) $req->getParam('course_sku'));
-            $trainerOp = (int)         $req->getParam('trainer_option_id');
+            $trainerUid = (int)        $req->getParam('trainer_user_id');
             $startDate = trim((string) $req->getParam('start_date'));
             $endDate   = trim((string) $req->getParam('end_date'));
             $regOpen   = trim((string) $req->getParam('reg_open_date'));
@@ -717,6 +721,19 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             );
             if (!$productId) throw new Exception('No course found with SKU "' . $sku . '"');
             $result['product_id'] = $productId;
+
+            // Validate the chosen trainer is a real, active trainer account
+            // (Phase 2 — account-based assignment). Silently drop otherwise.
+            if ($trainerUid > 0) {
+                $okTrainer = (int) $read->fetchOne(
+                    "SELECT u.user_id FROM " . $resource->getTableName('admin_user') . " u
+                       JOIN " . $resource->getTableName('mmd_user_role_map') . " r
+                         ON r.user_id = u.user_id AND r.role_code = 'trainer'
+                      WHERE u.is_active = 1 AND u.user_id = ? LIMIT 1",
+                    array($trainerUid)
+                );
+                if (!$okTrainer) $trainerUid = 0;
+            }
 
             // Persist all the form fields to course_runs.
             $startTime = trim((string) $req->getParam('start_time'));
@@ -739,7 +756,10 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 'class_id'          => $_classId,
                 'product_id'        => $productId,
                 'course_sku'        => $sku,
-                'trainer_option_id' => $trainerOp > 0 ? $trainerOp : null,
+                // No direct trainer assignment on create — the chosen trainer is
+                // added to the candidate pool below and only becomes the
+                // confirmed trainer_user_id when they accept an invitation
+                // (LMS model: assign = candidate, accept = confirmed).
                 'reg_open_date'     => preg_match('/^\d{4}-\d{2}-\d{2}$/', $regOpen)   ? $regOpen   : null,
                 'reg_close_date'    => preg_match('/^\d{4}-\d{2}-\d{2}$/', $regClose)  ? $regClose  : null,
                 'course_start_date' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate) ? $startDate : null,
@@ -763,40 +783,32 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $result['run_id']   = (int) $write->lastInsertId();
             $result['class_id'] = $_classId;
 
-            // Append the trainer option_id to the `trainers` multiselect.
-            // Stored as a comma-separated string in catalog_product_entity_text
-            // for attribute_id = trainers attribute. Append, dedupe, save.
-            if ($trainerOp > 0) {
-                $trainersAttrId = (int) $read->fetchOne(
-                    "SELECT attribute_id FROM eav_attribute WHERE attribute_code='trainers' AND entity_type_id=4"
-                );
-                if (!$trainersAttrId) throw new Exception('Trainers attribute not configured');
-                $existing = (string) $read->fetchOne(
-                    "SELECT value FROM {$eavTx} WHERE entity_id=? AND attribute_id=? AND store_id=0 LIMIT 1",
-                    array($productId, $trainersAttrId)
-                );
-                $opts = $existing !== '' ? array_filter(array_map('intval', explode(',', $existing))) : array();
-                if (!in_array($trainerOp, $opts, true)) {
-                    $opts[] = $trainerOp;
-                    $newCsv = implode(',', $opts);
-                    if ($existing !== '') {
-                        $write->update($eavTx,
-                            array('value' => $newCsv),
-                            array('entity_id = ?' => $productId, 'attribute_id = ?' => $trainersAttrId, 'store_id = ?' => 0)
+            // Add the chosen trainer account to the course's approved pool
+            // (mmd_product_trainer) so the Assign Trainer modal + invitation
+            // system include them. Idempotent. Account-based (Phase 2) — no
+            // longer writes the legacy EAV `trainers` multiselect.
+            if ($trainerUid > 0) {
+                try {
+                    $ptTbl  = $resource->getTableName('mmd_product_trainer');
+                    $exists = (int) $read->fetchOne(
+                        "SELECT id FROM {$ptTbl} WHERE product_id=? AND user_id=? LIMIT 1",
+                        array($productId, $trainerUid)
+                    );
+                    if (!$exists) {
+                        $nextSort = (int) $read->fetchOne(
+                            "SELECT COALESCE(MAX(sort_order),-1)+1 FROM {$ptTbl} WHERE product_id=?",
+                            array($productId)
                         );
-                    } else {
-                        $write->insert($eavTx, array(
-                            'entity_type_id' => 4,
-                            'attribute_id'   => $trainersAttrId,
-                            'store_id'       => 0,
-                            'entity_id'      => $productId,
-                            'value'          => $newCsv,
+                        $write->insert($ptTbl, array(
+                            'product_id' => $productId,
+                            'user_id'    => $trainerUid,
+                            'sort_order' => $nextSort,
                         ));
+                        $result['trainer_added'] = true;
+                    } else {
+                        $result['trainer_added'] = false; // already in pool
                     }
-                    $result['trainer_added'] = true;
-                } else {
-                    $result['trainer_added'] = false; // already assigned
-                }
+                } catch (Exception $e) { Mage::logException($e); }
             }
 
             // Update news_from_date / news_to_date — these power the
@@ -830,7 +842,9 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $writeDate('news_to_date',   $endDate);
 
             $result['success'] = true;
-            $result['message'] = 'Class scheduled. The assigned trainer can now see it under "My Assigned Classes".';
+            $result['message'] = $trainerUid > 0
+                ? 'Class scheduled. The trainer was added to this course\'s candidate list — send them an invitation from Assign Trainer to confirm them.'
+                : 'Class scheduled.';
         } catch (Exception $e) {
             $result['message'] = $e->getMessage();
         }
@@ -983,6 +997,126 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         }
         $this->getResponse()->setHeader('Content-Type', 'application/json', true);
         $this->getResponse()->setBody(Mage::helper('core')->jsonEncode($result));
+    }
+
+    /**
+     * Phase 2 — account-based trainer assignment. Replaces a course's
+     * approved-trainer pool with real operator accounts (admin_user with
+     * the 'trainer' role) stored in mmd_product_trainer, instead of the
+     * legacy EAV `trainers` multiselect. The trainer invitation system
+     * reads mmd_product_trainer first (see TrainerInvitationService::
+     * _buildQueue), so this is what drives invitations going forward.
+     *
+     * Legacy EAV assignments are left untouched (hybrid fallback) — this
+     * action never writes catalog_product_entity_text. Previously assigned
+     * EAV trainers keep resolving for display + as the invite fallback
+     * until an admin re-saves the pool here with accounts.
+     *
+     * Inputs:
+     *   product_id        — int, required
+     *   trainer_user_ids  — comma-separated admin_user.user_id (trainer role)
+     *
+     * Returns JSON: { success, user_ids:[...], message }.
+     */
+    public function saveTrainerAccountsAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) throw new Exception('POST required');
+            $productId = (int) $this->getRequest()->getParam('product_id');
+            if (!$productId) throw new Exception('product_id required');
+
+            $valid = $this->_persistProductTrainerPool(
+                $productId, $this->getRequest()->getParam('trainer_user_ids')
+            );
+            try { Mage::app()->getCacheInstance()->cleanType('block_html'); } catch (Exception $e) {}
+
+            $result['success']  = true;
+            $result['user_ids'] = $valid;
+            $result['message']  = 'Trainer pool updated.';
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+        $this->getResponse()->setBody(Mage::helper('core')->jsonEncode($result));
+    }
+
+    /**
+     * Replace a product's account-based trainer pool (mmd_product_trainer)
+     * with the given user_ids, validating each is an active trainer account.
+     * Cascades course_runs.trainer_user_id (nulls runs whose confirmed
+     * trainer was dropped from the pool). Never touches the legacy EAV
+     * `trainers` multiselect — that stays as a hybrid display/invite
+     * fallback. Returns the validated user_id list.
+     *
+     * Shared by saveTrainerAccountsAction (Assign Trainer modal) and
+     * saveAction (Edit Course → Trainer Details tab).
+     */
+    protected function _persistProductTrainerPool($productId, $rawUserIds)
+    {
+        $productId = (int) $productId;
+        if (!$productId) return array();
+
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+        $write    = $resource->getConnection('core_write');
+        $ptTbl    = $resource->getTableName('mmd_product_trainer');
+
+        // Parse + de-dupe the requested user_ids, preserving order so
+        // sort_order reflects the admin's intended display sequence.
+        $requested = array();
+        foreach (explode(',', (string) $rawUserIds) as $v) {
+            $v = (int) trim($v);
+            if ($v > 0 && !in_array($v, $requested, true)) $requested[] = $v;
+        }
+
+        // Validate against real, active trainer-role accounts — silently
+        // drop anything else so the pool can't be poisoned.
+        $valid = array();
+        if (!empty($requested)) {
+            $au = $resource->getTableName('admin_user');
+            $rm = $resource->getTableName('mmd_user_role_map');
+            $in = implode(',', array_map('intval', $requested));
+            $okIds = $read->fetchCol(
+                "SELECT DISTINCT u.user_id
+                   FROM `$au` u
+                   JOIN `$rm` r ON r.user_id = u.user_id AND r.role_code = 'trainer'
+                  WHERE u.is_active = 1 AND u.user_id IN ($in)"
+            );
+            $okSet = array_flip(array_map('intval', $okIds));
+            foreach ($requested as $uid) {
+                if (isset($okSet[$uid])) $valid[] = $uid;
+            }
+        }
+
+        // Replace the pool: clear then re-insert in order.
+        $write->delete($ptTbl, array('product_id = ?' => $productId));
+        $sort = 0;
+        foreach ($valid as $uid) {
+            $write->insert($ptTbl, array(
+                'product_id' => $productId,
+                'user_id'    => $uid,
+                'sort_order' => $sort++,
+            ));
+        }
+
+        // course_runs cascade: any run for this product whose confirmed
+        // account trainer was dropped from the pool gets trainer_user_id
+        // nulled. Never touches trainer_option_id (legacy preserved).
+        try {
+            $runsTbl = $resource->getTableName('course_runs');
+            if (empty($valid)) {
+                $write->update($runsTbl, array('trainer_user_id' => null),
+                    array('product_id = ?' => $productId));
+            } else {
+                $write->update($runsTbl, array('trainer_user_id' => null), array(
+                    'product_id = ?'              => $productId,
+                    'trainer_user_id NOT IN (?)'  => $valid,
+                ));
+            }
+        } catch (Exception $e) {}
+
+        return $valid;
     }
 
     /**
@@ -3336,6 +3470,38 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 'message' => $value ? 'Automated invitations enabled.' : 'Automated invitations disabled.',
                 'value'   => $value,
             );
+        } catch (Exception $e) {
+            $result = array('success' => false, 'message' => $e->getMessage());
+        }
+        $this->getResponse()
+            ->setHeader('Content-Type', 'application/json', true)
+            ->setBody(json_encode($result));
+    }
+
+    /**
+     * Set the auto-invite look-ahead window (days before class start that the
+     * sweep considers). Stored in mmd/trainer_invitation/window_days; the cron
+     * reads it (falls back to 30 when unset). Clamped to 1..365.
+     */
+    public function setInvitationWindowAction()
+    {
+        $result = array('success' => false, 'message' => 'An error occurred.');
+        try {
+            if (!$this->getRequest()->isPost()) {
+                throw new Exception('POST required');
+            }
+            $this->_validateFormKey();
+            if (!Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', 'training_provider', 'developer'))) {
+                throw new Exception('Not authorized to change this setting.');
+            }
+            $days = (int) $this->getRequest()->getParam('days');
+            if ($days < 1)   $days = 1;
+            if ($days > 365) $days = 365;
+
+            Mage::getConfig()->saveConfig('mmd/trainer_invitation/window_days', $days, 'default', 0);
+            Mage::getConfig()->reinit();
+
+            $result = array('success' => true, 'message' => 'Invitation window set to ' . $days . ' days.', 'days' => $days);
         } catch (Exception $e) {
             $result = array('success' => false, 'message' => $e->getMessage());
         }

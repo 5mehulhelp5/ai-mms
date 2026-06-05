@@ -22,6 +22,7 @@ class MMD_RoleManager_Model_TrainerInvitationService
     const TABLE_RUNS        = 'course_runs';
     const TABLE_TRAINERS    = 'courses_trainers';
     const LOG_FILE          = 'trainer-invitations.log';
+    const COMPANY_SHORT_NAME = 'Tertiary Infotech';
 
     /** @var Varien_Db_Adapter_Interface */
     protected $_read;
@@ -171,7 +172,14 @@ class MMD_RoleManager_Model_TrainerInvitationService
             array('status' => 'accepted', 'responded_at' => now()),
             array('id = ?' => (int)$inv['id'])
         );
-        if (!empty($inv['trainer_option_id'])) {
+        // Set the account-based pointer (Phase 2) or the legacy EAV pointer.
+        if (!empty($inv['trainer_user_id'])) {
+            $this->_write->update(
+                $this->_resource->getTableName(self::TABLE_RUNS),
+                array('trainer_user_id' => (int)$inv['trainer_user_id']),
+                array('run_id = ?' => (int)$inv['run_id'])
+            );
+        } elseif (!empty($inv['trainer_option_id'])) {
             $this->_write->update(
                 $this->_resource->getTableName(self::TABLE_RUNS),
                 array('trainer_option_id' => (int)$inv['trainer_option_id']),
@@ -243,7 +251,7 @@ class MMD_RoleManager_Model_TrainerInvitationService
             "SELECT cr.run_id, cr.product_id, cr.course_sku, cr.class_id,
                     cr.course_start_date, cr.course_end_date,
                     cr.course_start_time, cr.course_end_time,
-                    cr.trainer_option_id, cr.invitation_paused, cr.invitation_replies_blocked,
+                    cr.trainer_option_id, cr.trainer_user_id, cr.invitation_paused, cr.invitation_replies_blocked,
                     COALESCE(pv.value, cr.course_sku) AS course_title
                FROM " . $this->_resource->getTableName(self::TABLE_RUNS) . " cr
                LEFT JOIN " . $this->_resource->getTableName('catalog_product_entity_varchar') . " pv
@@ -268,6 +276,25 @@ class MMD_RoleManager_Model_TrainerInvitationService
     {
         $productId = (int) $productId;
 
+        // Phase 2: prefer the account-based approved list (mmd_product_trainer →
+        // admin_user). Each entry carries user_id; option_id is 0. Emails come
+        // straight from the account. Only if a product has no account-based
+        // trainers do we fall back to the legacy EAV path below.
+        $accounts = Mage::helper('mmd_rolemanager/trainer')->getProductTrainerAccounts($productId);
+        if (!empty($accounts)) {
+            $queue = array();
+            foreach ($accounts as $a) {
+                $queue[] = array(
+                    'user_id'   => (int) $a['user_id'],
+                    'option_id' => 0,
+                    'name'      => (string) $a['name'],
+                    'email'     => (string) $a['email'],
+                );
+            }
+            return $queue;
+        }
+
+        // ---- Legacy EAV fallback ----
         // 1. Get trainer option_ids for this product (CSV from EAV text attribute).
         $attrId = (int) $this->_read->fetchOne(
             "SELECT attribute_id FROM " . $this->_resource->getTableName('eav_attribute')
@@ -311,6 +338,7 @@ class MMD_RoleManager_Model_TrainerInvitationService
         $queue = array();
         foreach ($options as $opt) {
             $queue[] = array(
+                'user_id'   => 0,
                 'option_id' => (int) $opt['option_id'],
                 'name'      => (string) $opt['name'],
                 'email'     => isset($emailByOid[(int)$opt['option_id']]) ? $emailByOid[(int)$opt['option_id']] : '',
@@ -368,27 +396,25 @@ class MMD_RoleManager_Model_TrainerInvitationService
         $acceptUrl  = rtrim($baseUrl, '/') . '/trainer_invite/respond?token=' . $token . '&action=accept';
         $declineUrl = rtrim($baseUrl, '/') . '/trainer_invite/respond?token=' . $token . '&action=decline';
 
-        $startDate = $run['course_start_date']
-            ? date('d M Y (D)', strtotime($run['course_start_date']))
-            : '—';
-        $endDate = $run['course_end_date']
-            ? date('d M Y (D)', strtotime($run['course_end_date']))
-            : $startDate;
-        $timeStr = '';
-        if (!empty($run['course_start_time'])) {
-            $timeStr = date('g:ia', strtotime($run['course_start_time']));
-            if (!empty($run['course_end_time'])) {
-                $timeStr .= ' – ' . date('g:ia', strtotime($run['course_end_time']));
-            }
+        // Dates as DD Mon YYYY (mirrors LMS en-GB DD-MMM-YYYY).
+        $startDate = $run['course_start_date'] ? date('d M Y', strtotime($run['course_start_date'])) : '—';
+        $endDate   = $run['course_end_date']   ? date('d M Y', strtotime($run['course_end_date']))   : $startDate;
+        // Duration = inclusive day span (LMS shows "X day(s)").
+        $duration  = '';
+        if ($run['course_start_date'] && $run['course_end_date']) {
+            $days = (int) floor((strtotime($run['course_end_date']) - strtotime($run['course_start_date'])) / 86400) + 1;
+            $duration = $days . ' day' . ($days === 1 ? '' : 's');
         }
-        $confirmBy = date('d M Y', strtotime('+2 days')) . ' at 23:59 SGT';
+        // Respond-by = now + 2 days, LMS format DD-MM-YYYY, 23:59 PM.
+        $confirmBy = date('d-m-Y', strtotime('+2 days')) . ', 23:59 PM';
 
-        $subject = 'Trainer Invitation: ' . $run['course_title'] . ' (' . $run['course_sku'] . ')';
+        // Subject mirrors LMS: "<Short Name> LMS - Trainer Invitation for <Title> (<RunId>)".
+        $runId   = $run['class_id'] ?: $run['course_sku'];
+        $subject = self::COMPANY_SHORT_NAME . ' LMS - Trainer Invitation for ' . $run['course_title'] . ' (' . $runId . ')';
 
         $body = $this->_buildInvitationHtml(
-            $trainer['name'], $run['course_title'], $run['course_sku'],
-            $run['class_id'], $startDate, $endDate, $timeStr, $confirmBy,
-            $acceptUrl, $declineUrl
+            $trainer['name'], $run['course_title'], $run['course_sku'], $runId,
+            $startDate, $endDate, $duration, $confirmBy, $acceptUrl, $declineUrl
         );
 
         // Mark any previous pending invitation for this trainer on this run as resent.
@@ -406,7 +432,8 @@ class MMD_RoleManager_Model_TrainerInvitationService
             $this->_resource->getTableName(self::TABLE_INVITATIONS),
             array(
                 'run_id'            => (int) $run['run_id'],
-                'trainer_option_id' => $trainer['option_id'] ?: null,
+                'trainer_option_id' => !empty($trainer['option_id']) ? (int)$trainer['option_id'] : null,
+                'trainer_user_id'   => !empty($trainer['user_id'])   ? (int)$trainer['user_id']   : null,
                 'trainer_name'      => $trainer['name'],
                 'trainer_email'     => $trainer['email'],
                 'token'             => $token,
@@ -440,16 +467,16 @@ class MMD_RoleManager_Model_TrainerInvitationService
         $run = $this->_loadRun((int)$inv['run_id']);
         if (!$run) return;
 
-        $startDate = $run['course_start_date']
-            ? date('d M Y (D)', strtotime($run['course_start_date']))
-            : '—';
+        $startDate = $run['course_start_date'] ? date('d M Y', strtotime($run['course_start_date'])) : '—';
+        $endDate   = $run['course_end_date']   ? date('d M Y', strtotime($run['course_end_date']))   : $startDate;
+        $runId     = $run['class_id'] ?: $run['course_sku'];
 
         if ($type === 'accept') {
-            $subject = 'Thank You for Accepting — ' . $run['course_title'] . ' (' . $run['course_sku'] . ')';
-            $body    = $this->_buildAcceptHtml($inv['trainer_name'], $run['course_title'], $run['course_sku'], $run['class_id'], $startDate);
+            $subject = 'Thank You for Accepting - ' . $run['course_title'] . ' (' . $runId . ')';
+            $body    = $this->_buildAcceptHtml($inv['trainer_name'], $run['course_title'], $run['course_sku'], $runId, $startDate, $endDate);
         } else {
-            $subject = 'Thank You for Your Response — ' . $run['course_title'] . ' (' . $run['course_sku'] . ')';
-            $body    = $this->_buildDeclineHtml($inv['trainer_name'], $run['course_title'], $run['course_sku'], $startDate);
+            $subject = 'Thank You for Your Response - ' . $run['course_title'] . ' (' . $runId . ')';
+            $body    = $this->_buildDeclineHtml($inv['trainer_name']);
         }
 
         $this->_sendRawEmail($inv['trainer_email'], $inv['trainer_name'], $subject, $body);
@@ -491,96 +518,89 @@ class MMD_RoleManager_Model_TrainerInvitationService
     // HTML email builders
     // ------------------------------------------------------------------ //
 
-    protected function _buildInvitationHtml($trainerName, $courseTitle, $courseSku, $classId, $startDate, $endDate, $timeStr, $confirmBy, $acceptUrl, $declineUrl)
+    /** Company contact line for email signatures (mirrors LMS). */
+    protected function _companyContacts()
     {
-        $esc = 'htmlspecialchars';
-        return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#1e2132;border-radius:12px;overflow:hidden;">
-  <tr><td style="background:#1a3a6b;padding:24px 32px;">
-    <p style="margin:0;color:#60a5fa;font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Tertiary Courses — Trainer Invitation</p>
-  </td></tr>
-  <tr><td style="padding:32px;">
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Dear <strong>' . htmlspecialchars($trainerName) . '</strong>,</p>
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:14px;line-height:1.6;">
-      You have been selected as a trainer for the following class. Please review the details and confirm your availability.
-    </p>
-    <table width="100%" cellpadding="12" cellspacing="0" style="background:#0f172a;border-radius:8px;margin-bottom:24px;">
-      <tr><td style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;width:120px;">Course</td>
-          <td style="color:#e2e8f0;font-size:14px;">' . htmlspecialchars($courseTitle) . '</td></tr>
-      <tr><td style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;">Code</td>
-          <td style="color:#e2e8f0;font-size:14px;font-family:monospace;">' . htmlspecialchars($courseSku) . '</td></tr>
-      <tr><td style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;">Class ID</td>
-          <td style="color:#e2e8f0;font-size:14px;font-family:monospace;">' . htmlspecialchars($classId) . '</td></tr>
-      <tr><td style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;">Start Date</td>
-          <td style="color:#e2e8f0;font-size:14px;">' . htmlspecialchars($startDate) . '</td></tr>
-      <tr><td style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;">End Date</td>
-          <td style="color:#e2e8f0;font-size:14px;">' . htmlspecialchars($endDate) . '</td></tr>'
-      . ($timeStr ? '<tr><td style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;">Time</td>
-          <td style="color:#e2e8f0;font-size:14px;">' . htmlspecialchars($timeStr) . '</td></tr>' : '')
-      . '<tr><td style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;">Respond By</td>
-          <td style="color:#f59e0b;font-size:14px;font-weight:600;">' . htmlspecialchars($confirmBy) . '</td></tr>
-    </table>
-    <p style="margin:0 0 20px;color:#94a3b8;font-size:13px;">Please click one of the buttons below to confirm your response:</p>
-    <table cellpadding="0" cellspacing="0"><tr>
-      <td style="padding-right:12px;">
-        <a href="' . htmlspecialchars($acceptUrl) . '" style="display:inline-block;padding:12px 28px;background:#16a34a;color:#fff;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px;">✓ Accept</a>
-      </td>
-      <td>
-        <a href="' . htmlspecialchars($declineUrl) . '" style="display:inline-block;padding:12px 28px;background:#dc2626;color:#fff;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px;">✗ Decline</a>
-      </td>
-    </tr></table>
-    <p style="margin:24px 0 0;color:#475569;font-size:11px;">These links are unique to you. Do not share them. If you have questions, reply to this email.</p>
-  </td></tr>
-  <tr><td style="padding:16px 32px;border-top:1px solid #1e293b;">
-    <p style="margin:0;color:#334155;font-size:11px;">Tertiary Courses — <a href="https://tertiarycourses.com.sg" style="color:#60a5fa;text-decoration:none;">tertiarycourses.com.sg</a></p>
-  </td></tr>
-</table>
-</td></tr></table></body></html>';
+        $email = Mage::getStoreConfig('trans_email/ident_support/email') ?: 'enquiry@tertiaryinfotech.com';
+        $tel   = '+65 6266 4475';
+        $wa    = '6588708198';
+        return array('email' => $email, 'tel' => $tel, 'whatsapp' => $wa);
     }
 
-    protected function _buildAcceptHtml($trainerName, $courseTitle, $courseSku, $classId, $startDate)
+    /** Shared light-theme email signature block (mirrors LMS). */
+    protected function _signatureHtml()
     {
-        return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#1e2132;border-radius:12px;overflow:hidden;">
-  <tr><td style="background:#14532d;padding:24px 32px;">
-    <p style="margin:0;color:#4ade80;font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">✓ Invitation Accepted</p>
-  </td></tr>
-  <tr><td style="padding:32px;">
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Dear <strong>' . htmlspecialchars($trainerName) . '</strong>,</p>
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:14px;line-height:1.6;">
-      Thank you for accepting the trainer role for <strong>' . htmlspecialchars($courseTitle) . '</strong>
-      (' . htmlspecialchars($courseSku) . '). You are now confirmed as the trainer for class <strong>' . htmlspecialchars($classId) . '</strong>
-      starting on <strong>' . htmlspecialchars($startDate) . '</strong>.
-    </p>
-    <p style="margin:0;color:#94a3b8;font-size:14px;">Our team will be in touch with further details. Thank you!</p>
-  </td></tr>
-  <tr><td style="padding:16px 32px;border-top:1px solid #1e293b;">
-    <p style="margin:0;color:#334155;font-size:11px;">Tertiary Courses — <a href="https://tertiarycourses.com.sg" style="color:#60a5fa;text-decoration:none;">tertiarycourses.com.sg</a></p>
-  </td></tr>
-</table></td></tr></table></body></html>';
+        $c = $this->_companyContacts();
+        return '<p style="margin:24px 0 0;">Best regards,<br>Support Team<br><strong>' . self::COMPANY_SHORT_NAME . '</strong><br>'
+            . 'Tel: ' . htmlspecialchars($c['tel']) . ' | Email: <a href="mailto:' . htmlspecialchars($c['email']) . '" style="color:#2563eb;">' . htmlspecialchars($c['email']) . '</a>'
+            . ' | WhatsApp: <a href="https://wa.me/' . htmlspecialchars($c['whatsapp']) . '" style="color:#2563eb;">https://wa.me/' . htmlspecialchars($c['whatsapp']) . '</a></p>';
     }
 
-    protected function _buildDeclineHtml($trainerName, $courseTitle, $courseSku, $startDate)
+    /** Light-theme email wrapper (white bg, Arial, automated-email footer) — mirrors LMS. */
+    protected function _emailWrap($innerHtml)
     {
-        return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#1e2132;border-radius:12px;overflow:hidden;">
-  <tr><td style="background:#450a0a;padding:24px 32px;">
-    <p style="margin:0;color:#f87171;font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Invitation Declined</p>
-  </td></tr>
-  <tr><td style="padding:32px;">
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Dear <strong>' . htmlspecialchars($trainerName) . '</strong>,</p>
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:14px;line-height:1.6;">
-      Thank you for letting us know. We have noted your unavailability for
-      <strong>' . htmlspecialchars($courseTitle) . '</strong> (' . htmlspecialchars($courseSku) . ') on <strong>' . htmlspecialchars($startDate) . '</strong>.
-    </p>
-    <p style="margin:0;color:#94a3b8;font-size:14px;">We appreciate your prompt response. We hope to work with you on a future class.</p>
-  </td></tr>
-  <tr><td style="padding:16px 32px;border-top:1px solid #1e293b;">
-    <p style="margin:0;color:#334155;font-size:11px;">Tertiary Courses — <a href="https://tertiarycourses.com.sg" style="color:#60a5fa;text-decoration:none;">tertiarycourses.com.sg</a></p>
-  </td></tr>
-</table></td></tr></table></body></html>';
+        return '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
+            . '<body style="margin:0;padding:0;background:#ffffff;">'
+            . '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1f2937;line-height:1.55;background-color:#ffffff;max-width:640px;margin:0 auto;padding:24px;">'
+            . $innerHtml
+            . '<div style="border-top:1px solid #e5e7eb;padding-top:14px;margin-top:28px;">'
+            . '<p style="margin:0;font-size:12px;color:#94a3b8;font-style:italic;">This is an automated email. Please do not reply directly to this message.</p>'
+            . '</div></div></body></html>';
+    }
+
+    protected function _buildInvitationHtml($trainerName, $courseTitle, $courseSku, $runId, $startDate, $endDate, $duration, $confirmBy, $acceptUrl, $declineUrl)
+    {
+        $e = function($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); };
+        $rows = '<p style="margin:18px 0 4px;"><strong>Course Schedule</strong></p>'
+            . '<p style="margin:0;"><strong>Course Title:</strong> ' . $e($courseTitle) . '</p>'
+            . '<p style="margin:0;"><strong>Course Code:</strong> ' . $e($courseSku) . '</p>'
+            . '<p style="margin:0;"><strong>Course Run ID:</strong> ' . $e($runId) . '</p>'
+            . '<p style="margin:0;"><strong>Start Date:</strong> ' . $e($startDate) . '</p>'
+            . '<p style="margin:0;"><strong>End Date:</strong> ' . $e($endDate) . '</p>'
+            . ($duration !== '' ? '<p style="margin:0;"><strong>Total Class Duration:</strong> ' . $e($duration) . '</p>' : '');
+
+        $buttons = '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0;"><tr>'
+            . '<td style="padding-right:12px;"><a href="' . $e($acceptUrl) . '" style="display:inline-block;background:#16a34a;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;text-align:center;font-family:Arial,sans-serif;">&#10003; Accept Invitation</a></td>'
+            . '<td><a href="' . $e($declineUrl) . '" style="display:inline-block;background:#dc2626;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px;text-align:center;font-family:Arial,sans-serif;">&#10007; Decline Invitation</a></td>'
+            . '</tr></table>';
+
+        $inner = '<p style="margin:0 0 12px;">Hi ' . $e($trainerName) . ',</p>'
+            . '<p style="margin:0 0 12px;">We hope this message finds you well. As one of our valued trainers, we are pleased to invite you to conduct the upcoming session of the <strong>' . $e($courseTitle) . '</strong> course.</p>'
+            . $rows
+            . '<p style="margin:14px 0;"><strong>Note:</strong> Each day represents 8 hours of training (evening classes are around 3 hours each). Detailed timing and dates will be sent upon acceptance.</p>'
+            . '<p style="margin:0 0 12px;">To help us finalize the schedule, we kindly ask that you confirm your availability to teach this session by <strong>' . $e($confirmBy) . '</strong>.</p>'
+            . '<p style="margin:0 0 12px;">You can confirm simply by clicking the Accept or Decline button below. If you have any questions regarding the course details, logistics, or terms, please do not hesitate to reach out to us.</p>'
+            . $buttons
+            . '<p style="margin:0 0 12px;">Thank you very much for your time and support. We look forward to your response and hope to work with you on this session.</p>'
+            . $this->_signatureHtml();
+        return $this->_emailWrap($inner);
+    }
+
+    protected function _buildAcceptHtml($trainerName, $courseTitle, $courseSku, $runId, $startDate, $endDate)
+    {
+        $e = function($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); };
+        $inner = '<p style="margin:0 0 12px;">Hi ' . $e($trainerName) . ',</p>'
+            . '<p style="margin:0 0 12px;">Thank you for confirming your availability for the upcoming training session. We appreciate your commitment and support.</p>'
+            . '<p style="margin:18px 0 4px;"><strong>Course Schedule Confirmation</strong></p>'
+            . '<p style="margin:0;"><strong>Course Title:</strong> ' . $e($courseTitle) . '</p>'
+            . '<p style="margin:0;"><strong>Course Code:</strong> ' . $e($courseSku) . '</p>'
+            . '<p style="margin:0;"><strong>Course Run ID:</strong> ' . $e($runId) . '</p>'
+            . '<p style="margin:0;"><strong>Start Date:</strong> ' . $e($startDate) . '</p>'
+            . '<p style="margin:0;"><strong>End Date:</strong> ' . $e($endDate) . '</p>'
+            . '<p style="margin:14px 0 12px;">Our team will be in touch with the confirmed training details shortly. A reminder will be sent closer to the course date to keep you updated.</p>'
+            . '<p style="margin:0 0 12px;">Thank you once again for partnering with us. We look forward to working with you to make this class a success!</p>'
+            . $this->_signatureHtml();
+        return $this->_emailWrap($inner);
+    }
+
+    protected function _buildDeclineHtml($trainerName)
+    {
+        $e = function($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); };
+        $inner = '<p style="margin:0 0 12px;">Hi ' . $e($trainerName) . ',</p>'
+            . '<p style="margin:0 0 12px;">Thank you for letting us know. We completely understand and truly appreciate your response.</p>'
+            . '<p style="margin:0 0 12px;">While we&rsquo;re sorry to miss you for this session, we sincerely look forward to working with you on future training opportunities.</p>'
+            . '<p style="margin:0 0 12px;">Thank you once again for your support and collaboration. We value your partnership and hope to connect again soon.</p>'
+            . $this->_signatureHtml();
+        return $this->_emailWrap($inner);
     }
 }

@@ -1138,19 +1138,31 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
 
         // Trainer-only: pull in course_runs that target this trainer
         // but whose source product isn't yet in $_learnerCourses.
-        if ($activeRole === 'trainer' && !empty($_optMatches)) {
+        // Phase 2 — also match account-based assignment: any run whose
+        // trainer_user_id is THIS trainer's account (set via Create New
+        // Class or an accepted invitation), unioned with the legacy EAV
+        // option match. Runs whenever the trainer has either signal.
+        $_curUid = (int) (($_su = Mage::getSingleton('admin/session')->getUser()) ? $_su->getId() : 0);
+        if ($activeRole === 'trainer' && (!empty($_optMatches) || $_curUid > 0)) {
             $_lcSeenRunIds = array();
             foreach ($_learnerCourses as $_lc) {
                 if (isset($_lc['cr_run_id'])) $_lcSeenRunIds[(int)$_lc['cr_run_id']] = true;
             }
-            $_optList = implode(',', array_map('intval', $_optMatches));
+            $_trWhere = array();
+            if (!empty($_optMatches)) {
+                $_optList = implode(',', array_map('intval', $_optMatches));
+                $_trWhere[] = "cr.trainer_option_id IN ({$_optList})";
+            }
+            if ($_curUid > 0) {
+                $_trWhere[] = "cr.trainer_user_id = {$_curUid}";
+            }
             $_extraRuns = $read->fetchAll(
                 "SELECT cr.*, p.sku,
                         (SELECT v.value FROM " . $_resource->getTableName('catalog_product_entity_varchar') . " v
                          WHERE v.entity_id=cr.product_id AND v.attribute_id=71 ORDER BY v.store_id LIMIT 1) AS course_name
                  FROM course_runs cr
                  JOIN " . $_resource->getTableName('catalog_product_entity') . " p ON p.entity_id=cr.product_id
-                 WHERE cr.trainer_option_id IN ({$_optList})
+                 WHERE (" . implode(' OR ', $_trWhere) . ")
                  ORDER BY cr.run_id ASC"
             );
             foreach ($_extraRuns as $_run) {
@@ -1479,183 +1491,27 @@ if ($_editingMode) {
                 }
             }
 
-            // Picker source = courses_trainers (View Trainers panel is the
-            // single source of truth for the trainer list). Each row still
-            // needs a matching EAV `trainers` option (attribute_id=170)
-            // because product assignments are stored as option_ids, so we
-            // find-or-create the option per trainer at page load. Email
-            // comes from courses_trainers directly; admin_user/name slug
-            // fallbacks only kick in when the column is empty.
-            $_allTrainers      = array(); // option_id => display name (ACTA-stripped)
-            $_allTrainerEmails = array(); // option_id => email
-            $_optionToName     = array(); // option_id => raw EAV value (used to recover orphans)
+            // Phase 2 — trainer picker = real trainer ACCOUNTS (admin_user
+            // with the 'trainer' role). The per-course approved pool lives in
+            // mmd_product_trainer; no EAV options are read or created here.
+            $_allTrainers        = array(); // user_id => name
+            $_allTrainerEmails   = array(); // user_id => email
+            $_assignedIds        = array(); // user_ids in this course's pool
+            $_trainerNames       = array(); // assigned trainer display names
+            $_legacyTrainerNames = array(); // (unused in the account model)
             try {
-                $_read  = Mage::getSingleton('core/resource')->getConnection('core_read');
-                $_write = Mage::getSingleton('core/resource')->getConnection('core_write');
-                $_tblOV = $_read->getTableName('eav_attribute_option_value');
-                $_tblO  = $_read->getTableName('eav_attribute_option');
-                $_tblCT = $_read->getTableName('courses_trainers');
-
-                // Existing EAV options keyed by lowercase name → option_id.
-                $_eavOpts = $_read->fetchAll(
-                    "SELECT o.option_id, v.value FROM {$_tblO} o "
-                    . "JOIN {$_tblOV} v ON o.option_id=v.option_id "
-                    . "WHERE o.attribute_id=170 AND v.store_id=0"
-                );
-                $_nameToOption = array();
-                foreach ($_eavOpts as $_eo) {
-                    $_raw = trim((string)$_eo['value']);
-                    if ($_raw === '') continue;
-                    $_nameToOption[strtolower($_raw)] = (int)$_eo['option_id'];
-                    $_optionToName[(int)$_eo['option_id']] = $_raw;
+                $_trHelper = Mage::helper('mmd_rolemanager/trainer');
+                foreach ($_trHelper->getTrainerAccounts() as $_acc) {
+                    $_uid = (int) $_acc['user_id'];
+                    $_allTrainers[$_uid]      = $_acc['name'];
+                    $_allTrainerEmails[$_uid] = $_acc['email'];
                 }
-
-                // admin_user lookup for trainers whose courses_trainers row
-                // has no email column populated (legacy/backfill gap).
-                $_adminUsers = array();
-                try {
-                    $_auRows = $_read->fetchAll("SELECT firstname, lastname, email FROM " . $_read->getTableName('admin_user') . " WHERE email IS NOT NULL AND email != ''");
-                    foreach ($_auRows as $_au) {
-                        $_fn = trim((string)$_au['firstname']);
-                        $_ln = trim((string)$_au['lastname']);
-                        if ($_fn !== '' || $_ln !== '') {
-                            $_adminUsers[strtolower(trim($_fn . ' ' . $_ln))] = $_au['email'];
-                        }
-                    }
-                } catch (Exception $e) {}
-
-                // Canonical trainer list (courses_trainers / View Trainers).
-                $_ctRows = $_read->fetchAll(
-                    "SELECT trainers_id, title, email FROM {$_tblCT} "
-                    . "WHERE status=1 AND title IS NOT NULL AND title != '' ORDER BY title"
-                );
-                foreach ($_ctRows as $_ct) {
-                    $_nm = trim((string)$_ct['title']);
-                    if ($_nm === '') continue;
-                    $_key   = strtolower($_nm);
-                    $_optId = isset($_nameToOption[$_key]) ? $_nameToOption[$_key] : 0;
-
-                    // Lazy-create the matching EAV option so saving still
-                    // resolves to a real option_id. One-time cost per name;
-                    // subsequent page loads are read-only.
-                    if ($_optId === 0) {
-                        try {
-                            $_write->insert($_tblO, array('attribute_id' => 170, 'sort_order' => 0));
-                            $_optId = (int)$_write->lastInsertId($_tblO);
-                            $_write->insert($_tblOV, array(
-                                'option_id' => $_optId,
-                                'store_id'  => 0,
-                                'value'     => $_nm,
-                            ));
-                            $_nameToOption[$_key] = $_optId;
-                            $_optionToName[$_optId] = $_nm;
-                        } catch (Exception $e) {
-                            continue; // skip on insert failure (race / lock)
-                        }
-                    }
-
-                    $_display = trim(preg_replace('/^ACTA\s+/i', '', $_nm));
-                    if ($_display === '') $_display = $_nm;
-                    $_allTrainers[$_optId] = $_display;
-
-                    // Email: courses_trainers.email → admin_user match → slug
-                    $_email = trim((string)(isset($_ct['email']) ? $_ct['email'] : ''));
-                    if ($_email === '') {
-                        $_low = strtolower($_display);
-                        if (isset($_adminUsers[$_low])) {
-                            $_email = $_adminUsers[$_low];
-                        } else {
-                            foreach ($_adminUsers as $_aukey => $_auemail) {
-                                if ($_aukey !== '' && stripos($_display, $_aukey) !== false) {
-                                    $_email = $_auemail;
-                                    break;
-                                }
-                            }
-                        }
-                        if ($_email === '') {
-                            $_slug = preg_replace('/[^a-z0-9]+/', '.', strtolower($_display));
-                            $_slug = trim($_slug, '.');
-                            if ($_slug !== '') $_email = $_slug . '@tertiaryinfotech.com';
-                        }
-                    }
-                    $_allTrainerEmails[$_optId] = $_email;
+                foreach ($_trHelper->getProductTrainerAccounts($_selectedCourseId) as $_pa) {
+                    $_uid = (int) $_pa['user_id'];
+                    $_assignedIds[] = $_uid;
+                    if (isset($_allTrainers[$_uid])) $_trainerNames[] = $_allTrainers[$_uid];
                 }
             } catch (Exception $e) {}
-
-            // Currently assigned trainer IDs for this course
-            $_assignedIds = array();
-            $_trainerIds = (string)$_editProd->getData('trainers');
-            if ($_trainerIds !== '') {
-                foreach (array_filter(array_map('intval', explode(',', $_trainerIds))) as $_id) {
-                    $_assignedIds[] = $_id;
-                }
-            }
-
-            // Preserve orphan EAV options that are already assigned to this
-            // course but whose courses_trainers row was deleted (or never
-            // existed, for legacy options pre-dating the table). Without
-            // this they'd silently vanish from the assignment list when the
-            // picker source switched to courses_trainers.
-            foreach ($_assignedIds as $_oid) {
-                if (!isset($_allTrainers[$_oid]) && isset($_optionToName[$_oid])) {
-                    $_rawNm = $_optionToName[$_oid];
-                    $_disp  = trim(preg_replace('/^ACTA\s+/i', '', $_rawNm));
-                    $_allTrainers[$_oid] = $_disp !== '' ? $_disp : $_rawNm;
-                    if (!isset($_allTrainerEmails[$_oid])) {
-                        $_allTrainerEmails[$_oid] = '';
-                    }
-                }
-            }
-
-            // Build display list: multiselect names first, then HTML fallback names (deduped)
-            $_trainerNames = array();
-            $_seenNames = array(); // lowercased for dedup
-            foreach ($_assignedIds as $_id) {
-                if (isset($_allTrainers[$_id])) {
-                    $_nm = $_allTrainers[$_id];
-                    $_k = strtolower(trim($_nm));
-                    if (!isset($_seenNames[$_k])) {
-                        $_trainerNames[] = $_nm;
-                        $_seenNames[$_k] = true;
-                    }
-                }
-            }
-
-            // Always also parse trainerprofile HTML so legacy names survive next to multiselect
-            $_legacyTrainerNames = array(); // Names that don't exist as options in the master list
-            $_tpRaw = (string)$_editProd->getData('trainerprofile');
-            if ($_tpRaw !== '' && preg_match_all('#<strong>([^<:]+?):</strong>#si', $_tpRaw, $_tm)) {
-                // Build lookup for matching fallback names to option IDs (pre-select in editor)
-                $_nameToId = array();
-                foreach ($_allTrainers as $_tid => $_tnm) {
-                    $_nameToId[strtolower(trim($_tnm))] = $_tid;
-                }
-                foreach ($_tm[1] as $_n) {
-                    $_n = trim(html_entity_decode($_n));
-                    if ($_n === '') continue;
-                    $_low = strtolower($_n);
-                    if (!isset($_seenNames[$_low])) {
-                        $_trainerNames[] = $_n;
-                        $_seenNames[$_low] = true;
-                    }
-                    // Try to match the name to a master-list option ID
-                    $_matched = false;
-                    if (isset($_nameToId[$_low])) {
-                        $_mid = $_nameToId[$_low];
-                        if (!in_array($_mid, $_assignedIds)) $_assignedIds[] = $_mid;
-                        $_matched = true;
-                    } else {
-                        foreach ($_allTrainers as $_tid => $_tnm) {
-                            if (stripos($_tnm, $_n) !== false || stripos($_n, $_tnm) !== false) {
-                                if (!in_array($_tid, $_assignedIds)) $_assignedIds[] = $_tid;
-                                $_matched = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (!$_matched) $_legacyTrainerNames[] = $_n;
-                }
-            }
 
             $_editCourseData = array(
                 'name'        => $_editProd->getName() ?: '',
@@ -3830,11 +3686,12 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                     Assigned Trainers
                 </div>
-                <input type="hidden" name="trainer_ids" id="trainer-ids" value="<?php echo htmlspecialchars(implode(',', $_editCourseData['assigned_ids'])) ?>" />
+                <input type="hidden" name="trainer_user_ids" id="trainer-ids" value="<?php echo htmlspecialchars(implode(',', $_editCourseData['assigned_ids'])) ?>" />
                 <input type="hidden" name="legacy_trainer_remove" id="legacy-trainer-remove" value="" />
                 <div class="tr-picker-wrap">
-                    <div class="tr-picker-label">Add Trainer</div>
+                    <div class="tr-picker-label">Approved Trainers</div>
                     <input type="text" class="tr-picker-search" id="trainer-search" placeholder="Search active trainer by name or email" oninput="trFilterList(this.value)" autocomplete="off" />
+                    <div style="color:#64748b;font-size:11px;margin:6px 0 0;">These are the course's <strong style="color:#94a3b8;">candidate</strong> trainers — they get invited (and confirmed on accept) per class. Only trainers with an account appear here; sync accounts on the <strong style="color:#94a3b8;">Users</strong> page.</div>
                     <div class="tr-picker-list" id="trainer-list">
                         <?php foreach ($_editCourseData['all_trainers'] as $_tid => $_tnm):
                             $_temail = isset($_editCourseData['all_trainer_emails'][$_tid]) ? $_editCourseData['all_trainer_emails'][$_tid] : '';
@@ -10561,19 +10418,16 @@ if ($_cncActive) {
         );
     } catch (Exception $e) { Mage::logException($e); }
 
-    $_cncTrainersAttrId = isset($_eavAttrIds['trainers']) ? $_eavAttrIds['trainers'] : 0;
-    if ($_cncTrainersAttrId) {
-        try {
-            $_cncTrainers = $read->fetchPairs(
-                "SELECT eaov.option_id, eaov.value
-                 FROM eav_attribute_option eao
-                 JOIN eav_attribute_option_value eaov ON eao.option_id=eaov.option_id AND eaov.store_id=0
-                 WHERE eao.attribute_id=?
-                 ORDER BY eaov.value",
-                array($_cncTrainersAttrId)
-            );
-        } catch (Exception $e) { Mage::logException($e); }
-    }
+    // Phase 2 — the trainer picker lists real trainer accounts (admin_user
+    // with the 'trainer' role). The chosen account is written to
+    // course_runs.trainer_user_id and added to the course's approved pool
+    // (mmd_product_trainer) on create — no more EAV option assignment.
+    try {
+        foreach (Mage::helper('mmd_rolemanager/trainer')->getTrainerAccounts() as $_acc) {
+            $_nm = trim((string) $_acc['name']);
+            $_cncTrainers[(int) $_acc['user_id']] = ($_nm !== '' ? $_nm : (string) $_acc['email']);
+        }
+    } catch (Exception $e) { Mage::logException($e); }
 }
 ?>
 <div id="dash-panel-createclass" style="display:none;">
@@ -10735,7 +10589,7 @@ if ($_cncActive) {
             <h3 class="cnc-card-title">Optional</h3>
             <div class="cnc-optional-row">
                 <input type="checkbox" id="cnc-opt-trainer" onchange="cncToggleTrainer(this)" />
-                <label for="cnc-opt-trainer"><strong>Assign Trainer</strong><span> (Assign an existing trainer to this class)</span></label>
+                <label for="cnc-opt-trainer"><strong>Add Trainer to Candidates</strong><span> (Adds a trainer to this course's candidate list — send an invitation afterwards to confirm them)</span></label>
             </div>
         </div>
 
@@ -10831,15 +10685,15 @@ window.cncSubmit = function(ev) {
     if (!endTime)   { alert('Please enter an End Time.');                   return false; }
     if (endDate < startDate) { alert('End Date cannot be before Start Date.'); return false; }
     if (startDate === endDate && endTime <= startTime) { alert('End Time must be after Start Time.'); return false; }
-    var trainerOp = '';
+    var trainerUid = '';
     if ((document.getElementById('cnc-opt-trainer')||{checked:false}).checked) {
-        trainerOp = (document.getElementById('cnc-trainer-id')||{value:''}).value;
-        if (!trainerOp) { alert('Please pick a trainer or untick "Assign Trainer".'); return false; }
+        trainerUid = (document.getElementById('cnc-trainer-id')||{value:''}).value;
+        if (!trainerUid) { alert('Please pick a trainer or untick "Assign Trainer".'); return false; }
     }
     function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
     var fd = new FormData();
     fd.append('course_sku',        sku);
-    fd.append('trainer_option_id', trainerOp);
+    fd.append('trainer_user_id', trainerUid);
     fd.append('start_date',        startDate);
     fd.append('end_date',          endDate);
     fd.append('start_time',        startTime);
@@ -10895,6 +10749,7 @@ $_atKpi = array(
 );
 $_atRows = array();
 $_atTrainerOpts = array();
+$_atTrainerAccounts = array(); // account picker source — used in always-rendered modal markup
 $_atCourseTitles = array();
 if ($_atActive) {
     // Country scope from the logged-in admin's email (admin.<cc>@…).
@@ -10955,6 +10810,24 @@ if ($_atActive) {
                 }
             } catch (Exception $e) {}
         }
+
+        // Phase 2 — account-based trainer pool. The picker lists real
+        // trainer accounts (admin_user with the 'trainer' role); the
+        // approved pool persists to mmd_product_trainer and drives the
+        // invitation system. Legacy EAV stays as a display/invite
+        // fallback (hybrid) so previously-assigned trainers still resolve.
+        $_atTrainerAccounts = array(); // user_id => display name (picker source)
+        $_atUserNames       = array(); // user_id => name (run resolution)
+        try {
+            foreach (Mage::helper('mmd_rolemanager/trainer')->getTrainerAccounts() as $_acc) {
+                $_uid = (int) $_acc['user_id'];
+                $_nm  = trim((string) $_acc['name']);
+                $_em  = trim((string) $_acc['email']);
+                $_atTrainerAccounts[$_uid] = ($_nm !== '' ? $_nm : $_em);
+                $_atUserNames[$_uid]       = $_atTrainerAccounts[$_uid];
+            }
+        } catch (Exception $e) {}
+
         // Source from course_runs — one row per scheduled class run.
         // Products without a course_runs entry are excluded (no concrete
         // class date means nothing to assign a trainer to).
@@ -10963,9 +10836,16 @@ if ($_atActive) {
         $_atRunsList = $read->fetchAll(
             "SELECT cr.run_id, cr.product_id, cr.class_id, cr.course_sku,
                     cr.course_start_date, cr.course_end_date,
-                    cr.trainer_option_id
+                    cr.trainer_option_id, cr.trainer_user_id,
+                    inv.status AS inv_status, inv.trainer_name AS inv_trainer_name
              FROM course_runs cr
              JOIN catalog_product_website pw ON pw.product_id=cr.product_id AND pw.website_id={$_atWid}
+             LEFT JOIN (
+                 SELECT i.run_id, i.status, i.trainer_name
+                   FROM course_run_trainer_invitations i
+                   INNER JOIN (SELECT run_id, MAX(id) AS mid FROM course_run_trainer_invitations GROUP BY run_id) l
+                      ON l.run_id = i.run_id AND l.mid = i.id
+             ) inv ON inv.run_id = cr.run_id
              WHERE cr.course_sku NOT LIKE 'TGS%'
                AND cr.course_start_date >= '{$_atWinFrom}'
              ORDER BY cr.course_start_date ASC, cr.run_id ASC
@@ -11001,6 +10881,22 @@ if ($_atActive) {
             } catch (Exception $e) {}
         }
 
+        // Batch-load the account-based approved pool (mmd_product_trainer)
+        // for every product on the page — one query, no N+1.
+        $_atProductAccounts = array(); // pid => [user_id, ...] in sort order
+        if (!empty($_atRunsList)) {
+            try {
+                $_ptTbl = $read->getTableName('mmd_product_trainer');
+                foreach ($read->fetchAll(
+                    "SELECT product_id, user_id FROM {$_ptTbl}
+                      WHERE product_id IN ({$_atRunPidsCsv})
+                      ORDER BY product_id, sort_order, id"
+                ) as $_ptr) {
+                    $_atProductAccounts[(int)$_ptr['product_id']][] = (int)$_ptr['user_id'];
+                }
+            } catch (Exception $e) {}
+        }
+
         $_atToday = strtotime(date('Y-m-d'));
         foreach ($_atRunsList as $_run) {
             $_pid  = (int) $_run['product_id'];
@@ -11015,44 +10911,43 @@ if ($_atActive) {
             else                                                        $_tab = 'upcoming';
 
             $_sv = isset($_prod['status_val']) ? (int)$_prod['status_val'] : 1;
-            if ($_sv !== 1)  { $_lbl = 'Cancelled'; $_cls = 'at-badge-cancelled'; }
-            elseif (!$_sd)   { $_lbl = 'Pending';   $_cls = 'at-badge-pending'; }
-            else             { $_lbl = 'Confirmed'; $_cls = 'at-badge-confirmed'; }
 
-            // Trainer: course_runs.trainer_option_id wins, then product
-            // trainers multiselect CSV, then profile HTML fallback.
+            // Approved candidate pool (mmd_product_trainer) — feeds the modal
+            // picker + the invitation queue ONLY. It is NOT the assignment.
+            $_tuids = isset($_atProductAccounts[$_pid]) ? $_atProductAccounts[$_pid] : array();
+            $_tunames = array();
+            foreach ($_tuids as $_uid) {
+                $_tunames[] = isset($_atUserNames[$_uid]) ? $_atUserNames[$_uid] : ('#' . $_uid);
+            }
+
+            // CONFIRMED trainer for THIS run only (LMS model): an accepted
+            // account assignment (trainer_user_id) or a legacy per-run EAV
+            // assignment (trainer_option_id). The candidate pool and the
+            // course-level EAV list are NEVER shown as "assigned".
             $_tnames = array(); $_toids = array();
-            if ((int)$_run['trainer_option_id'] > 0) {
-                $_tOpt = (int)$_run['trainer_option_id'];
-                if (isset($_atTrainerOpts[$_tOpt])) {
-                    $_tnames[] = $_atTrainerOpts[$_tOpt];
-                    $_toids[]  = $_tOpt;
-                }
-            } else {
-                $_tcsv = trim((string)(isset($_prod['trainers_csv']) ? $_prod['trainers_csv'] : ''));
-                if ($_tcsv !== '') {
-                    foreach (explode(',', $_tcsv) as $_oid) {
-                        $_oid = (int) trim($_oid);
-                        if ($_oid && isset($_atTrainerOpts[$_oid])) {
-                            $_tnames[] = $_atTrainerOpts[$_oid];
-                            $_toids[]  = $_oid;
-                        }
-                    }
-                }
+            $_runUid = (int) (isset($_run['trainer_user_id']) ? $_run['trainer_user_id'] : 0);
+            if ($_runUid > 0 && isset($_atUserNames[$_runUid])) {
+                $_tnames[] = $_atUserNames[$_runUid];
+            } elseif ((int)$_run['trainer_option_id'] > 0 && isset($_atTrainerOpts[(int)$_run['trainer_option_id']])) {
+                $_tnames[] = $_atTrainerOpts[(int)$_run['trainer_option_id']];
+                $_toids[]  = (int)$_run['trainer_option_id'];
             }
-            if (empty($_tnames)) {
-                $_profile = (string)(isset($_prod['trainer_profile_html']) ? $_prod['trainer_profile_html'] : '');
-                if ($_profile !== '' && preg_match_all('/<strong[^>]*>\s*([^<:]{2,80}?)\s*:\s*(?:&nbsp;)?\s*<\/strong>/i', $_profile, $_pm)) {
-                    $_seen = array();
-                    foreach ($_pm[1] as $_pn) {
-                        $_pn = trim(html_entity_decode(strip_tags($_pn), ENT_QUOTES, 'UTF-8'));
-                        if ($_pn === '' || isset($_seen[$_pn])) continue;
-                        $_seen[$_pn] = 1;
-                        $_tnames[] = $_pn;
-                        if (count($_tnames) >= 5) break;
-                    }
-                }
-            }
+
+            // Pending invitation: only when there's no confirmed trainer yet
+            // and the latest invitation is still awaiting a response.
+            $_invStatus   = isset($_run['inv_status']) ? (string)$_run['inv_status'] : '';
+            $_pendingName = (empty($_tnames) && $_invStatus === 'pending')
+                ? trim((string)(isset($_run['inv_trainer_name']) ? $_run['inv_trainer_name'] : ''))
+                : '';
+
+            // Class status (LMS model, trainer-driven — matches All Classes):
+            // Cancelled if the course is disabled; Confirmed once a trainer is
+            // confirmed for THIS run (accepted invite -> trainer_user_id, or a
+            // grandfathered legacy trainer_option_id); otherwise Pending —
+            // including classes that only have a pending invite or candidates.
+            if ($_sv !== 1)           { $_lbl = 'Cancelled'; $_cls = 'at-badge-cancelled'; }
+            elseif (!empty($_tnames)) { $_lbl = 'Confirmed'; $_cls = 'at-badge-confirmed'; }
+            else                      { $_lbl = 'Pending';   $_cls = 'at-badge-pending'; }
 
             $_atName = isset($_prod['name']) ? (string)$_prod['name'] : '';
             $_atRows[] = array(
@@ -11060,13 +10955,17 @@ if ($_atActive) {
                 'sku'          => isset($_prod['sku']) ? (string)$_prod['sku'] : (string)$_run['course_sku'],
                 'title'        => $_atName !== '' ? $_atName : '(No Name)',
                 'run_id'       => (string) $_run['class_id'],
+                'cr_run_id'    => (int) $_run['run_id'],
                 'start_date'   => $_sd ? date('d/m/Y', $_sd) : '—',
                 'start_iso'    => $_sd ? date('Y-m-d', $_sd) : '',
                 'tab'          => $_tab,
                 'status'       => $_lbl,
                 'status_cls'   => $_cls,
-                'trainers'     => $_tnames,
-                'trainer_oids' => $_toids,
+                'trainers'      => $_tnames,
+                'trainer_oids'  => $_toids,
+                'trainer_uids'  => $_tuids,
+                'trainer_unames'=> $_tunames,
+                'pending_name'  => $_pendingName,
             );
             if ($_atName !== '') $_atCourseTitles[$_atName] = true;
             if ($_tab === 'upcoming') $_atKpi['upcoming']++;
@@ -11107,6 +11006,69 @@ if ($_atActive) {
         </div>
         <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/rolemanagement') ?>" style="padding:7px 14px;background:#2563eb;color:#fff !important;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none !important;white-space:nowrap;flex-shrink:0;">Manage LMS Trainers →</a>
     </div>
+
+    <?php
+    $_aiEnabled   = Mage::getStoreConfigFlag('mmd/trainer_invitation/auto_enabled');
+    $_aiWindow    = (int) Mage::getStoreConfig('mmd/trainer_invitation/window_days');
+    if ($_aiWindow < 1) $_aiWindow = 30;
+    $_aiCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', 'training_provider', 'developer'));
+    $_aiToggleUrl = Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/setAutoInvitationEnabled');
+    $_aiWindowUrl = Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/setInvitationWindow');
+    ?>
+    <?php if ($_aiCanToggle): ?>
+    <!-- Automated trainer invitations — master toggle + look-ahead window
+         (mirrors the All Classes banner; same mmd/trainer_invitation config). -->
+    <div id="at-autoinv-banner" style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 16px;margin-bottom:18px;border-radius:10px;border:1px solid <?php echo $_aiEnabled ? 'rgba(34,197,94,.3)' : 'rgba(100,116,139,.25)' ?>;background:<?php echo $_aiEnabled ? 'rgba(34,197,94,.08)' : 'rgba(100,116,139,.06)' ?>;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="<?php echo $_aiEnabled ? '#22c55e' : '#64748b' ?>" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <div>
+                <div style="font-size:13px;font-weight:600;color:#e2e8f0;">Automated trainer invitations</div>
+                <div style="font-size:11px;color:#64748b;margin-top:1px;">When ON, the twice-weekly cron emails the next eligible trainer for upcoming classes within the window. Manual "Send Invitation" always works.</div>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;flex-shrink:0;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#94a3b8;white-space:nowrap;">Window
+                <input type="number" id="at-autoinv-window" min="1" max="365" value="<?php echo (int)$_aiWindow ?>" onchange="atWindowSet(this)" style="width:60px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:5px 8px;font-size:12px;"> days
+            </label>
+            <span id="at-autoinv-status" style="font-size:11px;color:#64748b;min-width:10px;"></span>
+            <label class="dcf-toggle-sw" title="<?php echo $_aiEnabled ? 'Automated invitations ON' : 'Automated invitations OFF' ?>" style="flex-shrink:0;">
+                <input type="checkbox" id="at-autoinv-cb" <?php echo $_aiEnabled ? 'checked' : '' ?> onchange="atAutoInvSet(this)">
+                <span class="dcf-toggle-slider"></span>
+            </label>
+        </div>
+    </div>
+    <script type="text/javascript">
+    window.atAiStatus = function(msg, ok){
+        var el=document.getElementById('at-autoinv-status'); if(!el) return;
+        el.textContent='✓ '+msg; el.style.color= ok?'#22c55e':'#f87171';
+        setTimeout(function(){ if(el && el.textContent==='✓ '+msg) el.textContent=''; }, 2500);
+    };
+    window.atAutoInvSet = function(cb){
+        var val = cb.checked ? 1 : 0;
+        cb.checked = (val === 0); // hold until the server confirms
+        if (val === 1 && !confirm('Enable automated trainer invitation emails?\n\nThe cron will email the next eligible trainer for upcoming classes twice a week.')) return;
+        cb.disabled = true;
+        var fd = new FormData(); fd.append('value', val); fd.append('form_key', window.FORM_KEY || '');
+        fetch('<?php echo $_aiToggleUrl ?>', {method:'POST',body:fd,credentials:'same-origin'})
+          .then(function(r){return r.json();}).then(function(d){
+            cb.disabled = false;
+            if(!d.success){ atAiStatus(d.message||'Failed', false); return; }
+            var on=(d.value===1); cb.checked=on;
+            var b=document.getElementById('at-autoinv-banner');
+            if(b){ b.style.borderColor=on?'rgba(34,197,94,.3)':'rgba(100,116,139,.25)'; b.style.background=on?'rgba(34,197,94,.08)':'rgba(100,116,139,.06)'; }
+            cb.closest('.dcf-toggle-sw').setAttribute('title', on?'Automated invitations ON':'Automated invitations OFF');
+            atAiStatus(on?'On':'Off', true);
+          }).catch(function(){ cb.disabled=false; atAiStatus('Network error', false); });
+    };
+    window.atWindowSet = function(inp){
+        var d = parseInt(inp.value,10)||30; if(d<1)d=1; if(d>365)d=365; inp.value=d;
+        var fd = new FormData(); fd.append('days', d); fd.append('form_key', window.FORM_KEY || '');
+        fetch('<?php echo $_aiWindowUrl ?>', {method:'POST',body:fd,credentials:'same-origin'})
+          .then(function(r){return r.json();}).then(function(j){ atAiStatus(j.success?('Window '+j.days+'d'):(j.message||'Failed'), !!j.success); })
+          .catch(function(){ atAiStatus('Network error', false); });
+    };
+    </script>
+    <?php endif; ?>
 
     <div class="at-kpis">
         <div class="at-kpi"><div class="at-kpi-num at-num-up" id="at-kpi-classes"><?php echo number_format($_atKpi['upcoming']) ?></div><div class="at-kpi-lbl" id="at-kpi-classes-lbl">Upcoming Classes</div></div>
@@ -11170,13 +11132,13 @@ if ($_atActive) {
                     $_oidPairs[] = (int)$_oid . ':' . (isset($_r['trainers'][$_i]) ? $_r['trainers'][$_i] : '');
                 }
                 ?>
-                <tr data-tab="<?php echo $_r['tab'] ?>" data-title="<?php echo strtolower(htmlspecialchars($_r['title'])) ?>" data-sku="<?php echo strtolower(htmlspecialchars($_r['sku'])) ?>" data-run="<?php echo strtolower(htmlspecialchars($_r['run_id'])) ?>" data-trainers="<?php echo strtolower(htmlspecialchars(implode('|', $_r['trainers']))) ?>" data-trainers-empty="<?php echo empty($_r['trainers']) ? '1' : '0' ?>" data-course="<?php echo htmlspecialchars($_r['title']) ?>" data-pid="<?php echo (int)$_r['pid'] ?>" data-runid="<?php echo htmlspecialchars($_r['run_id']) ?>" data-oids="<?php echo htmlspecialchars(implode(',', array_map('intval', $_r['trainer_oids']))) ?>" data-tnames="<?php echo htmlspecialchars(implode('|', $_r['trainers'])) ?>">
+                <tr data-tab="<?php echo $_r['tab'] ?>" data-title="<?php echo strtolower(htmlspecialchars($_r['title'])) ?>" data-sku="<?php echo strtolower(htmlspecialchars($_r['sku'])) ?>" data-run="<?php echo strtolower(htmlspecialchars($_r['run_id'])) ?>" data-trainers="<?php echo strtolower(htmlspecialchars(implode('|', $_r['trainers']))) ?>" data-trainers-empty="<?php echo empty($_r['trainers']) ? '1' : '0' ?>" data-course="<?php echo htmlspecialchars($_r['title']) ?>" data-pid="<?php echo (int)$_r['pid'] ?>" data-runid="<?php echo htmlspecialchars($_r['run_id']) ?>" data-cr-runid="<?php echo (int)$_r['cr_run_id'] ?>" data-oids="<?php echo htmlspecialchars(implode(',', array_map('intval', $_r['trainer_oids']))) ?>" data-tnames="<?php echo htmlspecialchars(implode('|', $_r['trainers'])) ?>" data-uids="<?php echo htmlspecialchars(implode(',', array_map('intval', $_r['trainer_uids']))) ?>" data-unames="<?php echo htmlspecialchars(implode('|', $_r['trainer_unames'])) ?>" data-pending="<?php echo htmlspecialchars($_r['pending_name']) ?>">
                     <td><?php echo $_r['start_date'] ?></td>
                     <td><span class="at-run-id"><?php echo htmlspecialchars($_r['run_id']) ?></span></td>
                     <td><span class="at-course-code"><?php echo htmlspecialchars($_r['sku']) ?></span></td>
                     <td><?php echo htmlspecialchars($_r['title']) ?></td>
                     <td><span class="at-badge <?php echo $_r['status_cls'] ?>"><?php echo $_r['status'] ?></span></td>
-                    <td><?php if (empty($_r['trainers'])): ?><span class="at-trainer-empty">— No trainer —</span><?php else: foreach ($_r['trainers'] as $_tn): ?><span class="at-trainer-pill"><?php echo htmlspecialchars($_tn) ?></span><?php endforeach; endif; ?></td>
+                    <td><?php if (!empty($_r['trainers'])): foreach ($_r['trainers'] as $_tn): ?><span class="at-trainer-pill"><?php echo htmlspecialchars($_tn) ?></span><?php endforeach; elseif ($_r['pending_name'] !== ''): ?><span class="at-trainer-pill" style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3);">Pending — <?php echo htmlspecialchars($_r['pending_name']) ?></span><?php else: ?><span class="at-trainer-empty">— No trainer —</span><?php endif; ?></td>
                     <td class="at-td-action">
                         <?php if (empty($_r['trainers'])): ?>
                             <button type="button" class="at-action-btn at-action-assign" onclick="atOpenTrainerModal(this)">Assign Trainer</button>
@@ -11329,23 +11291,20 @@ window.atOpenTrainerModal = function(btn) {
     var tr = btn.closest('tr');
     if (!tr) return;
     var pid = parseInt(tr.getAttribute('data-pid'), 10) || 0;
-    var oidsCsv = tr.getAttribute('data-oids') || '';
-    var namesPipe = tr.getAttribute('data-tnames') || '';
-    var oids = oidsCsv ? oidsCsv.split(',').map(function(x){ return parseInt(x,10); }).filter(function(x){ return x>0; }) : [];
-    var names = namesPipe ? namesPipe.split('|') : [];
+    var uidsCsv = tr.getAttribute('data-uids') || '';
+    var unamesPipe = tr.getAttribute('data-unames') || '';
+    var uids = uidsCsv ? uidsCsv.split(',').map(function(x){ return parseInt(x,10); }).filter(function(x){ return x>0; }) : [];
+    var unames = unamesPipe ? unamesPipe.split('|') : [];
     var list = [];
-    for (var i = 0; i < oids.length; i++) {
-        list.push({ oid: oids[i], name: names[i] || ('#' + oids[i]) });
-    }
-    if (oids.length === 0 && names.length) {
-        for (var j = 0; j < names.length; j++) list.push({ oid: 0, name: names[j] });
+    for (var i = 0; i < uids.length; i++) {
+        list.push({ uid: uids[i], name: unames[i] || ('#' + uids[i]) });
     }
     window._atmState = {
         pid: pid,
-        runId: tr.getAttribute('data-runid') || '',
+        runId: tr.getAttribute('data-cr-runid') || '',   // numeric course_runs.run_id (invite endpoint needs this, not the class_id label)
+        classId: tr.getAttribute('data-runid') || '',
         courseTitle: tr.getAttribute('data-course') || '',
-        list: list,
-        mode: 'select'
+        list: list
     };
 
     var atmRow = document.getElementById('atm-row');
@@ -11371,7 +11330,7 @@ window.atOpenTrainerModal = function(btn) {
     if (invSel) {
         invSel.innerHTML = '<option value="">— Next in queue —</option>';
         for (var k = 0; k < list.length; k++) {
-            if (list[k].oid > 0) {
+            if (list[k].uid > 0) {
                 var opt = document.createElement('option');
                 opt.value = list[k].name;
                 opt.textContent = list[k].name;
@@ -11422,17 +11381,6 @@ window.atmRender = function() {
             box.appendChild(row);
         }
     }
-
-    // Mode toggle
-    document.getElementById('atm-mode-select').classList.toggle('active', st.mode === 'select');
-    document.getElementById('atm-mode-manual').classList.toggle('active', st.mode === 'manual');
-    document.getElementById('atm-input-select').style.display = st.mode === 'select' ? '' : 'none';
-    document.getElementById('atm-input-manual').style.display = st.mode === 'manual' ? '' : 'none';
-};
-
-window.atmSetMode = function(mode) {
-    window._atmState.mode = mode;
-    atmRender();
 };
 
 window.atmRemoveAll = function() {
@@ -11443,23 +11391,15 @@ window.atmRemoveAll = function() {
 
 window.atmAdd = function() {
     var st = window._atmState;
-    if (st.mode === 'select') {
-        var sel = document.getElementById('atm-input-select');
-        var oid = parseInt(sel.value, 10) || 0;
-        if (!oid) { alert('Pick a trainer first.'); return; }
-        for (var i = 0; i < st.list.length; i++) {
-            if (st.list[i].oid === oid) { alert('Already assigned.'); return; }
-        }
-        var name = sel.options[sel.selectedIndex].text;
-        st.list.push({ oid: oid, name: name });
-        sel.value = '';
-    } else {
-        var inp = document.getElementById('atm-input-manual');
-        var v = (inp.value || '').trim();
-        if (v.length < 2) { alert('Enter a trainer name.'); return; }
-        st.list.push({ oid: 0, name: v });
-        inp.value = '';
+    var sel = document.getElementById('atm-input-select');
+    var uid = parseInt(sel.value, 10) || 0;
+    if (!uid) { alert('Pick a trainer first.'); return; }
+    for (var i = 0; i < st.list.length; i++) {
+        if (st.list[i].uid === uid) { alert('Already assigned.'); return; }
     }
+    var name = sel.options[sel.selectedIndex].text;
+    st.list.push({ uid: uid, name: name });
+    sel.value = '';
     atmRender();
 };
 
@@ -11469,10 +11409,8 @@ window.atmSave = function() {
     var btn = document.getElementById('atm-save-btn');
     var fd = new FormData();
     fd.append('product_id', String(st.pid));
-    var oids = st.list.filter(function(t){ return t.oid > 0; }).map(function(t){ return t.oid; });
-    var names = st.list.filter(function(t){ return t.oid <= 0; }).map(function(t){ return t.name; });
-    fd.append('trainer_option_ids', oids.join(','));
-    fd.append('new_trainer_names', names.join('|'));
+    var uids = st.list.filter(function(t){ return t.uid > 0; }).map(function(t){ return t.uid; });
+    fd.append('trainer_user_ids', uids.join(','));
 
     // Snapshot the row's pre-save state so we can revert if the server
     // rejects the change.
@@ -11481,7 +11419,8 @@ window.atmSave = function() {
     rows.forEach(function(r){
         snapshot.push({
             row: r,
-            oids:    r.getAttribute('data-oids')    || '',
+            uids:    r.getAttribute('data-uids')    || '',
+            unames:  r.getAttribute('data-unames')  || '',
             tnames:  r.getAttribute('data-tnames')  || '',
             trainers:r.getAttribute('data-trainers')|| '',
             empty:   r.getAttribute('data-trainers-empty') || '',
@@ -11493,42 +11432,33 @@ window.atmSave = function() {
     // modal instantly, show a "Saving..." toast. The server reconciles
     // in the background.
     btn.disabled = true; btn.textContent = 'Saving...';
-    atmApplyToRow(st.pid, oids, st.list);
-    atmRecomputeKpis();
+    atmApplyToRow(st.pid, uids, st.list);
     atmClose();
-    atmShowToast('Saving trainer changes...', 'pending');
+    atmShowToast('Saving approved trainers...', 'pending');
 
-    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/saveTrainers') ?>', {
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/saveTrainerAccounts') ?>', {
         method: 'POST', body: fd, credentials: 'same-origin'
     }).then(function(r){ return r.json(); }).then(function(j){
         btn.disabled = false; btn.textContent = 'Save';
         if (j && j.success) {
-            // Server may have minted new option_ids for free-text
-            // names — re-apply with the canonical list.
-            if (j.option_ids) atmApplyToRow(st.pid, j.option_ids, st.list);
-            atmShowToast('Trainer assignments saved', 'success');
+            // Server validated the set (dropping any non-trainer ids) —
+            // re-sync the pool attributes with the canonical user_id list.
+            if (j.user_ids) atmApplyToRow(st.pid, j.user_ids, st.list);
+            atmShowToast('Approved trainers saved — send an invitation to assign one', 'success');
         } else {
-            // Revert the row to its pre-save state.
+            // Revert the pool attributes to their pre-save state.
             snapshot.forEach(function(s){
-                s.row.setAttribute('data-oids',     s.oids);
-                s.row.setAttribute('data-tnames',   s.tnames);
-                s.row.setAttribute('data-trainers', s.trainers);
-                s.row.setAttribute('data-trainers-empty', s.empty);
-                if (s.row.children[5]) s.row.children[5].innerHTML = s.cellHtml;
+                s.row.setAttribute('data-uids',   s.uids);
+                s.row.setAttribute('data-unames', s.unames);
             });
-            atmRecomputeKpis();
             atmShowToast((j && j.message) || 'Save failed — reverted', 'error');
         }
     }).catch(function(err){
         btn.disabled = false; btn.textContent = 'Save';
         snapshot.forEach(function(s){
-            s.row.setAttribute('data-oids',     s.oids);
-            s.row.setAttribute('data-tnames',   s.tnames);
-            s.row.setAttribute('data-trainers', s.trainers);
-            s.row.setAttribute('data-trainers-empty', s.empty);
-            if (s.row.children[5]) s.row.children[5].innerHTML = s.cellHtml;
+            s.row.setAttribute('data-uids',   s.uids);
+            s.row.setAttribute('data-unames', s.unames);
         });
-        atmRecomputeKpis();
         atmShowToast('Network error — reverted', 'error');
     });
 };
@@ -11561,63 +11491,26 @@ window.atmShowToast = function(text, kind) {
     }
 };
 
-// Patch the touched row's data attributes + trainer cell so the table
-// reflects the new state without a full reload. List = [{oid,name}…].
-window.atmApplyToRow = function(pid, finalOids, list) {
+// Save only edits the approved-candidate POOL — never the confirmed
+// trainer cell (which reflects accepted invitations only). So this just
+// syncs the pool data-attributes so re-opening the modal shows the saved
+// list. The visible Trainer column changes on invite (Pending) / accept
+// (Confirmed), not on Save.
+window.atmApplyToRow = function(pid, finalUids, list) {
     var rows = document.querySelectorAll('#at-tbody tr[data-pid="' + pid + '"]');
     if (!rows.length) return;
     var nameLookup = {};
-    for (var i = 0; i < list.length; i++) nameLookup[list[i].oid] = list[i].name;
+    for (var i = 0; i < list.length; i++) nameLookup[list[i].uid] = list[i].name;
     var resolvedNames = [];
-    for (var k = 0; k < finalOids.length; k++) {
-        var oid = parseInt(finalOids[k], 10);
-        if (nameLookup[oid]) resolvedNames.push(nameLookup[oid]);
-        else if (nameLookup[0])   { resolvedNames.push(nameLookup[0]); delete nameLookup[0]; }
-        else                       resolvedNames.push('#' + oid);
+    for (var k = 0; k < finalUids.length; k++) {
+        var uid = parseInt(finalUids[k], 10);
+        resolvedNames.push(nameLookup[uid] || ('#' + uid));
     }
-    var oidsCsv  = finalOids.map(function(x){ return parseInt(x,10); }).filter(function(x){ return x>0; }).join(',');
+    var uidsCsv  = finalUids.map(function(x){ return parseInt(x,10); }).filter(function(x){ return x>0; }).join(',');
     var namesPipe = resolvedNames.join('|');
-    var isEmpty  = resolvedNames.length === 0 ? '1' : '0';
-
     for (var r = 0; r < rows.length; r++) {
-        var row = rows[r];
-        row.setAttribute('data-oids', oidsCsv);
-        row.setAttribute('data-tnames', namesPipe);
-        row.setAttribute('data-trainers', namesPipe.toLowerCase());
-        row.setAttribute('data-trainers-empty', isEmpty);
-        // Trainer cell is the 6th <td> (Start, Run ID, Code, Title, Status, Trainer, Action).
-        var td = row.children[5];
-        if (td) {
-            td.innerHTML = '';
-            if (resolvedNames.length === 0) {
-                var em = document.createElement('span');
-                em.className = 'at-trainer-empty';
-                em.textContent = '— No trainer —';
-                td.appendChild(em);
-            } else {
-                for (var n = 0; n < resolvedNames.length; n++) {
-                    var pill = document.createElement('span');
-                    pill.className = 'at-trainer-pill';
-                    pill.textContent = resolvedNames[n];
-                    td.appendChild(pill);
-                }
-            }
-        }
-        // Action cell (7th <td>) — flip between Edit/Assign Trainer.
-        var act = row.children[6];
-        if (act) {
-            var btn = act.querySelector('button.at-action-btn');
-            if (btn) {
-                btn.classList.remove('at-action-edit', 'at-action-assign');
-                if (resolvedNames.length === 0) {
-                    btn.classList.add('at-action-assign');
-                    btn.textContent = 'Assign Trainer';
-                } else {
-                    btn.classList.add('at-action-edit');
-                    btn.textContent = 'Edit Trainer';
-                }
-            }
-        }
+        rows[r].setAttribute('data-uids', uidsCsv);
+        rows[r].setAttribute('data-unames', namesPipe);
     }
 };
 
@@ -11659,19 +11552,15 @@ window.atmRecomputeKpis = function() {
                 <div id="atm-current-list"></div>
             </div>
             <div>
-                <h4 class="atm-add-title">Add New Trainer</h4>
-                <div class="atm-mode-row">
-                    <button type="button" id="atm-mode-select" class="atm-mode-btn active" onclick="atmSetMode('select')">Select from list</button>
-                    <button type="button" id="atm-mode-manual" class="atm-mode-btn" onclick="atmSetMode('manual')">Enter manually</button>
-                </div>
+                <h4 class="atm-add-title">Add Trainer</h4>
                 <label class="atm-field-label">Trainer<span class="req">*</span></label>
                 <select id="atm-input-select" class="atm-input">
                     <option value="">— Search trainer by name or email —</option>
-                    <?php foreach ($_atTrainerOpts as $_oid => $_tname): ?>
-                    <option value="<?php echo (int)$_oid ?>"><?php echo htmlspecialchars($_tname) ?></option>
+                    <?php foreach ($_atTrainerAccounts as $_uid => $_tname): ?>
+                    <option value="<?php echo (int)$_uid ?>"><?php echo htmlspecialchars($_tname) ?></option>
                     <?php endforeach; ?>
                 </select>
-                <input id="atm-input-manual" type="text" class="atm-input" style="display:none;" placeholder="Trainer name" />
+                <p style="color:#64748b;font-size:11px;margin:6px 0 0;">Only trainers with an account appear here. Add or sync accounts on the <strong style="color:#94a3b8;">Users</strong> page.</p>
                 <div class="atm-foot">
                     <button type="button" class="atm-btn atm-btn-primary" onclick="atmAdd()">Add Trainer</button>
                 </div>
@@ -11735,6 +11624,23 @@ window.atmSendInvitation = function() {
         if (d.success) {
             statusEl.style.color = '#10b981';
             statusEl.textContent = '✓ ' + (d.message || 'Invitation sent.');
+            // Optimistically reflect Pending on this class row (server renders
+            // it authoritatively on the next load). Only when no confirmed
+            // trainer is set yet — an invite never overrides a confirmed one.
+            var invName = trainerName || d.trainer_name || d.trainer || '';
+            var prow = document.querySelector('#at-tbody tr[data-cr-runid="' + st.runId + '"]');
+            if (prow && prow.getAttribute('data-trainers-empty') === '1') {
+                prow.setAttribute('data-pending', invName);
+                var pcell = prow.children[5];
+                if (pcell) {
+                    pcell.innerHTML = '';
+                    var ppill = document.createElement('span');
+                    ppill.className = 'at-trainer-pill';
+                    ppill.style.cssText = 'background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3);';
+                    ppill.textContent = invName ? ('Pending — ' + invName) : 'Pending';
+                    pcell.appendChild(ppill);
+                }
+            }
         } else {
             statusEl.style.color = '#f87171';
             statusEl.textContent = '✗ ' + (d.message || 'Failed to send.');

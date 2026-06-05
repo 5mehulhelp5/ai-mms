@@ -54,8 +54,14 @@ class MMD_RoleManager_Model_Cron_TrainerInvitation
         $runsTbl   = $resource->getTableName('course_runs');
         $enrolTbl  = $resource->getTableName('course_run_enrolments');
 
+        // Look-ahead window is admin-configurable (Assign Trainer / All
+        // Classes pill). Falls back to DAYS_IN_ADVANCE when unset. Clamped.
+        $windowDays = (int) Mage::getStoreConfig('mmd/trainer_invitation/window_days');
+        if ($windowDays < 1)   $windowDays = self::DAYS_IN_ADVANCE;
+        if ($windowDays > 365) $windowDays = 365;
+
         $today     = date('Y-m-d');
-        $cutoff    = date('Y-m-d', strtotime('+' . self::DAYS_IN_ADVANCE . ' days'));
+        $cutoff    = date('Y-m-d', strtotime('+' . $windowDays . ' days'));
 
         // Eligible runs: upcoming within window, no trainer, not paused, at least 1 enrolment,
         // TGS- SKUs excluded (handled externally).
@@ -67,6 +73,7 @@ class MMD_RoleManager_Model_Cron_TrainerInvitation
               WHERE cr.course_start_date > ?
                 AND cr.course_start_date <= ?
                 AND (cr.trainer_option_id IS NULL OR cr.trainer_option_id = 0)
+                AND cr.trainer_user_id IS NULL
                 AND cr.invitation_paused = 0
                 AND cr.course_sku NOT LIKE 'TGS%'
                 AND NOT EXISTS (
