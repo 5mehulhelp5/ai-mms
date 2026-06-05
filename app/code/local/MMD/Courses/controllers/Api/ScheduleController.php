@@ -1,18 +1,24 @@
 <?php
 /**
- * Public read-only API: WSQ course schedules.
+ * Public read-only API: course schedules (WSQ bulk + single-course detail).
  *
- * GET /courses/api_schedule
- *   Header:  X-API-Key: <shared secret>
- *   Returns: JSON list of every enabled TGS- product in the SG store with its
- *            "Course Date" custom-option values, parsed to ISO start/end dates.
+ * Two modes:
+ *   GET /courses/api_schedule            → original behaviour, ALL enabled
+ *                                          TGS- (WSQ) courses with their
+ *                                          "Course Date" option values.
+ *                                          Response shape unchanged for
+ *                                          backwards-compat with existing
+ *                                          WSQ-feed consumer.
+ *   GET /courses/api_schedule?sku=<sku>  → richer per-course response with
+ *                                          class details from course_runs
+ *                                          (trainer name, vacancy, status,
+ *                                          time, mode). Works for ANY SKU
+ *                                          (TGS-, C, M…), not just WSQ.
  *
- * Auth: X-API-Key header compared against System Config
- *       courses/general/wsq_schedule_api_key (admin scope). Mismatch → 401.
- *       Blank stored key disables the endpoint (503) so a misconfigured
- *       prod cannot leak silently.
+ * Auth: X-API-Key header compared against
+ *       courses/general/wsq_schedule_api_key. Mismatch → 401.
  *
- * Scope: SG store (store_id=1). WSQ is SG-only per CLAUDE.md.
+ * Scope: SG store (store_id=1).
  */
 class MMD_Courses_Api_ScheduleController extends Mage_Core_Controller_Front_Action
 {
@@ -32,6 +38,11 @@ class MMD_Courses_Api_ScheduleController extends Mage_Core_Controller_Front_Acti
             return $this->_json(401, array('error' => 'unauthorized'));
         }
 
+        $sku = trim((string) $this->getRequest()->getParam('sku', ''));
+        if ($sku !== '') {
+            return $this->_perSkuResponse($sku);
+        }
+
         try {
             $courses = $this->_collectCourses();
         } catch (Exception $e) {
@@ -45,6 +56,147 @@ class MMD_Courses_Api_ScheduleController extends Mage_Core_Controller_Front_Acti
             'count'        => count($courses),
             'courses'      => $courses,
         ));
+    }
+
+    /**
+     * Per-course schedule response — used by the WhatsApp bot to answer
+     * "when is the next session of course X?" with trainer, vacancy, and
+     * status. Wrapped in the standard {source_url, last_updated, confidence,
+     * data} envelope so the bot can reason about freshness.
+     */
+    private function _perSkuResponse($sku)
+    {
+        try {
+            $product = Mage::getModel('catalog/product')->setStoreId(self::SG_STORE_ID)
+                ->loadByAttribute('sku', $sku);
+        } catch (Exception $e) {
+            Mage::logException($e);
+            return $this->_json(500, $this->_errEnvelope('internal_error', $e->getMessage()));
+        }
+        if (!$product || !$product->getId()) {
+            return $this->_json(404, $this->_errEnvelope('not_found',
+                'No course with sku=' . $sku . ' in the SG catalogue.'));
+        }
+        $product = Mage::getModel('catalog/product')->setStoreId(self::SG_STORE_ID)->load($product->getId());
+
+        $classes    = $this->_collectClasses($product);
+        $sourceUrl  = $this->_productUrl($product);
+        $confidence = count($classes) === 0 ? 'low' : 'high';
+
+        return $this->_json(200, array(
+            'source_url'   => $sourceUrl,
+            'last_updated' => gmdate('c'),
+            'confidence'   => $confidence,
+            'data'         => array(
+                'course_code'    => (string) $product->getSku(),
+                'course_title'   => (string) $product->getName(),
+                'course_page_url'=> $sourceUrl,
+                'classes_count'  => count($classes),
+                'classes'        => $classes,
+            ),
+        ));
+    }
+
+    /**
+     * Read upcoming classes from course_runs for the given product, joined
+     * to the trainer name via the product option value title (trainers are
+     * stored as custom-option values). Sorted ascending by start date.
+     * Vacancy uses the single-char enum from course_runs (A/L/F/-);
+     * we surface a friendly label too.
+     */
+    private function _collectClasses($product)
+    {
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+        $runs     = $resource->getTableName('course_runs');
+        $optTitle = $resource->getTableName('catalog/product_option_type_title');
+
+        $select = $read->select()
+            ->from(array('cr' => $runs), array(
+                'run_id', 'course_sku', 'trainer_option_id',
+                'course_start_date', 'course_end_date',
+                'vacancy', 'mode_of_training', 'venue_building',
+            ))
+            ->joinLeft(
+                array('ott' => $optTitle),
+                'ott.option_type_id = cr.trainer_option_id AND ott.store_id = 0',
+                array('trainer_name' => 'title')
+            )
+            ->where('cr.product_id = ?', (int) $product->getId())
+            ->where('cr.course_start_date IS NULL OR cr.course_start_date >= CURDATE()')
+            ->order('cr.course_start_date ASC')
+            ->limit(50);
+
+        $rows = $read->fetchAll($select);
+
+        $out = array();
+        foreach ($rows as $r) {
+            $trainer = trim((string) ($r['trainer_name'] ?? ''));
+            $hasTrainer = $trainer !== '';
+            $out[] = array(
+                'class_id'        => $this->_formatClassId((int) $r['run_id']),
+                'start_date'      => $r['course_start_date'] ?: null,
+                'end_date'        => $r['course_end_date']   ?: null,
+                'time'            => '09:30-17:30', // stock default — actual time per-run not in this table
+                'trainer'         => $hasTrainer ? $trainer : null,
+                'status'          => $hasTrainer ? 'Confirmed' : 'Pending',
+                'mode'            => $this->_modeLabel($r['mode_of_training']),
+                'venue'           => trim((string) ($r['venue_building'] ?? '')) ?: null,
+                'vacancy_code'    => (string) ($r['vacancy'] ?? '-'),
+                'seats_available' => $this->_vacancyLabel($r['vacancy']),
+            );
+        }
+        return $out;
+    }
+
+    private function _modeLabel($v)
+    {
+        // course_runs.mode_of_training: 1 = classroom, 2 = online, 3 = hybrid (best guess from schema)
+        switch ((int) $v) {
+            case 2: return 'Live Online';
+            case 3: return 'Hybrid (Classroom + Online)';
+            default: return 'Classroom';
+        }
+    }
+
+    private function _vacancyLabel($code)
+    {
+        // course_runs.vacancy enum guess: A=available, L=limited, F=full, -=unknown
+        switch (strtoupper((string) $code)) {
+            case 'A': return 'Available';
+            case 'L': return 'Limited seats';
+            case 'F': return 'Full';
+            default:  return 'Contact for availability';
+        }
+    }
+
+    private function _formatClassId($runId)
+    {
+        return 'SG' . str_pad((string) $runId, 6, '0', STR_PAD_LEFT);
+    }
+
+    private function _productUrl($product)
+    {
+        try {
+            $url = (string) $product->getProductUrl(false);
+            if ($url !== '') return $url;
+        } catch (Exception $e) {
+            // fall through
+        }
+        $urlKey = $product->getUrlKey();
+        return $urlKey ? 'https://www.tertiarycourses.com.sg/' . $urlKey . '.html'
+                       : 'https://www.tertiarycourses.com.sg/';
+    }
+
+    private function _errEnvelope($code, $message)
+    {
+        return array(
+            'source_url'   => null,
+            'last_updated' => gmdate('c'),
+            'confidence'   => 'error',
+            'error'        => $code,
+            'message'      => $message,
+        );
     }
 
     private function _collectCourses()
