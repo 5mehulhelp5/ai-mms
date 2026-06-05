@@ -65,11 +65,19 @@ class MMD_Courses_Api_ContactController extends Mage_Core_Controller_Front_Actio
                     'public_holidays'  => 'Closed (Singapore public holidays)',
                 ),
                 'google_maps_url'    => 'https://maps.google.com/?q=12+Woodlands+Square+%2307-85+Singapore',
-                'fallback_message'   => 'For urgent enquiries outside office hours (after 6 PM SGT), email training@tertiaryinfotech.com — we respond within 1 business day. For class-day emergencies (running late, can\'t find the venue), WhatsApp +65 8866 6375 and we will route the message to the trainer on duty.',
+                'fallback_message'   => 'For urgent enquiries outside office hours (after 6 PM SGT), email enquiry@tertiaryinfotech.com — we respond within 1 business day. For class-day emergencies (running late, can\'t find the venue), WhatsApp +65 8866 6375 and we will route the message to the trainer on duty.',
                 'response_times'   => array(
                     'whatsapp'      => 'Auto-reply 24/7; live agent during office hours.',
                     'email'         => 'Within 1 business day.',
                     'phone'         => 'Office hours only.',
+                ),
+                // Bot escalation contacts. Use these when the bot cannot answer
+                // a customer's question with confidence — DO NOT make up facts.
+                'escalation' => array(
+                    'customer_phone'  => '+65 6100 0613',
+                    'customer_email'  => 'enquiry@tertiaryinfotech.com',
+                    'internal_kb_email' => 'lms-tms@tertiaryinfotech.com',
+                    'instruction'     => 'If the API returns confidence: low or error, OR you are uncertain how to answer the customer, escalate by asking them to call +65 6100 0613 or email enquiry@tertiaryinfotech.com during office hours (9 AM - 6 PM daily SGT). Never invent facts; only use data returned from this API.',
                 ),
             ),
         ));
