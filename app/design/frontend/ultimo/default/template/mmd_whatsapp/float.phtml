@@ -4,16 +4,123 @@ $helper = Mage::helper('mmd_whatsapp');
 if (!$helper->isEnabled()) {
     return;
 }
-$link = $helper->getLink();
+
+$brand = $helper->getBrandName();
+$logo  = $this->getSkinUrl('images/logo-mark.png');
+
+// WhatsApp glyph reused for both the launcher and the header badge.
+$waPath = 'M24.50 7.51A11.93 11.93 0 0 0 16.04 4C9.43 4 4.05 9.38 4.04 15.99c0 2.11.55 4.18 1.6 5.99'
+        . 'L3.94 28l6.16-1.61a12 12 0 0 0 5.94 1.51h.01c6.61 0 11.99-5.38 11.99-11.99a11.92 11.92 0 0 0-3.54-8.40Z'
+        . 'm-8.46 18.42h-.01a9.95 9.95 0 0 1-5.07-1.39l-.36-.22-3.77 1 1.01-3.66-.24-.38a9.93 9.93 0 0 1-1.53-5.3'
+        . 'c0-5.49 4.47-9.96 9.97-9.96 2.66 0 5.16 1.04 7.04 2.92a9.9 9.9 0 0 1 2.91 7.06c0 5.49-4.47 9.94-9.96 9.94Z'
+        . 'm5.47-7.45c-.30-.15-1.77-.88-2.05-.98-.27-.10-.47-.15-.67.15-.20.30-.77.98-.95 1.18-.17.20-.35.22-.65.07'
+        . '-.30-.15-1.27-.47-2.41-1.49-.89-.79-1.49-1.78-1.67-2.08-.17-.30-.02-.46.13-.61.13-.13.30-.35.45-.52'
+        . '.15-.17.20-.30.30-.50.10-.20.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.50-.67-.51'
+        . '-.17-.01-.37-.01-.57-.01s-.52.07-.80.37c-.27.30-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08'
+        . 'c.15.20 2.10 3.21 5.10 4.50.71.31 1.27.49 1.71.63.72.23 1.37.20 1.89.12.58-.09 1.77-.72 2.02-1.42'
+        . '.25-.70.25-1.30.17-1.42-.07-.13-.27-.20-.57-.35Z';
+
+// Enquiry options -> each opens WhatsApp with a context-specific message.
+$options = array(
+    array(
+        'icon'  => '&#128176;', // money bag
+        'label' => $this->__('Course Funding'),
+        'desc'  => $this->__('SkillsFuture, WSQ, HRD Corp subsidies'),
+        'link'  => $helper->getLinkWithText(
+            $this->__('Hi %s, I would like to enquire about course funding / subsidies.', $brand)
+        ),
+    ),
+    array(
+        'icon'  => '&#128197;', // calendar
+        'label' => $this->__('Course Schedule'),
+        'desc'  => $this->__('Upcoming dates &amp; class availability'),
+        'link'  => $helper->getLinkWithText(
+            $this->__('Hi %s, I would like to enquire about the course schedule / upcoming dates.', $brand)
+        ),
+    ),
+    array(
+        'icon'  => '&#128172;', // speech balloon
+        'label' => $this->__('General Enquiry'),
+        'desc'  => $this->__('Speak to our friendly team'),
+        'link'  => $helper->getLinkWithText(
+            $this->__('Hi %s, I have a general enquiry.', $brand)
+        ),
+    ),
+);
 ?>
-<a href="<?php echo $this->escapeHtml($link); ?>"
-   class="mmd-whatsapp-float"
-   target="_blank"
-   rel="noopener noreferrer"
-   aria-label="<?php echo $this->__('Chat with us on WhatsApp'); ?>"
-   title="<?php echo $this->__('Chat with us on WhatsApp'); ?>">
-    <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" focusable="false">
-        <path fill="#ffffff" fill-rule="evenodd" clip-rule="evenodd"
-              d="M24.50 7.51A11.93 11.93 0 0 0 16.04 4C9.43 4 4.05 9.38 4.04 15.99c0 2.11.55 4.18 1.6 5.99L3.94 28l6.16-1.61a12 12 0 0 0 5.94 1.51h.01c6.61 0 11.99-5.38 11.99-11.99a11.92 11.92 0 0 0-3.54-8.40Zm-8.46 18.42h-.01a9.95 9.95 0 0 1-5.07-1.39l-.36-.22-3.77 1 1.01-3.66-.24-.38a9.93 9.93 0 0 1-1.53-5.3c0-5.49 4.47-9.96 9.97-9.96 2.66 0 5.16 1.04 7.04 2.92a9.9 9.9 0 0 1 2.91 7.06c0 5.49-4.47 9.94-9.96 9.94Zm5.47-7.45c-.30-.15-1.77-.88-2.05-.98-.27-.10-.47-.15-.67.15-.20.30-.77.98-.95 1.18-.17.20-.35.22-.65.07-.30-.15-1.27-.47-2.41-1.49-.89-.79-1.49-1.78-1.67-2.08-.17-.30-.02-.46.13-.61.13-.13.30-.35.45-.52.15-.17.20-.30.30-.50.10-.20.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.50-.67-.51-.17-.01-.37-.01-.57-.01s-.52.07-.80.37c-.27.30-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.20 2.10 3.21 5.10 4.50.71.31 1.27.49 1.71.63.72.23 1.37.20 1.89.12.58-.09 1.77-.72 2.02-1.42.25-.70.25-1.30.17-1.42-.07-.13-.27-.20-.57-.35Z"/>
-    </svg>
-</a>
+<div class="mmd-wa" id="mmd-wa">
+    <!-- Popup card -->
+    <div class="mmd-wa__popup" id="mmd-wa-popup" role="dialog" aria-modal="false"
+         aria-labelledby="mmd-wa-title" hidden>
+        <button type="button" class="mmd-wa__close" id="mmd-wa-close"
+                aria-label="<?php echo $this->__('Close chat'); ?>">&times;</button>
+        <div class="mmd-wa__header">
+            <div class="mmd-wa__avatar">
+                <img src="<?php echo $this->escapeHtml($logo); ?>"
+                     alt="<?php echo $this->escapeHtml($brand); ?>" />
+            </div>
+            <div class="mmd-wa__brand" id="mmd-wa-title"><?php echo $this->escapeHtml($brand); ?></div>
+            <div class="mmd-wa__tagline"><?php echo $this->__('How can we help you today?'); ?></div>
+        </div>
+        <div class="mmd-wa__body">
+            <?php foreach ($options as $opt): ?>
+                <a href="<?php echo $this->escapeHtml($opt['link']); ?>"
+                   class="mmd-wa__option" target="_blank" rel="noopener noreferrer">
+                    <span class="mmd-wa__option-icon" aria-hidden="true"><?php echo $opt['icon']; ?></span>
+                    <span class="mmd-wa__option-text">
+                        <span class="mmd-wa__option-label"><?php echo $opt['label']; ?></span>
+                        <span class="mmd-wa__option-desc"><?php echo $opt['desc']; ?></span>
+                    </span>
+                    <span class="mmd-wa__option-arrow" aria-hidden="true">&rsaquo;</span>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+
+    <!-- Launcher button -->
+    <button type="button" class="mmd-wa__launcher" id="mmd-wa-launcher"
+            aria-expanded="false" aria-controls="mmd-wa-popup"
+            aria-label="<?php echo $this->__('Chat with us on WhatsApp'); ?>"
+            title="<?php echo $this->__('Chat with us on WhatsApp'); ?>">
+        <svg class="mmd-wa__icon mmd-wa__icon--wa" viewBox="0 0 32 32" width="30" height="30"
+             aria-hidden="true" focusable="false">
+            <path fill="#ffffff" fill-rule="evenodd" clip-rule="evenodd" d="<?php echo $waPath; ?>"/>
+        </svg>
+        <svg class="mmd-wa__icon mmd-wa__icon--close" viewBox="0 0 24 24" width="22" height="22"
+             aria-hidden="true" focusable="false">
+            <path fill="#ffffff" d="M18.3 5.71 12 12.01l-6.3-6.3-1.41 1.41 6.3 6.3-6.3 6.3 1.41 1.41 6.3-6.3 6.3 6.3 1.41-1.41-6.3-6.3 6.3-6.3z"/>
+        </svg>
+    </button>
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+(function () {
+    var root = document.getElementById('mmd-wa');
+    if (!root) { return; }
+    var launcher = document.getElementById('mmd-wa-launcher');
+    var popup    = document.getElementById('mmd-wa-popup');
+    var closeBtn = document.getElementById('mmd-wa-close');
+
+    function open() {
+        root.classList.add('is-open');
+        popup.hidden = false;
+        launcher.setAttribute('aria-expanded', 'true');
+    }
+    function close() {
+        root.classList.remove('is-open');
+        popup.hidden = true;
+        launcher.setAttribute('aria-expanded', 'false');
+    }
+    function toggle() {
+        if (root.classList.contains('is-open')) { close(); } else { open(); }
+    }
+
+    launcher.addEventListener('click', toggle);
+    closeBtn.addEventListener('click', close);
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' || e.keyCode === 27) { close(); }
+    });
+})();
+//]]>
+</script>
