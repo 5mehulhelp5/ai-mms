@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="Tertiary">
+  <circle cx="512" cy="512" r="496" fill="#15498c"/>
+  <g fill="#ffffff">
+    <rect x="232" y="176" width="560" height="96" rx="48"/>
+    <path d="M458 250
+             L566 250
+             L566 388
+             Q566 432 610 432
+             L610 826
+             Q610 884 552 884
+             L472 884
+             Q414 884 414 826
+             L414 432
+             Q458 432 458 388
+             Z"/>
+  </g>
+</svg>

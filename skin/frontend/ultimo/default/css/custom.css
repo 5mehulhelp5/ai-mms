@@ -434,7 +434,7 @@ li.level2 > a > span > .cat-label,
 }
 
 /* MMD_Whatsapp — floating chat launcher + enquiry popup
-   Brand colour: WhatsApp green #25D366 (header/dark #128C7E) */
+   Brand colour: WhatsApp dark green #128C7E (open state #075E54) */
 .mmd-wa {
     position: fixed;
     right: 24px;
@@ -451,7 +451,7 @@ li.level2 > a > span > .cat-label,
     padding: 0;
     border: 0;
     border-radius: 50%;
-    background: #25d366;
+    background: #128c7e;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -459,13 +459,13 @@ li.level2 > a > span > .cat-label,
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
     transition: transform .15s ease, background .15s ease;
 }
-.mmd-wa__launcher:hover { background: #1fb955; transform: scale(1.06); }
-.mmd-wa__launcher:focus-visible { outline: 3px solid rgba(37, 211, 102, .45); outline-offset: 2px; }
+.mmd-wa__launcher:hover { background: #0e7a6d; transform: scale(1.06); }
+.mmd-wa__launcher:focus-visible { outline: 3px solid rgba(18, 140, 126, .45); outline-offset: 2px; }
 .mmd-wa__icon { display: block; }
 .mmd-wa__icon--close { display: none; }
 .mmd-wa.is-open .mmd-wa__icon--wa { display: none; }
 .mmd-wa.is-open .mmd-wa__icon--close { display: block; }
-.mmd-wa.is-open .mmd-wa__launcher { background: #128c7e; }
+.mmd-wa.is-open .mmd-wa__launcher { background: #075e54; }
 
 /* --- Popup card --- */
 .mmd-wa__popup {
@@ -509,7 +509,7 @@ li.level2 > a > span > .cat-label,
 .mmd-wa__close:hover { opacity: 1; }
 
 .mmd-wa__header {
-    background: #25d366;
+    background: #128c7e;
     padding: 26px 20px 22px;
     text-align: center;
     color: #fff;
@@ -555,7 +555,7 @@ li.level2 > a > span > .cat-label,
     width: 38px;
     height: 38px;
     border-radius: 50%;
-    background: #e7f8ee;
+    background: #e2f3f0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -564,7 +564,7 @@ li.level2 > a > span > .cat-label,
 .mmd-wa__option-text { flex: 1 1 auto; min-width: 0; }
 .mmd-wa__option-label { display: block; font-weight: 600; font-size: 14px; }
 .mmd-wa__option-desc { display: block; font-size: 12px; color: #6b7280; margin-top: 2px; }
-.mmd-wa__option-arrow { flex: 0 0 auto; font-size: 22px; color: #25d366; line-height: 1; }
+.mmd-wa__option-arrow { flex: 0 0 auto; font-size: 22px; color: #128c7e; line-height: 1; }
 
 @media (max-width: 770px) {
     .mmd-wa { right: 16px; bottom: 16px; }
