@@ -2501,6 +2501,48 @@ document.observe('dom:loaded', function() {
     });
 
     // ============================================================
+    // Catalog Search edit page — carry ?back= through to the save POST
+    // ============================================================
+    // MMD_Adminhtml_Block_Catalog_Search_Grid::getRowUrl() stamps every
+    // Edit link with `?back=<urlencoded listing url>`. The edit page
+    // doesn't natively forward that to the save POST, so without this
+    // injection the controller's saveAction would fall back to the
+    // session-based redirect (which is shared across tabs and races
+    // when the user has two listings open in different ?store= views).
+    // Read ?back= from window.location.search and inject it into every
+    // form on the edit page as a hidden input — POSTed alongside the
+    // other fields, picked up by MMD_Adminhtml_Catalog_SearchController.
+    function injectCatalogSearchBack() {
+        var bc = document.body.className || '';
+        var isEdit = (bc.indexOf('adminhtml-catalog_search-edit') !== -1
+            || bc.indexOf('adminhtml-catalog-search-edit') !== -1);
+        var isNew = (bc.indexOf('adminhtml-catalog_search-new') !== -1
+            || bc.indexOf('adminhtml-catalog-search-new') !== -1);
+        if (!isEdit && !isNew) return;
+
+        var qs = window.location.search || '';
+        var m  = qs.match(/[?&]back=([^&]*)/);
+        if (!m) return;
+        var backVal = m[1]; // already URL-encoded; POST body will preserve it
+
+        document.querySelectorAll('form').forEach(function (f) {
+            if (f.querySelector('input[name="back"]')) return;
+            var inp = document.createElement('input');
+            inp.type  = 'hidden';
+            inp.name  = 'back';
+            // Decode for the input value — the form serializer
+            // re-encodes on POST so the controller reads the raw URL.
+            try { inp.value = decodeURIComponent(backVal.replace(/\+/g, ' ')); }
+            catch (e) { inp.value = backVal; }
+            f.appendChild(inp);
+        });
+    }
+    [50, 300, 900].forEach(function (d) { setTimeout(injectCatalogSearchBack, d); });
+    document.addEventListener('instant-nav:after-swap', function () {
+        [50, 300, 900].forEach(function (d) { setTimeout(injectCatalogSearchBack, d); });
+    });
+
+    // ============================================================
     // Product Options → Table Conversion (Order Detail Page)
     // Transforms text-block options into a structured table
     // ============================================================

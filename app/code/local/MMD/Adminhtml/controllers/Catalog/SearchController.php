@@ -65,32 +65,39 @@ class MMD_Adminhtml_Catalog_SearchController
     }
 
     /**
-     * If a return URL was stashed by indexAction, overwrite the parent
-     * controller's redirect with it and clear the session key. Parent
-     * already called _redirect() but the response object lets us
-     * replace the Location header before send.
+     * Redirect resolution order:
+     *   1. POST['back'] / GET['back']  — hidden field on the save form
+     *      stamped by the JS injector on the edit page, originally
+     *      coming from Grid::getRowUrl(). Per-request, immune to
+     *      cross-tab races on the admin session.
+     *   2. Session stash (RETURN_URL_KEY) — set by indexAction as a
+     *      safety net for cases where a save somehow lands without
+     *      `back` (older browser tabs, manual URL hits, etc.).
+     *
+     * Either way we only honor a target that points back at the
+     * catalog_search controller — defense against an attacker
+     * steering the save into an arbitrary URL.
      */
     protected function _redirectToReturnUrl()
     {
         $session = Mage::getSingleton('adminhtml/session');
-        $return  = (string) $session->getData(self::RETURN_URL_KEY);
+        $return  = (string) $this->getRequest()->getParam('back', '');
+
+        if ($return === '') {
+            $return = (string) $session->getData(self::RETURN_URL_KEY);
+        }
+
         if ($return === '') return;
 
-        // Only honor return URLs that point back at the same admin
-        // controller — defensive, prevents an attacker from steering
-        // a save into an arbitrary URL via a stale session key.
         if (stripos($return, '/catalog_search') === false) {
             $session->unsetData(self::RETURN_URL_KEY);
             return;
         }
 
-        // Replace whatever Location header parent set with our return.
         $response = $this->getResponse();
         $response->clearHeader('Location');
         $response->setRedirect($return);
 
-        // Single-use: don't keep redirecting back even after the user
-        // navigates elsewhere. Next listing visit re-stamps the key.
         $session->unsetData(self::RETURN_URL_KEY);
     }
 }

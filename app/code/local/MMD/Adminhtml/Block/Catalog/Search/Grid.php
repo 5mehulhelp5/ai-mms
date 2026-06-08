@@ -102,4 +102,25 @@ class MMD_Adminhtml_Block_Catalog_Search_Grid
 
         return $this;
     }
+
+    /**
+     * Stamp every Edit link with `?back=<urlencoded current listing URL>`.
+     * The edit page injects that value into the save form as a hidden
+     * input (see sidebar-nav-v2.js → "catalog_search edit page" block),
+     * and MMD_Adminhtml_Catalog_SearchController::saveAction redirects
+     * to it after the save.
+     *
+     * Why not use the admin session: it's shared across tabs, so
+     * opening a second tab with a different ?store= overwrites the
+     * stash and steers a save in the first tab to the wrong store
+     * view. The per-request form-field round-trip is immune.
+     */
+    public function getRowUrl($row)
+    {
+        $back = (string) Mage::app()->getRequest()->getRequestUri();
+        return $this->getUrl('*/*/edit', array(
+            'id'     => $row->getId(),
+            '_query' => array('back' => $back),
+        ));
+    }
 }
