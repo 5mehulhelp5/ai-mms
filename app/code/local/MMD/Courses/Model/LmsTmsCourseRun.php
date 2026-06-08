@@ -4,8 +4,8 @@
  *
  * The WhatsApp trainer-reminders bot hits /courses/api_reminders?target_date=X
  * to pull "which trainer is teaching which class on date X". The primary
- * source is MMS course_runs (with Phase 2 admin_user-account trainers and
- * legacy EAV-option trainers). LMS-TMS is the secondary source — used when:
+ * source is MMS course_runs (Phase 2 admin_user-account trainers + legacy
+ * EAV-option trainers). LMS-TMS is the secondary source — used when:
  *
  *  (a) MMS knows about the class but has no trainer assigned, OR
  *  (b) LMS knows about a class on that date that MMS doesn't track at all.
@@ -16,18 +16,35 @@
  *
  * Read-only. No writes. Failure is non-fatal — if LMS is unreachable the
  * caller gets an empty result and continues with MMS-only data.
+ *
+ * == LMS-TMS API quirks (discovered 2026-06-08) ==
+ *
+ * 1. The endpoint's `?date=YYYY-MM-DD` query param is IGNORED — it returns
+ *    every record regardless. We paginate through the full dataset and
+ *    filter client-side.
+ *
+ * 2. Dates are stored as ISO 8601 UTC strings, e.g. "2026-06-11T16:00:00.000Z".
+ *    The "T16:00:00.000Z" suffix is midnight Singapore time the NEXT day.
+ *    So a class on 12 June 2026 (SGT) appears as "2026-06-11T16:00:00.000Z".
+ *    We MUST convert to Asia/Singapore before comparing dates, otherwise
+ *    every reminder lands a day early.
+ *
+ * 3. Many rows have assigned_trainer_email = null even when the LMS admin
+ *    UI shows an assigned trainer. The external endpoint only surfaces
+ *    "published" assignments. We drop nulls — there's no one to remind.
  */
 class MMD_Courses_Model_LmsTmsCourseRun
 {
     const URL_CONFIG_PATH  = 'mmd/trainer_import/lms_url';
     const KEY_CONFIG_PATH  = 'mmd/trainer_import/api_key';
     const CACHE_TAG        = 'MMD_LMS_TMS_COURSE_RUNS';
-    const CACHE_TTL_SECS   = 300;        // 5 minutes
-    const PAGE_LIMIT       = 200;        // ask for 200 per page
-    const MAX_PAGES        = 5;          // safety cap → max 1000 rows per date
+    const CACHE_TTL_SECS   = 3600;        // 1 hour — full dataset is ~5775 rows
+    const PAGE_LIMIT       = 200;         // ask for 200 per page
+    const MAX_PAGES        = 50;          // safety cap → 10000 rows max
+    const SGT_TZ           = 'Asia/Singapore';
     const LOG_FILE         = 'lms-tms-fallback.log';
 
-    /** Was the last call attempted, succeeded, returned data? Filled by getRunsByDate(). */
+    /** Last-call diagnostic state, surfaced into the API's fallback_check block. */
     protected $_lastAttempted    = false;
     protected $_lastSuccess      = false;
     protected $_lastErrorMessage = '';
@@ -38,7 +55,6 @@ class MMD_Courses_Model_LmsTmsCourseRun
         return $this->_url() !== '' && $this->_key() !== '';
     }
 
-    /** Last-call diagnostic snapshot, surfaced into the API's fallback_check block. */
     public function getLastCallStats()
     {
         return array(
@@ -51,28 +67,27 @@ class MMD_Courses_Model_LmsTmsCourseRun
     }
 
     /**
-     * Fetch all course-runs on the given date from LMS-TMS, paginated.
-     * Returns an array keyed by course_code (the SKU, e.g. TGS-2020505444 or
-     * M1860), each value normalised:
+     * Return all LMS course-runs whose Singapore-time start date matches
+     * the given YYYY-MM-DD. Filters server-trip via cache so the bot's
+     * daily poll only hits LMS once per hour.
      *
+     * Result is keyed by course_code (SKU), normalised:
      *   [
-     *     'name'              => 'Ken Hiong',
-     *     'email'             => 'hiongken@gmail.com',
-     *     'course_title'      => '...',
-     *     'mode'              => 'Physical' | 'Online' | 'Hybrid' | '',
-     *     'lms_course_run_id' => '1068286',
-     *     'lms_course_run_uuid'=>'93562a7b-…',
-     *     'enrolled_count'    => 7,
-     *     'class_status'      => 'Confirmed',
+     *     'name'                 => 'Iris Wang Yan Hong',
+     *     'email'                => 'iris@tertiaryinfotech.com',
+     *     'course_title'         => 'WSQ - Tax Computations ...',
+     *     'mode'                 => 'Physical' | 'Online' | 'Hybrid' | '',
+     *     'lms_course_run_id'    => '1131882',
+     *     'lms_course_run_uuid'  => '93562a7b-…',
+     *     'enrolled_count'       => 7,
+     *     'class_status'         => 'Confirmed',
+     *     'start_date_sgt'       => '2026-06-12',
      *   ]
-     *
-     * Rows without an assigned_trainer_email are dropped — there's no
-     * reminder to send if we don't know who to remind.
      *
      * Returns [] on any error (network, auth, JSON), and stashes the error
      * for the caller to surface in the diagnostic.
      *
-     * @param string $date YYYY-MM-DD
+     * @param string $date YYYY-MM-DD (Singapore-time calendar date)
      * @return array<string, array>
      */
     public function getRunsByDate($date)
@@ -89,94 +104,132 @@ class MMD_Courses_Model_LmsTmsCourseRun
         }
 
         if (!$this->isConfigured()) {
-            // Silent no-op: LMS-TMS just isn't wired in this env. Not an error.
             $this->_lastAttempted    = false;
             $this->_lastErrorMessage = 'not_configured';
             return array();
         }
 
-        // Short-cache per date to avoid N hits within one bot poll window.
-        $cacheKey = 'mmd_lms_tms_runs_' . md5($date);
+        try {
+            $allRuns = $this->_loadAllRunsFromCacheOrFetch();
+        } catch (Exception $e) {
+            $this->_lastErrorMessage = $e->getMessage();
+            $this->_log('getRunsByDate(' . $date . ') failed: ' . $e->getMessage());
+            return array();
+        }
+
+        // Filter the cached/fetched list to rows starting on the SGT calendar date.
+        // Drops Cancelled/Postponed/Pending, drops rows without a trainer email,
+        // and keeps first-write-wins by course_code (multiple runs on same date
+        // for the same SKU are extremely rare in practice).
+        $byCode = array();
+        foreach ($allRuns as $r) {
+            if ($r['start_date_sgt'] !== $date) continue;
+            if ($r['email'] === '')             continue;
+            if (strcasecmp($r['class_status'], 'Confirmed') !== 0) continue;
+            $code = $r['course_code'];
+            if ($code === '' || isset($byCode[$code])) continue;
+            $byCode[$code] = $r;
+        }
+
+        $this->_lastSuccess   = true;
+        $this->_lastTotalRows = count($byCode);
+        return $byCode;
+    }
+
+    /**
+     * Pull every page of LMS course-runs and cache the normalised dataset.
+     * Cached for CACHE_TTL_SECS so the once-daily bot poll doesn't trigger
+     * 30 cURL calls every time.
+     */
+    protected function _loadAllRunsFromCacheOrFetch()
+    {
+        $cacheKey = 'mmd_lms_tms_runs_all_v2';
         $cache    = Mage::app()->getCache();
         $cached   = $cache->load($cacheKey);
         if ($cached !== false) {
             $decoded = @unserialize($cached);
             if (is_array($decoded)) {
-                $this->_lastSuccess   = true;
-                $this->_lastTotalRows = count($decoded);
                 return $decoded;
             }
         }
 
         $all = array();
-        try {
-            $offset = 0;
-            for ($page = 0; $page < self::MAX_PAGES; $page++) {
-                $rows = $this->_fetchPage($date, $offset, self::PAGE_LIMIT);
-                if (empty($rows)) {
-                    break;
+        $offset = 0;
+        for ($page = 0; $page < self::MAX_PAGES; $page++) {
+            $rows = $this->_fetchPage($offset, self::PAGE_LIMIT);
+            if (empty($rows)) break;
+
+            foreach ($rows as $r) {
+                $normalised = $this->_normaliseRow($r);
+                if ($normalised !== null) {
+                    $all[] = $normalised;
                 }
-                foreach ($rows as $r) {
-                    $code   = trim((string) ($r['course_code'] ?? ''));
-                    $email  = trim((string) ($r['assigned_trainer_email'] ?? ''));
-                    $name   = trim((string) ($r['assigned_trainer_name']  ?? ''));
-                    $status = trim((string) ($r['class_status'] ?? ''));
-                    if ($code === '' || $email === '') {
-                        continue; // no SKU to match on, or no trainer to remind
-                    }
-                    // Only "Confirmed" classes get reminders. Drops Cancelled,
-                    // Postponed, Pending, Tentative, etc. — bot must never tell
-                    // a trainer "your class is tomorrow" if LMS says it isn't.
-                    if (strcasecmp($status, 'Confirmed') !== 0) {
-                        continue;
-                    }
-                    // First-write-wins so if LMS returns duplicate course_codes
-                    // (multiple runs on same date — rare) we keep the first.
-                    if (!isset($all[$code])) {
-                        $all[$code] = array(
-                            'name'                => $name,
-                            'email'               => $email,
-                            'course_title'        => (string) ($r['course_title'] ?? ''),
-                            'mode'                => (string) ($r['mode_of_learning'] ?? ''),
-                            'lms_course_run_id'   => (string) ($r['course_run_id']   ?? ''),
-                            'lms_course_run_uuid' => (string) ($r['course_run_uuid'] ?? ''),
-                            'enrolled_count'      => (int)    ($r['enrolled_count']  ?? 0),
-                            'class_status'        => (string) ($r['class_status']    ?? ''),
-                        );
-                    }
-                }
-                if (count($rows) < self::PAGE_LIMIT) {
-                    break; // last page
-                }
-                $offset += self::PAGE_LIMIT;
             }
-
-            $this->_lastSuccess   = true;
-            $this->_lastTotalRows = count($all);
-
-            // Cache only on success. Tag so a future admin "flush" can purge.
-            $cache->save(serialize($all), $cacheKey, array(self::CACHE_TAG), self::CACHE_TTL_SECS);
-
-        } catch (Exception $e) {
-            $this->_lastErrorMessage = $e->getMessage();
-            $this->_log('getRunsByDate(' . $date . ') failed: ' . $e->getMessage());
+            if (count($rows) < self::PAGE_LIMIT) break;
+            $offset += self::PAGE_LIMIT;
         }
 
+        $cache->save(serialize($all), $cacheKey, array(self::CACHE_TAG), self::CACHE_TTL_SECS);
         return $all;
     }
 
     /**
-     * Fetch one page from the LMS course-runs endpoint. Returns array of raw
-     * row arrays (un-normalised). Throws on transport / auth failure.
+     * Normalise one raw API row → our internal shape. Returns null if the
+     * row is missing critical fields. Converts the UTC start_date to a
+     * Singapore-time calendar date.
      */
-    protected function _fetchPage($date, $offset, $limit)
+    protected function _normaliseRow(array $r)
     {
-        $url  = $this->_url() . '/api/external/course-runs?date=' . rawurlencode($date)
-              . '&offset=' . (int) $offset . '&limit=' . (int) $limit;
+        $code  = trim((string) ($r['course_code'] ?? ''));
+        if ($code === '') return null;
+
+        $email = trim((string) ($r['assigned_trainer_email'] ?? ''));
+        $name  = trim((string) ($r['assigned_trainer_name']  ?? ''));
+        $startSgt = $this->_utcStringToSgtDate((string) ($r['start_date'] ?? ''));
+
+        return array(
+            'course_code'         => $code,
+            'name'                => $name,
+            'email'               => $email,
+            'course_title'        => (string) ($r['course_title'] ?? ''),
+            'mode'                => (string) ($r['mode_of_learning'] ?? ''),
+            'lms_course_run_id'   => (string) ($r['course_run_id']   ?? ''),
+            'lms_course_run_uuid' => (string) ($r['course_run_uuid'] ?? ''),
+            'enrolled_count'      => (int)    ($r['enrolled_count']  ?? 0),
+            'class_status'        => (string) ($r['class_status']    ?? ''),
+            'start_date_sgt'      => $startSgt,
+        );
+    }
+
+    /**
+     * "2026-06-11T16:00:00.000Z" (UTC) → "2026-06-12" (SGT calendar date).
+     * Empty or unparseable input → ''.
+     */
+    protected function _utcStringToSgtDate($utcString)
+    {
+        $utcString = trim((string) $utcString);
+        if ($utcString === '') return '';
+        try {
+            $dt = new DateTime($utcString, new DateTimeZone('UTC'));
+            $dt->setTimezone(new DateTimeZone(self::SGT_TZ));
+            return $dt->format('Y-m-d');
+        } catch (Exception $e) {
+            return '';
+        }
+    }
+
+    /**
+     * Fetch one page from the LMS course-runs endpoint. Note: the API's
+     * `?date=` filter is ignored upstream, so we don't pass it — we pull
+     * the full dataset and filter client-side after timezone-correcting.
+     */
+    protected function _fetchPage($offset, $limit)
+    {
+        $url  = $this->_url() . '/api/external/course-runs?offset=' . (int) $offset . '&limit=' . (int) $limit;
         $ch   = curl_init($url);
         curl_setopt_array($ch, array(
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_TIMEOUT        => 20,
             CURLOPT_CONNECTTIMEOUT => 5,
             CURLOPT_HTTPHEADER     => array('x-api-key: ' . $this->_key(), 'Accept: application/json'),
         ));
