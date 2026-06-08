@@ -6329,6 +6329,41 @@ if (isset($_lmcRunMap[$_lcdCourseId])) {
     </div>
 
 <!-- Feedback QR modal (shared for learner + trainer panels) -->
+<style>
+/* Light-mode overrides for the QR feedback modal. The modal's
+   markup hardcodes dark colors via inline style="" attributes so
+   nothing in the global theme CSS reaches it (inline > author).
+   Hook by the modal's ID + attribute selectors that pattern-match
+   the exact inline value strings — that gives matching specificity
+   plus !important to flip them in light mode only.
+
+   Mapping:
+     #1e2132 (card body bg)         -> #ffffff
+     rgba(0,0,0,.6) (backdrop)      -> rgba(15,23,42,.45) slate-tinted
+     #94a3b8 (muted text)           -> #475569 slate-600
+     #64748b (more muted)           -> stays — readable on white
+     #334155 (border / Copy btn)    -> #cbd5e1 slate-300
+     rgba(255,255,255,.7) (close)   -> #475569 slate-600
+   Blue header (#2563eb) + Open Link button keep brand color. */
+:root[data-theme="light"] #lmc-feedback-modal[style*="background:rgba(0,0,0,.6)"] {
+    background:rgba(15,23,42,.45) !important;
+}
+:root[data-theme="light"] #lmc-feedback-modal [style*="background:#1e2132"] {
+    background:#ffffff !important;
+}
+:root[data-theme="light"] #lmc-feedback-modal [style*="border:1px solid #334155"] {
+    border-color:#cbd5e1 !important;
+}
+:root[data-theme="light"] #lmc-feedback-modal [style*="color:#94a3b8"] {
+    color:#475569 !important;
+}
+:root[data-theme="light"] #lmc-feedback-modal [style*="color:rgba(255,255,255,.7)"] {
+    color:#475569 !important;
+}
+:root[data-theme="light"] #lmc-feedback-modal [style*="box-shadow:0 20px 60px rgba(0,0,0,.5)"] {
+    box-shadow:0 20px 60px rgba(15,23,42,.18) !important;
+}
+</style>
 <div id="lmc-feedback-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;padding:16px;">
     <!-- inner card matches LMS exactly -->
     <div style="position:relative;border:1px solid #334155;border-radius:12px;overflow:hidden;max-width:320px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.5);">
