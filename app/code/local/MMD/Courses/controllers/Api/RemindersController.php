@@ -185,19 +185,22 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
                 $lmsMatched++;
             }
 
-            // Phase 3: LMS-only classes (course_code not in MMS at all on date).
+            // Phase 3 (LMS-only classes) — DISABLED 2026-06-08 pending LMS-TMS
+            // API fix. The LMS endpoint /api/external/course-runs?date=YYYY-MM-DD
+            // returns courses in session on the date (multi-day spans), not
+            // courses starting on the date. Confirmed by comparing the LMS
+            // admin UI for 12 Jun (Iris Wang, Mohamed Afiq) vs the API response
+            // for ?date=2026-06-12 (Ken Hiong, Sanjiv Venkatram, Leong Jin Jie
+            // — all multi-day courses that started earlier). Surfacing those
+            // as "your training is on 12 Jun" reminders would be wrong.
+            //
+            // Phase 2 (LMS fills MMS-known gaps) is still safe because MMS
+            // controls the date. Re-enable Phase 3 once LMS-TMS exposes a
+            // start_date filter (or populates the start_date field so we can
+            // filter client-side).
             foreach ($lmsByCode as $sku => $lms) {
                 if (isset($coveredCodes[$sku])) continue;
-                $synthetic = $this->_syntheticRowFromLms($sku, $lms, $filterDate);
-                $trainerOverride = array(
-                    'name'              => (string) $lms['name'],
-                    'email'             => (string) $lms['email'],
-                    'source'            => 'lms-tms-fallback',
-                    'lms_course_run_id' => (string) $lms['lms_course_run_id'],
-                );
-                $reminders[] = $this->_buildReminder($synthetic, $daysAhead, $trainerOverride);
-                $coveredCodes[$sku] = true;
-                $lmsOnly++;
+                $lmsOnly++; // count but do not emit
             }
         }
 
@@ -207,13 +210,15 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
         // or is the invitation flow stuck somewhere?
         $diagnostic = $this->_buildDiagnostic($filterDate, count($reminders));
         $diagnostic['lms_tms'] = array(
-            'attempted'      => (bool) ($lmsStats['attempted'] ?? false),
-            'success'        => (bool) ($lmsStats['success']   ?? false),
-            'configured'     => (bool) ($lmsStats['configured']?? false),
-            'rows_returned'  => (int)  ($lmsStats['rows_returned'] ?? 0),
-            'matched_count'  => $lmsMatched,
-            'lms_only_count' => $lmsOnly,
-            'error'          => (string) ($lmsStats['error'] ?? ''),
+            'attempted'                => (bool) ($lmsStats['attempted'] ?? false),
+            'success'                  => (bool) ($lmsStats['success']   ?? false),
+            'configured'               => (bool) ($lmsStats['configured']?? false),
+            'rows_returned'            => (int)  ($lmsStats['rows_returned'] ?? 0),
+            'matched_count'            => $lmsMatched,
+            'lms_only_count_suppressed'=> $lmsOnly,
+            'lms_only_phase_enabled'   => false,
+            'lms_only_phase_note'      => 'Phase 3 disabled 2026-06-08 — LMS-TMS ?date= returns in-session courses, not starting-on-date. Awaiting upstream fix.',
+            'error'                    => (string) ($lmsStats['error'] ?? ''),
         );
 
         return $this->_json(200, array(
