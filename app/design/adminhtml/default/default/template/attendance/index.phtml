@@ -32,8 +32,8 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 .att-pill{display:inline-flex;align-items:center;gap:6px;background:#0f172a;border:1px solid #334155;border-radius:999px;padding:5px 12px;font-size:12px;color:#94a3b8;margin:8px 8px 0 0;}
 .att-pill b{color:#e2e8f0;font-weight:600;}
 .att-tabs{display:inline-flex;border:1px solid #334155;border-radius:999px;padding:2px;margin-bottom:16px;}
-.att-tab{padding:5px 16px;border-radius:999px;font-size:12px;font-weight:600;color:#94a3b8;text-decoration:none;}
-.att-tab.active{background:#2563eb;color:#fff;}
+.att-tab{padding:5px 16px;border-radius:999px;font-size:12px;font-weight:600;color:#94a3b8 !important;text-decoration:none;}
+.att-tab.active{background:#2563eb;color:#fff !important;}
 .att-counter{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;}
 .att-c-present{background:rgba(34,197,94,.15);color:#22c55e;}
 .att-c-absent{background:rgba(239,68,68,.15);color:#f87171;}
@@ -66,6 +66,48 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 .att-kpi{background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:18px 20px;text-align:center;}
 .att-kpi-num{font-size:28px;font-weight:700;line-height:1.1;margin-bottom:4px;}
 .att-kpi-lbl{font-size:12px;color:#64748b;}
+
+/* ── Light theme — flip every .att-* dark token to a slate
+   counterpart. Cards slate-100 / white, inputs white +
+   slate-300 border, body text slate-900, muted labels slate-600.
+   Brand-blue accents (primary buttons, focus, active tab) keep
+   their hue. */
+:root[data-theme="light"] .att-card{background:#f1f5f9;border-color:#cbd5e1;}
+:root[data-theme="light"] .att-title{color:#0f172a;}
+:root[data-theme="light"] .att-sub{color:#64748b;}
+:root[data-theme="light"] .att-label{color:#475569;}
+:root[data-theme="light"] .att-select,
+:root[data-theme="light"] .att-reason,
+:root[data-theme="light"] .att-modal input{background:#ffffff;border-color:#cbd5e1;color:#0f172a;}
+:root[data-theme="light"] .att-select:focus,
+:root[data-theme="light"] .att-reason:focus,
+:root[data-theme="light"] .att-modal input:focus{border-color:#2563eb;}
+:root[data-theme="light"] .att-pill{background:#ffffff;border-color:#cbd5e1;color:#475569;}
+:root[data-theme="light"] .att-pill b{color:#0f172a;}
+:root[data-theme="light"] .att-tabs{border-color:#cbd5e1;}
+/* The tabs are <a> elements, and dark-theme.css §190 has a blanket
+   `a { color: var(--blue) !important }` that beats every non-!important
+   override here — both tabs ended up brand-blue text, invisible
+   against the active blue pill and link-coloured against the bare
+   background. !important needed to win the cascade. */
+:root[data-theme="light"] .att-tab{color:#475569 !important;}
+:root[data-theme="light"] .att-tab.active{background:#2563eb !important;color:#0f172a !important;}
+:root[data-theme="light"] .att-c-total{background:rgba(100,116,139,.15);color:#475569;}
+:root[data-theme="light"] .att-btn-ghost{border-color:#cbd5e1;color:#475569;}
+:root[data-theme="light"] .att-btn-ghost:hover{border-color:#2563eb;color:#0f172a;background:#e2e8f0;}
+:root[data-theme="light"] .att-table thead th{background:#e2e8f0;color:#475569;}
+:root[data-theme="light"] .att-table tbody tr{border-top-color:#e2e8f0;}
+:root[data-theme="light"] .att-table tbody tr.walkin{background:rgba(37,99,235,.06);}
+:root[data-theme="light"] .att-table tbody td{color:#0f172a;}
+:root[data-theme="light"] .att-status{color:#64748b;}
+:root[data-theme="light"] .att-modal-bd{background:rgba(15,23,42,.45);}
+:root[data-theme="light"] .att-modal{background:#ffffff;border-color:#cbd5e1;}
+:root[data-theme="light"] .att-modal h3{color:#0f172a;}
+:root[data-theme="light"] .att-modal p.note{color:#64748b;}
+:root[data-theme="light"] .att-modal label{color:#475569;}
+:root[data-theme="light"] .att-empty{color:#64748b;}
+:root[data-theme="light"] .att-kpi{background:#ffffff;border-color:#e2e8f0;}
+:root[data-theme="light"] .att-kpi-lbl{color:#64748b;}
 </style>
 
 <div class="rm-wrap">
@@ -79,6 +121,27 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
         <a class="att-tab <?php echo $readonly ? '' : 'active' ?>" href="<?php echo $activeUrl ?>">Take Attendance</a>
         <a class="att-tab <?php echo $readonly ? 'active' : '' ?>" href="<?php echo $compUrl ?>">Past Attendance</a>
     </div>
+    <script>
+    // Force the .att-tab colors as inline styles — the upstream
+    // dark-theme.css §190 has a blanket `a { color: var(--blue)
+    // !important }` plus several admin-wide tab styles that win
+    // against every CSS rule we can write from this inline <style>.
+    // Inline `style` has the highest possible specificity, so this
+    // is the bulletproof way to nail the colors on every theme.
+    (function(){
+        var theme = document.documentElement.getAttribute('data-theme') || 'dark';
+        var isLight = theme === 'light';
+        document.querySelectorAll('.att-tab').forEach(function(a){
+            if (a.classList.contains('active')) {
+                a.style.setProperty('background', '#2563eb', 'important');
+                a.style.setProperty('color', isLight ? '#0f172a' : '#ffffff', 'important');
+            } else {
+                a.style.setProperty('background', 'transparent', 'important');
+                a.style.setProperty('color', isLight ? '#475569' : '#94a3b8', 'important');
+            }
+        });
+    })();
+    </script>
 
     <?php if ($certCanToggle): ?>
     <!-- Auto-send certificates master toggle -->
