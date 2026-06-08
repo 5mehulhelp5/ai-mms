@@ -45,6 +45,7 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
     const CONFIG_PATH_API_KEY         = 'courses/general/wsq_schedule_api_key';
     const CONFIG_PATH_TRAINER_API_KEY = 'courses/general/trainer_reminders_api_key';
     const SG_STORE_ID                 = 1;
+    const SG_CLASS_ID_PREFIX          = 'SG';
     const ESCALATION_WHATSAPP         = '+65 8866 6375';
 
     public function indexAction()
@@ -123,6 +124,7 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
                      GROUP BY run_id
                 ) en ON en.run_id = cr.run_id
                   WHERE cr.course_start_date = ?
+                    AND cr.class_id LIKE 'SG%'
                     AND ( (cr.trainer_user_id IS NOT NULL AND cr.trainer_user_id > 0)
                        OR (cr.trainer_option_id IS NOT NULL AND cr.trainer_option_id > 0) )
                     AND cr.invitation_paused = 0
@@ -155,6 +157,11 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
         $lmsService = Mage::getModel('courses/lmsTmsCourseRun');
         $lmsByCode  = $lmsService->getRunsByDate($filterDate); // [sku => trainer info]
         $lmsStats   = $lmsService->getLastCallStats();
+        // Singapore-only scope: drop any LMS rows whose course_code is not an
+        // SG SKU pattern. Per CLAUDE.md, SG SKUs start with "TGS-" (WSQ) or
+        // "C" (SG non-WSQ). "M*" is MY/NG/GH/BT/IN — exclude defensively even
+        // though LMS-TMS today only carries SG content.
+        $lmsByCode  = $this->_filterLmsToSg($lmsByCode);
         $lmsMatched = 0;
         $lmsOnly    = 0;
 
@@ -265,6 +272,7 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
                      ) latest ON latest.run_id = i.run_id AND latest.max_id = i.id
                 ) latest_inv ON latest_inv.run_id = cr.run_id
                   WHERE cr.course_start_date = ?
+                    AND cr.class_id LIKE 'SG%'
                   ORDER BY cr.run_id ASC",
                 array($filterDate)
             );
@@ -504,6 +512,7 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
                      GROUP BY run_id
                 ) en ON en.run_id = cr.run_id
                   WHERE cr.course_start_date = ?
+                    AND cr.class_id LIKE 'SG%'
                     AND (cr.trainer_user_id   IS NULL OR cr.trainer_user_id   = 0)
                     AND (cr.trainer_option_id IS NULL OR cr.trainer_option_id = 0)
                     AND cr.invitation_paused = 0
@@ -514,6 +523,21 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
             Mage::logException($e);
             return array();
         }
+    }
+
+    /**
+     * Defensive SG-only filter on the LMS-TMS course-runs map. Keeps only
+     * SKUs that match the SG patterns per CLAUDE.md (TGS-* WSQ, C* non-WSQ).
+     */
+    private function _filterLmsToSg(array $lmsByCode)
+    {
+        $sg = array();
+        foreach ($lmsByCode as $code => $row) {
+            if (preg_match('/^(TGS-|C\d)/i', $code)) {
+                $sg[$code] = $row;
+            }
+        }
+        return $sg;
     }
 
     /**
