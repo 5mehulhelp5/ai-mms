@@ -117,11 +117,18 @@ class MMD_Courses_Model_LmsTmsCourseRun
                     break;
                 }
                 foreach ($rows as $r) {
-                    $code  = trim((string) ($r['course_code'] ?? ''));
-                    $email = trim((string) ($r['assigned_trainer_email'] ?? ''));
-                    $name  = trim((string) ($r['assigned_trainer_name']  ?? ''));
+                    $code   = trim((string) ($r['course_code'] ?? ''));
+                    $email  = trim((string) ($r['assigned_trainer_email'] ?? ''));
+                    $name   = trim((string) ($r['assigned_trainer_name']  ?? ''));
+                    $status = trim((string) ($r['class_status'] ?? ''));
                     if ($code === '' || $email === '') {
                         continue; // no SKU to match on, or no trainer to remind
+                    }
+                    // Only "Confirmed" classes get reminders. Drops Cancelled,
+                    // Postponed, Pending, Tentative, etc. — bot must never tell
+                    // a trainer "your class is tomorrow" if LMS says it isn't.
+                    if (strcasecmp($status, 'Confirmed') !== 0) {
+                        continue;
                     }
                     // First-write-wins so if LMS returns duplicate course_codes
                     // (multiple runs on same date — rare) we keep the first.
