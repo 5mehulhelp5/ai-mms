@@ -94,6 +94,12 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
         }
 
         try {
+            // Phase 2 (commit e94c7f8e) introduced account-based trainer
+            // assignment alongside the legacy EAV pointer. We include BOTH
+            // columns and accept a row as "ready" if either is populated.
+            // Per-row trainer info is then resolved via the canonical helper
+            // MMD_RoleManager_Helper_Trainer::resolveRunTrainer() so we read
+            // the same source of truth as the admin "All Classes" grid.
             $rows = $this->_db()->fetchAll(
                 "SELECT cr.run_id, cr.class_id, cr.product_id, cr.course_sku,
                         cr.course_start_date, cr.course_end_date,
@@ -101,10 +107,9 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
                         cr.mode_of_training, cr.venue_building,
                         cr.venue_street, cr.venue_floor, cr.venue_unit,
                         cr.postal_code, cr.room,
+                        cr.trainer_user_id, cr.trainer_option_id,
                         COALESCE(pn.value, '(deleted product)') AS course_title,
-                        COALESCE(en.enrolled, 0) AS enrolled,
-                        inv.trainer_name, inv.trainer_email,
-                        t.trainer_id AS roster_id, t.telephone AS trainer_phone
+                        COALESCE(en.enrolled, 0) AS enrolled
                    FROM course_runs cr
               LEFT JOIN catalog_product_entity_varchar pn
                      ON pn.entity_id = cr.product_id
@@ -117,23 +122,9 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
                       FROM course_run_enrolments
                      GROUP BY run_id
                 ) en ON en.run_id = cr.run_id
-              LEFT JOIN (
-                    SELECT i.run_id, i.trainer_name, i.trainer_email
-                      FROM course_run_trainer_invitations i
-                     INNER JOIN (
-                         SELECT run_id, MAX(id) AS max_id
-                           FROM course_run_trainer_invitations
-                          WHERE status = 'accepted'
-                          GROUP BY run_id
-                     ) latest ON latest.run_id = i.run_id AND latest.max_id = i.id
-                ) inv ON inv.run_id = cr.run_id
-              LEFT JOIN (
-                    SELECT trainers_id AS trainer_id, email, telephone
-                      FROM courses_trainers
-                     WHERE status = 1
-                ) t ON t.email = inv.trainer_email
                   WHERE cr.course_start_date = ?
-                    AND cr.trainer_option_id IS NOT NULL
+                    AND ( (cr.trainer_user_id IS NOT NULL AND cr.trainer_user_id > 0)
+                       OR (cr.trainer_option_id IS NOT NULL AND cr.trainer_option_id > 0) )
                     AND cr.invitation_paused = 0
                   ORDER BY cr.course_start_date ASC, cr.course_start_time ASC",
                 array($filterDate)
@@ -186,8 +177,8 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
         try {
             $allClasses = $this->_db()->fetchAll(
                 "SELECT cr.run_id, cr.class_id, cr.course_sku, cr.product_id,
-                        cr.trainer_option_id, cr.invitation_paused,
-                        cr.invitation_replies_blocked,
+                        cr.trainer_user_id, cr.trainer_option_id,
+                        cr.invitation_paused, cr.invitation_replies_blocked,
                         COALESCE(pn.value, '(deleted product)') AS course_title,
                         latest_inv.status AS invitation_status,
                         latest_inv.trainer_name AS invitation_trainer_name,
@@ -221,20 +212,24 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
         }
 
         $total = count($allClasses);
-        $confirmed     = 0;
-        $accepted      = 0;
-        $pending       = 0;
-        $declined      = 0;
-        $paused        = 0;
-        $noTrainerInfo = 0;
-        $needAttention = array();
+        $confirmed       = 0;
+        $byAccount       = 0;
+        $byEav           = 0;
+        $accepted        = 0;
+        $pending         = 0;
+        $declined        = 0;
+        $paused          = 0;
+        $noTrainerInfo   = 0;
+        $needAttention   = array();
 
         foreach ($allClasses as $c) {
+            $userId = (int) ($c['trainer_user_id']   ?? 0);
             $optId  = (int) ($c['trainer_option_id'] ?? 0);
             $status = (string) ($c['invitation_status'] ?? '');
 
-            $hasTrainer = $optId > 0;
-            if ($hasTrainer)                  { $confirmed++; }
+            $hasTrainer = ($userId > 0) || ($optId > 0);
+            if ($hasTrainer) { $confirmed++; }
+            if ($userId > 0) { $byAccount++; } elseif ($optId > 0) { $byEav++; }
             if ($status === 'accepted')       { $accepted++; }
             if ($status === 'pending')        { $pending++; }
             if ($status === 'declined')       { $declined++; }
@@ -260,17 +255,20 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
             }
 
             $needAttention[] = array(
-                'run_id'             => (int) $c['run_id'],
-                'class_id'           => (string) $c['class_id'],
-                'store_code'         => $this->_storeFromClassId($c['class_id']),
-                'course_sku'         => (string) $c['course_sku'],
-                'course_title'       => (string) $c['course_title'],
-                'has_trainer'        => $hasTrainer,
-                'invitation_status'  => $status ?: 'never_invited',
-                'invitation_trainer' => $c['invitation_trainer_name'] ?: null,
-                'invitation_sent_at' => $c['invitation_sent_at'] ?: null,
-                'invitation_paused'  => (int) $c['invitation_paused'] === 1,
-                'action_needed'      => $action,
+                'run_id'                 => (int) $c['run_id'],
+                'class_id'               => (string) $c['class_id'],
+                'store_code'             => $this->_storeFromClassId($c['class_id']),
+                'course_sku'             => (string) $c['course_sku'],
+                'course_title'           => (string) $c['course_title'],
+                'has_trainer'            => $hasTrainer,
+                'trainer_user_id'        => $userId > 0 ? $userId : null,
+                'trainer_option_id'      => $optId  > 0 ? $optId  : null,
+                'trainer_source'         => $userId > 0 ? 'account' : ($optId > 0 ? 'eav' : null),
+                'invitation_status'      => $status ?: 'never_invited',
+                'invitation_trainer'     => $c['invitation_trainer_name'] ?: null,
+                'invitation_sent_at'     => $c['invitation_sent_at'] ?: null,
+                'invitation_paused'      => (int) $c['invitation_paused'] === 1,
+                'action_needed'          => $action,
             );
         }
 
@@ -280,13 +278,15 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
                 $total, $filterDate, $confirmed, count($needAttention)
             ),
             'totals' => array(
-                'total_classes_on_date'      => $total,
-                'with_confirmed_trainer'     => $confirmed,
-                'with_accepted_invitation'   => $accepted,
-                'with_pending_invitation'    => $pending,
-                'with_declined_invitation'   => $declined,
-                'invitation_paused'          => $paused,
-                'no_trainer_no_invitation'   => $noTrainerInfo,
+                'total_classes_on_date'         => $total,
+                'with_confirmed_trainer'        => $confirmed,
+                'confirmed_via_account'         => $byAccount,
+                'confirmed_via_legacy_eav'      => $byEav,
+                'with_accepted_invitation'      => $accepted,
+                'with_pending_invitation'       => $pending,
+                'with_declined_invitation'      => $declined,
+                'invitation_paused'             => $paused,
+                'no_trainer_no_invitation'      => $noTrainerInfo,
             ),
             'classes_needing_attention' => $needAttention,
             'interpretation' => $primaryCount === 0
@@ -324,9 +324,17 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
         $venueText = $this->_venueText($r);
         $modeLabel = $this->_modeLabel($r['mode_of_training']);
 
-        $trainerName  = trim((string) ($r['trainer_name']  ?? ''));
-        $trainerEmail = trim((string) ($r['trainer_email'] ?? ''));
-        $trainerPhone = trim((string) ($r['trainer_phone'] ?? ''));
+        // Resolve trainer via Phase 2 canonical helper. Account pointer wins,
+        // EAV is fallback. Returns null if no trainer (shouldn't happen here
+        // because the SQL WHERE already filters those out).
+        $resolved = $this->_resolveTrainer($r);
+        $trainerName  = $resolved ? (string) ($resolved['name']  ?? '') : '';
+        $trainerEmail = $resolved ? (string) ($resolved['email'] ?? '') : '';
+
+        // Phone is NOT on admin_user; look it up in courses_trainers by email
+        // as a best-effort. Legacy assignments often have a courses_trainers
+        // row keyed by relation_id but we use email here for portability.
+        $trainerPhone = $this->_trainerPhoneByEmail($trainerEmail);
 
         $courseUrl = $this->_courseUrl($r['product_id'], $r['course_sku']);
 
@@ -407,6 +415,38 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
             }
         } catch (Exception $e) { /* fall through */ }
         return 'https://www.tertiarycourses.com.sg/catalogsearch/result/?q=' . rawurlencode($sku);
+    }
+
+    /**
+     * Delegate to MMD_RoleManager_Helper_Trainer::resolveRunTrainer so the
+     * /api_reminders endpoint reads trainer info from the same canonical
+     * source as the admin "All Classes" grid. Falls back to a direct lookup
+     * if the helper isn't registered (defensive, shouldn't happen on a real
+     * deploy).
+     */
+    private function _resolveTrainer(array $r)
+    {
+        try {
+            $helper = Mage::helper('mmd_rolemanager/trainer');
+            if ($helper && method_exists($helper, 'resolveRunTrainer')) {
+                return $helper->resolveRunTrainer($r);
+            }
+        } catch (Exception $e) { /* fall through */ }
+        return null;
+    }
+
+    private function _trainerPhoneByEmail($email)
+    {
+        $email = trim((string) $email);
+        if ($email === '') return '';
+        try {
+            return (string) $this->_db()->fetchOne(
+                "SELECT telephone FROM courses_trainers WHERE email = ? AND status = 1 AND telephone IS NOT NULL AND telephone <> '' LIMIT 1",
+                array($email)
+            );
+        } catch (Exception $e) {
+            return '';
+        }
     }
 
     private function _modeLabel($v)
