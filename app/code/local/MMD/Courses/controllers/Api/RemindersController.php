@@ -134,9 +134,64 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
             return $this->_json(500, $this->_errEnvelope('internal_error', $e->getMessage()));
         }
 
-        $reminders = array();
+        $reminders     = array();
+        $coveredCodes  = array(); // course_sku of every class we've already emitted
+
+        // Phase 1: MMS classes with a confirmed trainer (account or EAV).
         foreach ($rows as $r) {
             $reminders[] = $this->_buildReminder($r, $daysAhead);
+            $coveredCodes[(string) $r['course_sku']] = true;
+        }
+
+        // Phase 2 + 3: LMS-TMS fallback (added 2026-06-08).
+        //   - Phase 2: MMS class exists on date but no trainer assigned, AND
+        //              LMS-TMS has an assigned trainer for the same course
+        //              code → use LMS trainer info, mark trainer.source.
+        //   - Phase 3: LMS-TMS has a class on this date that MMS doesn't
+        //              track at all (no matching course_runs row), AND it has
+        //              an assigned trainer → synthesize a reminder from LMS
+        //              data, mark class_source = "lms-tms".
+        // LMS-TMS failure is non-fatal — we just continue with MMS-only data.
+        $lmsService = Mage::getModel('courses/lmsTmsCourseRun');
+        $lmsByCode  = $lmsService->getRunsByDate($filterDate); // [sku => trainer info]
+        $lmsStats   = $lmsService->getLastCallStats();
+        $lmsMatched = 0;
+        $lmsOnly    = 0;
+
+        if (!empty($lmsByCode)) {
+            // Phase 2: find MMS classes on date with NO trainer, fill from LMS.
+            $gapRows = $this->_fetchMmsClassesWithoutTrainer($filterDate);
+            foreach ($gapRows as $gap) {
+                $sku = (string) $gap['course_sku'];
+                if (isset($coveredCodes[$sku])) continue;
+                if (!isset($lmsByCode[$sku]))    continue;
+
+                $lms = $lmsByCode[$sku];
+                $trainerOverride = array(
+                    'name'              => (string) $lms['name'],
+                    'email'             => (string) $lms['email'],
+                    'source'            => 'lms-tms-fallback',
+                    'lms_course_run_id' => (string) $lms['lms_course_run_id'],
+                );
+                $reminders[] = $this->_buildReminder($gap, $daysAhead, $trainerOverride);
+                $coveredCodes[$sku] = true;
+                $lmsMatched++;
+            }
+
+            // Phase 3: LMS-only classes (course_code not in MMS at all on date).
+            foreach ($lmsByCode as $sku => $lms) {
+                if (isset($coveredCodes[$sku])) continue;
+                $synthetic = $this->_syntheticRowFromLms($sku, $lms, $filterDate);
+                $trainerOverride = array(
+                    'name'              => (string) $lms['name'],
+                    'email'             => (string) $lms['email'],
+                    'source'            => 'lms-tms-fallback',
+                    'lms_course_run_id' => (string) $lms['lms_course_run_id'],
+                );
+                $reminders[] = $this->_buildReminder($synthetic, $daysAhead, $trainerOverride);
+                $coveredCodes[$sku] = true;
+                $lmsOnly++;
+            }
         }
 
         // Fallback diagnostic: when reminders count is 0 (or low), surface
@@ -144,6 +199,15 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
         // Operators can read this to decide: are trainers genuinely missing,
         // or is the invitation flow stuck somewhere?
         $diagnostic = $this->_buildDiagnostic($filterDate, count($reminders));
+        $diagnostic['lms_tms'] = array(
+            'attempted'      => (bool) ($lmsStats['attempted'] ?? false),
+            'success'        => (bool) ($lmsStats['success']   ?? false),
+            'configured'     => (bool) ($lmsStats['configured']?? false),
+            'rows_returned'  => (int)  ($lmsStats['rows_returned'] ?? 0),
+            'matched_count'  => $lmsMatched,
+            'lms_only_count' => $lmsOnly,
+            'error'          => (string) ($lmsStats['error'] ?? ''),
+        );
 
         return $this->_json(200, array(
             'source_url'   => 'https://www.tertiarycourses.com.sg/',
@@ -311,12 +375,12 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
         return null;
     }
 
-    private function _buildReminder($r, $daysAhead)
+    private function _buildReminder($r, $daysAhead, array $trainerOverride = null)
     {
         $startDate = $r['course_start_date'];
         $endDate   = $r['course_end_date'] ?: $startDate;
-        $startTime = $r['course_start_time'];
-        $endTime   = $r['course_end_time'];
+        $startTime = $r['course_start_time'] ?? null;
+        $endTime   = $r['course_end_time']   ?? null;
         $time = ($startTime && $endTime)
             ? date('g:i A', strtotime($startTime)) . ' - ' . date('g:i A', strtotime($endTime))
             : '9:30 AM - 5:30 PM';
@@ -324,16 +388,28 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
         $venueText = $this->_venueText($r);
         $modeLabel = $this->_modeLabel($r['mode_of_training']);
 
-        // Resolve trainer via Phase 2 canonical helper. Account pointer wins,
-        // EAV is fallback. Returns null if no trainer (shouldn't happen here
-        // because the SQL WHERE already filters those out).
-        $resolved = $this->_resolveTrainer($r);
-        $trainerName  = $resolved ? (string) ($resolved['name']  ?? '') : '';
-        $trainerEmail = $resolved ? (string) ($resolved['email'] ?? '') : '';
+        // Trainer resolution: explicit override (used by the LMS-TMS fallback
+        // paths in indexAction) wins. Otherwise fall through to the Phase 2
+        // canonical helper (admin_user account pointer, EAV legacy fallback).
+        if ($trainerOverride !== null) {
+            $trainerName   = (string) ($trainerOverride['name']   ?? '');
+            $trainerEmail  = (string) ($trainerOverride['email']  ?? '');
+            $trainerSource = (string) ($trainerOverride['source'] ?? '');
+            $lmsRunId      = (string) ($trainerOverride['lms_course_run_id'] ?? '');
+        } else {
+            $resolved      = $this->_resolveTrainer($r);
+            $trainerName   = $resolved ? (string) ($resolved['name']  ?? '') : '';
+            $trainerEmail  = $resolved ? (string) ($resolved['email'] ?? '') : '';
+            // Map helper's 'account'/'eav' to bot-facing 'mms-account'/'mms-eav'
+            // so the consumer can tell MMS sources apart from LMS-TMS.
+            $rawSource     = $resolved ? (string) ($resolved['source'] ?? '') : '';
+            $trainerSource = $rawSource === 'account' ? 'mms-account'
+                          : ($rawSource === 'eav'     ? 'mms-eav' : '');
+            $lmsRunId      = '';
+        }
 
-        // Phone is NOT on admin_user; look it up in courses_trainers by email
-        // as a best-effort. Legacy assignments often have a courses_trainers
-        // row keyed by relation_id but we use email here for portability.
+        // Phone is NOT on admin_user or LMS-TMS; look it up in courses_trainers
+        // by email as a best-effort. Empty string if we don't have a row.
         $trainerPhone = $this->_trainerPhoneByEmail($trainerEmail);
 
         $courseUrl = $this->_courseUrl($r['product_id'], $r['course_sku']);
@@ -366,6 +442,8 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
             . "https://lms-tms.tertiaryinfotech.com\n"
             . "Training Admin, Tertiary Infotech Academy";
 
+        $classSource = !empty($r['_class_source']) ? (string) $r['_class_source'] : 'mms';
+
         return array(
             'class_id'              => (string) ($r['class_id'] ?? ''),
             'run_id'                => (int)    $r['run_id'],
@@ -381,14 +459,102 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
             'time'                  => $time,
             'mode'                  => $modeLabel,
             'venue'                 => $venueText,
-            'enrolled'              => (int) $r['enrolled'],
+            'enrolled'              => (int) ($r['enrolled'] ?? 0),
+            'class_source'          => $classSource,
+            'lms_course_run_id'     => $lmsRunId ?: null,
             'trainer'               => array(
                 'name'      => $trainerName,
                 'email'     => $trainerEmail,
                 'telephone' => $trainerPhone,
                 'roster_id' => isset($r['roster_id']) ? (int) $r['roster_id'] : null,
+                'source'    => $trainerSource,
             ),
             'formatted_message'     => $formatted,
+        );
+    }
+
+    /**
+     * Phase 2 helper: pull MMS classes on date that have NO trainer assigned
+     * (neither account nor EAV pointer). These are the candidates for
+     * LMS-TMS-driven trainer recovery.
+     */
+    private function _fetchMmsClassesWithoutTrainer($filterDate)
+    {
+        try {
+            return $this->_db()->fetchAll(
+                "SELECT cr.run_id, cr.class_id, cr.product_id, cr.course_sku,
+                        cr.course_start_date, cr.course_end_date,
+                        cr.course_start_time, cr.course_end_time,
+                        cr.mode_of_training, cr.venue_building,
+                        cr.venue_street, cr.venue_floor, cr.venue_unit,
+                        cr.postal_code, cr.room,
+                        cr.trainer_user_id, cr.trainer_option_id,
+                        COALESCE(pn.value, '(deleted product)') AS course_title,
+                        COALESCE(en.enrolled, 0) AS enrolled
+                   FROM course_runs cr
+              LEFT JOIN catalog_product_entity_varchar pn
+                     ON pn.entity_id = cr.product_id
+                    AND pn.attribute_id = (SELECT attribute_id FROM eav_attribute
+                                            WHERE entity_type_id = (SELECT entity_type_id FROM eav_entity_type WHERE entity_type_code = 'catalog_product')
+                                              AND attribute_code = 'name' LIMIT 1)
+                    AND pn.store_id = 0
+              LEFT JOIN (
+                    SELECT run_id, COUNT(*) AS enrolled
+                      FROM course_run_enrolments
+                     GROUP BY run_id
+                ) en ON en.run_id = cr.run_id
+                  WHERE cr.course_start_date = ?
+                    AND (cr.trainer_user_id   IS NULL OR cr.trainer_user_id   = 0)
+                    AND (cr.trainer_option_id IS NULL OR cr.trainer_option_id = 0)
+                    AND cr.invitation_paused = 0
+                  ORDER BY cr.course_start_date ASC, cr.course_start_time ASC",
+                array($filterDate)
+            );
+        } catch (Exception $e) {
+            Mage::logException($e);
+            return array();
+        }
+    }
+
+    /**
+     * Phase 3 helper: build a course_runs-shaped row from LMS-TMS data, so
+     * _buildReminder() can render an LMS-only class with no MMS analogue.
+     * LMS doesn't give us start/end time or venue, so those fall through to
+     * the default labels in _venueText() / the 9:30 AM placeholder in
+     * _buildReminder(). Mode is translated from LMS's string form back to
+     * MMS's integer form so _modeLabel() can render it.
+     */
+    private function _syntheticRowFromLms($sku, array $lms, $filterDate)
+    {
+        $modeStr = strtolower((string) $lms['mode']);
+        if (strpos($modeStr, 'online') !== false || strpos($modeStr, 'live') !== false) {
+            $modeInt = 2;
+        } elseif (strpos($modeStr, 'hybrid') !== false || strpos($modeStr, 'blended') !== false) {
+            $modeInt = 3;
+        } else {
+            $modeInt = 1; // default physical / classroom
+        }
+        return array(
+            'run_id'             => 0,
+            'class_id'           => '',                 // no MMS class_id
+            'product_id'         => 0,                  // no MMS product
+            'course_sku'         => (string) $sku,
+            'course_title'       => (string) ($lms['course_title'] ?? $sku),
+            'course_start_date'  => $filterDate,        // LMS API doesn't echo
+            'course_end_date'    => $filterDate,        // assume single-day
+            'course_start_time'  => null,
+            'course_end_time'    => null,
+            'mode_of_training'   => $modeInt,
+            'venue_building'     => null,
+            'venue_street'       => null,
+            'venue_floor'        => null,
+            'venue_unit'         => null,
+            'postal_code'        => null,
+            'room'               => null,
+            'trainer_user_id'    => null,
+            'trainer_option_id'  => null,
+            'enrolled'           => (int) ($lms['enrolled_count'] ?? 0),
+            '_class_source'      => 'lms-tms',
         );
     }
 
