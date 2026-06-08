@@ -314,3 +314,88 @@
 .afx-flash-ok  { color: #3df5a8; border-color: #3df5a8; box-shadow: 0 0 12px rgba(61,245,168,0.3); }
 .afx-flash-err { color: #ff3b5c; border-color: #ff3b5c; box-shadow: 0 0 12px rgba(255,59,92,0.3); }
 .afx-flash-info{ color: #f5c451; border-color: #f5c451; box-shadow: 0 0 12px rgba(245,196,81,0.3); }
+
+/* ───────────────────────────────────────────────────────────────
+   Light theme — every dark token above gets a slate counterpart.
+   Cron schedule cards + the issues table all flip to slate-100 /
+   white surfaces with slate-900 body text and slate-600 muted
+   labels. SEO / Security / Code Review tones keep their hue
+   (red / amber / violet) — those are semantic, not theme-tied.
+   ─────────────────────────────────────────────────────────────── */
+:root[data-theme="light"] .auditfix-page,
+:root[data-theme="light"] .auditfix-page .afx-eyebrow,
+:root[data-theme="light"] .auditfix-page .afx-stat,
+:root[data-theme="light"] .auditfix-page .afx-id,
+:root[data-theme="light"] .auditfix-page .afx-source,
+:root[data-theme="light"] .auditfix-page .afx-time {
+    color: #475569;
+}
+:root[data-theme="light"] .auditfix-page .afx-title h2,
+:root[data-theme="light"] .auditfix-page .afx-section-head h3 {
+    color: #0f172a;
+}
+:root[data-theme="light"] .auditfix-page .afx-stat b { color: #0f172a; }
+:root[data-theme="light"] .auditfix-page .afx-header {
+    border-bottom-color: rgba(15,23,42,0.08);
+}
+
+/* Cron schedule cards — light surfaces with the existing tone
+   colors as the accent (currentColor still propagates from
+   .afx-tone-*). */
+:root[data-theme="light"] .auditfix-page .afx-sched-card {
+    background: #ffffff;
+    border-color: rgba(15,23,42,0.10);
+}
+:root[data-theme="light"] .auditfix-page .afx-sched-cron,
+:root[data-theme="light"] .auditfix-page .afx-sched-meta { color: #64748b; }
+:root[data-theme="light"] .auditfix-page .afx-sched-meta b { color: #1e293b; }
+
+/* Buttons — keep accent color from currentColor, just flip the
+   transparent background's frame so it reads on white. */
+:root[data-theme="light"] .auditfix-page .afx-btn {
+    color: #1e293b;
+    border-color: rgba(15,23,42,0.18);
+}
+:root[data-theme="light"] .auditfix-page .afx-btn:hover {
+    color: #2563eb;
+    border-color: #2563eb;
+}
+
+/* Tab strip */
+:root[data-theme="light"] .auditfix-page .afx-tabs {
+    border-bottom-color: rgba(15,23,42,0.10);
+}
+:root[data-theme="light"] .auditfix-page .afx-tab { color: #64748b; }
+:root[data-theme="light"] .auditfix-page .afx-tab:hover { color: #0f172a; }
+:root[data-theme="light"] .auditfix-page .afx-tab.is-active {
+    color: #2563eb;
+    border-bottom-color: #2563eb;
+}
+
+/* Issues table — slate-100 card with white rows, slate-900 cells. */
+:root[data-theme="light"] .auditfix-page .afx-table {
+    background: #ffffff;
+    border-color: rgba(15,23,42,0.08);
+}
+:root[data-theme="light"] .auditfix-page .afx-table thead th {
+    background: #f1f5f9;
+    color: #475569;
+    border-bottom-color: rgba(15,23,42,0.10);
+}
+:root[data-theme="light"] .auditfix-page .afx-table tbody td {
+    color: #0f172a;
+    border-bottom-color: rgba(15,23,42,0.06);
+}
+:root[data-theme="light"] .auditfix-page .afx-table tbody tr:hover td {
+    background: rgba(37,99,235,0.04);
+}
+:root[data-theme="light"] .auditfix-page .afx-cat,
+:root[data-theme="light"] .auditfix-page .afx-detail,
+:root[data-theme="light"] .auditfix-page .afx-fix-summary,
+:root[data-theme="light"] .auditfix-page .afx-entity-type,
+:root[data-theme="light"] .auditfix-page .afx-entity-id {
+    color: #475569;
+}
+:root[data-theme="light"] .auditfix-page .afx-title-row { color: #0f172a; }
+:root[data-theme="light"] .auditfix-page .afx-muted { color: #94a3b8; }
+:root[data-theme="light"] .auditfix-page .afx-empty { color: #64748b; }
