@@ -19,6 +19,32 @@
         </helpers>
     </global>
 
+    <admin>
+        <routers>
+            <adminhtml>
+                <args>
+                    <modules>
+                        <MMD_Proforma before="Mage_Adminhtml">MMD_Proforma_Adminhtml</MMD_Proforma>
+                    </modules>
+                </args>
+            </adminhtml>
+        </routers>
+    </admin>
+
+    <adminhtml>
+        <events>
+            <!-- Adds a "Pro Forma Invoice" download button to the order view. -->
+            <adminhtml_block_html_before>
+                <observers>
+                    <mmd_proforma_order_view_button>
+                        <class>proforma/observer</class>
+                        <method>addOrderViewButton</method>
+                    </mmd_proforma_order_view_button>
+                </observers>
+            </adminhtml_block_html_before>
+        </events>
+    </adminhtml>
+
     <frontend>
         <routers>
             <proforma>
