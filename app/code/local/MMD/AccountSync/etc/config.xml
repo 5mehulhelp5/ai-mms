@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_AccountSync>
+            <version>1.0.0</version>
+        </MMD_AccountSync>
+    </modules>
+
+    <global>
+        <helpers>
+            <mmd_accountsync>
+                <class>MMD_AccountSync_Helper</class>
+            </mmd_accountsync>
+        </helpers>
+        <models>
+            <mmd_accountsync>
+                <class>MMD_AccountSync_Model</class>
+            </mmd_accountsync>
+        </models>
+        <events>
+            <!-- Storefront customer created/updated -> ensure dashboard account
+                 + sync password to admin_user (storefront -> dashboard). -->
+            <customer_save_after>
+                <observers>
+                    <mmd_accountsync_customer>
+                        <class>mmd_accountsync/observer</class>
+                        <method>onCustomerSaveAfter</method>
+                    </mmd_accountsync_customer>
+                </observers>
+            </customer_save_after>
+            <!-- Dashboard admin_user password changed -> sync back to the
+                 storefront account(s) (dashboard -> storefront). -->
+            <admin_user_save_after>
+                <observers>
+                    <mmd_accountsync_admin>
+                        <class>mmd_accountsync/observer</class>
+                        <method>onAdminUserSaveAfter</method>
+                    </mmd_accountsync_admin>
+                </observers>
+            </admin_user_save_after>
+        </events>
+    </global>
+</config>

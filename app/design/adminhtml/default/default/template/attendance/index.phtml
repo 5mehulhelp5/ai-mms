@@ -210,6 +210,7 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
                 <button type="button" class="att-btn att-btn-green" onclick="attAllPresent()">All Present</button>
                 <button type="button" class="att-btn att-btn-ghost" onclick="attOpenAdd()">+ Add Learner</button>
                 <?php endif; ?>
+                <button type="button" class="att-btn att-btn-ghost" style="border-color:rgba(34,211,238,.4);color:#22d3ee;" onclick="attShowQr()">Check-in QR</button>
                 <button type="button" id="cert-send-btn" class="att-btn att-btn-ghost" style="border-color:rgba(34,211,238,.4);color:#22d3ee;" onclick="certSendForClass(this)">Send Certificates</button>
                 <span id="cert-send-status" style="font-size:11px;color:#64748b;"></span>
             </div>
@@ -267,8 +268,29 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
     </div>
 </div>
 
+<!-- Check-in QR modal — trainer displays it; a logged-in learner scans it and
+     lands on their dashboard self-mark confirmation (no token; their login is
+     the identity). Admin URLs need no secret key in this install. -->
+<div id="att-qr-modal" class="att-modal-bd">
+    <div class="att-modal" style="max-width:360px;text-align:center;">
+        <h3>Class Check-in QR</h3>
+        <p class="note">Learners scan this to mark themselves <b>present</b>. They confirm on their own dashboard — they must be logged in (it&rsquo;s their account identity, no code to type).</p>
+        <div style="background:#fff;border-radius:12px;padding:14px;display:inline-block;">
+            <img id="att-qr-img" width="220" height="220" alt="Check-in QR" style="display:block;" />
+        </div>
+        <div style="margin-top:14px;">
+            <input id="att-qr-url" class="att-reason" style="max-width:100%;width:100%;text-align:center;" readonly />
+        </div>
+        <div style="display:flex;justify-content:center;gap:8px;margin-top:14px;">
+            <button type="button" class="att-btn att-btn-ghost" onclick="attCopyQrUrl(this)">Copy link</button>
+            <button type="button" class="att-btn att-btn-primary" onclick="document.getElementById('att-qr-modal').style.display='none'">Done</button>
+        </div>
+    </div>
+</div>
+
 <script>
 var ATT_LOAD_URL   = '<?php echo $this->jsQuoteEscape($loadUrl) ?>';
+var SELFMARK_BASE  = '<?php echo $this->jsQuoteEscape(Mage::helper('adminhtml')->getUrl('adminhtml/selfmark/index')) ?>'; // learner self-mark confirm (QR target)
 var ATT_SAVE_URL   = '<?php echo $this->jsQuoteEscape($saveUrl) ?>';
 var ATT_ADD_URL    = '<?php echo $this->jsQuoteEscape($addUrl) ?>';
 var ATT_REMOVE_URL = '<?php echo $this->jsQuoteEscape($removeUrl) ?>';
@@ -285,6 +307,27 @@ var attRunId = 0;
 var attRoster = [];
 
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// ── Check-in QR — learner scans -> their dashboard self-mark confirmation ────
+function attShowQr() {
+    if (!attRunId) { alert('Select a class first.'); return; }
+    var base = SELFMARK_BASE;
+    if (base.charAt(base.length - 1) !== '/') { base += '/'; }
+    var url = base + 'run_id/' + attRunId;
+    document.getElementById('att-qr-img').src =
+        'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=0&data=' + encodeURIComponent(url);
+    document.getElementById('att-qr-url').value = url;
+    document.getElementById('att-qr-modal').style.display = 'flex';
+}
+function attCopyQrUrl(btn) {
+    var inp = document.getElementById('att-qr-url');
+    var ok = false;
+    try { inp.select(); inp.setSelectionRange(0, 99999); ok = document.execCommand('copy'); } catch (e) {}
+    if (navigator.clipboard) { try { navigator.clipboard.writeText(inp.value); ok = true; } catch (e) {} }
+    var orig = btn.textContent; btn.textContent = ok ? 'Copied!' : 'Copy failed';
+    setTimeout(function(){ btn.textContent = orig; }, 1500);
+}
+document.getElementById('att-qr-modal').addEventListener('click', function(e){ if (e.target === this) this.style.display = 'none'; });
 
 // ── Certificate: manual send for the selected class ──────────────────────────
 function certSendForClass(btn) {

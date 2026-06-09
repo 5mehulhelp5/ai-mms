@@ -145,4 +145,154 @@ class MMD_Attendance_Helper_Data extends Mage_Core_Helper_Abstract
         }
         return $out;
     }
+
+    // ── Learner self-mark (dashboard, login-based) ───────────────────────────
+
+    /** Email of the logged-in dashboard user (the self-marking learner). */
+    public function getActiveLearnerEmail()
+    {
+        $u = Mage::getSingleton('admin/session')->getUser();
+        return $u ? strtolower(trim((string) $u->getEmail())) : '';
+    }
+
+    /**
+     * Self-mark is allowed only within the class window: start date through end
+     * date + 1 day grace (end-of-day / next-morning still works). No usable
+     * dates -> can't gate, so allow. Mirrors the MMS-native attendance window.
+     */
+    public function isWithinAttendanceWindow($run)
+    {
+        $start = isset($run['course_start_date']) ? (string) $run['course_start_date'] : '';
+        $end   = isset($run['course_end_date'])   ? (string) $run['course_end_date']   : '';
+        if ($start === '' || $start === '0000-00-00') {
+            return true;
+        }
+        $today = Mage::getModel('core/date')->date('Y-m-d');
+        if ($today < $start) {
+            return false;
+        }
+        $base = ($end !== '' && $end !== '0000-00-00') ? $end : $start;
+        return $today <= date('Y-m-d', strtotime($base . ' +1 day'));
+    }
+
+    /** Load a run (+ course title + trainer) for the self-mark confirm page. */
+    public function loadRunForSelfMark($runId)
+    {
+        $runId = (int) $runId;
+        if ($runId <= 0) {
+            return null;
+        }
+        $resource  = Mage::getSingleton('core/resource');
+        $read      = $resource->getConnection('core_read');
+        $runsTbl   = $resource->getTableName('course_runs');
+        $pVarchar  = $resource->getTableName('catalog_product_entity_varchar');
+        $auTbl     = $resource->getTableName('admin_user');
+        $eavOptVal = $resource->getTableName('eav_attribute_option_value');
+        $nameAttrId = (int) $read->fetchOne(
+            "SELECT a.attribute_id FROM " . $resource->getTableName('eav_attribute') . " a
+               JOIN " . $resource->getTableName('eav_entity_type') . " t ON t.entity_type_id = a.entity_type_id
+              WHERE t.entity_type_code = 'catalog_product' AND a.attribute_code = 'name'"
+        );
+        $run = $read->fetchRow(
+            "SELECT cr.run_id, cr.class_id, cr.course_sku, cr.product_id,
+                    cr.course_start_date, cr.course_end_date,
+                    COALESCE(pn.value, cr.course_sku) AS course_title,
+                    COALESCE(NULLIF(TRIM(CONCAT(COALESCE(au.firstname,''),' ',COALESCE(au.lastname,''))),''), tov.value, '') AS trainer_name
+               FROM `$runsTbl` cr
+               LEFT JOIN `$pVarchar` pn ON pn.entity_id = cr.product_id AND pn.store_id = 0 AND pn.attribute_id = $nameAttrId
+               LEFT JOIN `$auTbl` au ON au.user_id = cr.trainer_user_id
+               LEFT JOIN `$eavOptVal` tov ON tov.option_id = cr.trainer_option_id AND tov.store_id = 0
+              WHERE cr.run_id = ?",
+            array($runId)
+        );
+        return $run ?: null;
+    }
+
+    /**
+     * Self-mark context for the confirm page: the run + this learner's status.
+     * Returns array(run, learner_email, enrolled, within_window, already_present)
+     * or null if the run doesn't exist.
+     */
+    public function getSelfMarkContext($runId, $email = null)
+    {
+        $run = $this->loadRunForSelfMark($runId);
+        if (!$run) {
+            return null;
+        }
+        $email    = ($email === null) ? $this->getActiveLearnerEmail() : strtolower(trim((string) $email));
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+        $enrolTbl = $resource->getTableName('course_run_enrolments');
+        $attTbl   = $resource->getTableName('mmd_course_run_attendance');
+
+        $enrolled = $email !== '' && (int) $read->fetchOne(
+            "SELECT enrolment_id FROM `$enrolTbl` WHERE run_id = ? AND LOWER(learner_email) = ? LIMIT 1",
+            array((int) $run['run_id'], $email)
+        ) > 0;
+        $present = $email !== '' && (int) $read->fetchOne(
+            "SELECT is_present FROM `$attTbl` WHERE run_id = ? AND LOWER(learner_email) = ? LIMIT 1",
+            array((int) $run['run_id'], $email)
+        ) === 1;
+
+        return array(
+            'run'             => $run,
+            'learner_email'   => $email,
+            'enrolled'        => $enrolled,
+            'within_window'   => $this->isWithinAttendanceWindow($run),
+            'already_present' => $present,
+        );
+    }
+
+    /**
+     * Mark the logged-in learner present for $runId. Guards: must be enrolled in
+     * the run AND within the date window. Idempotent upsert. Returns
+     * array(success, message).
+     */
+    public function selfMarkPresent($runId, $email = null)
+    {
+        $ctx = $this->getSelfMarkContext($runId, $email);
+        if (!$ctx) {
+            return array('success' => false, 'message' => 'Class not found.');
+        }
+        if ($ctx['learner_email'] === '') {
+            return array('success' => false, 'message' => 'Your account has no email on file.');
+        }
+        if (!$ctx['enrolled']) {
+            return array('success' => false, 'message' => 'You are not on this class roster. Please contact your trainer.');
+        }
+        if (!$ctx['within_window']) {
+            return array('success' => false, 'message' => 'Check-in is not open for this class right now.');
+        }
+
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+        $write    = $resource->getConnection('core_write');
+        $enrolTbl = $resource->getTableName('course_run_enrolments');
+        $attTbl   = $resource->getTableName('mmd_course_run_attendance');
+        $run      = $ctx['run'];
+        $email    = $ctx['learner_email'];
+
+        $enrol = $read->fetchRow(
+            "SELECT learner_name, learner_email FROM `$enrolTbl` WHERE run_id = ? AND LOWER(learner_email) = ? LIMIT 1",
+            array((int) $run['run_id'], $email)
+        );
+        // Write the SAME row a trainer's manual "present" marking produces
+        // (AttendanceController::saveAction): is_present=1, reason cleared,
+        // marked_by_admin_id = the account that did the marking (here the
+        // learner's own dashboard account). is_walkin stays 0 (enrolled learner).
+        $write->insertOnDuplicate(
+            $attTbl,
+            array(
+                'run_id'             => (int) $run['run_id'],
+                'class_id'           => $run['class_id'] ?: null,
+                'learner_email'      => $enrol ? $enrol['learner_email'] : $email,
+                'learner_name'       => $enrol ? trim((string) $enrol['learner_name']) : '',
+                'is_present'         => 1,
+                'reason_of_absence'  => null,
+                'marked_by_admin_id' => $this->getCurrentAdminId(),
+            ),
+            array('is_present', 'learner_name', 'reason_of_absence', 'marked_by_admin_id')
+        );
+        return array('success' => true, 'message' => 'You have been marked present. Thank you!');
+    }
 }

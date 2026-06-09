@@ -1110,6 +1110,24 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
             }
         }
         if (!empty($_runsByPid)) {
+            // For a LEARNER, scope the run-expansion to the runs they're actually
+            // enrolled in (course_run_enrolments). Otherwise a learner registered
+            // for ONE class would see EVERY scheduled run of that course (the
+            // expansion was built for the trainer view, where showing all runs of
+            // a taught course IS correct). $_learnerRunIds === null => no scoping
+            // (trainer / other roles keep the all-runs behavior).
+            $_learnerRunIds = null;
+            if ($activeRole === 'learner') {
+                $_learnerRunIds = array();
+                try {
+                    foreach ($read->fetchCol(
+                        "SELECT run_id FROM " . $_resource->getTableName('course_run_enrolments') . " WHERE LOWER(learner_email) = ?",
+                        array($_loggedInEmail)
+                    ) as $_erid) {
+                        $_learnerRunIds[(int)$_erid] = true;
+                    }
+                } catch (Exception $e) { /* non-fatal — falls back to order-based card */ }
+            }
             $_expanded = array();
             foreach ($_learnerCourses as $_lc) {
                 $_pid = (int)$_lc['id'];
@@ -1117,7 +1135,12 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
                     $_expanded[] = $_lc;
                     continue;
                 }
+                $_addedForPid = 0;
                 foreach ($_runsByPid[$_pid] as $_run) {
+                    // Learner: include only the run(s) they're enrolled in.
+                    if ($_learnerRunIds !== null && !isset($_learnerRunIds[(int)$_run['run_id']])) {
+                        continue;
+                    }
                     $_card = $_lc;
                     if (!empty($_run['course_start_date'])) $_card['start_date'] = date('j M Y', strtotime($_run['course_start_date']));
                     if (!empty($_run['course_end_date']))   $_card['end_date']   = date('j M Y', strtotime($_run['course_end_date']));
@@ -1131,6 +1154,13 @@ if ($_loggedInEmail && ($activeRole === 'learner' || $activeRole === 'trainer'))
                     $_card['cr_run_id'] = (int)$_run['run_id'];
                     $_card['detail_url']= Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $_pid, '_query' => array('run' => (int)$_run['run_id'])));
                     $_expanded[] = $_card;
+                    $_addedForPid++;
+                }
+                // Learner with no materialised enrolment row for this course yet
+                // (e.g. the class-formation cron hasn't run since they ordered) ->
+                // keep the original order-based card so the class still shows.
+                if ($_addedForPid === 0) {
+                    $_expanded[] = $_lc;
                 }
             }
             $_learnerCourses = $_expanded;
@@ -5263,6 +5293,32 @@ if (isset($_lmcRunMap[$_lcdCourseId])) {
 } else {
     $_courseRunId = str_pad($_lcdCourseId * 4321 % 9999999, 7, '0', STR_PAD_LEFT);
 }
+
+// E-Attendance entry for the Course Menu (View Course). Built once and echoed
+// at the top of BOTH nav blocks (mobile drawer + wide sidebar); self-gates so
+// only a trainer or learner with a real run gets a link, every other role
+// renders ''. Both reach it via their dashboard (admin) session:
+//   trainer -> admin E-Attendance page (roster + QR)
+//   learner -> login-based self-mark confirmation (no QR; their session is the
+//              identity). Works because storefront accounts are now unified with
+//              dashboard accounts (MMD_AccountSync: learner role + synced password).
+$_lcdRunId = (int) (Mage::app()->getRequest()->getParam('run')
+    ?: (isset($_selectedCourse['cr_run_id']) ? $_selectedCourse['cr_run_id'] : 0));
+$_eAttendanceNavHtml = '';
+$_eaCardHref = ''; // destination of the E-Attendance content card (set per role below)
+if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) {
+    $_eaIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>';
+    if ($activeRole === 'trainer') {
+        $_eaBucket   = (isset($_selectedCourse['time_status']) && $_selectedCourse['time_status'] === 'past') ? 'completed' : 'active';
+        $_eaCardHref = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/index', array('run_id' => $_lcdRunId, 'bucket' => $_eaBucket));
+    } else { // learner -> dashboard self-mark confirmation
+        $_eaCardHref = Mage::helper('adminhtml')->getUrl('adminhtml/selfmark/index', array('run_id' => $_lcdRunId));
+    }
+    // The nav item SCROLLS to the in-page E-Attendance card (matches LMS); the
+    // card itself carries the link to the attendance page / self-mark.
+    $_eAttendanceNavHtml = '<a href="#eattendance" class="lcd-nav-item" onclick="return lcdNavTo(this,\'eattendance\')">'
+        . $_eaIcon . '<span>E-Attendance</span></a>';
+}
 ?>
 <!-- Course Menu drawer (slides in from the left) -->
 <div class="lcd-drawer-backdrop" id="lcd-drawer-backdrop" onclick="lcdCloseDrawer()"></div>
@@ -5307,6 +5363,7 @@ if (isset($_lmcRunMap[$_lcdCourseId])) {
         </div>
 
         <nav class="lcd-drawer-nav">
+            <?php echo $_eAttendanceNavHtml; ?>
             <?php if ($_courseManagerActive): /* Google Meet nav link removed — not shown in developer view */ ?>
             <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware</span></a>
             <a href="#lesson" class="lcd-nav-item active" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
@@ -5346,6 +5403,7 @@ if (isset($_lmcRunMap[$_lcdCourseId])) {
             <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong><?php echo $_dDur ?></strong></div>
         </div>
         <nav style="margin-top:14px;padding-top:14px;border-top:1px solid #1e293b;display:flex;flex-direction:column;gap:2px;">
+            <?php echo $_eAttendanceNavHtml; ?>
             <?php if ($_courseManagerActive): /* Google Meet nav link removed — not shown in developer view */ ?>
             <a href="#courseware" class="lcd-nav-item" onclick="return lcdNavTo(this,'courseware')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Courseware</span></a>
             <a href="#lesson" class="lcd-nav-item active" onclick="return lcdNavTo(this,'lesson')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Lesson</span></a>
@@ -5733,6 +5791,22 @@ if (isset($_lmcRunMap[$_lcdCourseId])) {
 
     <?php elseif ($activeRole === 'trainer'): ?>
 
+    <?php if ($_eaCardHref !== ''): ?>
+    <!-- E-Attendance card — scroll target from the Course Menu (matches LMS).
+         The card carries the link to the attendance page (trainer). -->
+    <div class="lcd-section" id="eattendance">
+        <div class="lcd-section-title">E-Attendance</div>
+        <a href="<?php echo htmlspecialchars($_eaCardHref) ?>" class="lcd-tile" style="text-decoration:none;color:inherit;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title">E-Attendance</div>
+                <div class="lcd-tile-sub">Open E-Attendance for Course Run <?php echo htmlspecialchars($_courseRunId) ?></div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" style="margin-left:auto;flex-shrink:0;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+    </div>
+    <?php endif; ?>
+
     <!-- TRAINER: Google Meet — N/A for Physical, real link for Virtual/Hybrid. -->
     <?php
     $_meetUrl = trim((string)(isset($_courseware['google_meet_url']) ? $_courseware['google_meet_url'] : ''));
@@ -5851,6 +5925,22 @@ if (isset($_lmcRunMap[$_lcdCourseId])) {
     <?php endif; ?>
 
     <?php if ($activeRole === 'learner'): ?>
+    <?php if ($_eaCardHref !== ''): ?>
+    <!-- E-Attendance card — scroll target from the Course Menu (matches LMS).
+         The card links to the learner self-mark confirmation. -->
+    <div class="lcd-section" id="eattendance">
+        <div class="lcd-section-title">E-Attendance</div>
+        <a href="<?php echo htmlspecialchars($_eaCardHref) ?>" class="lcd-tile" style="text-decoration:none;color:inherit;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <div class="lcd-tile-body">
+                <div class="lcd-tile-title">E-Attendance</div>
+                <div class="lcd-tile-sub">Open E-Attendance for Course Run <?php echo htmlspecialchars($_courseRunId) ?></div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" style="margin-left:auto;flex-shrink:0;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+    </div>
+    <?php endif; ?>
+
     <!-- LEARNER: Google Meet — same N/A vs link logic as trainer. -->
     <?php
     $_meetUrlL = trim((string)(isset($_courseware['google_meet_url']) ? $_courseware['google_meet_url'] : ''));

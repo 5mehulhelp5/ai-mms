@@ -1,0 +1,62 @@
+<?php
+/**
+ * Learner self-mark confirmation page (dashboard, login-based). Shows the class
+ * details + this learner's status; a single "I'm present" confirm button posts
+ * to adminhtml/selfmark/submit. Guards live in the helper.
+ */
+$runId   = (int) Mage::app()->getRequest()->getParam('run_id');
+$ctx     = Mage::helper('mmd_attendance')->getSelfMarkContext($runId);
+$submit  = Mage::helper('adminhtml')->getUrl('adminhtml/selfmark/submit');
+$formKey = Mage::getSingleton('core/session')->getFormKey();
+$fmt = function ($d) { return ($d && $d !== '0000-00-00') ? date('D, d M Y', strtotime($d)) : '—'; };
+?>
+<style>
+.sm-wrap{max-width:560px;margin:24px auto;}
+.sm-title{font-size:22px;font-weight:700;color:#e2e8f0;margin:0 0 16px;}
+.sm-card{background:#1e2132;border:1px solid #334155;border-radius:14px;padding:24px;}
+.sm-course{font-size:18px;font-weight:700;color:#e2e8f0;line-height:1.3;}
+.sm-meta{font-size:13px;color:#94a3b8;margin-top:6px;line-height:1.6;}
+.sm-meta b{color:#cbd5e1;font-weight:600;}
+.sm-lead{font-size:14px;color:#94a3b8;margin:18px 0 16px;}
+.sm-btn{display:inline-block;background:#22c55e;color:#fff;border:none;border-radius:10px;padding:14px 22px;font-size:15px;font-weight:700;cursor:pointer;}
+.sm-btn:hover{background:#16a34a;}
+.sm-state{border-radius:10px;padding:14px 16px;font-size:14px;margin-top:18px;}
+.sm-ok{background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);color:#22c55e;}
+.sm-warn{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);color:#f59e0b;}
+:root[data-theme="light"] .sm-card{background:#fff;border-color:#cbd5e1;}
+:root[data-theme="light"] .sm-title,:root[data-theme="light"] .sm-course{color:#0f172a;}
+:root[data-theme="light"] .sm-meta{color:#475569;}
+:root[data-theme="light"] .sm-meta b{color:#0f172a;}
+:root[data-theme="light"] .sm-lead{color:#475569;}
+</style>
+<div class="sm-wrap">
+    <h1 class="sm-title">Mark My Attendance</h1>
+    <?php if (!$ctx): ?>
+        <div class="sm-card"><div class="sm-state sm-warn">This class could not be found.</div></div>
+    <?php else: $run = $ctx['run']; ?>
+        <div class="sm-card">
+            <div class="sm-course"><?php echo htmlspecialchars($run['course_title']) ?></div>
+            <div class="sm-meta">
+                <?php if (!empty($run['class_id'])): ?><b>Class</b> <?php echo htmlspecialchars($run['class_id']) ?><br/><?php endif; ?>
+                <?php if (!empty($run['course_sku'])): ?><b>Code</b> <?php echo htmlspecialchars($run['course_sku']) ?><br/><?php endif; ?>
+                <b>Dates</b> <?php echo $fmt($run['course_start_date']) ?><?php if ($run['course_end_date'] && $run['course_end_date'] !== $run['course_start_date']): ?> &ndash; <?php echo $fmt($run['course_end_date']) ?><?php endif; ?>
+                <?php if (!empty($run['trainer_name'])): ?><br/><b>Trainer</b> <?php echo htmlspecialchars($run['trainer_name']) ?><?php endif; ?>
+            </div>
+
+            <?php if ($ctx['already_present']): ?>
+                <div class="sm-state sm-ok">&#10003; You&rsquo;re marked <b>present</b> for this class.</div>
+            <?php elseif (!$ctx['enrolled']): ?>
+                <div class="sm-state sm-warn">You&rsquo;re not on this class roster. Please contact your trainer if you think this is a mistake.</div>
+            <?php elseif (!$ctx['within_window']): ?>
+                <div class="sm-state sm-warn">Check-in isn&rsquo;t open for this class right now &mdash; you can mark attendance during the class dates.</div>
+            <?php else: ?>
+                <p class="sm-lead">Confirm you&rsquo;re attending this class to mark yourself present.</p>
+                <form method="post" action="<?php echo $submit ?>">
+                    <input type="hidden" name="form_key" value="<?php echo $formKey ?>"/>
+                    <input type="hidden" name="run_id" value="<?php echo $runId ?>"/>
+                    <button type="submit" class="sm-btn">&#10003; I&rsquo;m present</button>
+                </form>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+</div>

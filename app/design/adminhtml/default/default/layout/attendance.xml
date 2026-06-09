@@ -6,4 +6,11 @@
                    template="attendance/index.phtml"/>
         </reference>
     </adminhtml_attendance_index>
+
+    <adminhtml_selfmark_index>
+        <reference name="content">
+            <block type="core/template" name="mmd.attendance.selfmark"
+                   template="attendance/selfmark.phtml"/>
+        </reference>
+    </adminhtml_selfmark_index>
 </layout>

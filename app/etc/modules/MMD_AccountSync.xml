@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!--
+  Unifies storefront customer accounts (learners) with dashboard admin_user
+  accounts. Every storefront customer gets a matching INACTIVE admin_user with
+  the 'learner' role, and the two passwords stay in sync (bidirectional).
+  See memory project-account-unification.
+-->
+<config>
+    <modules>
+        <MMD_AccountSync>
+            <active>true</active>
+            <codePool>local</codePool>
+            <depends>
+                <Mage_Core/>
+                <Mage_Customer/>
+                <Mage_Admin/>
+                <MMD_RoleManager/>
+            </depends>
+        </MMD_AccountSync>
+    </modules>
+</config>

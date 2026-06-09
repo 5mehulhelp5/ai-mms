@@ -92,59 +92,116 @@ class MMD_RoleManager_Model_Observer
 
             $controller = $observer->getEvent()->getControllerAction();
             $actionName = $controller->getFullActionName();
-            $module     = $controller->getRequest()->getModuleName();
-            $ctrl       = $controller->getRequest()->getControllerName();
-            $key        = $module . '_' . $ctrl;
+            // Build the key from getRouteName() (always 'adminhtml'), NOT
+            // getModuleName() — the latter returns the admin frontName (e.g.
+            // 'tigerdragon'), so 'adminhtml_*' whitelist/map keys never matched
+            // and this whole gate was silently a no-op.
+            $route = $controller->getRequest()->getRouteName();
+            $ctrl  = $controller->getRequest()->getControllerName();
+            $key   = $route . '_' . $ctrl;
 
-            // 1. Multi-role users haven't picked yet → push to role select
-            if ($session->getNeedsRoleSelect()) {
-                $allowedDuringSelect = array(
-                    'adminhtml_roleselect_index',
-                    'adminhtml_roleselect_choose',
-                    'adminhtml_index_logout',
-                );
-                if (in_array($actionName, $allowedDuringSelect, true)) {
-                    return;
-                }
+            // Pure decision (no session/HTTP) — unit-testable via evaluateAccess().
+            $activeRole = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
+            $result = $this->evaluateAccess(
+                $key,
+                $actionName,
+                $activeRole,
+                (array) $session->getUserRoles(),
+                (bool) $session->getNeedsRoleSelect()
+            );
+
+            if ($result === self::ACCESS_ROLESELECT) {
                 $controller->getResponse()->setRedirect(
                     Mage::helper('adminhtml')->getUrl('adminhtml/roleselect/index')
                 );
                 $controller->setFlag('', Mage_Core_Controller_Varien_Action::FLAG_NO_DISPATCH, true);
                 return;
             }
-
-            // 2. Per-role allow-list. Whitelisted controllers always pass
-            //    (login, dashboard, role-select / -switch, own profile,
-            //    Magento housekeeping like ajax/system_account block_widget).
-            //    Custom MMD controllers do their own _isAllowed checks via
-            //    Helper::isRoleAllowed and aren't included here.
-            $whitelist = $this->_aclWhitelist();
-            if (in_array($key, $whitelist, true)) {
-                return;
+            if ($result === self::ACCESS_DENY) {
+                $this->_denyAccess($controller);
             }
-
-            // Look up the allowed role list for this controller
-            $map = $this->_roleControllerMap();
-            if (!isset($map[$key])) {
-                return; // not in our map — fall through to Magento default ACL
-            }
-
-            $activeRole = Mage::helper('mmd_rolemanager')->getActiveRoleCode();
-            if (in_array($activeRole, $map[$key], true)) {
-                return; // permitted
-            }
-
-            // Block — render the standard Access Denied page
-            Mage::getSingleton('adminhtml/session')->addError(
-                Mage::helper('adminhtml')->__('Access denied.')
-            );
-            $controller->getResponse()->setRedirect(
-                Mage::helper('adminhtml')->getUrl('adminhtml/index/denied')
-            );
-            $controller->setFlag('', Mage_Core_Controller_Varien_Action::FLAG_NO_DISPATCH, true);
         } catch (Exception $e) {
             Mage::logException($e);
         }
+    }
+
+    const ACCESS_ALLOW      = 'allow';
+    const ACCESS_DENY       = 'deny';
+    const ACCESS_ROLESELECT = 'roleselect';
+
+    /**
+     * Pure access decision for a controller `<module>_<controller>` key given the
+     * session's role context. No session/HTTP access here so it can be tested in
+     * isolation. Returns one of the ACCESS_* constants.
+     *
+     *   1. Multi-role users who haven't chosen → ROLESELECT (except the
+     *      role-select/logout actions themselves).
+     *   2. Always-available controllers (login, dashboard, own profile, role
+     *      switch, ajax housekeeping) → ALLOW for everyone.
+     *   3. LEARNER LOCKDOWN — a learner (active role learner, OR a pure-learner
+     *      account regardless of active role) gets a DEFAULT-DENY allowlist:
+     *      only _learnerAllowlist() passes, everything else is denied. This
+     *      closes the gap where the operator denylist (step 4) lets unmapped
+     *      controllers fall through to the all=allow ACL.
+     *   4. Other (operator) roles use the per-controller denylist; unmapped
+     *      controllers fall through to Magento's standard ACL.
+     */
+    public function evaluateAccess($key, $actionName, $activeRole, array $userRoles, $needsRoleSelect)
+    {
+        if ($needsRoleSelect) {
+            $allowedDuringSelect = array(
+                'adminhtml_roleselect_index',
+                'adminhtml_roleselect_choose',
+                'adminhtml_index_logout',
+            );
+            return in_array($actionName, $allowedDuringSelect, true) ? self::ACCESS_ALLOW : self::ACCESS_ROLESELECT;
+        }
+
+        if (in_array($key, $this->_aclWhitelist(), true)) {
+            return self::ACCESS_ALLOW;
+        }
+
+        $isPureLearner = count($userRoles) === 1
+            && $userRoles[0] === MMD_RoleManager_Helper_Data::ROLE_LEARNER;
+        if ($activeRole === MMD_RoleManager_Helper_Data::ROLE_LEARNER || $isPureLearner) {
+            return in_array($key, $this->_learnerAllowlist(), true) ? self::ACCESS_ALLOW : self::ACCESS_DENY;
+        }
+
+        // Operator roles: preserve prior behavior (status quo, zero regression).
+        // _roleControllerMap() below has NEVER matched at runtime — the key was
+        // built from getModuleName() (the admin frontName, e.g. 'tigerdragon'),
+        // not 'adminhtml' — so operators have never been predispatch-restricted;
+        // custom MMD admin controllers gate themselves via Helper::isRoleAllowed().
+        // Turning on map enforcement for operators (now that the key is correct)
+        // is a SEPARATE, operator-tested change — intentionally deferred so this
+        // learner-focused change can't lock operators out. To enable it later,
+        // replace this `return ALLOW` with the map lookup (see _roleControllerMap).
+        return self::ACCESS_ALLOW;
+    }
+
+    /** Render the standard Access Denied page and halt dispatch. */
+    protected function _denyAccess($controller)
+    {
+        Mage::getSingleton('adminhtml/session')->addError(
+            Mage::helper('adminhtml')->__('Access denied.')
+        );
+        $controller->getResponse()->setRedirect(
+            Mage::helper('adminhtml')->getUrl('adminhtml/index/denied')
+        );
+        $controller->setFlag('', Mage_Core_Controller_Varien_Action::FLAG_NO_DISPATCH, true);
+    }
+
+    /**
+     * Controllers a LEARNER may reach, on top of _aclWhitelist() (which already
+     * covers dashboard, own profile, role select/switch, login, and ajax
+     * housekeeping). Keep this TINY — add only genuinely learner-facing routes.
+     */
+    protected function _learnerAllowlist()
+    {
+        return array_merge($this->_aclWhitelist(), array(
+            'adminhtml_selfmark', // learner attendance self check-in (confirm + submit)
+            // change-password is adminhtml_system_account, already in the whitelist
+        ));
     }
 
     /**
