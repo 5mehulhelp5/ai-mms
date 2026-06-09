@@ -89,6 +89,21 @@ class MMD_Adminhtml_Catalog_SearchController
 
         if ($return === '') return;
 
+        // Strip extra encoding layers. The frontend route to deleteAction
+        // goes through Magento's setLocation() → encodeURI(), which
+        // re-encodes `%` to `%25` — turning ?back=%2F... into
+        // ?back=%252F.... PHP's URL parser only decodes one layer, so we
+        // can land here with literal `%2F` still in the string. Decoding
+        // those would produce a `Location: %2F...` header that the
+        // browser treats as relative, dropping us at /catalog_search/
+        // edit/<id>/%2F... — a 404. Loop until decoding is a no-op so
+        // we always end with literal slashes.
+        for ($i = 0; $i < 4; $i++) {
+            $decoded = rawurldecode($return);
+            if ($decoded === $return) break;
+            $return = $decoded;
+        }
+
         if (stripos($return, '/catalog_search') === false) {
             $session->unsetData(self::RETURN_URL_KEY);
             return;

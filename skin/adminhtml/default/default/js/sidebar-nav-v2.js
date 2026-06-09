@@ -2512,6 +2512,67 @@ document.observe('dom:loaded', function() {
     // Read ?back= from window.location.search and inject it into every
     // form on the edit page as a hidden input — POSTed alongside the
     // other fields, picked up by MMD_Adminhtml_Catalog_SearchController.
+    // Listing-side: re-stamp `back=` on every row link / row title so it
+    // always points at the URL the user is actually looking at — not the
+    // URL captured at server render time. Matters because Magento grids
+    // update sort / filter / page state via AJAX to `*/catalog_search/grid/...`,
+    // and rows in that AJAX response would otherwise carry back= pointing
+    // at the gridAction URL (useless to redirect to).
+    //
+    // Captures (in order of preference):
+    //   - window.location.href — the address bar at click time, which
+    //     includes any ?store= switcher value, /sort/<x>/dir/<y>/page/<n>/
+    //     URL segments, and the form_key segment.
+    //   - Column-filter state is held in the admin session by Magento's
+    //     grid (admin_session_grid), so the listing re-renders the same
+    //     filtered view on reload regardless of URL contents.
+    function restampCatalogSearchListingBack() {
+        var bc = document.body.className || '';
+        var isList = (bc.indexOf('adminhtml-catalog_search-index') !== -1
+            || bc.indexOf('adminhtml-catalog-search-index') !== -1);
+        if (!isList) return;
+
+        var here = window.location.href;
+        // Pass as a relative path (works through Magento's setRedirect
+        // and is shorter in the URL). Browser converts back to absolute
+        // on navigation.
+        try {
+            var u = new URL(here);
+            here = u.pathname + u.search;
+        } catch (e) { /* keep absolute */ }
+        var encHere = encodeURIComponent(here);
+
+        function rewriteBack(url) {
+            if (!url || url.indexOf('/catalog_search/edit') === -1) return url;
+            if (url.indexOf('back=') !== -1) {
+                return url.replace(/([?&])back=[^&]*/, '$1back=' + encHere);
+            }
+            return url + (url.indexOf('?') === -1 ? '?' : '&') + 'back=' + encHere;
+        }
+
+        // 1) Row <tr title="..."> — used by openGridRow row-click handler.
+        document.querySelectorAll('tr[title*="/catalog_search/edit"]').forEach(function (tr) {
+            tr.title = rewriteBack(tr.title);
+        });
+        // 2) Any direct edit links inside the grid.
+        document.querySelectorAll('a[href*="/catalog_search/edit"]').forEach(function (a) {
+            a.href = rewriteBack(a.href);
+        });
+    }
+    [300, 900, 2000].forEach(function (d) { setTimeout(restampCatalogSearchListingBack, d); });
+    document.addEventListener('instant-nav:after-swap', function () {
+        [300, 900, 2000].forEach(function (d) { setTimeout(restampCatalogSearchListingBack, d); });
+    });
+    // Magento grids reload via Ajax.Updater — observe DOM mutations on
+    // the grid container so we restamp after every filter/sort/page change.
+    var gridContainer = document.getElementById('catalog_searchGrid')
+        || document.querySelector('[id$="_grid"]');
+    if (gridContainer && window.MutationObserver) {
+        new MutationObserver(function () {
+            restampCatalogSearchListingBack();
+        }).observe(gridContainer, { childList: true, subtree: true });
+    }
+
     function injectCatalogSearchBack() {
         var bc = document.body.className || '';
         var isEdit = (bc.indexOf('adminhtml-catalog_search-edit') !== -1
@@ -2523,18 +2584,87 @@ document.observe('dom:loaded', function() {
         var qs = window.location.search || '';
         var m  = qs.match(/[?&]back=([^&]*)/);
         if (!m) return;
-        var backVal = m[1]; // already URL-encoded; POST body will preserve it
 
+        // The Magento row-click handler routes through setLocation()
+        // which calls encodeURI() — that turns our single-encoded
+        // ?back=%2F... into double-encoded ?back=%252F.... Same for
+        // deleteConfirm() (which also routes via setLocation). So when
+        // we read the query off this edit page, we may be looking at
+        // 1×, 2×, or even 3× encoded values. Decode iteratively until
+        // the string stops changing, then we have the raw URL.
+        var backEnc = m[1];
+        var backDec = backEnc;
+        try {
+            for (var iter = 0; iter < 4; iter++) {
+                var next = decodeURIComponent(backDec.replace(/\+/g, ' '));
+                if (next === backDec) break;
+                backDec = next;
+            }
+        } catch (e) { /* keep last successful */ }
+
+        // Re-encode ONCE for use as a query param (used by form action
+        // append + delete URL append). Always single-encoded regardless
+        // of what encoding tier the inbound URL had.
+        backEnc = encodeURIComponent(backDec);
+
+        // (1) Belt: hidden POST field on every form so saveAction sees it.
         document.querySelectorAll('form').forEach(function (f) {
-            if (f.querySelector('input[name="back"]')) return;
-            var inp = document.createElement('input');
-            inp.type  = 'hidden';
-            inp.name  = 'back';
-            // Decode for the input value — the form serializer
-            // re-encodes on POST so the controller reads the raw URL.
-            try { inp.value = decodeURIComponent(backVal.replace(/\+/g, ' ')); }
-            catch (e) { inp.value = backVal; }
-            f.appendChild(inp);
+            if (!f.querySelector('input[name="back"]')) {
+                var inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = 'back';
+                inp.value = backDec;
+                f.appendChild(inp);
+            }
+            // (2) Suspenders: stamp ?back= onto the form action URL too,
+            // so the controller's getParam('back') reads it via GET even
+            // if the hidden field never makes it (form swapped out by
+            // dynamic edit-form blocks, etc.).
+            if (f.action && f.action.indexOf('back=') === -1) {
+                f.action += (f.action.indexOf('?') === -1 ? '?' : '&')
+                          + 'back=' + backEnc;
+            }
+        });
+
+        // (3) Back button — Magento's Form Container renders it with
+        // CLASS "back" but NO id attribute (Button.php only emits id if
+        // explicitly set via setData), so we target by class. The
+        // server-rendered onclick is `setLocation('<base url>')` —
+        // override both the attribute (used by older browsers / inline
+        // dispatch) and the .onclick property (used by modern dispatch)
+        // to jump to the captured listing URL.
+        document.querySelectorAll('button.scalable.back').forEach(function (btn) {
+            if (btn.dataset.mmdBackPatched) return;
+            btn.dataset.mmdBackPatched = '1';
+            btn.setAttribute('onclick', '');
+            btn.onclick = function (e) {
+                if (e && e.preventDefault) e.preventDefault();
+                if (e && e.stopPropagation) e.stopPropagation();
+                window.location.href = backDec;
+                return false;
+            };
+        });
+
+        // (4) Delete Search button — class "delete", no id. Magento
+        // renders onclick="deleteConfirm('msg', '<url>')". The <url>
+        // has no back param. Rewrite it to include ?back=.
+        document.querySelectorAll('button.scalable.delete').forEach(function (btn) {
+            if (btn.dataset.mmdBackPatched) return;
+            btn.dataset.mmdBackPatched = '1';
+            var oc = btn.getAttribute('onclick') || '';
+            // Match deleteConfirm('any message', '<url>')
+            var dcRe = /deleteConfirm\(([^,]+),\s*(['"])(.+?)\2/;
+            var dm = oc.match(dcRe);
+            if (dm) {
+                var msgArg  = dm[1];
+                var quote   = dm[2];
+                var delUrl  = dm[3];
+                var sep     = (delUrl.indexOf('?') === -1) ? '?' : '&';
+                var newUrl  = delUrl + sep + 'back=' + backEnc;
+                var newOc   = 'deleteConfirm(' + msgArg + ', '
+                            + quote + newUrl + quote + ')';
+                btn.setAttribute('onclick', newOc);
+            }
         });
     }
     [50, 300, 900].forEach(function (d) { setTimeout(injectCatalogSearchBack, d); });
