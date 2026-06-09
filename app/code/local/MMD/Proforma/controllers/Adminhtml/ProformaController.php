@@ -42,7 +42,10 @@ class MMD_Proforma_Adminhtml_ProformaController extends Mage_Adminhtml_Controlle
                 'increment' => $o->getIncrementId(),
                 'created'   => Mage::helper('core')->formatDate($o->getCreatedAtStoreDate(), 'medium', false),
                 'customer'  => $o->getCustomerName(),
-                'grand'     => $o->formatPrice($o->getGrandTotal()),
+                // Plain text — formatPrice() returns <span class="price">…</span>
+                // markup which the template (correctly) escapes, so it would
+                // print the raw tags.
+                'grand'     => $o->getOrderCurrencyCode() . ' ' . number_format((float) $o->getGrandTotal(), 2),
                 'courses'   => $courses,
                 'print_url' => $this->getUrl('*/*/print', array('order_id' => $o->getId())),
             );
