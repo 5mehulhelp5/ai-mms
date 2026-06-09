@@ -446,7 +446,7 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
             . "This is a gentle reminder for your upcoming training below.\n"
             . "Course Title: " . $r['course_title'] . "\n"
             . "Course Code: " . $r['course_sku'] . "\n"
-            . "Course Run ID: " . (int) $r['run_id'] . "\n"
+            . "Course Run ID: " . ($lmsRunId !== '' ? $lmsRunId : (int) $r['run_id']) . "\n"
             . "Start Date: " . $startDateFmt . "\n"
             . "End Date: " . $endDateFmt . "\n"
             . "Course Duration: " . $durationText . "\n"
