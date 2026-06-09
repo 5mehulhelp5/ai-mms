@@ -21,13 +21,26 @@ class MMD_Proforma_IndexController extends Mage_Core_Controller_Front_Action
             return;
         }
 
-        /** @var Mage_Sales_Model_Order $order */
-        $order = Mage::getModel('sales/order')->loadByIncrementId($incrementId);
+        // Resolve the order by increment_id AND token together. We do NOT use
+        // loadByIncrementId(): a number can map to more than one order (a data
+        // collision left e.g. #100041182 on both an OpenClaw and a six-sigma
+        // order), and loadByIncrementId() would return an arbitrary one — the
+        // wrong PDF. Matching the per-order protect_code as well pins the exact
+        // order the email link was issued for, and keeps the anti-enumeration
+        // guarantee (you still need that order's token).
+        $order      = null;
+        $candidates = Mage::getResourceModel('sales/order_collection')
+            ->addFieldToFilter('increment_id', $incrementId);
+        foreach ($candidates as $candidate) {
+            $pc = (string) $candidate->getProtectCode();
+            if ($pc !== '' && hash_equals($pc, $token)) {
+                $order = Mage::getModel('sales/order')->load($candidate->getId());
+                break;
+            }
+        }
 
-        // Constant-time token check; bail with a generic 404 either way so the
-        // endpoint never reveals whether a given order id exists.
-        $expected = (string) $order->getProtectCode();
-        if (!$order->getId() || $expected === '' || !hash_equals($expected, $token)) {
+        // Generic 404 so the endpoint never reveals whether an order id exists.
+        if (!$order || !$order->getId()) {
             $this->_deny();
             return;
         }

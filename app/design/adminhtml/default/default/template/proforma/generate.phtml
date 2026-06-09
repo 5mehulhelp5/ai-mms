@@ -1,43 +1,92 @@
 <?php
 /**
- * Admin "Pro Forma Invoice" entry form.
+ * Admin "Pro Forma Invoice" look-up + download.
  *
  * Type an order number (the increment_id shown on Registrations, e.g.
- * 100041333) and submit to regenerate + download the pro forma PDF.
+ * 100041333) → see the matching order(s) and their course → click Download on
+ * the right one. The list step is deliberate: a number can (through a data
+ * collision) map to more than one order, so we show the course before
+ * generating rather than guessing.
  *
  * @var Mage_Core_Block_Template $this
  */
 $formAction  = $this->escapeUrl($this->getData('form_action'));
-$lastOrderNo = $this->escapeHtml($this->getData('last_order_no'));
+$searchedNo  = $this->escapeHtml($this->getData('searched_no'));
+$results     = (array) $this->getData('results');
+$didSearch   = ($this->getData('searched_no') !== '' && $this->getData('searched_no') !== null);
 ?>
-<div class="dcf-mag mmd-auto-card" style="max-width:640px;">
+<div class="dcf-mag mmd-auto-card" style="max-width:780px;">
     <div class="dcf-mag-bar">
         <span><?php echo $this->__('Pro Forma Invoice') ?></span>
     </div>
     <div class="dcf-mag-body" style="padding:18px 22px;">
 
         <p style="margin:0 0 16px;color:var(--t4);font-size:12px;line-height:1.5;">
-            <?php echo $this->__('Enter an order number to regenerate its Pro Forma Invoice and download it as a PDF. The PDF is built fresh from the live order each time.') ?>
+            <?php echo $this->__('Enter an order number to look it up, check the course, then download its Pro Forma Invoice. The PDF is built fresh from the live order each time.') ?>
         </p>
 
         <form action="<?php echo $formAction ?>" method="get" id="mmd-proforma-form"
               style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
-
             <label style="display:flex;flex-direction:column;gap:6px;">
                 <span style="font:700 10.5px/1.2 inherit;color:var(--t4);text-transform:uppercase;letter-spacing:1.2px;">
                     <?php echo $this->__('Order Number') ?>
                 </span>
                 <input type="text" name="order_no" class="input-text" required
-                       value="<?php echo $lastOrderNo ?>"
+                       value="<?php echo $searchedNo ?>"
                        placeholder="<?php echo $this->__('e.g. 100041333') ?>"
                        autocomplete="off" autofocus
                        style="width:240px;height:34px;" />
             </label>
-
-            <button type="submit" class="mm-btn-primary">
-                <?php echo $this->__('Generate &amp; Download PDF') ?>
-            </button>
+            <button type="submit" class="mm-btn-primary"><?php echo $this->__('Look Up Order') ?></button>
         </form>
+
+        <?php if ($didSearch): ?>
+            <div style="margin-top:22px;">
+                <?php if (empty($results)): ?>
+                    <p style="margin:0;color:var(--red);font-size:12px;">
+                        <?php echo $this->__('No order found for %s. Check the number and try again.', '<strong>' . $searchedNo . '</strong>') ?>
+                    </p>
+                <?php else: ?>
+                    <?php if (count($results) > 1): ?>
+                        <p style="margin:0 0 10px;color:var(--yellow);font-size:12px;line-height:1.5;">
+                            <?php echo $this->__('%s orders share the number %s. Confirm the course and download the correct one.', count($results), '<strong>' . $searchedNo . '</strong>') ?>
+                        </p>
+                    <?php else: ?>
+                        <p style="margin:0 0 10px;color:var(--t4);font-size:12px;">
+                            <?php echo $this->__('Confirm the course, then download:') ?>
+                        </p>
+                    <?php endif; ?>
+                    <table class="mm-table" style="width:100%;">
+                        <thead>
+                            <tr>
+                                <th><?php echo $this->__('Order #') ?></th>
+                                <th><?php echo $this->__('Course(s)') ?></th>
+                                <th><?php echo $this->__('Customer') ?></th>
+                                <th><?php echo $this->__('Placed') ?></th>
+                                <th class="num"><?php echo $this->__('Total') ?></th>
+                                <th class="center"><?php echo $this->__('Action') ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($results as $rrow): ?>
+                                <tr>
+                                    <td class="muted"><?php echo $this->escapeHtml($rrow['increment']) ?></td>
+                                    <td class="strong wrap"><?php echo $this->escapeHtml(implode('; ', (array) $rrow['courses'])) ?></td>
+                                    <td><?php echo $this->escapeHtml($rrow['customer']) ?></td>
+                                    <td class="muted"><?php echo $this->escapeHtml($rrow['created']) ?></td>
+                                    <td class="num"><?php echo $this->escapeHtml($rrow['grand']) ?></td>
+                                    <td class="center">
+                                        <a class="mm-btn mm-btn-sm" href="<?php echo $this->escapeUrl($rrow['print_url']) ?>">
+                                            <?php echo $this->__('Download') ?>
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
 
     </div>
 </div>
