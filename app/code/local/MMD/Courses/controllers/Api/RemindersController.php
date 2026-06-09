@@ -563,14 +563,20 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
         } else {
             $modeInt = 1; // default physical / classroom
         }
+        // Prefer LMS's end_date_sgt when present (already timezone-converted by
+        // the service). Falls back to filterDate so we never emit a malformed
+        // date — single-day default is safer than an empty string when LMS
+        // happens to return null for end_date.
+        $endDate = !empty($lms['end_date_sgt']) ? $lms['end_date_sgt'] : $filterDate;
+
         return array(
             'run_id'             => 0,
             'class_id'           => '',                 // no MMS class_id
             'product_id'         => 0,                  // no MMS product
             'course_sku'         => (string) $sku,
             'course_title'       => (string) ($lms['course_title'] ?? $sku),
-            'course_start_date'  => $filterDate,        // LMS API doesn't echo
-            'course_end_date'    => $filterDate,        // assume single-day
+            'course_start_date'  => $filterDate,
+            'course_end_date'    => $endDate,
             'course_start_time'  => null,
             'course_end_time'    => null,
             'mode_of_training'   => $modeInt,

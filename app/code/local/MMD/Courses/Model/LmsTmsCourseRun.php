@@ -183,9 +183,10 @@ class MMD_Courses_Model_LmsTmsCourseRun
         $code  = trim((string) ($r['course_code'] ?? ''));
         if ($code === '') return null;
 
-        $email = trim((string) ($r['assigned_trainer_email'] ?? ''));
-        $name  = trim((string) ($r['assigned_trainer_name']  ?? ''));
+        $email    = trim((string) ($r['assigned_trainer_email'] ?? ''));
+        $name     = trim((string) ($r['assigned_trainer_name']  ?? ''));
         $startSgt = $this->_utcStringToSgtDate((string) ($r['start_date'] ?? ''));
+        $endSgt   = $this->_utcStringToSgtDate((string) ($r['end_date']   ?? ''));
 
         return array(
             'course_code'         => $code,
@@ -198,6 +199,7 @@ class MMD_Courses_Model_LmsTmsCourseRun
             'enrolled_count'      => (int)    ($r['enrolled_count']  ?? 0),
             'class_status'        => (string) ($r['class_status']    ?? ''),
             'start_date_sgt'      => $startSgt,
+            'end_date_sgt'        => $endSgt,
         );
     }
 
