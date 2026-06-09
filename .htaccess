@@ -29,8 +29,18 @@ Deny from env=bad_bot
 ## subrequest env vars with REDIRECT_, so the Header check uses
 ## REDIRECT_noindex_url. robots.txt has matching `Allow:` rules so
 ## Googlebot can fetch these URLs and see the noindex header.
+##
+## Two header variants:
+##   - noindex_url        -> "noindex, nofollow"  (utility URLs with no
+##                           crawlable links worth following: currency
+##                           switcher, HTML seo_sitemap, customer/account)
+##   - noindex_follow_url -> "noindex, follow"    (paginated listings via
+##                           ?p=N: drop the thin/duplicate paginated view
+##                           from the index but KEEP following links so
+##                           product discovery is unaffected)
 <IfModule mod_headers.c>
     Header always set X-Robots-Tag "noindex, nofollow" env=REDIRECT_noindex_url
+    Header always set X-Robots-Tag "noindex, follow" env=REDIRECT_noindex_follow_url
 </IfModule>
 
 
@@ -406,6 +416,14 @@ Redirect 301 /project-management-sme-chinese.html https://www.tertiarycourses.co
     ## tag the env here via [E=] before the rewrite, then mod_headers reads it).
     RewriteRule ^directory/currency/switch(/|$) - [E=noindex_url:1]
     RewriteRule ^catalog/seo_sitemap(/|$) - [E=noindex_url:1]
+    RewriteRule ^customer/account(/|$) - [E=noindex_url:1]
+
+    ## Paginated listings (?p=2, ?p=3 ...) — noindex the thin/duplicate
+    ## paginated view but keep "follow" so links are still crawled. Matches
+    ## only when a p= page param is actually present, so the canonical flat
+    ## URL (/<url-key>.html with no query) stays fully indexable.
+    RewriteCond %{QUERY_STRING} (^|&)p=[0-9] [NC]
+    RewriteRule ^ - [E=noindex_follow_url:1]
 
     RewriteCond %{REQUEST_URI} !^/(media|skin|js)/
     RewriteCond %{REQUEST_FILENAME} !-f

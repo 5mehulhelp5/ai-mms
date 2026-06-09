@@ -8,6 +8,7 @@ User-agent: *
 # Disallow rules below for both Googlebot and Bing to honour them.
 Allow: /directory/currency/switch/
 Allow: /catalog/seo_sitemap/
+Allow: /customer/account/
 
 # Directories
 Disallow: /checkout/
@@ -38,9 +39,13 @@ Disallow: /poll/
 Disallow: /newsletter/
 
 # Disallow URL parameters (layered nav, sort, store switcher)
+# NOTE: /*?p= (pagination) is intentionally NOT disallowed. Paginated
+# views must be crawlable so Googlebot can read the X-Robots-Tag:
+# noindex, follow header served for ?p= URLs (see .htaccess). Blocking
+# them in robots.txt is what put them in the "Indexed, though blocked
+# by robots.txt" GSC report in the first place.
 Disallow: /*?dir=
 Disallow: /*?order=
-Disallow: /*?p=
 Disallow: /*?price=
 Disallow: /*?cat=
 Disallow: /*?manufacturer=
