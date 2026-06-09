@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!--
+    MMD_Proforma — generates a Pro Forma Invoice PDF on demand from an order.
+    Powers the "Download Pro Forma Invoice" link in the SG New Order email
+    (core_email_template id 2). Frontend route: /pdf/?orderID=<increment_id>&token=<protect_code>
+-->
+<config>
+    <modules>
+        <MMD_Proforma>
+            <active>true</active>
+            <codePool>local</codePool>
+            <depends>
+                <Mage_Sales/>
+            </depends>
+        </MMD_Proforma>
+    </modules>
+</config>

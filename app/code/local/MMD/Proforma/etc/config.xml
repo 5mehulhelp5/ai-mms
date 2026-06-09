@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <MMD_Proforma>
+            <version>1.0.0</version>
+        </MMD_Proforma>
+    </modules>
+
+    <global>
+        <models>
+            <proforma>
+                <class>MMD_Proforma_Model</class>
+            </proforma>
+        </models>
+        <helpers>
+            <proforma>
+                <class>MMD_Proforma_Helper</class>
+            </proforma>
+        </helpers>
+    </global>
+
+    <frontend>
+        <routers>
+            <proforma>
+                <use>standard</use>
+                <args>
+                    <module>MMD_Proforma</module>
+                    <!-- matches the legacy email link path /pdf/?orderID=... -->
+                    <frontName>pdf</frontName>
+                </args>
+            </proforma>
+        </routers>
+    </frontend>
+</config>
