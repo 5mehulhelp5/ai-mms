@@ -9,20 +9,49 @@
  * self-sponsored SG learners can submit it to MySkillsFuture for their
  * SkillsFuture Credit (SFC) claim.
  *
- * Totals are taken verbatim from the stored order. In particular GST is
- * displayed from $order->getTaxAmount() and is NOT recomputed — SG GST is
- * deliberately settled on the pre-subsidy course list price, not the
- * discounted subtotal (see CLAUDE.md). Recomputing here would contradict the
- * tax the learner actually pays.
+ * WSQ funding breakdown
+ * ---------------------
+ * The storefront only ever stores the *net* fee the learner pays (item
+ * row_total / order subtotal) — the original course list price is not kept on
+ * the order. BUT SG GST is deliberately settled on the **pre-subsidy list
+ * price** (see CLAUDE.md), so the stored tax_amount is exactly 9% of that list
+ * price. We therefore recover the list price from the GST:
+ *
+ *     original_list = item.tax_amount / GST_RATE          (e.g. 67.50 / 0.09 = 750)
+ *     total_funding = original_list - item.row_total      (e.g. 750 - 225 = 525)
+ *     baseline      = original_list * 0.50                 (WSQ baseline, 50%)
+ *     mces          = total_funding - baseline             (Mid-Career Enhanced Subsidy, 20%)
+ *
+ * This is automatically age-aware: a learner who did NOT qualify for MCES
+ * (under 40) paid 50% (baseline only), so total_funding == baseline and the
+ * MCES line is simply omitted. A learner above 40 paid 30%, so MCES = 20%
+ * shows. Net fee + GST always reconciles to the stored grand_total.
+ *
+ * Totals (SUBTOTAL / GST / TOTAL / BALANCE DUE) are taken verbatim from the
+ * stored order and never recomputed.
  */
 class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
 {
-    /** Column x feeds (A4 content band is roughly 25..570pt). */
-    protected $_colCourse   = 30;
-    protected $_colSchedule = 250;
-    protected $_colQty      = 400;   // right-aligned
-    protected $_colPrice    = 485;   // right-aligned
-    protected $_colAmount   = 565;   // right-aligned
+    /** SG GST rate the custom tax engine settles on the pre-subsidy list price. */
+    const GST_RATE = 0.09;
+
+    /** Payment term: due date = invoice date + this many days (Net 30). */
+    const DUE_DAYS = 30;
+
+    /** Royal-blue table header fill (matches the reference pro forma). */
+    protected function _blue()
+    {
+        return new Zend_Pdf_Color_Rgb(0.13, 0.30, 0.80);
+    }
+
+    /* Column geometry (A4 content band 25..570pt). */
+    protected $_colDesc      = 30;
+    protected $_qtyCenter    = 412;
+    protected $_rateCenter   = 487;
+    protected $_amtCenter    = 543;
+    protected $_qtyRight     = 432;
+    protected $_rateRight    = 512;
+    protected $_amtRight     = 567;
 
     /**
      * @param  Mage_Sales_Model_Order $order
@@ -48,53 +77,50 @@ class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
         $this->insertLogo($page, $store);
         $this->insertAddress($page, $store);
 
-        /* Title + meta */
-        $this->y = 715;
-        $this->_setFontBold($page, 18);
-        $page->setFillColor(new Zend_Pdf_Color_Rgb(0.09, 0.12, 0.20));
-        $page->drawText('PRO FORMA INVOICE', 25, $this->y, 'UTF-8');
-        $page->setFillColor(new Zend_Pdf_Color_GrayScale(0));
+        /* BILL TO (left) + INVOICE / DATE / DUE DATE (right) */
+        $this->y = 700;
+        $this->_drawBillTo($page, $order);
+        $this->_drawInvoiceMeta($page, $order);
 
-        $metaY = $this->y;
-        $this->_textRight($page, 'Pro Forma No: ' . $order->getIncrementId(), 570, $metaY, 10);
-        $metaY -= 14;
-        $date = Mage::helper('core')->formatDate($order->getCreatedAtStoreDate(), 'medium', false);
-        $this->_textRight($page, 'Date: ' . $date, 570, $metaY, 10);
-
-        /* Divider */
-        $this->y -= 24;
-        $page->setLineColor(new Zend_Pdf_Color_GrayScale(0.75));
-        $page->setLineWidth(0.8);
-        $page->drawLine(25, $this->y, 570, $this->y);
-        $this->y -= 24;
-
-        /* Bill To */
-        $this->_setFontBold($page, 11);
-        $page->drawText('Bill To', 25, $this->y, 'UTF-8');
-        $this->y -= 16;
-        $this->_setFontRegular($page, 10);
-        foreach ($this->_billToLines($order) as $line) {
-            foreach (Mage::helper('core/string')->str_split($line, 75, true, true) as $part) {
-                $page->drawText(trim($part), 25, $this->y, 'UTF-8');
-                $this->y -= 13;
-            }
-        }
-
-        $this->y -= 16;
+        // Drop below BOTH the bill-to name and the 3-row meta block before the
+        // table, so the blue header bar never overlaps the DUE DATE line.
+        $this->y = 648;
 
         /* Items table */
         $this->_drawTableHeader($page);
+
+        $anyFunding = false;
         foreach ($order->getAllVisibleItems() as $item) {
-            if ($this->y < 160) {
+            if ($this->y < 170) {
                 $page = $this->newPage();
                 $this->y = 790;
                 $this->_drawTableHeader($page);
             }
-            $this->_drawItemRow($page, $order, $item);
+            if ($this->_drawItemBlock($page, $order, $item)) {
+                $anyFunding = true;
+            }
         }
 
-        /* Totals + notes */
-        if ($this->y < 200) {
+        /* "To Less SkillsFuture Credit" note line (WSQ funded orders only) */
+        if ($anyFunding) {
+            if ($this->y < 150) {
+                $page = $this->newPage();
+                $this->y = 790;
+            }
+            $this->_setFontRegular($page, 9);
+            $page->drawText(
+                'To Less SkillsFuture Credit: SGD' . $this->_num($order->getGrandTotal()),
+                $this->_colDesc, $this->y, 'UTF-8'
+            );
+            $this->y -= 8;
+            $page->setLineColor(new Zend_Pdf_Color_GrayScale(0.6));
+            $page->setLineWidth(0.6);
+            $page->drawLine(25, $this->y, 570, $this->y);
+            $this->y -= 16;
+        }
+
+        /* Totals */
+        if ($this->y < 150) {
             $page = $this->newPage();
             $this->y = 790;
         }
@@ -111,167 +137,213 @@ class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
 
     /* ------------------------------------------------------------------ */
 
-    protected function _billToLines(Mage_Sales_Model_Order $order)
+    protected function _drawBillTo(&$page, Mage_Sales_Model_Order $order)
     {
-        $lines   = array();
-        $billing = $order->getBillingAddress();
+        $this->_setFontBold($page, 11);
+        $page->setFillColor(new Zend_Pdf_Color_GrayScale(0));
+        $page->drawText('BILL TO', $this->_colDesc, $this->y, 'UTF-8');
 
-        // Build from explicit fields rather than the address pdf template,
-        // which bundles the recipient name and space-joins street lines —
-        // that produced a duplicated name and a mashed street line.
         $name = trim((string) $order->getCustomerName());
-        if ($name === '' && $billing) {
-            $name = trim((string) $billing->getName());
+        if ($name === '' || strcasecmp($name, 'Guest') === 0) {
+            $billing = $order->getBillingAddress();
+            $name = $billing ? trim((string) $billing->getName()) : '';
         }
-        if ($name !== '' && strcasecmp($name, 'Guest') !== 0) {
-            $lines[] = $name;
-        }
-
-        if ($billing) {
-            if (trim((string) $billing->getCompany()) !== '') {
-                $lines[] = trim((string) $billing->getCompany());
-            }
-            foreach ((array) $billing->getStreet() as $street) {
-                $street = trim((string) $street);
-                if ($street !== '') {
-                    $lines[] = $street;
-                }
-            }
-            $cityParts = array(trim((string) $billing->getCity()));
-            $region    = trim((string) $billing->getRegion());
-            if ($region !== '' && strcasecmp($region, (string) $billing->getCity()) !== 0) {
-                $cityParts[] = $region;
-            }
-            $cityParts[] = trim((string) $billing->getPostcode());
-            $cityLine = trim(implode(' ', array_filter($cityParts)));
-            if ($cityLine !== '') {
-                $lines[] = $cityLine;
-            }
-            $countryModel = $billing->getCountryModel();
-            $country = $countryModel ? trim((string) $countryModel->getName()) : '';
-            if ($country !== '') {
-                $lines[] = $country;
-            }
-            if (trim((string) $billing->getTelephone()) !== '') {
-                $lines[] = 'Tel: ' . trim((string) $billing->getTelephone());
-            }
+        if ($name === '') {
+            $name = '-';
         }
 
-        $email = trim((string) $order->getCustomerEmail());
-        if ($email !== '') {
-            $lines[] = $email;
+        $this->_setFontRegular($page, 11);
+        $page->drawText($name, $this->_colDesc, $this->y - 18, 'UTF-8');
+    }
+
+    protected function _drawInvoiceMeta(&$page, Mage_Sales_Model_Order $order)
+    {
+        $ts = strtotime((string) $order->getCreatedAtStoreDate());
+        if (!$ts) {
+            $ts = strtotime((string) $order->getCreatedAt());
         }
-        if (empty($lines)) {
-            $lines[] = '-';
+        $invoiceDate = $ts ? date('d/m/Y', $ts) : '';
+        $dueDate     = $ts ? date('d/m/Y', $ts + self::DUE_DAYS * 86400) : '';
+
+        $labelRight = 478;   // right edge of the label column
+        $valueLeft  = 486;   // left edge of the value column
+        $y = $this->y;
+
+        $rows = array(
+            array('INVOICE',  'PF-' . $order->getIncrementId()),
+            array('DATE',     $invoiceDate),
+            array('DUE DATE', $dueDate),
+        );
+        foreach ($rows as $r) {
+            $this->_setFontBold($page, 10);
+            $this->_textRight($page, $r[0], $labelRight, $y, 10, true);
+            $this->_setFontRegular($page, 10);
+            $page->drawText($r[1], $valueLeft, $y, 'UTF-8');
+            $y -= 16;
         }
-        return $lines;
     }
 
     protected function _drawTableHeader(&$page)
     {
-        $page->setFillColor(new Zend_Pdf_Color_Rgb(0.09, 0.12, 0.20));
-        $page->drawRectangle(25, $this->y, 570, $this->y - 18, Zend_Pdf_Page::SHAPE_DRAW_FILL);
+        $page->setFillColor($this->_blue());
+        $page->setLineColor($this->_blue());
+        $page->drawRectangle(25, $this->y, 570, $this->y - 22, Zend_Pdf_Page::SHAPE_DRAW_FILL);
+
         $this->_setFontBold($page, 9);
         $page->setFillColor(new Zend_Pdf_Color_GrayScale(1));
-
-        $textY = $this->y - 12;
-        $page->drawText('Course', $this->_colCourse, $textY, 'UTF-8');
-        $page->drawText('Schedule', $this->_colSchedule, $textY, 'UTF-8');
-        $this->_textRight($page, 'Qty', $this->_colQty, $textY, 9, true);
-        $this->_textRight($page, 'Unit Price', $this->_colPrice, $textY, 9, true);
-        $this->_textRight($page, 'Amount', $this->_colAmount, $textY, 9, true);
+        $textY = $this->y - 15;
+        $page->drawText('DESCRIPTION', $this->_colDesc, $textY, 'UTF-8');
+        $this->_textCenter($page, 'QTY',    $this->_qtyCenter,  $textY, 9, true);
+        $this->_textCenter($page, 'RATE',   $this->_rateCenter, $textY, 9, true);
+        $this->_textCenter($page, 'AMOUNT', $this->_amtCenter,  $textY, 9, true);
 
         $page->setFillColor(new Zend_Pdf_Color_GrayScale(0));
-        $this->y -= 26;
+        $this->y -= 34;
     }
 
-    protected function _drawItemRow(&$page, Mage_Sales_Model_Order $order, $item)
+    /**
+     * Draw the course line + its WSQ funding breakdown.
+     *
+     * @return bool true if a funding breakdown was rendered (so the caller can
+     *              decide whether to print the SkillsFuture-Credit note).
+     */
+    protected function _drawItemBlock(&$page, Mage_Sales_Model_Order $order, $item)
     {
+        $qty = (float) $item->getQtyOrdered();
+        if ($qty <= 0) {
+            $qty = 1.0;
+        }
+
+        list($original, $net, $baseline, $mces, $hasFunding) = $this->_itemFunding($item);
+
+        /* ---- Course row ---- */
         $rowTop = $this->y;
 
-        /* Course name (wrapped) */
+        // Description: "<name> - <sku>" then participant + course date sub-lines.
+        $title = trim((string) $item->getName());
+        $sku   = trim((string) $item->getSku());
+        if ($sku !== '' && stripos($title, $sku) === false) {
+            $title .= ' - ' . $sku;
+        }
         $this->_setFontRegular($page, 9);
-        $nameLines = Mage::helper('core/string')->str_split(
-            trim((string) $item->getName()), 46, true, true
-        );
         $y = $rowTop;
-        foreach ($nameLines as $nl) {
-            $page->drawText(trim($nl), $this->_colCourse, $y, 'UTF-8');
+        foreach (Mage::helper('core/string')->str_split($title, 62, true, true) as $tl) {
+            $page->drawText(trim($tl), $this->_colDesc, $y, 'UTF-8');
             $y -= 11;
         }
-        /* SKU under the name in grey */
-        $page->setFillColor(new Zend_Pdf_Color_GrayScale(0.45));
-        $this->_setFontRegular($page, 8);
-        $page->drawText('SKU: ' . trim((string) $item->getSku()), $this->_colCourse, $y, 'UTF-8');
-        $page->setFillColor(new Zend_Pdf_Color_GrayScale(0));
-        $y -= 11;
-        $courseBottom = $y;
 
-        /* Schedule (Course Date + Course Time custom options) */
-        $this->_setFontRegular($page, 9);
-        $schedY = $rowTop;
+        $participant = $this->_participantName($order, $item);
+        if ($participant !== '') {
+            $page->drawText('Participant Name: ' . $participant, $this->_colDesc, $y, 'UTF-8');
+            $y -= 11;
+        }
         $courseDate = $this->_itemOption($item, 'Course Date');
-        $courseTime = $this->_itemOption($item, 'Course Time');
-        foreach (array($courseDate, $courseTime) as $piece) {
-            if ($piece === '') {
-                continue;
-            }
-            foreach (Mage::helper('core/string')->str_split($piece, 28, true, true) as $pl) {
-                $page->drawText(trim($pl), $this->_colSchedule, $schedY, 'UTF-8');
-                $schedY -= 11;
+        if ($courseDate !== '') {
+            $page->drawText('Course Date: ' . $courseDate, $this->_colDesc, $y, 'UTF-8');
+            $y -= 11;
+        }
+
+        // Numeric columns aligned to the title line.
+        $unit = $qty > 0 ? $original / $qty : $original;
+        $this->_textRight($page, $this->_qtyStr($qty), $this->_qtyRight,  $rowTop, 9);
+        $this->_textRight($page, $this->_num($unit),   $this->_rateRight, $rowTop, 9);
+        $this->_textRight($page, $this->_num($original), $this->_amtRight, $rowTop, 9);
+
+        $this->y = $y - 6;
+
+        /* ---- Funding rows ---- */
+        if ($hasFunding) {
+            $this->_drawFundingRow($page, 'Less: WSQ funding (Baseline)', $qty, -$baseline);
+            if ($mces > 0.005) {
+                $this->_drawFundingRow($page, 'Less: WSQ funding (Mid-Career Enhanced Subsidy)', $qty, -$mces);
             }
         }
 
-        /* Numeric columns (top-aligned with the row) */
-        $qty = (float) $item->getQtyOrdered();
-        $this->_textRight($page, rtrim(rtrim(number_format($qty, 2), '0'), '.'), $this->_colQty, $rowTop, 9);
-        $this->_textRight($page, $order->formatPriceTxt($item->getPrice()), $this->_colPrice, $rowTop, 9);
-        $this->_textRight($page, $order->formatPriceTxt($item->getRowTotal()), $this->_colAmount, $rowTop, 9);
+        return $hasFunding;
+    }
 
-        /* Advance below whichever column ran longest, then a faint separator */
-        $this->y = min($courseBottom, $schedY) - 6;
-        $page->setLineColor(new Zend_Pdf_Color_GrayScale(0.85));
-        $page->setLineWidth(0.5);
-        $page->drawLine(25, $this->y, 570, $this->y);
-        $this->y -= 14;
+    protected function _drawFundingRow(&$page, $label, $qty, $rowAmount)
+    {
+        $this->_setFontRegular($page, 9);
+        $page->drawText($label, $this->_colDesc, $this->y, 'UTF-8');
+
+        $unit = $qty > 0 ? $rowAmount / $qty : $rowAmount;
+        $this->_textRight($page, $this->_qtyStr($qty),    $this->_qtyRight,  $this->y, 9);
+        $this->_textRight($page, $this->_num($unit),      $this->_rateRight, $this->y, 9);
+        $this->_textRight($page, $this->_num($rowAmount), $this->_amtRight,  $this->y, 9);
+
+        $this->y -= 16;
+    }
+
+    /**
+     * Derive the WSQ funding breakdown for one order item from the stored GST.
+     *
+     * @return array [original_list, net_fee, baseline, mces, hasFunding]
+     */
+    protected function _itemFunding($item)
+    {
+        $net = round((float) $item->getRowTotal(), 2);
+        $tax = round((float) $item->getTaxAmount(), 2);
+
+        // List price recovered from GST (settled on the pre-subsidy list price).
+        $original = $net;
+        if ($tax > 0.001 && self::GST_RATE > 0) {
+            $original = round($tax / self::GST_RATE, 2);
+        }
+
+        $totalFunding = round($original - $net, 2);
+
+        // Funding lines only for WSQ (TGS-) courses that actually carry a subsidy.
+        $isWsq      = strncasecmp((string) $item->getSku(), 'TGS-', 4) === 0;
+        $hasFunding = $isWsq && $totalFunding > 0.005;
+
+        $baseline = $hasFunding ? round($original * 0.50, 2) : 0.0;
+        $mces     = $hasFunding ? round($totalFunding - $baseline, 2) : 0.0;
+        if ($mces < 0) {
+            // Funding below baseline (rare/partial): fold it all into baseline.
+            $baseline = $totalFunding;
+            $mces     = 0.0;
+        }
+
+        return array($original, $net, $baseline, $mces, $hasFunding);
     }
 
     protected function _drawTotals(&$page, Mage_Sales_Model_Order $order)
     {
-        $labelX = 360;
-        $valX   = $this->_colAmount;
+        $labelX = 400;
+        $valX   = $this->_amtRight;
 
-        $this->y -= 6;
-        $rows = array();
-        $rows[] = array('Subtotal', $order->getSubtotal(), false);
-
-        $discount = (float) $order->getDiscountAmount();
-        if (abs($discount) > 0.001) {
-            $rows[] = array('Discount', $discount, false);
-        }
-        $rows[] = array('GST', $order->getTaxAmount(), false);
-        $rows[] = array('Total Payable (' . $order->getOrderCurrencyCode() . ')', $order->getGrandTotal(), true);
-
+        $rows = array(
+            array('SUBTOTAL',  $this->_num($order->getSubtotal()), false),
+            array('GST TOTAL', $this->_num($order->getTaxAmount()), false),
+            array('TOTAL',     $this->_num($order->getGrandTotal()), false),
+        );
         foreach ($rows as $r) {
-            list($label, $amount, $emphasis) = $r;
-            if ($emphasis) {
-                $this->y -= 4;
-                $page->setLineColor(new Zend_Pdf_Color_GrayScale(0.4));
-                $page->setLineWidth(0.8);
-                $page->drawLine($labelX, $this->y + 12, 570, $this->y + 12);
-                $this->_setFontBold($page, 11);
-            } else {
-                $this->_setFontRegular($page, 10);
-            }
-            $page->drawText($label, $labelX, $this->y, 'UTF-8');
-            $this->_textRight($page, $order->formatPriceTxt($amount), $valX, $this->y, $emphasis ? 11 : 10, $emphasis);
-            $this->y -= $emphasis ? 18 : 15;
+            $this->_setFontRegular($page, 10);
+            $page->drawText($r[0], $labelX, $this->y, 'UTF-8');
+            $this->_textRight($page, $r[1], $valX, $this->y, 10);
+            $this->y -= 18;
         }
+
+        // BALANCE DUE — emphasised, with the rule line above it.
+        $this->y -= 2;
+        $page->setLineColor(new Zend_Pdf_Color_GrayScale(0.4));
+        $page->setLineWidth(0.8);
+        $page->drawLine($labelX, $this->y + 14, 570, $this->y + 14);
+
+        $this->_setFontBold($page, 11);
+        $page->drawText('BALANCE DUE', $labelX, $this->y, 'UTF-8');
+        $this->_textRight(
+            $page,
+            $order->getOrderCurrencyCode() . ' ' . $this->_num($order->getGrandTotal()),
+            $valX, $this->y, 11, true
+        );
+        $this->y -= 22;
     }
 
     protected function _drawNotes(&$page, Mage_Sales_Model_Order $order)
     {
-        $this->y -= 20;
+        $this->y -= 12;
         if ($this->y < 90) {
             $page = $this->newPage();
             $this->y = 790;
@@ -308,6 +380,20 @@ class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
     /* ------------------------------------------------------------------ */
 
     /**
+     * Participant name for the course line — the account holder (matches the
+     * reference pro forma, which prints the BILL TO name as the participant).
+     */
+    protected function _participantName(Mage_Sales_Model_Order $order, $item)
+    {
+        $name = trim((string) $order->getCustomerName());
+        if ($name === '' || strcasecmp($name, 'Guest') === 0) {
+            $billing = $order->getBillingAddress();
+            $name = $billing ? trim((string) $billing->getName()) : '';
+        }
+        return $name;
+    }
+
+    /**
      * Pull a named custom-option value (e.g. "Course Date") off an order item.
      */
     protected function _itemOption($item, $label)
@@ -329,13 +415,31 @@ class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
         return $email ?: 'sales@tertiarycourses.com.sg';
     }
 
-    /**
-     * Draw right-aligned text ending at $rightX on baseline $y.
-     */
+    /** Plain money formatter: 1,234.50 (no currency symbol). */
+    protected function _num($n)
+    {
+        return number_format((float) $n, 2, '.', ',');
+    }
+
+    /** Qty formatter: trims trailing zeros (1, 1.5, 2). */
+    protected function _qtyStr($qty)
+    {
+        return rtrim(rtrim(number_format((float) $qty, 2), '0'), '.');
+    }
+
+    /** Draw right-aligned text ending at $rightX on baseline $y. */
     protected function _textRight(&$page, $text, $rightX, $y, $size, $bold = false)
     {
-        $font = $bold ? $this->_setFontBold($page, $size) : $this->_setFontRegular($page, $size);
+        $font  = $bold ? $this->_setFontBold($page, $size) : $this->_setFontRegular($page, $size);
         $width = $this->widthForStringUsingFontSize($text, $font, $size);
         $page->drawText($text, $rightX - $width, $y, 'UTF-8');
+    }
+
+    /** Draw text centered on $centerX at baseline $y. */
+    protected function _textCenter(&$page, $text, $centerX, $y, $size, $bold = false)
+    {
+        $font  = $bold ? $this->_setFontBold($page, $size) : $this->_setFontRegular($page, $size);
+        $width = $this->widthForStringUsingFontSize($text, $font, $size);
+        $page->drawText($text, $centerX - $width / 2, $y, 'UTF-8');
     }
 }
