@@ -161,8 +161,11 @@ class MMD_RoleManager_Model_CourseRunEnrolmentService
         $s = preg_replace('/\s*\([^)]*\)?/', '', $s);
         // Strip trailing weekday suffixes like "Mon-Fri", "Mon-Tues".
         $s = preg_replace('/\s+(Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*(?:[-\/][A-Za-z]+)*\s*$/i', '', $s);
-        // Strip anything after a 4-digit year (catches "Mon-Fri 6-9:30pm" etc.).
-        $s = preg_replace('/(\d{4})\s+\S.*$/', '$1', $s);
+        // Strip anything after a 4-digit year (catches "Mon-Fri 6-9:30pm" etc.),
+        // but NOT a following date range like "28 Dec 2026 - 1 Jan 2027" where the
+        // start date carries its own year — the negative lookahead preserves the
+        // tail so the cross-year range parser below can see the full label.
+        $s = preg_replace('/(\d{4})\s+(?![-\/]\s*\d)\S.*$/', '$1', $s);
         // Strip trailing session-time descriptors.
         $s = trim(preg_replace('/\s+(evening|morning|afternoon|night)\s*$/i', '', $s));
         // Collapse repeated slashes / dashes introduced by malformed labels.
@@ -207,6 +210,20 @@ class MMD_RoleManager_Model_CourseRunEnrolmentService
             $year  = (int) $m[5];
             $start = $this->_makeDate($ms, (int)$m[1], $year);
             $end   = $this->_makeDate($me, (int)$m[2], $me < $ms ? $year + 1 : $year);
+            return ($start && $end) ? array($start, $end) : null;
+        }
+
+        // Full hyphen range with a year on BOTH sides: DD Mon YYYY - DD Mon YYYY
+        //   "28 Dec 2026 - 1 Jan 2027" (cross-year), "29 Sep 2026 - 2 Oct 2026"
+        // Each side carries its own year, so end-year is taken verbatim rather
+        // than inferred. Must precede the single-date parsers below, which would
+        // otherwise collapse the range to its (single) start date.
+        if (preg_match('/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})\s*-\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/', $s, $m)) {
+            $ms = $this->_monthNumber($m[2]);
+            $me = $this->_monthNumber($m[5]);
+            if (!$ms || !$me) return null;
+            $start = $this->_makeDate($ms, (int)$m[1], (int)$m[3]);
+            $end   = $this->_makeDate($me, (int)$m[4], (int)$m[6]);
             return ($start && $end) ? array($start, $end) : null;
         }
 
