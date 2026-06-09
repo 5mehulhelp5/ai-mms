@@ -282,7 +282,12 @@ class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
      */
     protected function _itemFunding($item)
     {
-        $net = round((float) $item->getRowTotal(), 2);
+        // Net fee = list row total minus any discount. This is storage-pattern
+        // agnostic: some orders bake the subsidy straight into the price
+        // (row_total already net, discount 0); others keep the list price in
+        // row_total and record the subsidy as discount_amount. Both yield the
+        // same net here.
+        $net = round((float) $item->getRowTotal() - (float) $item->getDiscountAmount(), 2);
         $tax = round((float) $item->getTaxAmount(), 2);
 
         // List price recovered from GST (settled on the pre-subsidy list price).
@@ -313,8 +318,14 @@ class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
         $labelX = 400;
         $valX   = $this->_amtRight;
 
+        // Net fee = grand total minus GST. There is never any shipping, so this
+        // always equals the post-subsidy amount the learner pays before tax —
+        // and it is correct whether the subsidy was baked into the price or
+        // stored as a Magento discount (getSubtotal() would be the pre-discount
+        // figure in the latter case and must NOT be used here).
+        $netTotal = (float) $order->getGrandTotal() - (float) $order->getTaxAmount();
         $rows = array(
-            array('SUBTOTAL',  $this->_num($order->getSubtotal()), false),
+            array('SUBTOTAL',  $this->_num($netTotal), false),
             array('GST TOTAL', $this->_num($order->getTaxAmount()), false),
             array('TOTAL',     $this->_num($order->getGrandTotal()), false),
         );
