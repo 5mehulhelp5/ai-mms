@@ -1129,10 +1129,45 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
         $result = array('success' => false, 'learners' => array());
         try {
             $productId = (int) $this->getRequest()->getParam('product_id');
+            $runId     = (int) $this->getRequest()->getParam('run_id');
             if (!$productId) throw new Exception('product_id required');
 
             $resource = Mage::getSingleton('core/resource');
             $read     = $resource->getConnection('core_read');
+
+            // RUN-SCOPED roster (this exact class). The authoritative source is
+            // course_run_enrolments for that run_id — orders are materialised
+            // into it by class formation / backfill, so it is the single source
+            // of truth per run (same source the attendance page uses). Minus
+            // the per-course exclusion list. This makes the Assign Learners
+            // modal match the per-run row it was opened from.
+            if ($runId > 0) {
+                $enrolTbl = $resource->getTableName('course_run_enrolments');
+                $exclSet  = array_flip(array_map('strtolower', $read->fetchCol(
+                    "SELECT learner_email FROM " . $resource->getTableName('course_learner_excludes') . " WHERE product_id = ?",
+                    array($productId)
+                )));
+                $byEmail = array();
+                foreach ($read->fetchAll(
+                    "SELECT enrolment_id, learner_email, learner_name FROM `$enrolTbl` WHERE run_id = ? ORDER BY learner_name",
+                    array($runId)
+                ) as $r) {
+                    $email = strtolower((string) $r['learner_email']);
+                    if ($email === '' || isset($exclSet[$email])) continue;
+                    $byEmail[$email] = array(
+                        'email'    => $email,
+                        'name'     => $r['learner_name'] ?: $email,
+                        'source'   => 'manual',
+                        'enrol_id' => (int) $r['enrolment_id'],
+                    );
+                }
+                $result['learners'] = array_values($byEmail);
+                $result['success']  = true;
+                $this->getResponse()->setHeader('Content-Type', 'application/json', true);
+                $this->getResponse()->setBody(Mage::helper('core')->jsonEncode($result));
+                return;
+            }
+
             $wid      = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
 
             // Order-based learners (paid + processing only — pending /
@@ -1221,14 +1256,25 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $write    = $resource->getConnection('core_write');
             $tbl      = $resource->getTableName('course_run_enrolments');
 
-            // Resolve the latest run for the product so the enrolment
-            // attaches to the upcoming class instance, not the product
-            // generally — keeps per-run counting honest.
-            $runId = $read->fetchOne(
-                "SELECT MAX(run_id) FROM " . $resource->getTableName('course_runs') . " WHERE product_id=?",
-                array($productId)
-            );
-            $runId = $runId ? (int) $runId : null;
+            // Run target: prefer the explicit run_id the modal was opened from
+            // (run-scoped enrol — attaches to THAT exact class, incl. ongoing/
+            // past). Validate it belongs to this product. Fall back to the
+            // product's latest run only when no valid run_id is supplied
+            // (back-compat for callers that don't pass one).
+            $reqRunId = (int) $req->getParam('run_id');
+            if ($reqRunId > 0) {
+                $runId = (int) $read->fetchOne(
+                    "SELECT run_id FROM " . $resource->getTableName('course_runs') . " WHERE run_id=? AND product_id=? LIMIT 1",
+                    array($reqRunId, $productId)
+                );
+                $runId = $runId ?: null;
+            } else {
+                $runId = $read->fetchOne(
+                    "SELECT MAX(run_id) FROM " . $resource->getTableName('course_runs') . " WHERE product_id=?",
+                    array($productId)
+                );
+                $runId = $runId ? (int) $runId : null;
+            }
 
             // Auto-fill name from existing customer record if blank.
             if ($name === '') {
@@ -1275,31 +1321,47 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             if (!$this->getRequest()->isPost()) throw new Exception('POST required');
             $req = $this->getRequest();
             $productId = (int) $req->getParam('product_id');
+            $runId     = (int) $req->getParam('run_id');
             $email     = strtolower(trim((string) $req->getParam('learner_email')));
             if (!$productId || $email === '') throw new Exception('product_id + learner_email required');
 
             $resource = Mage::getSingleton('core/resource');
             $write    = $resource->getConnection('core_write');
-            // Drop the manual enrolment if any — covers learners added via
-            // Add Learner. For order-sourced learners this is a no-op.
-            $write->delete(
-                $resource->getTableName('course_run_enrolments'),
-                array('product_id=?' => $productId, 'learner_email=?' => $email)
-            );
-            // Suppress the (product, email) pair so order-sourced learners
-            // also disappear from the roster. Reversible via Add Learner.
-            $adminUser = Mage::getSingleton('admin/session')->getUser();
-            $excludedBy = $adminUser ? (int) $adminUser->getId() : null;
-            $write->insertOnDuplicate(
-                $resource->getTableName('course_learner_excludes'),
-                array(
-                    'product_id'    => $productId,
-                    'learner_email' => $email,
-                    'excluded_by'   => $excludedBy,
-                ),
-                array('excluded_by', 'excluded_at')
-            );
-            $result['success'] = true;
+
+            if ($runId > 0) {
+                // RUN-SCOPED remove: drop the enrolment for THIS run only.
+                // No product-wide exclude — removing from one class must not
+                // hide the learner from the course's other runs. The per-run
+                // roster reads from course_run_enrolments, so deleting the row
+                // is sufficient (class formation is idempotent + won't re-add).
+                $write->delete(
+                    $resource->getTableName('course_run_enrolments'),
+                    array('run_id=?' => $runId, 'learner_email=?' => $email)
+                );
+                $result['success'] = true;
+            } else {
+                // Product-scoped remove (legacy path, no run_id supplied).
+                // Drop the manual enrolment if any — covers learners added via
+                // Add Learner. For order-sourced learners this is a no-op.
+                $write->delete(
+                    $resource->getTableName('course_run_enrolments'),
+                    array('product_id=?' => $productId, 'learner_email=?' => $email)
+                );
+                // Suppress the (product, email) pair so order-sourced learners
+                // also disappear from the roster. Reversible via Add Learner.
+                $adminUser = Mage::getSingleton('admin/session')->getUser();
+                $excludedBy = $adminUser ? (int) $adminUser->getId() : null;
+                $write->insertOnDuplicate(
+                    $resource->getTableName('course_learner_excludes'),
+                    array(
+                        'product_id'    => $productId,
+                        'learner_email' => $email,
+                        'excluded_by'   => $excludedBy,
+                    ),
+                    array('excluded_by', 'excluded_at')
+                );
+                $result['success'] = true;
+            }
         } catch (Exception $e) {
             $result['message'] = $e->getMessage();
         }

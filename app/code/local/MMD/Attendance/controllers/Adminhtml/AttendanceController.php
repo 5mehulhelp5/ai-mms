@@ -13,6 +13,20 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
         return Mage::helper('mmd_attendance')->isAllowed();
     }
 
+    /**
+     * Skip Magento's form-key check for the AJAX actions. They POST a JSON
+     * body, so `form_key` lives inside the JSON and is NOT visible to the
+     * default _validateFormKey() (which reads $_GET/$_POST) — that mismatch
+     * triggered a 302 redirect to HTML, surfacing as a "network error" when
+     * the JS tried response.json(). CSRF is still covered by the admin URL's
+     * secret /key/<hash>/ segment (same approach as MMD TrainerController /
+     * CoursesaveController).
+     */
+    protected function _validateFormKey()
+    {
+        return true;
+    }
+
     public function indexAction()
     {
         $this->loadLayout()
@@ -191,8 +205,13 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
             );
             if ($exists) throw new Exception('This learner is already on the roster.');
 
-            // Resolve or create a customer_entity account.
-            $customerId = $this->_ensureCustomer($name, $email, (int)$run['product_id']);
+            // Resolve or create the account. For an EXISTING learner the
+            // account's own name is authoritative — if the admin picked a
+            // learner from the dropdown and then edited the name field, the
+            // edit is ignored so the roster never mismatches the account.
+            $cust       = $this->_ensureCustomer($name, $email, (int)$run['product_id']);
+            $customerId = $cust['id'];
+            $name       = $cust['name'];
 
             // Add an enrolment row so they appear in the roster like everyone else
             // (idempotent — only if not already enrolled for this run+email).
@@ -273,18 +292,26 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
      * Find a customer_entity by email (within the run's website) or create one.
      * Returns the customer entity_id, or null on failure (non-fatal).
      */
+    /**
+     * Resolve (find-by-email) or create a customer account. Returns
+     * array('id' => int|null, 'name' => string) where `name` is the
+     * AUTHORITATIVE name to use for the roster/attendance rows:
+     *  - existing account -> the account's own name (so an admin who picks an
+     *    existing learner and then edits the name field can't create a
+     *    roster/account mismatch — the edit is ignored for existing learners);
+     *  - new account      -> the typed name (used to create the account).
+     */
     protected function _ensureCustomer($name, $email, $productId)
     {
         try {
-            // Resolve website/store from the originating product's class_id prefix
-            // is overkill here — use the admin's active store website.
-            $branch    = Mage::helper('branchscope');
-            $websiteId = $branch ? (int) $branch->getActiveWebsiteId() : 1;
+            $websiteId = (int) Mage::helper('mmd_rolemanager')->getActiveWebsiteId();
+            if (!$websiteId) $websiteId = 1;
 
             $customer = Mage::getModel('customer/customer')->setWebsiteId($websiteId);
             $customer->loadByEmail($email);
             if ($customer->getId()) {
-                return (int) $customer->getId();
+                $existingName = trim($customer->getFirstname() . ' ' . $customer->getLastname());
+                return array('id' => (int) $customer->getId(), 'name' => ($existingName !== '' ? $existingName : $name));
             }
 
             // Split name into first/last.
@@ -302,10 +329,10 @@ class MMD_Attendance_Adminhtml_AttendanceController extends Mage_Adminhtml_Contr
                      ->setForceConfirmed(true);
             $customer->setPassword($customer->generatePassword(10));
             $customer->save();
-            return (int) $customer->getId();
+            return array('id' => (int) $customer->getId(), 'name' => trim($first . ' ' . $last));
         } catch (Exception $e) {
             Mage::log('Attendance walk-in customer create failed: ' . $e->getMessage(), Zend_Log::WARN, 'attendance.log');
-            return null;
+            return array('id' => null, 'name' => $name);
         }
     }
 

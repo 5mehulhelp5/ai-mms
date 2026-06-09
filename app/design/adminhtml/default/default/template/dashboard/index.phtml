@@ -6305,13 +6305,29 @@ if (isset($_lmcRunMap[$_lcdCourseId])) {
                         <span class="lmc-card-value"><?php echo $_c['end_date'] ?></span>
                     </div>
                 </div>
-                <div class="lmc-card-footer" style="display:flex;align-items:center;justify-content:space-between;">
+                <div class="lmc-card-footer" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
                     <div style="display:flex;align-items:center;gap:8px;">
                         <span>View Course</span>
                         <div class="lmc-arrow">
                             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#fff" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
                         </div>
                     </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+                    <?php if ($activeRole === 'trainer' && !empty($_c['cr_run_id'])):
+                        // Take attendance for THIS class. Past classes open the
+                        // Completed tab (still editable); current/upcoming open the
+                        // active Take-Attendance tab. The attendance page preselects
+                        // run_id and the trainer filter scopes the dropdown.
+                        $_attBucket = (isset($_c['time_status']) && $_c['time_status'] === 'past') ? 'completed' : 'active';
+                        $_attUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/index', array('run_id' => (int)$_c['cr_run_id'], 'bucket' => $_attBucket));
+                    ?>
+                    <button type="button"
+                            onclick="event.preventDefault();event.stopPropagation();window.location.href='<?php echo $this->jsQuoteEscape($_attUrl) ?>';"
+                            title="Take attendance for this class"
+                            style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);color:#22c55e;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">
+                        Take Attendance
+                    </button>
+                    <?php endif; ?>
                     <?php if (!empty($_c['cr_run_id'])): ?>
                     <button type="button"
                             onclick="event.preventDefault();event.stopPropagation();lmcShowFeedback(<?php echo (int)$_c['cr_run_id'] ?>, '<?php echo $this->jsQuoteEscape($_c['name']) ?>', '<?php echo $this->jsQuoteEscape($_c['sku']) ?>');"
@@ -6320,6 +6336,7 @@ if (isset($_lmcRunMap[$_lcdCourseId])) {
                         Feedback QR
                     </button>
                     <?php endif; ?>
+                    </div>
                 </div>
             </a>
             <?php endforeach; ?>
@@ -11892,7 +11909,7 @@ if (!isset($_alNoTraineeByTab))  $_alNoTraineeByTab  = array('upcoming' => 0, 'o
             </tr></thead>
             <tbody id="al-tbody">
                 <?php foreach ($_alRows as $_r): ?>
-                <tr data-tab="<?php echo $_r['tab'] ?>" data-title="<?php echo strtolower(htmlspecialchars($_r['title'])) ?>" data-sku="<?php echo strtolower(htmlspecialchars($_r['sku'])) ?>" data-run="<?php echo strtolower(htmlspecialchars($_r['run_id'])) ?>" data-pid="<?php echo (int)$_r['pid'] ?>" data-trainees="<?php echo (int)$_r['trainees'] ?>">
+                <tr data-tab="<?php echo $_r['tab'] ?>" data-title="<?php echo strtolower(htmlspecialchars($_r['title'])) ?>" data-sku="<?php echo strtolower(htmlspecialchars($_r['sku'])) ?>" data-run="<?php echo strtolower(htmlspecialchars($_r['run_id'])) ?>" data-pid="<?php echo (int)$_r['pid'] ?>" data-cr-runid="<?php echo (int)$_r['internal_run_id'] ?>" data-trainees="<?php echo (int)$_r['trainees'] ?>">
                     <td><?php echo $_r['start_date'] ?><?php if (!empty($_r['class_time'])): ?><br><span style="font-size:11px;color:#94a3b8;"><?php echo htmlspecialchars($_r['class_time']) ?></span><?php endif; ?></td>
                     <td><span class="al-run-id"><?php echo htmlspecialchars($_r['run_id']) ?></span></td>
                     <td><?php echo htmlspecialchars($_r['title']) ?></td>
@@ -12061,6 +12078,7 @@ window.almOpen = function(btn) {
     almRow.style.display = '';
 
     window._almState.pid = parseInt(tr.getAttribute('data-pid'), 10) || 0;
+    window._almState.runId = parseInt(tr.getAttribute('data-cr-runid'), 10) || 0; // run-scoped (this exact class), not the product's latest run
     window._almState.list = [];
     window._almState.mode = 'add';
     window._almState.selectMode = 'select';
@@ -12149,8 +12167,8 @@ window.almRender = function() {
 window.almLoadCurrent = function() {
     var pid = window._almState.pid;
     if (!pid) return;
-    var fd = new FormData(); fd.append('product_id', String(pid));
-    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/loadLearners') ?>?product_id=' + pid, { credentials: 'same-origin' })
+    var runId = window._almState.runId || 0;
+    fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/loadLearners') ?>?product_id=' + pid + '&run_id=' + runId, { credentials: 'same-origin' })
       .then(function(r){ return r.json(); })
       .then(function(j){
           if (j && j.success) { window._almState.list = j.learners || []; almRender(); almSyncRow(0); }
@@ -12171,6 +12189,7 @@ window.almAdd = function() {
     }
     var fd = new FormData();
     fd.append('product_id', String(st.pid));
+    fd.append('run_id', String(st.runId || 0));
     fd.append('learner_email', email);
     fd.append('learner_name',  name);
     fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/addLearner') ?>', {
@@ -12197,6 +12216,7 @@ window.almRemove = function(email) {
     if (!confirm('Remove ' + email + '?')) return;
     var fd = new FormData();
     fd.append('product_id', String(st.pid));
+    fd.append('run_id', String(st.runId || 0));
     fd.append('learner_email', email);
     fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/removeLearner') ?>', {
         method: 'POST', body: fd, credentials: 'same-origin'
@@ -12269,19 +12289,48 @@ window.almSyncRow = function(delta) {
 // Autocomplete for the Select-from-list dropdown. Debounced fetch to
 // the searchLearners endpoint, populates a <select> with up to 30 matches.
 var _almSearchTimer = null;
+// Braille search spinner + tick/cross (same style as the attendance modal /
+// cert toggle), for responsive learner-search feedback.
+var _almSpin = null, _almSpinResultTimer = null;
+window.almSpinStart = function() {
+    var el = document.getElementById('alm-search-spin'); if (!el) return;
+    if (_almSpinResultTimer) { clearTimeout(_almSpinResultTimer); _almSpinResultTimer = null; }
+    el.style.display = 'inline-block'; el.style.color = '#60a5fa';
+    var f = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'], i = 0; el.textContent = f[0];
+    if (_almSpin) clearInterval(_almSpin);
+    _almSpin = setInterval(function(){ i = (i+1) % f.length; el.textContent = f[i]; }, 80);
+};
+window.almSpinResult = function(ok) {
+    var el = document.getElementById('alm-search-spin'); if (!el) return;
+    if (_almSpin) { clearInterval(_almSpin); _almSpin = null; }
+    el.style.display = 'inline-block'; el.textContent = ok ? '✓' : '✗';
+    el.style.color = ok ? '#22c55e' : '#ef4444';
+    _almSpinResultTimer = setTimeout(function(){ el.textContent = ''; el.style.display = 'none'; }, 1500);
+};
+window.almSpinClear = function() {
+    var el = document.getElementById('alm-search-spin'); if (!el) return;
+    if (_almSpin) { clearInterval(_almSpin); _almSpin = null; }
+    if (_almSpinResultTimer) { clearTimeout(_almSpinResultTimer); _almSpinResultTimer = null; }
+    el.textContent = ''; el.style.display = 'none';
+};
+
 window.almOnSearchInput = function(input) {
     if (_almSearchTimer) clearTimeout(_almSearchTimer);
     var q = (input.value || '').trim();
     if (q.length < 2) {
         document.getElementById('alm-results').innerHTML = '';
+        almSpinClear();
         return;
     }
+    almSpinStart();
     _almSearchTimer = setTimeout(function() {
         fetch('<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/searchLearners') ?>?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
           .then(function(r){ return r.json(); })
           .then(function(j){
               var box = document.getElementById('alm-results');
               box.innerHTML = '';
+              var n2 = (j && j.success && j.learners) ? j.learners.length : 0;
+              almSpinResult(n2 > 0);
               if (!j || !j.success || !j.learners.length) {
                   var n = document.createElement('div');
                   n.className = 'alm-result-empty';
@@ -12305,7 +12354,7 @@ window.almOnSearchInput = function(input) {
                   box.appendChild(d);
               }
           })
-          .catch(function(){});
+          .catch(function(){ almSpinResult(false); });
     }, 200);
 };
 </script>
@@ -12326,8 +12375,9 @@ window.almOnSearchInput = function(input) {
                     <button type="button" id="alm-mode-manual" class="alm-mode-btn" onclick="almSetSelectMode('manual')">Enter manually</button>
                 </div>
                 <label class="alm-field-label">Learner<span class="req">*</span></label>
-                <div id="alm-input-select-wrap">
+                <div id="alm-input-select-wrap" style="position:relative;">
                     <input id="alm-input-select" type="text" class="alm-input" placeholder="— Search learner by name or email —" oninput="almOnSearchInput(this)" />
+                    <span id="alm-search-spin" style="display:none;position:absolute;right:10px;top:9px;font-family:monospace;font-size:14px;line-height:1;color:#60a5fa;"></span>
                     <div id="alm-results" class="alm-results"></div>
                 </div>
                 <div id="alm-input-manual-wrap" style="display:none">

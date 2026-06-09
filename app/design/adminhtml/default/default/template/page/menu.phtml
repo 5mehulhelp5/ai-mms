@@ -440,6 +440,13 @@
         <span>My Classes</span>
     </a>
 
+    <!-- E-Attendance: trainers take attendance for their own classes
+         (Helper::getClassList filters the roster to the signed-in trainer). -->
+    <a href="<?php echo Mage::helper('adminhtml')->getUrl('adminhtml/attendance/index') ?>" class="lms-nav-item<?php echo ($_ctrl === 'attendance') ? ' active' : '' ?>" id="trainer-nav-attendance">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>E-Attendance</span>
+    </a>
+
     <div class="sidebar-section-label">TOOLS</div>
 
     <!-- Ed Tools -->

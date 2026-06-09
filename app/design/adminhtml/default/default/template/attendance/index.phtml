@@ -2,9 +2,14 @@
 /** @var MMD_Attendance_Helper_Data $h */
 $h        = Mage::helper('mmd_attendance');
 $req      = Mage::app()->getRequest();
-$bucket   = $req->getParam('bucket') === 'completed' ? 'completed' : 'active';
-$preRun   = (int) $req->getParam('run_id');
-$readonly = ($bucket === 'completed');
+$bucket      = $req->getParam('bucket') === 'completed' ? 'completed' : 'active';
+$preRun      = (int) $req->getParam('run_id');
+$isCompleted = ($bucket === 'completed');
+// Past classes are NO LONGER locked — trainers routinely mark/correct
+// attendance at end-of-day or the next morning, so completed classes stay
+// fully editable (matches LMS edit-anytime). The Completed tab still shows
+// the attendance-rate KPI summary on top of the editable roster.
+$readonly    = false;
 
 $classes  = $h->getClassList($bucket);
 
@@ -12,6 +17,7 @@ $loadUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/load');
 $saveUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/save');
 $addUrl    = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/addLearner');
 $removeUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/removeLearner');
+$searchLearnersUrl = Mage::helper('adminhtml')->getUrl('adminhtml/coursesave/searchLearners');
 $activeUrl = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/index', array('bucket' => 'active'));
 $compUrl   = Mage::helper('adminhtml')->getUrl('adminhtml/attendance/index', array('bucket' => 'completed'));
 
@@ -112,14 +118,14 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 
 <div class="rm-wrap">
     <h1 class="att-title">E-Attendance</h1>
-    <p class="att-sub"><?php echo $readonly
-        ? 'View attendance for completed classes (read-only).'
+    <p class="att-sub"><?php echo $isCompleted
+        ? 'Past class — attendance stays editable. Mark or correct each learner, then save.'
         : 'Select a class, mark each learner present or absent, then save.' ?></p>
 
     <!-- Active / Completed switch -->
     <div class="att-tabs">
-        <a class="att-tab <?php echo $readonly ? '' : 'active' ?>" href="<?php echo $activeUrl ?>">Take Attendance</a>
-        <a class="att-tab <?php echo $readonly ? 'active' : '' ?>" href="<?php echo $compUrl ?>">Past Attendance</a>
+        <a class="att-tab <?php echo $isCompleted ? '' : 'active' ?>" href="<?php echo $activeUrl ?>">Take Attendance</a>
+        <a class="att-tab <?php echo $isCompleted ? 'active' : '' ?>" href="<?php echo $compUrl ?>">Past Attendance</a>
     </div>
     <script>
     // Force the .att-tab colors as inline styles — the upstream
@@ -186,7 +192,7 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
             <?php endforeach; ?>
         </select>
         <?php if (empty($classes)): ?>
-        <p style="font-size:12px;color:#64748b;margin-top:10px;">No <?php echo $readonly ? 'completed' : 'active' ?> classes for the current store view.</p>
+        <p style="font-size:12px;color:#64748b;margin-top:10px;">No <?php echo $isCompleted ? 'completed' : 'active' ?> classes for the current store view.</p>
         <?php endif; ?>
         <div id="att-pills"></div>
     </div>
@@ -240,11 +246,19 @@ $certCanToggle = Mage::helper('mmd_rolemanager')->isRoleAllowed(array('admin', '
 <div id="att-add-modal" class="att-modal-bd">
     <div class="att-modal">
         <h3>Add Learner</h3>
-        <p class="note">For someone physically present but not enrolled. A customer account is created and they're added to this class.</p>
+        <p class="note" id="att-add-note">Type a name or email. If the learner already exists, pick them from the list; otherwise a new learner account will be created and added to this class.</p>
         <label>Full Name <span style="color:#f87171">*</span></label>
-        <input type="text" id="att-add-name" placeholder="e.g. John Tan">
+        <div class="att-ac-wrap" style="position:relative;">
+            <input type="text" id="att-add-name" placeholder="Start typing a name…" autocomplete="off" oninput="attAddSearch(this)" onfocus="attAddSearch(this)">
+        </div>
         <label>Email Address <span style="color:#f87171">*</span></label>
-        <input type="email" id="att-add-email" placeholder="e.g. john@example.com">
+        <div class="att-ac-wrap" style="position:relative;">
+            <input type="email" id="att-add-email" placeholder="Start typing an email…" autocomplete="off" oninput="attAddSearch(this)" onfocus="attAddSearch(this)">
+        </div>
+        <!-- Shared autocomplete dropdown + search spinner; JS moves both under whichever field is active. -->
+        <div id="att-add-results" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;max-height:210px;overflow:auto;background:#0f172a;border:1px solid #334155;border-radius:6px;box-shadow:0 10px 28px rgba(0,0,0,.45);"></div>
+        <span id="att-search-spin" style="display:none;position:absolute;right:10px;top:9px;font-family:monospace;font-size:14px;line-height:1;color:#60a5fa;"></span>
+        <div id="att-add-status" style="font-size:12px;margin-top:12px;display:none;"></div>
         <div id="att-add-err" style="color:#f87171;font-size:12px;margin-top:10px;display:none;"></div>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;">
             <button type="button" class="att-btn att-btn-ghost" onclick="document.getElementById('att-add-modal').style.display='none'">Cancel</button>
@@ -258,8 +272,13 @@ var ATT_LOAD_URL   = '<?php echo $this->jsQuoteEscape($loadUrl) ?>';
 var ATT_SAVE_URL   = '<?php echo $this->jsQuoteEscape($saveUrl) ?>';
 var ATT_ADD_URL    = '<?php echo $this->jsQuoteEscape($addUrl) ?>';
 var ATT_REMOVE_URL = '<?php echo $this->jsQuoteEscape($removeUrl) ?>';
+var ATT_SEARCH_URL = '<?php echo $this->jsQuoteEscape($searchLearnersUrl) ?>'; // debounced server search (shared with Assign Learners)
+var _attSearchTimer = null;
+var _attChosenEmail = '';                          // email of a picked/known-existing learner
+var _attEmailKnown  = { email: '', exists: false };// last email-field existence check
 var ATT_FORM_KEY   = window.FORM_KEY || '';
-var ATT_READONLY   = <?php echo $readonly ? 'true' : 'false' ?>;
+var ATT_READONLY   = <?php echo $readonly ? 'true' : 'false' ?>;          // always false now — completed classes stay editable
+var ATT_SHOW_KPIS  = <?php echo $isCompleted ? 'true' : 'false' ?>;        // Completed tab still shows the attendance-rate summary cards
 var CERT_SEND_URL   = '<?php echo $this->jsQuoteEscape($certSendUrl) ?>';
 var CERT_TOGGLE_URL = '<?php echo $this->jsQuoteEscape($certToggleUrl) ?>';
 var attRunId = 0;
@@ -380,7 +399,7 @@ function attRender() {
     });
     document.getElementById('att-tbody').innerHTML = html;
     attUpdateCounters();
-    if (ATT_READONLY) attRenderKpis();
+    if (ATT_SHOW_KPIS) attRenderKpis();
 }
 
 function attToggle(i, checked) {
@@ -437,13 +456,144 @@ function attSave() {
     .catch(function(){ btn.disabled=false; btn.textContent='Save Attendance'; st.style.color='#f87171'; st.textContent='✗ Network error'; });
 }
 
+function attHideAddResults() {
+    var box = document.getElementById('att-add-results');
+    if (box) box.style.display = 'none';
+}
+
+// Braille search spinner + tick/cross (mirrors the cert toggle's certSpin*).
+var _attSpin = null, _attSpinResultTimer = null;
+function attSpinStart() {
+    var el = document.getElementById('att-search-spin'); if (!el) return;
+    if (_attSpinResultTimer) { clearTimeout(_attSpinResultTimer); _attSpinResultTimer = null; }
+    el.style.display = 'inline-block'; el.style.color = '#60a5fa';
+    var f = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'], i = 0; el.textContent = f[0];
+    if (_attSpin) clearInterval(_attSpin);
+    _attSpin = setInterval(function(){ i = (i+1) % f.length; el.textContent = f[i]; }, 80);
+}
+function attSpinResult(ok) {
+    var el = document.getElementById('att-search-spin'); if (!el) return;
+    if (_attSpin) { clearInterval(_attSpin); _attSpin = null; }
+    el.style.display = 'inline-block'; el.textContent = ok ? '✓' : '✗';
+    el.style.color = ok ? '#22c55e' : '#ef4444';
+    _attSpinResultTimer = setTimeout(function(){ el.textContent = ''; el.style.display = 'none'; }, 1500);
+}
+function attSpinClear() {
+    var el = document.getElementById('att-search-spin'); if (!el) return;
+    if (_attSpin) { clearInterval(_attSpin); _attSpin = null; }
+    if (_attSpinResultTimer) { clearTimeout(_attSpinResultTimer); _attSpinResultTimer = null; }
+    el.textContent = ''; el.style.display = 'none';
+}
+
+// Typing in name OR email triggers a DEBOUNCED server search (shared with the
+// Assign Learners panel). Results show in a dropdown anchored under the active
+// field. Searching the EMAIL field doubles as the existing-account check.
+function attAddSearch(input) {
+    var box = document.getElementById('att-add-results');
+    if (!box) return;
+    input.parentNode.appendChild(box); // anchor under the active field
+    var spin = document.getElementById('att-search-spin');
+    if (spin) input.parentNode.appendChild(spin); // move spinner into the active field
+    var isEmail = (input.id === 'att-add-email');
+    var q = (input.value || '').trim();
+    // Manually editing the email away from a picked learner clears the pick.
+    if (isEmail && q.toLowerCase() !== _attChosenEmail) _attChosenEmail = '';
+    attUpdateAddState();
+
+    if (_attSearchTimer) clearTimeout(_attSearchTimer);
+    if (q.length < 2) { box.style.display = 'none'; attSpinClear(); return; }
+
+    attSpinStart();
+    _attSearchTimer = setTimeout(function() {
+        fetch(ATT_SEARCH_URL + '?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+          .then(function(r){ return r.json(); })
+          .then(function(j){
+              var list = (j && j.success && j.learners) ? j.learners : [];
+              attSpinResult(list.length > 0);
+              // Email-field search confirms whether the exact email exists.
+              if (isEmail) {
+                  var ql = q.toLowerCase();
+                  _attEmailKnown = {
+                      email: ql,
+                      exists: list.some(function(l){ return (l.email || '').toLowerCase() === ql; })
+                  };
+                  attUpdateAddState();
+              }
+              box.innerHTML = '';
+              if (!list.length) {
+                  var n = document.createElement('div');
+                  n.style.cssText = 'padding:8px 10px;color:#64748b;font-size:12px;';
+                  n.textContent = 'No matches';
+                  box.appendChild(n);
+                  box.style.display = 'block';
+                  return;
+              }
+              list.forEach(function(l) {
+                  var d = document.createElement('div');
+                  d.style.cssText = 'padding:8px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #1e293b;';
+                  d.onmouseover = function(){ d.style.background = '#1e293b'; };
+                  d.onmouseout  = function(){ d.style.background = 'transparent'; };
+                  d.innerHTML = '<span style="color:#e2e8f0;">' + esc(l.name) + '</span> <span style="color:#64748b;">' + esc(l.email) + '</span>';
+                  d.onmousedown = function(e){ e.preventDefault(); attPickLearner(l.email, l.name); };
+                  box.appendChild(d);
+              });
+              box.style.display = 'block';
+          })
+          .catch(function(){ attSpinResult(false); box.style.display = 'none'; });
+    }, 200);
+}
+
+function attPickLearner(email, name) {
+    document.getElementById('att-add-name').value  = name || '';
+    document.getElementById('att-add-email').value = email || '';
+    _attChosenEmail = (email || '').toLowerCase();
+    attHideAddResults();
+    attUpdateAddState();
+}
+
+// Existing if the learner was picked from the list, or the email-field search
+// confirmed an exact match. Otherwise (email present) it's a new account.
+function attUpdateAddState() {
+    var email  = (document.getElementById('att-add-email').value || '').trim().toLowerCase();
+    var note   = document.getElementById('att-add-note');
+    var status = document.getElementById('att-add-status');
+    var btn    = document.getElementById('att-add-btn');
+    var existing = !!email && (email === _attChosenEmail || (_attEmailKnown.email === email && _attEmailKnown.exists));
+    if (existing) {
+        status.style.display = 'block'; status.style.color = '#22c55e';
+        status.textContent = '✓ Existing learner — they will be enrolled into this class (no new account created).';
+        if (note) note.textContent = 'This learner already exists. They will be added to this class roster.';
+        btn.textContent = 'Add to Class';
+    } else if (email) {
+        status.style.display = 'block'; status.style.color = '#f59e0b';
+        status.textContent = '⚠ No existing learner with this email — submitting will CREATE a new learner account with the name + email above.';
+        if (note) note.textContent = 'No match found. A new learner account will be created and added to this class.';
+        btn.textContent = 'Create & Add Learner';
+    } else {
+        status.style.display = 'none';
+        if (note) note.textContent = 'Type a name or email. If the learner already exists, pick them from the list; otherwise a new learner account will be created and added to this class.';
+        btn.textContent = 'Add Learner';
+    }
+}
+
 function attOpenAdd() {
     document.getElementById('att-add-name').value = '';
     document.getElementById('att-add-email').value = '';
     document.getElementById('att-add-err').style.display = 'none';
+    _attChosenEmail = '';
+    _attEmailKnown  = { email: '', exists: false };
+    attHideAddResults();
+    attUpdateAddState();
     document.getElementById('att-add-modal').style.display = 'flex';
 }
 document.getElementById('att-add-modal').addEventListener('click', function(e){ if (e.target === this) this.style.display='none'; });
+// Dismiss the autocomplete dropdown when clicking outside the inputs/list.
+document.addEventListener('click', function(e){
+    var box = document.getElementById('att-add-results');
+    if (!box || box.style.display === 'none') return;
+    if (e.target.id === 'att-add-name' || e.target.id === 'att-add-email' || box.contains(e.target)) return;
+    box.style.display = 'none';
+});
 
 function attAddLearner() {
     var name = document.getElementById('att-add-name').value.trim();
