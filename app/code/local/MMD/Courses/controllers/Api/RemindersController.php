@@ -185,24 +185,18 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
                 $lmsMatched++;
             }
 
-            // Phase 3 RE-ENABLED 2026-06-08 (later same day) after fixing the
-            // LmsTmsCourseRun service to handle the LMS-TMS timezone quirk —
-            // the API stores SGT dates as UTC strings ending T16:00:00.000Z
-            // (= midnight SGT next day). The service now converts UTC → SGT
-            // before filtering, so the rows we receive here are guaranteed to
-            // be classes whose Singapore-calendar start date matches.
+            // Phase 3 DISABLED AGAIN 2026-06-09 — LMS data still drifts from
+            // ops reality (Google Calendar = source of truth, but ops asked us
+            // to use LMS/MMS only). LMS surfaces classes marked Confirmed with
+            // a trainer assigned that aren't actually on the schedule (seen
+            // for 13 Jun: 3 LMS rows for 3D Modelling Blender, CKA Training,
+            // Accounting Non-Finance Mgrs — none on the actual calendar).
+            // Until LMS data drift is fixed upstream, only Phase 1 + Phase 2
+            // (MMS-controlled) emit reminders. LMS-only classes are counted
+            // for diagnostic but not surfaced.
             foreach ($lmsByCode as $sku => $lms) {
                 if (isset($coveredCodes[$sku])) continue;
-                $synthetic = $this->_syntheticRowFromLms($sku, $lms, $filterDate);
-                $trainerOverride = array(
-                    'name'              => (string) $lms['name'],
-                    'email'             => (string) $lms['email'],
-                    'source'            => 'lms-tms-fallback',
-                    'lms_course_run_id' => (string) $lms['lms_course_run_id'],
-                );
-                $reminders[] = $this->_buildReminder($synthetic, $daysAhead, $trainerOverride);
-                $coveredCodes[$sku] = true;
-                $lmsOnly++;
+                $lmsOnly++; // count for diagnostic, do not emit
             }
         }
 
