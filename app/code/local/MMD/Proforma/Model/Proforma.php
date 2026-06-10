@@ -89,35 +89,33 @@ class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
         /* Items table */
         $this->_drawTableHeader($page);
 
-        $anyFunding = false;
         foreach ($order->getAllVisibleItems() as $item) {
             if ($this->y < 170) {
                 $page = $this->newPage();
                 $this->y = 790;
                 $this->_drawTableHeader($page);
             }
-            if ($this->_drawItemBlock($page, $order, $item)) {
-                $anyFunding = true;
-            }
+            $this->_drawItemBlock($page, $order, $item);
         }
 
-        /* "To Less SkillsFuture Credit" note line (WSQ funded orders only) */
-        if ($anyFunding) {
-            if ($this->y < 150) {
-                $page = $this->newPage();
-                $this->y = 790;
-            }
-            $this->_setFontRegular($page, 9);
-            $page->drawText(
-                'To Less SkillsFuture Credit: SGD' . $this->_num($order->getGrandTotal()),
-                $this->_colDesc, $this->y, 'UTF-8'
-            );
-            $this->y -= 8;
-            $page->setLineColor(new Zend_Pdf_Color_GrayScale(0.6));
-            $page->setLineWidth(0.6);
-            $page->drawLine(25, $this->y, 570, $this->y);
-            $this->y -= 16;
+        /* "To Less SkillsFuture Credit" payable line. A pro forma is only ever
+           issued for self-sponsored registrations, which can offset the amount
+           below with SkillsFuture Credit — so this always shows (WSQ funded or
+           not). The figure is the net amount payable incl. GST. */
+        if ($this->y < 150) {
+            $page = $this->newPage();
+            $this->y = 790;
         }
+        $this->_setFontRegular($page, 9);
+        $page->drawText(
+            'To Less SkillsFuture Credit: SGD' . $this->_num($order->getGrandTotal()),
+            $this->_colDesc, $this->y, 'UTF-8'
+        );
+        $this->y -= 8;
+        $page->setLineColor(new Zend_Pdf_Color_GrayScale(0.6));
+        $page->setLineWidth(0.6);
+        $page->drawLine(25, $this->y, 570, $this->y);
+        $this->y -= 16;
 
         /* Totals */
         if ($this->y < 150) {
@@ -243,15 +241,19 @@ class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
             $y -= 11;
         }
 
-        // Numeric columns aligned to the title line.
-        $unit = $qty > 0 ? $original / $qty : $original;
-        $this->_textRight($page, $this->_qtyStr($qty), $this->_qtyRight,  $rowTop, 9);
-        $this->_textRight($page, $this->_num($unit),   $this->_rateRight, $rowTop, 9);
-        $this->_textRight($page, $this->_num($original), $this->_amtRight, $rowTop, 9);
+        // Numeric columns aligned to the title line. For a WSQ-funded course
+        // the AMOUNT is the pre-subsidy list price (the funding rows below bring
+        // it down to net); for a non-WSQ course there is no subsidy, so the
+        // AMOUNT is simply the net the learner pays (matching the SUBTOTAL).
+        $rowAmount = $hasFunding ? $original : $net;
+        $unit      = $qty > 0 ? $rowAmount / $qty : $rowAmount;
+        $this->_textRight($page, $this->_qtyStr($qty),   $this->_qtyRight,  $rowTop, 9);
+        $this->_textRight($page, $this->_num($unit),     $this->_rateRight, $rowTop, 9);
+        $this->_textRight($page, $this->_num($rowAmount), $this->_amtRight, $rowTop, 9);
 
         $this->y = $y - 6;
 
-        /* ---- Funding rows ---- */
+        /* ---- Funding rows (WSQ subsidised courses only) ---- */
         if ($hasFunding) {
             $this->_drawFundingRow($page, 'Less: WSQ funding (Baseline)', $qty, -$baseline);
             if ($mces > 0.005) {

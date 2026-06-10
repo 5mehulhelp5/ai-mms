@@ -45,6 +45,15 @@ class MMD_Proforma_IndexController extends Mage_Core_Controller_Front_Action
             return;
         }
 
+        // Pro formas are only for self-sponsored (SkillsFuture Credit) claims.
+        // Employer/company-sponsored registrations are billed by company invoice
+        // and must not get a pro forma — refuse to generate one even if the link
+        // is reached directly.
+        if (!Mage::helper('proforma')->isOrderSelfSponsored($order)) {
+            $this->_deny();
+            return;
+        }
+
         try {
             $pdf     = Mage::getModel('proforma/proforma')->getOrderPdf($order);
             $content = $pdf->render();

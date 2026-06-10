@@ -11,6 +11,13 @@
             <proforma>
                 <class>MMD_Proforma_Model</class>
             </proforma>
+            <!-- Expose getIsSelfSponsored() on the order for the email template.
+                 No other active module rewrites sales/order. -->
+            <sales>
+                <rewrite>
+                    <order>MMD_Proforma_Model_Order</order>
+                </rewrite>
+            </sales>
         </models>
         <helpers>
             <proforma>
