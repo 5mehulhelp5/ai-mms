@@ -38,6 +38,15 @@ class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
     /** Payment term: due date = invoice date + this many days (Net 30). */
     const DUE_DAYS = 30;
 
+    /**
+     * Registered legal entity printed above the store address in the header.
+     * Not held in any store config (sales/identity/address has only the
+     * Address/Tel/Email lines; general/store_information/name is the trading
+     * name without "Pte. Ltd."), so it lives here. Pro formas are SG
+     * self-sponsored only, so the SG legal entity is the correct one.
+     */
+    const COMPANY_LEGAL_NAME = 'Tertiary Infotech Academy Pte. Ltd.';
+
     /** Royal-blue table header fill (matches the reference pro forma). */
     protected function _blue()
     {
@@ -134,6 +143,48 @@ class MMD_Proforma_Model_Proforma extends Mage_Sales_Model_Order_Pdf_Invoice
     }
 
     /* ------------------------------------------------------------------ */
+
+    /**
+     * Header identity block (top-right). Core insertAddress() renders only the
+     * sales/identity/address store config (Address / Tel / Email). The
+     * registered company name is not part of that config, so draw it as a bold
+     * line at the top of the block, then the address lines below — preserving
+     * core's right-aligned layout (column 130..440, regular size 10).
+     */
+    protected function insertAddress(&$page, $store = null)
+    {
+        $page->setFillColor(new Zend_Pdf_Color_GrayScale(0));
+        $page->setLineWidth(0);
+        $top = 815;
+
+        // Company legal name (bold) above the address.
+        $fontBold = $this->_setFontBold($page, 10);
+        $page->drawText(
+            self::COMPANY_LEGAL_NAME,
+            $this->getAlignRight(self::COMPANY_LEGAL_NAME, 130, 440, $fontBold, 10),
+            $top,
+            'UTF-8'
+        );
+        $top -= 12;
+
+        // Address lines (regular) — identical wrapping/alignment to core.
+        $font = $this->_setFontRegular($page, 10);
+        foreach (explode("\n", (string) Mage::getStoreConfig('sales/identity/address', $store)) as $value) {
+            if ($value !== '') {
+                $value = preg_replace('/<br[^>]*>/i', "\n", $value);
+                foreach (Mage::helper('core/string')->str_split($value, 45, true, true) as $str) {
+                    $page->drawText(
+                        trim(strip_tags($str)),
+                        $this->getAlignRight($str, 130, 440, $font, 10),
+                        $top,
+                        'UTF-8'
+                    );
+                    $top -= 10;
+                }
+            }
+        }
+        $this->y = $top;
+    }
 
     protected function _drawBillTo(&$page, Mage_Sales_Model_Order $order)
     {
