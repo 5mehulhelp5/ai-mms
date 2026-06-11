@@ -550,10 +550,13 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
     private function _syntheticRowFromLms($sku, array $lms, $filterDate)
     {
         $modeStr = strtolower((string) $lms['mode']);
-        if (strpos($modeStr, 'online') !== false || strpos($modeStr, 'live') !== false) {
+        // Only Physical or Virtual per ops. LMS-TMS mode strings containing
+        // "online"/"virtual"/"live" → Virtual (mode 2); everything else
+        // (including legacy "hybrid"/"blended") → Physical (mode 1).
+        if (strpos($modeStr, 'online') !== false
+            || strpos($modeStr, 'virtual') !== false
+            || strpos($modeStr, 'live') !== false) {
             $modeInt = 2;
-        } elseif (strpos($modeStr, 'hybrid') !== false || strpos($modeStr, 'blended') !== false) {
-            $modeInt = 3;
         } else {
             $modeInt = 1; // default physical / classroom
         }
@@ -675,13 +678,11 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
     private function _modeLabel($v)
     {
         // Per Tertiary Infotech standard wording for trainer reminders:
-        // 1 = Physical (in-person classroom), 2 = Virtual (online/remote),
-        // 3 = Hybrid (mix of physical + virtual sessions).
-        switch ((int) $v) {
-            case 2: return 'Virtual';
-            case 3: return 'Hybrid';
-            default: return 'Physical';
-        }
+        // Only two modes exist — Physical (in-person classroom) and Virtual
+        // (online / remote). mode_of_training = 2 → Virtual, everything else
+        // → Physical. Hybrid is NOT a recognised value per ops; any legacy
+        // mode = 3 rows fall through to Physical as the safer default.
+        return ((int) $v) === 2 ? 'Virtual' : 'Physical';
     }
 
     private function _db()
