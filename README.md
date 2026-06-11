@@ -1,130 +1,221 @@
-# ai-mms
+<div align="center">
 
-Tertiary Courses Singapore (tertiarycourses.com.sg) - E-commerce platform rebuilt on modern PHP stack.
+# Tertiary Courses LMS (ai-mms)
 
-## Stack
+[![OpenMage](https://img.shields.io/badge/OpenMage-LTS%20v20.12.3-f46f25)](https://www.openmage.org/)
+[![PHP](https://img.shields.io/badge/PHP-8.2-777BB4?logo=php&logoColor=white)](https://www.php.net/)
+[![MySQL](https://img.shields.io/badge/MySQL-5.7-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![Apache](https://img.shields.io/badge/Apache-2.4-D22128?logo=apache&logoColor=white)](https://httpd.apache.org/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Deploy](https://img.shields.io/badge/Deploy-Coolify-8b5cf6)](https://coolify.io/)
 
-- **Platform**: Magento 1.x (OpenMage LTS v20.12.3)
-- **PHP**: 8.2
-- **Database**: MySQL 5.7
-- **Web Server**: Apache 2.4
-- **Infrastructure**: Docker Compose
+**An end-to-end, full-fledged Learning Management System for instructor-led, funded training — run as a franchise.**
 
-## Features
+[Live Site](https://www.tertiarycourses.com.sg/) · [Report Bug](https://github.com/alfredang/ai-mms/issues) · [Request Feature](https://github.com/alfredang/ai-mms/issues)
 
-- Multi-regional e-commerce (Singapore, Malaysia, Bhutan, Ghana, Nigeria, India)
-- WSQ and IBF-STS certified course catalog
-- Payment integrations: Stripe, HitPay, Bank Payment
-- Custom course/provider management module
-- Ultimo theme with responsive design
+</div>
 
-## Local Development Setup
+## Screenshot
+
+![Screenshot](screenshot.png)
+
+## About
+
+**Tertiary Courses LMS** is a complete, production-grade course-registration and learning-management platform built on OpenMage 1.x (Magento 1 LTS) and customised for **Tertiary Infotech Academy**. Every product is a *course* (instructor-led trainings, workshops, certifications) — there is no physical inventory or shipping. The storefront *is* the course-registration portal, and the admin panel is rebranded as a Training Management System for instructors and operations staff.
+
+This system runs as a **franchise model**:
+
+- 📚 **Courseware is supplied and supported by Tertiary Courses Singapore.** Franchisees plug into a shared, ready-made catalogue of WSQ / IBF / SkillsFuture-aligned courses — they don't have to author content from scratch.
+- 🛠️ **We set up and operate the LMS on the franchisee's own server.** Each franchisee gets their own country store (domain, currency, language, pricing, funding hooks) on a single shared install, deployed and maintained for them.
+- 🌏 **One install, many countries.** The platform already powers six country stores, each with its own domain and funding rules.
+
+### Key Features
+
+| Feature | Description |
+|---------|-------------|
+| 🎓 **Course = Product** | Catalogue of instructor-led / live-online / hybrid courses — no stock, weight, or shipping. |
+| 🌐 **Multi-country franchise** | One install → six country stores (SG, MY, NG, GH, BT, IN), each with its own domain, currency, language and pricing. |
+| 💰 **Funding & subsidy hooks** | SG SkillsFuture Credit / WSQ / IBF, MY HRDC — funding tiers (Baseline, MCES) auto-calculated. |
+| 🧾 **Pro Forma Invoices** | On-demand, self-sponsored SkillsFuture-claim pro formas with GST settled on the pre-subsidy list price. |
+| 🏫 **Automatic class formation** | Orders materialise into classes & rosters out-of-band via cron — the storefront HTTP path stays untouched. |
+| 👥 **Six-role admin** | Learner / Trainer / Developer / Marketing / Admin / Training Provider with session-based role switching. |
+| 🎟️ **Payments** | Stripe, HitPay, PayNow and bank transfer. |
+| 📜 **Certificates & attendance** | E-attendance and certificate-of-achievement generation. |
+| 🎨 **Ultimo storefront** | Premium responsive theme + a custom dark admin theme. |
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Platform** | OpenMage LTS v20.12.3 (Magento 1.x) |
+| **Language** | PHP 8.2 |
+| **Database** | MySQL 5.7 |
+| **Web Server** | Apache 2.4 |
+| **Frontend Theme** | Infortis Ultimo (responsive) |
+| **Caching** | Redis (config / full-page / block) |
+| **Payments** | Stripe, HitPay, PayNow, Bank Transfer |
+| **Email** | Aschroder SMTP Pro |
+| **Containerisation** | Docker Compose |
+| **Deployment** | Coolify (auto-deploy on push to `main`) + Cloudflare R2 (media) |
+
+## Architecture
+
+```
+                          COUNTRY STORES (one install, six domains)
+        🇸🇬 com.sg   🇲🇾 com.my   🇳🇬 com.ng   🇬🇭 com.gh   🇧🇹 .bt   🇮🇳 co.in
+                                       │
+                                       ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│  STOREFRONT  (Ultimo theme · course-registration portal)                   │
+│  Browse courses → register (cart/checkout) → pay → confirmation email       │
+└──────────────────────────────────────────────────────────────────────────┘
+                                       │  order = registration
+                                       ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│  BACKEND  (cron, every 1 min — out-of-band, frontend untouched)            │
+│  ClassFormation → CourseRunEnrolmentService                                 │
+│        │                                   │                                │
+│        ▼                                   ▼                                │
+│  course_runs  (class instance,        course_run_enrolments (roster,        │
+│   class_id = SG000042 …)               idempotent INSERT IGNORE)            │
+└──────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│  ADMIN  (Training Management System · dark theme · six-role ACL)            │
+│  Classes · Rosters · Trainers · Attendance · Certificates · Pro Formas      │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+**Franchise data model — six axioms:** Product = Course · Class identity = `(course_code, title, start_date)` · Class storage = one `course_runs` row (`class_id` like `SG000042`) · Order = Registration · Roster = `course_run_enrolments` · Users = six-role union with unified accounts.
+
+## Project Structure
+
+```
+ai-mms/
+├── app/
+│   ├── code/
+│   │   ├── core/Mage/      # OpenMage LTS core
+│   │   ├── local/MMD/      # Custom franchise modules (see below)
+│   │   └── community/      # Stripe, HitPay
+│   ├── design/             # Storefront + admin templates (.phtml)
+│   └── etc/                # local.xml, modules/
+├── skin/                   # Ultimo theme + dark admin theme (CSS/JS)
+├── lib/                    # Varien / Zend / Magento libraries
+├── migrations/             # Numbered *.sql applied by apply.php on deploy
+├── scripts/                # local-dev fixups + maintenance scripts
+├── docker/                 # entrypoint.sh, php.ini, Apache config
+├── docker-compose.yml      # Local dev stack (web + MySQL)
+└── Dockerfile              # Production image
+```
+
+### Custom Modules (`app/code/local/MMD/`)
+
+| Module | Purpose |
+|--------|---------|
+| **RoleManager** | Six-role admin system + class/roster management + class-id generation. |
+| **Proforma** | On-demand Pro Forma Invoice PDF (self-sponsored SFC claims; WSQ funding breakdown). |
+| **CourseImage** | AI cover-image renderer + funding-badge tags. |
+| **EmailLogin** | Email-only admin login. |
+| **FlatCategoryUrl** | Flat category URLs (`/<url_key>.html`) across all stores. |
+| **CustomOptions** | Enhanced product options with SKU upgrade policies. |
+| **Enhancedsalesgrid** | Admin sales-grid filters & rendering. |
+| **BankPayment** | Bank-transfer payment method. |
+| **Branchscope** | Per-country store-view switcher in admin. |
+| **Certificate / Attendance** | Certificates of achievement + e-attendance. |
+| **AccountSync** | Unified learner ↔ shadow admin accounts. |
+| **Courses / Leads / Marketing** | Course CRUD, lead capture, marketing automation. |
+
+## Getting Started
 
 ### Prerequisites
 
-- Docker Desktop installed and running
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+- A base database dump (`courses_mysql2.sql`) placed in the project root
 
-### Quick Start
+### Installation (recommended: Docker Compose)
 
 ```bash
-# Start Docker Desktop
-open -a Docker
+# 1. Clone
+git clone https://github.com/alfredang/ai-mms.git
+cd ai-mms
 
-# Copy .env.example to .env and set your credentials
-cp .env.example .env
-# Edit .env with your database passwords and API keys
+# 2. Configure environment
+cp .env.example .env                       # set MySQL passwords + API keys
+cp app/etc/local.xml.example app/etc/local.xml   # match DB credentials to .env
 
-# Build and start containers
+# 3. Build and start the stack
 docker compose up -d --build
 
-# Import the database (place courses_mysql2.sql in project root)
-docker exec -i ai-mms-db_mysql-1 mysql -u root -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE < courses_mysql2.sql
+# 4. Import the base database
+docker exec -i ai-mms-db_mysql-1 \
+  mysql -u root -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" < courses_mysql2.sql
 
-# Apply migrations (localhost URLs, config fixes, enable all products)
-for f in migrations/*.sql; do
-  docker exec -i ai-mms-db_mysql-1 mysql -u root -p$MYSQL_ROOT_PASSWORD $MYSQL_DATABASE < "$f"
+# 5. Apply migrations (schema + data) via the real runner
+docker exec ai-mms-web-1 php /var/www/html/migrations/apply.php
+
+# 6. Apply local-dev fixups (localhost URLs, disable admin captcha, enable products)
+for f in scripts/local-dev/*.sql; do
+  docker exec -i ai-mms-db_mysql-1 mysql -u root -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" < "$f"
 done
 
-# Copy local.xml template and update credentials to match .env
-cp app/etc/local.xml.example app/etc/local.xml
-
-# Install composer dependencies inside the web container
-docker exec ai-mms-web-1 bash -c 'cd /var/www/html && curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer && composer install --no-dev --optimize-autoloader'
-
-# Clear cache
-docker exec ai-mms-web-1 bash -c 'rm -rf /var/www/html/var/cache/*'
+# 7. Install Composer dependencies + clear cache
+docker exec ai-mms-web-1 bash -c 'cd /var/www/html && composer install --no-dev --optimize-autoloader'
+docker exec ai-mms-web-1 bash -c 'rm -rf /var/www/html/var/cache/* /var/www/html/var/full_page_cache/*'
 ```
-
-### Migrations
-
-The `migrations/` folder contains incremental SQL fixes applied on top of the base DB dump. Running `for f in migrations/*.sql; do ...` from the Quick Start applies them in order:
-
-| File | Purpose |
-|------|---------|
-| `001-remove-orphan-eav-entity-types.sql` | Removes broken EAV entities that crash product sliders in dev mode |
-| `002-disable-customoptions-inventory.sql` | Disables per-option inventory so registration form works |
-| `003-enable-all-products.sql` | Enables all ~441 disabled products for local dev visibility |
-| `004-set-localhost-urls.sql` | Points base URLs at `localhost:8080` |
-| `005-disable-admin-captcha.sql` | Turns off admin login captcha for local dev |
-| `006-fix-rolemanager-rule-role-type.sql` | Backfills `role_type='G'` on RoleManager ACL rules (otherwise all rules silently fail and users get Access Denied) |
-| `007-clean-orphan-acl-rules.sql` | Removes 34 leftover admin_rule rows from uninstalled modules (Braintree, old API, sendfriend, etc.) |
-| `008-add-admin-user-profile-fields.sql` | Adds profile columns to admin_user table |
-| `009-seed-demo-learner-enrollments.sql` | Seeds 3 test enrollments (Current / Upcoming / Past) on the first admin user so the Learner "My Classes" dashboard has content |
 
 ### Access
 
 | Service | URL |
 |---------|-----|
-| Frontend | http://localhost:8080/ |
-| Admin Panel | http://localhost:8080/admin/ (configured in local.xml) |
-| MySQL | localhost:3307 (credentials in .env) |
+| Storefront | http://localhost:8080/ |
+| Admin Panel | http://localhost:8080/`<frontName>`/ (the `frontName` is set in `app/etc/local.xml`) |
+| MySQL | `localhost:3307` (credentials in `.env`) |
 
-### Configuration
-
-1. Copy `.env.example` to `.env` and set your database passwords and API keys.
-2. Copy `app/etc/local.xml.example` to `app/etc/local.xml` and update credentials:
-
-```xml
-<host><![CDATA[db_mysql]]></host>
-<username><![CDATA[your_username]]></username>
-<password><![CDATA[your_password]]></password>
-<dbname><![CDATA[your_database]]></dbname>
-```
-
-## Docker Services
+### Docker Services
 
 | Service | Image | Port |
 |---------|-------|------|
-| web | PHP 8.2 / Apache | 8080 |
-| db_mysql | MySQL 5.7 | 3307 |
+| `web` | PHP 8.2 / Apache 2.4 | 8080 |
+| `db_mysql` | MySQL 5.7 | 3307 |
 
-## Project Structure
+## Deployment
 
-```
-app/
-  code/
-    core/Mage/     # OpenMage LTS core modules
-    local/         # Custom modules (MMD, Infortis, Aschroder)
-    community/     # Community modules (Stripe, HitPay)
-  design/          # Frontend/admin templates (.phtml)
-  etc/             # Configuration (local.xml, modules/)
-lib/               # Libraries (Varien, Zend, Magento)
-skin/              # Theme assets (CSS, JS, images)
-js/                # JavaScript libraries
-docker/            # Docker configuration files
-```
+Production deploys automatically via **Coolify** on every push to `main`:
 
-## Custom Modules
+1. GitHub Action triggers the Coolify API to rebuild the image.
+2. `docker/entrypoint.sh` clears Magento runtime cache, then runs `migrations/apply.php` (with retry/backoff while the DB comes up).
+3. If migrations fail, the container exits non-zero so Coolify keeps the previous container — traffic is never served against a stale schema.
+4. Build timestamp is written to `/version.txt`; public migration status at `/media/migrations-status.json`.
 
-| Module | Purpose |
-|--------|---------|
-| MMD_Courses | Course/provider management |
-| MMD_CustomOptions | Enhanced product options with SKU policies |
-| MMD_Checkoutoptions | Custom checkout options |
-| MMD_BankPayment | Bank transfer payment method |
-| MMD_Enhancedsalesgrid | Admin sales grid enhancements |
-| Infortis_Ultimo | Premium responsive theme |
-| Aschroder_SMTPPro | SMTP email transport |
-| Stripe_Payments | Stripe payment gateway |
-| Hitpay_Pay | HitPay payment gateway |
-# auto-deploy test
+User-uploaded media (catalog product/category galleries) is served from **Cloudflare R2**; theme-baked assets ship inside the image.
+
+> **Note for contributors:** never `git push` until localhost is verified error-free — production redeploys on every push. Lint changed PHP, confirm rewrites instantiate, hit affected routes, and **dry-run new migrations through `migrations/apply.php`** (not the `mysql` client) before pushing.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/my-change`
+3. Make your changes and verify locally (lint + route checks + migration dry-run)
+4. Commit and open a Pull Request
+
+Issues and feature requests are welcome via [GitHub Issues](https://github.com/alfredang/ai-mms/issues).
+
+## Developed By
+
+**Tertiary Infotech Academy Pte. Ltd.**
+🌐 [tertiarycourses.com.sg](https://www.tertiarycourses.com.sg/) · ✉️ enquiry@tertiaryinfotech.com · ☎️ +65 6100 0613
+
+## Acknowledgements
+
+- [OpenMage LTS](https://www.openmage.org/) — the maintained Magento 1 fork this platform is built on
+- [Infortis Ultimo](https://infortis.github.io/) — storefront theme
+- SkillsFuture Singapore (SSG), IBF, and HRD Corp — funding frameworks the catalogue aligns to
+
+---
+
+<div align="center">
+
+⭐ **Star this repo if you find it useful!**
+
+</div>
