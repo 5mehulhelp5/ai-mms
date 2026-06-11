@@ -675,9 +675,10 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
     private function _modeLabel($v)
     {
         // Per Tertiary Infotech standard wording for trainer reminders:
-        // 1 = Physical (in-person classroom), 2 = Online, 3 = Hybrid.
+        // 1 = Physical (in-person classroom), 2 = Virtual (online/remote),
+        // 3 = Hybrid (mix of physical + virtual sessions).
         switch ((int) $v) {
-            case 2: return 'Online';
+            case 2: return 'Virtual';
             case 3: return 'Hybrid';
             default: return 'Physical';
         }
