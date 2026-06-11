@@ -635,13 +635,41 @@ class MMD_Courses_Api_RemindersController extends Mage_Core_Controller_Front_Act
         $email = trim((string) $email);
         if ($email === '') return '';
         try {
-            return (string) $this->_db()->fetchOne(
+            $raw = (string) $this->_db()->fetchOne(
                 "SELECT telephone FROM courses_trainers WHERE email = ? AND status = 1 AND telephone IS NOT NULL AND telephone <> '' LIMIT 1",
                 array($email)
             );
+            return $this->_normalizeSgPhone($raw);
         } catch (Exception $e) {
             return '';
         }
+    }
+
+    /**
+     * HARD RULE — every trainer phone in the API response must be E.164
+     * Singapore format (+65########). WhatsApp Business rejects sends to
+     * 8-digit local-format numbers, which caused all 8 trainer reminders on
+     * 2026-06-08 to go to wrong recipients (the bot was sending raw 8-digit
+     * numbers and WhatsApp resolved them to wrong country contacts).
+     *
+     * Accepts any input format (raw 8-digit, "65xxxxxxxx", "+65 xxxx xxxx",
+     * dashes/spaces, etc.) and returns "+65xxxxxxxx" with no separators.
+     * Empty / unparseable input returns "".
+     */
+    private function _normalizeSgPhone($raw)
+    {
+        $digits = preg_replace('/\D/', '', (string) $raw);
+        if ($digits === '') return '';
+        // Already has 65 country code prefix (10 digits = 65 + 8 mobile)
+        if (strlen($digits) >= 10 && substr($digits, 0, 2) === '65') {
+            return '+' . $digits;
+        }
+        // 8-digit Singapore local format (mobile or landline)
+        if (strlen($digits) === 8) {
+            return '+65' . $digits;
+        }
+        // Fallback: assume SG and prepend (covers edge cases like leading 0)
+        return '+65' . $digits;
     }
 
     private function _modeLabel($v)
