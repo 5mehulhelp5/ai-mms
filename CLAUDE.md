@@ -2,6 +2,38 @@
 
 Guidance for Claude Code when working in this repository.
 
+## Behavioral Guidelines
+
+Four core principles for reducing coding mistakes (adapted from
+[andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md)).
+They govern *how* to work in this repo and sit above the project-specific rules below.
+
+1. **Think before coding.** *"Don't assume. Don't hide confusion. Surface
+   tradeoffs."* State assumptions explicitly, present multiple interpretations
+   rather than silently picking one, and raise confusion **before**
+   implementation begins.
+
+2. **Simplicity first.** *"Minimum code that solves the problem. Nothing
+   speculative."* No unrequested features, unnecessary abstractions, premature
+   error handling, or speculative flexibility. If the code could be
+   significantly shorter, rewrite it.
+
+3. **Surgical changes.** *"Touch only what you must. Clean up only your own
+   mess."* Match the current style of the file you're editing, don't refactor
+   unrelated code, and only remove imports/functions that *your* change made
+   obsolete — not pre-existing dead code. (In this repo: prefer a small,
+   reviewable migration or a scoped override over a sweeping rewrite.)
+
+4. **Goal-driven execution.** *"Define success criteria. Loop until verified."*
+   Convert a vague task into testable objectives with explicit verification
+   steps; for multi-step work, lay out a brief plan with checkpoints rather
+   than relying on continuous back-and-forth. (Here, "verified" means the
+   mandatory pre-push checks below pass — lint, instantiation, route, migration
+   dry-run.)
+
+The aim: fewer unnecessary diffs, no overengineered rewrites, and clarifying
+questions raised *before* a mistake is committed.
+
 ## Project Overview
 
 OpenMage 1.x (Magento 1 LTS v20.12.3) customized as a Course Registration + LMS (Learning Management) system for **Tertiary Infotech Academy**. PHP 8.2, MySQL 5.7, Apache, Docker. Deployed to Coolify; local dev via `docker-compose`.
