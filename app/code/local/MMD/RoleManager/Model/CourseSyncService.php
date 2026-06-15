@@ -33,7 +33,13 @@ class MMD_RoleManager_Model_CourseSyncService
     }
     public function getSgUrl()
     {
-        return rtrim(trim((string) Mage::getStoreConfig(self::URL_CONFIG_PATH)), '/');
+        $base = rtrim(trim((string) Mage::getStoreConfig(self::URL_CONFIG_PATH)), '/');
+        // Accept either a bare base URL or the full endpoint URL.
+        // Append the path if the stored value doesn't already end with it.
+        if ($base !== '' && strpos($base, '/courses/api_sync_export') === false) {
+            $base .= '/courses/api_sync_export';
+        }
+        return $base;
     }
     public function getApiKey()
     {
@@ -129,6 +135,8 @@ class MMD_RoleManager_Model_CourseSyncService
         $ch  = curl_init($url);
         curl_setopt_array($ch, array(
             CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 5,
             CURLOPT_TIMEOUT        => 120,
             CURLOPT_CONNECTTIMEOUT => 15,
             CURLOPT_USERAGENT      => 'Mozilla/5.0 (compatible; MMD-CourseSync/1.0)',

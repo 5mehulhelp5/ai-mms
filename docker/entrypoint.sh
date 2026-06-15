@@ -241,6 +241,23 @@ for i in $(seq 1 $MAX_ATTEMPTS); do
     sleep $SLEEP
 done
 
+# Sync SG_SYNC_API_KEY from env → core_config_data['mmd/course_sync/api_key'].
+# On SG: the key the ExportController validates on incoming requests.
+# On country instances: the key CourseSyncService sends as X-API-Key.
+# Both sides use the same config path. No-op if env var is unset.
+if [ -n "${SG_SYNC_API_KEY:-}" ]; then
+    php -r "
+        require '/var/www/html/app/Mage.php';
+        Mage::app('admin');
+        Mage::getModel('core/config')->saveConfig(
+            'mmd/course_sync/api_key', getenv('SG_SYNC_API_KEY'), 'default', 0
+        );
+        echo 'ok';
+    " 2>/dev/null | grep -q ok \
+        && echo "entrypoint: SG_SYNC_API_KEY written to core_config_data" \
+        || echo "entrypoint: WARNING — SG_SYNC_API_KEY sync failed (non-fatal)"
+fi
+
 # One-shot reindex: catalog_url + catalog_category_flat. Required after the
 # MMD_FlatCategoryUrl module shipped — module changes the URL builder but
 # does NOT itself rewrite existing core_url_rewrite rows or category url_path
