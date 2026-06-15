@@ -13,7 +13,7 @@ jobs:
       - name: Trigger Ghana Coolify redeploy
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "${{ secrets.COOLIFY_GH_DEPLOY_WEBHOOK }}")
+            "http://2.24.131.228:8000/api/v1/deploy?uuid=za31ou1eopl0bbqpybxd1ds8&force=false")
           echo "Coolify response: $STATUS"
           if [ "$STATUS" != "200" ] && [ "$STATUS" != "201" ]; then
             echo "Deploy trigger failed with HTTP $STATUS"
