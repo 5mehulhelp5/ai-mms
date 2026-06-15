@@ -150,6 +150,25 @@ class MMD_Branchscope_Helper_Data extends Mage_Core_Helper_Abstract
             6 => 'IN',
             7 => 'TI', // Tertiary Infotech corporate
         );
+
+        // In country mode (standalone GH/MY/NG/etc. instance) only show SG +
+        // the instance's own country pill. All other stores live in the DB
+        // (copied from the SG seed) but are irrelevant to this operator.
+        if (strtolower((string) getenv('MMS_MODE')) === 'country') {
+            $countryCode  = strtoupper((string) getenv('MMS_COUNTRY_CODE'));
+            $codeToId     = array_flip($codeMap); // e.g. 'GH' => 3
+            $countryStoreId = isset($codeToId[$countryCode]) ? (int) $codeToId[$countryCode] : null;
+            $allowed = array(1); // SG always shown
+            if ($countryStoreId && $countryStoreId !== 1) {
+                $allowed[] = $countryStoreId;
+            }
+            foreach (array_keys($codeMap) as $sid) {
+                if (!in_array($sid, $allowed, true)) {
+                    unset($codeMap[$sid]);
+                }
+            }
+        }
+
         $options = array();
         foreach ($codeMap as $sid => $code) {
             $store = Mage::app()->getStore($sid);

@@ -1,0 +1,15 @@
+<?php
+/**
+ * "Add Course" shortcut button injected above the Manage Courses grid.
+ * Links directly to set/4/type/simple to bypass the type-selection wizard.
+ * Only visible in MMS country mode (GH/MY/NG etc.) for M-prefix courses;
+ * on the SG instance it is suppressed because courses come from the catalog.
+ */
+$_isSg = strtolower((string) getenv('MMS_MODE')) !== 'country';
+?>
+<div style="padding:12px 16px 0;">
+    <button class="scalable add" type="button"
+            onclick="setLocation('<?php echo $this->getUrl('adminhtml/catalog_product/new', array('set' => 4, 'type' => 'simple')) ?>')">
+        <span><span><span><?php echo $this->__('Add Course') ?></span></span></span>
+    </button>
+</div>

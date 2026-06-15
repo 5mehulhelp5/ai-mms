@@ -58,6 +58,32 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 }
             } catch (Exception $e) {}
 
+            // Country-mode SKU guardrail: block C-prefix and TGS- SKUs being set or
+            // changed. C-courses are SG-owned and overwritten by the sync; a locally-
+            // created C-SKU would be silently clobbered on the next import. Only fires
+            // when the submitted SKU actually DIFFERS from the current one so editing
+            // other fields on an already-synced C-course (where the form echoes back
+            // the existing SKU) isn't blocked.
+            if (strtolower((string) getenv('MMS_MODE')) === 'country') {
+                $_proposedSku = $req->getParam('course_code');
+                if ($_proposedSku === null || $_proposedSku === '') {
+                    $_proposedSku = $req->getParam('general_course_code');
+                }
+                if ($_proposedSku !== null && $_proposedSku !== '') {
+                    $_proposedUpper = strtoupper(ltrim((string) $_proposedSku));
+                    $_isReserved = (substr($_proposedUpper, 0, 1) === 'C')
+                               || (substr($_proposedUpper, 0, 4) === 'TGS-');
+                    $_isChanging  = (string) $_proposedSku !== (string) $product->getSku();
+                    if ($_isReserved && $_isChanging) {
+                        throw new Exception(
+                            '"C…" and "TGS-…" course codes are reserved for SG-synced courses '
+                            . 'and cannot be used in this country instance. '
+                            . 'Use your country prefix (e.g. GH…, MY…, NG…) instead.'
+                        );
+                    }
+                }
+            }
+
             // Basic fields
             if (($v = $req->getParam('course_name'))  !== null && $v !== '') $product->setName($v);
             if (($v = $req->getParam('course_code'))  !== null && $v !== '') $product->setSku($v);
@@ -845,6 +871,51 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $result['message'] = $trainerUid > 0
                 ? 'Class scheduled. The trainer was added to this course\'s candidate list — send them an invitation from Assign Trainer to confirm them.'
                 : 'Class scheduled.';
+        } catch (Exception $e) {
+            $result['message'] = $e->getMessage();
+        }
+        $this->_sendJson($result);
+    }
+
+    /**
+     * Delete a course (product) by product_id.
+     *
+     * POST-only. Accepts product_id. Returns JSON {success, message}.
+     * Blocks C-prefix / TGS- SKUs in country mode (sync-owned courses).
+     * _validateFormKey() returns true so no URL-key CSRF issue.
+     */
+    public function deleteCourseAction()
+    {
+        $result = array('success' => false);
+        try {
+            if (!$this->getRequest()->isPost()) {
+                throw new Exception('POST required');
+            }
+            $productId = (int) $this->getRequest()->getParam('product_id');
+            if (!$productId) {
+                throw new Exception('product_id required');
+            }
+
+            $product = Mage::getModel('catalog/product')->load($productId);
+            if (!$product->getId()) {
+                throw new Exception('Course not found');
+            }
+
+            if (strtolower((string) getenv('MMS_MODE')) === 'country') {
+                $skuUpper = strtoupper(ltrim((string) $product->getSku()));
+                if (substr($skuUpper, 0, 1) === 'C' || substr($skuUpper, 0, 4) === 'TGS-') {
+                    throw new Exception(
+                        'Course "' . $product->getSku() . '" is synced from Singapore '
+                        . '(C-prefix / TGS-prefix) and cannot be deleted here — '
+                        . 'it will be restored on the next sync.'
+                    );
+                }
+            }
+
+            $sku = $product->getSku();
+            $product->delete();
+            $result['success'] = true;
+            $result['message'] = 'Course "' . $sku . '" deleted.';
         } catch (Exception $e) {
             $result['message'] = $e->getMessage();
         }

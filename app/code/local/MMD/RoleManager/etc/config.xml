@@ -165,6 +165,13 @@
                 <schedule><cron_expr>30 3 * * *</cron_expr></schedule>
                 <run><model>mmd_rolemanager/cron_trainerImport::run</model></run>
             </mmd_rolemanager_trainer_import>
+            <!-- Daily course sync from SG — country instances only, fail-safe
+                 gated by mmd/course_sync/auto_enabled (absent = OFF). 03:00 SGT.
+                 Silently skips when MMS_MODE != country. -->
+            <mmd_rolemanager_course_sync>
+                <schedule><cron_expr>0 3 * * *</cron_expr></schedule>
+                <run><model>mmd_rolemanager/cron_courseSync::run</model></run>
+            </mmd_rolemanager_course_sync>
         </jobs>
     </crontab>
 </config>

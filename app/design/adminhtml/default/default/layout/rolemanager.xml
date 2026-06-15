@@ -11,6 +11,14 @@
     <!-- RoleManager pages — load the extracted page-specific stylesheet
          only on the screens that actually need it. MMD routes use
          before="Mage_Adminhtml" so the handle is adminhtml_<ctrl>_<act>. -->
+    <!-- Add Course button above the Manage Courses product grid -->
+    <adminhtml_catalog_product_index>
+        <reference name="content">
+            <block type="core/template" name="add.course.btn" before="products_list"
+                   template="rolemanager/add-course-btn.phtml" />
+        </reference>
+    </adminhtml_catalog_product_index>
+
     <adminhtml_rolemanagement_index>
         <reference name="head">
             <action method="addCss"><name>rolemanager.css</name></action>

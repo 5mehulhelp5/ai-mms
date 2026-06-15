@@ -1,0 +1,133 @@
+# Production Docker Compose stack for country instances (GH, MY, NG, BT, IN).
+# Used by Coolify as the Docker Compose build pack for each country deployment.
+#
+# NOT for local dev — use docker-compose.yml instead.
+#
+# Key differences from docker-compose.yml:
+#   - No host bind-mounts (no .:/var/www/html, no ~/.claude mounts)
+#   - No tmpfs, no MAGE_IS_DEVELOPER_MODE, no SKIP_MIGRATIONS, no LOCAL_DB_MODE
+#   - MySQL + Redis are bundled in this stack (SG uses a separate managed MySQL)
+#   - media/ is a named persistent volume: holds ALL instance media —
+#     synced C-course covers, local course covers, uploads, email logo
+#   - Coolify manages Traefik reverse-proxy; no host port binding on web
+#   - All secrets come from Coolify's Environment Variables panel, never hardcoded
+#
+# Required env vars (set in Coolify UI):
+#   MMS_MODE              country
+#   MMS_COUNTRY_CODE      GH | MY | NG | BT | IN
+#   MMS_BASE_URL          https://<country-domain>
+#   MMS_ADMIN_FRONTNAME   tigerdragon  (or custom)
+#   MMS_CRYPT_KEY         generate: php -r "echo bin2hex(random_bytes(16));"
+#   MYSQL_ROOT_PASSWORD   strong password
+#   MYSQL_DATABASE        mms_gh  (or mms_my, mms_ng, etc.)
+#   MYSQL_USER            magento
+#   MYSQL_PASSWORD        strong password
+#
+# Optional (blank = feature silently off):
+#   SG_SYNC_URL, SG_SYNC_API_KEY   — course sync (Phase 4)
+#   TURNSTILE_SITE_KEY, TURNSTILE_SECRET_KEY
+#   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET
+#   SMTPPRO_SG_FALLBACK_PASSWORD
+#
+# Intentionally absent: R2_* — country instances use local-disk media (P9a),
+# not Cloudflare R2. Leave all R2_* vars blank/unset on country Coolify.
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Coolify manages Traefik routing — set "Application Port = 80" in the
+    # Coolify UI. No host port binding needed here.
+    expose:
+      - "80"
+    environment:
+      - MMS_MODE=${MMS_MODE:-country}
+      - MMS_COUNTRY_CODE=${MMS_COUNTRY_CODE}
+      - MMS_BASE_URL=${MMS_BASE_URL}
+      - MMS_ADMIN_FRONTNAME=${MMS_ADMIN_FRONTNAME:-tigerdragon}
+      - MMS_CRYPT_KEY=${MMS_CRYPT_KEY:-}
+      # DB host is always 'db' — the service name in this compose stack.
+      # Phase 2 (generate-local-xml.sh) reads MYSQL_HOST to write local.xml.
+      - MYSQL_HOST=db
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      # Course sync — Phase 4 (blank = sync feature off)
+      - SG_SYNC_URL=${SG_SYNC_URL:-}
+      - SG_SYNC_API_KEY=${SG_SYNC_API_KEY:-}
+      # Optional integrations — blank = graceful stub/disabled
+      - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
+      - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY:-}
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
+      - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      - SMTPPRO_SG_FALLBACK_PASSWORD=${SMTPPRO_SG_FALLBACK_PASSWORD:-}
+    volumes:
+      # Persistent media volume: ALL instance media lives here.
+      # Synced C-course images, local course covers, bank-payment proofs,
+      # admin profile avatars, email logo. Size generously (100MB+).
+      - media:/var/www/html/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - magento_net
+
+  db:
+    image: mysql:5.7
+    platform: linux/amd64
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    command: >
+      --max_allowed_packet=256M
+      --innodb_buffer_pool_size=512M
+      --character-set-server=utf8
+      --collation-server=utf8_general_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # Seed file bootstraps a fresh empty volume with the SG schema +
+      # reference config + migration ledger (zero business data, zero secrets).
+      # MySQL auto-imports /docker-entrypoint-initdb.d/*.sql.gz ONLY on an empty
+      # volume — safe to leave mounted on subsequent boots (no-op).
+      # Rebuild seed: ./scripts/provision/build-country-seed.sh
+      - ./seed/country-base.sql.gz:/docker-entrypoint-initdb.d/country-base.sql.gz:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - magento_net
+
+  redis:
+    image: redis:7-alpine
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - magento_net
+
+volumes:
+  mysql_data:
+  media:
+
+networks:
+  magento_net:
+    driver: bridge

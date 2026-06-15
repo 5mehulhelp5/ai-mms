@@ -9,6 +9,9 @@ node_modules/
 *.sql.gz
 *.sql.gz.zip
 
+# Country bootstrap seed is intentionally tracked
+!seed/country-base.sql.gz
+
 # Site backups
 *.zip
 *.tar.gz
@@ -121,3 +124,8 @@ skin/frontend/base/default/hitpay/css/
 
 # Magento backup files — never push (large, may contain credentials/PII)
 .magento/
+
+# Files claude should ignore to speed up processing
+.claudeignore
+compose.coolify.local-test.yml
+.env.gh

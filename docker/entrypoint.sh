@@ -50,6 +50,22 @@ if [ ! -f "$MIGRATION_RUNNER" ]; then
     exec apache2-foreground
 fi
 
+# Country mode boot sequence:
+#   1. Re-enable Cm_RedisSession — the Dockerfile sed disables it for SG (which
+#      has no Redis service); country instances bundle their own Redis (P7).
+#   2. Regenerate local.xml from env — the image's baked-in local.xml is
+#      SG-specific (host=db_mysql, no Redis blocks). Country instances always
+#      generate a fresh one pointing at 'db' with Redis session+cache blocks.
+if [ "${MMS_MODE:-}" = "country" ]; then
+    sed -i 's|<active>false</active>|<active>true</active>|' \
+        /var/www/html/app/etc/modules/Cm_RedisSession.xml 2>/dev/null || true
+    echo "entrypoint: Cm_RedisSession re-enabled for MMS_MODE=country"
+
+    rm -f "$LOCAL_XML" 2>/dev/null || true
+    bash /var/www/html/docker/generate-local-xml.sh \
+        || { echo "entrypoint: FATAL — generate-local-xml.sh failed"; exit 1; }
+fi
+
 if [ ! -f "$LOCAL_XML" ]; then
     echo "entrypoint: $LOCAL_XML not found, skipping migrations"
     exec apache2-foreground

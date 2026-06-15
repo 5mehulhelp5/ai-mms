@@ -4,7 +4,7 @@
 // Reads DB credentials from app/etc/local.xml.
 // Respects LOCAL_BASE_URL env var; defaults to http://localhost:8080/
 
-$localBaseUrl = getenv('LOCAL_BASE_URL') ?: 'http://localhost:8080/';
+$localBaseUrl = getenv('LOCAL_BASE_URL') ?: getenv('MMS_BASE_URL') ?: 'http://localhost:8080/';
 
 $xml = simplexml_load_file(__DIR__ . '/../../app/etc/local.xml');
 $c   = $xml->global->resources->default_setup->connection;

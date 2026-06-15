@@ -107,6 +107,14 @@ class MMD_Branchscope_Block_Store_Switcher extends Mage_Adminhtml_Block_Store_Sw
                 && in_array((string) $_req->getParam('mode'), array('edit', 'editing'), true)) {
                 return '';
             }
+            // New product page: the ?store=X pill URL blanks the creation
+            // form because Magento can't scope a not-yet-saved product to a
+            // store view. Suppress pills here to prevent that breakage.
+            if ($_req->getRouteName() === 'adminhtml'
+                && $_req->getControllerName() === 'catalog_product'
+                && $_req->getActionName() === 'new') {
+                return '';
+            }
             if (!$isFullAdmin
                 && $_req->getRouteName() === 'adminhtml'
                 && $_req->getControllerName() === 'catalog_category') {
