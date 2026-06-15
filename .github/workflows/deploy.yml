@@ -6,6 +6,21 @@ on:
       - main
 
 jobs:
+  deploy-sg:
+    name: Redeploy Singapore (SG)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger SG Coolify redeploy
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            "http://76.13.180.29:8000/api/v1/deploy?uuid=jsw40o4ss4kkowgcc8wo8skg&force=true")
+          echo "Coolify SG response: $STATUS"
+          if [ "$STATUS" != "200" ] && [ "$STATUS" != "201" ]; then
+            echo "SG deploy trigger failed with HTTP $STATUS"
+            exit 1
+          fi
+
   deploy-gh:
     name: Redeploy Ghana (GH)
     runs-on: ubuntu-latest
@@ -14,8 +29,8 @@ jobs:
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             "http://2.24.131.228:8000/api/v1/deploy?uuid=za31ou1eopl0bbqpybxd1ds8&force=false")
-          echo "Coolify response: $STATUS"
+          echo "Coolify GH response: $STATUS"
           if [ "$STATUS" != "200" ] && [ "$STATUS" != "201" ]; then
-            echo "Deploy trigger failed with HTTP $STATUS"
+            echo "GH deploy trigger failed with HTTP $STATUS"
             exit 1
           fi
