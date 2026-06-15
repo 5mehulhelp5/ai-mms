@@ -28,6 +28,7 @@ jobs:
       - name: Trigger Ghana Coolify redeploy
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_GH_TOKEN }}" \
             "http://2.24.131.228:8000/api/v1/deploy?uuid=za31ou1eopl0bbqpybxd1ds8&force=false")
           echo "Coolify GH response: $STATUS"
           if [ "$STATUS" != "200" ] && [ "$STATUS" != "201" ]; then
