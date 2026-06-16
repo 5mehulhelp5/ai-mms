@@ -27,7 +27,7 @@ jobs:
     steps:
       - name: Trigger Ghana Coolify redeploy
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_GH_TOKEN }}" \
             "http://2.24.131.228:8000/api/v1/deploy?uuid=za31ou1eopl0bbqpybxd1ds8&force=false")
           echo "Coolify GH response: $STATUS"
@@ -42,7 +42,7 @@ jobs:
     steps:
       - name: Trigger Malaysia Coolify redeploy
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_MY_TOKEN }}" \
             "http://76.13.215.51:8000/api/v1/deploy?uuid=bil306n1kw66911i3shtzq56&force=false")
           echo "Coolify MY response: $STATUS"
