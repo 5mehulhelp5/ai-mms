@@ -98,7 +98,7 @@ services:
       # Rebuild seed: ./scripts/provision/build-country-seed.sh
       - ./seed/country-base.sql.gz:/docker-entrypoint-initdb.d/country-base.sql.gz:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD 2>/dev/null"]
       interval: 10s
       timeout: 5s
       retries: 30

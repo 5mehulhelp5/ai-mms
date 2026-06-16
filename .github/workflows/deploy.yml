@@ -35,3 +35,18 @@ jobs:
             echo "GH deploy trigger failed with HTTP $STATUS"
             exit 1
           fi
+
+  deploy-my:
+    name: Redeploy Malaysia (MY)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Malaysia Coolify redeploy
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_MY_TOKEN }}" \
+            "http://76.13.215.51:8000/api/v1/deploy?uuid=bil306n1kw66911i3shtzq56&force=false")
+          echo "Coolify MY response: $STATUS"
+          if [ "$STATUS" != "200" ] && [ "$STATUS" != "201" ]; then
+            echo "MY deploy trigger failed with HTTP $STATUS"
+            exit 1
+          fi
