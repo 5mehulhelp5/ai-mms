@@ -206,17 +206,8 @@ $tokenField = MMD_MagentoCaptcha_Helper_Turnstile::TOKEN_FIELD;
      <textarea id="rs-comment" placeholder="Any special requests or information for our team"></textarea>
     </div>
 
-    <!-- Spam / Turnstile -->
+    <!-- Spam / Turnstile (widget itself lives outside the steps, see #rs-ts-container) -->
     <input type="text" id="rs-hideit" style="display:none" tabindex="-1" autocomplete="off">
-    <?php if ($tsEnabled): ?>
-    <div class="cf-turnstile"
-         data-sitekey="<?= $this->escapeHtml($tsSiteKey) ?>"
-         data-callback="rsOnTurnstile"
-         data-error-callback="rsOnTurnstileError"
-         data-expired-callback="rsOnTurnstileExpired"
-         data-appearance="interaction-only"></div>
-    <input type="hidden" id="rs-ts-token">
-    <?php endif; ?>
 
     <div style="margin-top:1.25rem">
      <button class="rs-btn rs-btn-primary" id="rs-btn-submit" onclick="rsSubmit()">Submit Reschedule Request</button>
@@ -274,14 +265,18 @@ $tokenField = MMD_MagentoCaptcha_Helper_Turnstile::TOKEN_FIELD;
      <textarea id="rs-fb-comment"></textarea>
     </div>
     <input type="text" id="rs-fb-hideit" style="display:none" tabindex="-1" autocomplete="off">
-    <?php if ($tsEnabled): ?>
-    <input type="hidden" id="rs-fb-ts-token">
-    <?php endif; ?>
     <div style="margin-top:1.25rem">
      <button class="rs-btn rs-btn-primary" id="rs-btn-fb-submit" onclick="rsFallbackSubmit()">Submit Reschedule Request</button>
      <button class="rs-btn rs-btn-secondary" style="margin-left:.5rem" onclick="rsBackFromFallback()">Back</button>
     </div>
    </div>
+
+   <!-- Shared Turnstile widget — one instance serving both the step-4 and the
+        manual-fallback submit. Must live outside the .rs-step divs so it is
+        never inside a hidden step when execute() is called. -->
+   <?php if ($tsEnabled): ?>
+   <div id="rs-ts-container" style="margin-top:1rem"></div>
+   <?php endif; ?>
 
    <!-- ======================================================= SUCCESS -->
    <div class="rs-success" id="rs-success">
@@ -294,7 +289,7 @@ $tokenField = MMD_MagentoCaptcha_Helper_Turnstile::TOKEN_FIELD;
 </div>
 
 <?php if ($tsEnabled): ?>
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=rsTurnstileInit" async defer></script>
 <?php endif; ?>
 
 <script>
@@ -310,7 +305,13 @@ var RS = {
     tsEnabled:      <?= $tsEnabled ? 'true' : 'false' ?>,
     isFallback:     false,
     ajaxBase:       '<?= $this->escapeHtml(rtrim(Mage::getUrl('reschedule/ajax'), '/')) ?>/',
+    tsWidgetId:     null,   // set by rsTurnstileInit once the widget renders
+    tsReady:        false,
+    tsWatchdog:     null,
 };
+
+// Max wait for a Turnstile token before we stop blocking the user (ms).
+var RS_TS_TIMEOUT = 12000;
 
 // ---- Utility -------------------------------------------------------
 
@@ -616,16 +617,81 @@ window.rsSubmit = function() {
         hideit:                qs('rs-hideit').value,
     };
 
-    if (RS.tsEnabled) {
-        setLoading('rs-btn-submit', true);
-        window._rsPendingPayload = payload;
-        if (window.turnstile) window.turnstile.execute();
-        return;
-    }
+    RS.isFallback = false;
+    window._rsFbPendingPayload = null;
+    window._rsPendingPayload = payload;
+    if (rsRequestTsToken('rs-btn-submit')) return;
     rsDoSubmit(payload, false);
 };
 
+// ---- Turnstile ------------------------------------------------------
+// The API script is loaded with render=explicit, so the widget only exists
+// once we call turnstile.render() ourselves — the onload hook below.
+
+window.rsTurnstileInit = function() {
+    var host = qs('rs-ts-container');
+    if (!host || !window.turnstile || RS.tsReady) return;
+    try {
+        RS.tsWidgetId = window.turnstile.render(host, {
+            sitekey:            '<?= $this->escapeHtml($tsSiteKey) ?>',
+            callback:           window.rsOnTurnstile,
+            'error-callback':   window.rsOnTurnstileError,
+            'expired-callback': window.rsOnTurnstileExpired,
+            appearance:         'interaction-only',
+        });
+        RS.tsReady = (RS.tsWidgetId !== undefined && RS.tsWidgetId !== null);
+    } catch (e) {
+        RS.tsReady = false;
+    }
+};
+
+// The API script is async: if it finished loading before this inline script
+// ran, its onload hook already fired against an undefined callback. Render now.
+if (RS.tsEnabled && window.turnstile) {
+    window.rsTurnstileInit();
+}
+
+function rsClearTsWatchdog() {
+    if (RS.tsWatchdog) { clearTimeout(RS.tsWatchdog); RS.tsWatchdog = null; }
+}
+
+function rsTsFail(msg) {
+    rsClearTsWatchdog();
+    setLoading('rs-btn-submit', false);
+    setLoading('rs-btn-fb-submit', false);
+    showError(msg);
+}
+
+/**
+ * Gate a submit behind Turnstile. Returns true if the caller should stop and
+ * wait for the token callback; false if it should submit immediately.
+ * Never leaves the button spinning: every failure path resets it.
+ */
+function rsRequestTsToken(btnId) {
+    if (!RS.tsEnabled) return false;
+
+    if (!window.turnstile || !RS.tsReady) {
+        rsTsFail('Security check could not load. Please disable any ad blocker or refresh the page.');
+        return true;
+    }
+
+    setLoading(btnId, true);
+    rsClearTsWatchdog();
+    RS.tsWatchdog = setTimeout(function() {
+        rsTsFail('Security check timed out. Please refresh the page and try again.');
+    }, RS_TS_TIMEOUT);
+
+    try {
+        window.turnstile.reset(RS.tsWidgetId);
+        window.turnstile.execute(RS.tsWidgetId);
+    } catch (e) {
+        rsTsFail('Security check failed to start. Please refresh the page and try again.');
+    }
+    return true;
+}
+
 window.rsOnTurnstile = function(token) {
+    rsClearTsWatchdog();
     var tokenKey = '<?= $this->escapeHtml($tokenField) ?>';
     if (RS.isFallback && window._rsFbPendingPayload) {
         window._rsFbPendingPayload[tokenKey] = token;
@@ -636,14 +702,10 @@ window.rsOnTurnstile = function(token) {
     }
 };
 window.rsOnTurnstileError = function() {
-    setLoading('rs-btn-submit', false);
-    setLoading('rs-btn-fb-submit', false);
-    showError('Security check failed. Please refresh the page and try again.');
+    rsTsFail('Security check failed. Please refresh the page and try again.');
 };
 window.rsOnTurnstileExpired = function() {
-    setLoading('rs-btn-submit', false);
-    setLoading('rs-btn-fb-submit', false);
-    showError('Security check expired. Please try again.');
+    rsTsFail('Security check expired. Please try again.');
 };
 
 function rsDoSubmit(payload, isFb) {
@@ -696,12 +758,10 @@ window.rsFallbackSubmit = function() {
         hideit:                qs('rs-fb-hideit').value,
     };
 
-    if (RS.tsEnabled) {
-        setLoading('rs-btn-fb-submit', true);
-        window._rsFbPendingPayload = payload;
-        if (window.turnstile) window.turnstile.execute();
-        return;
-    }
+    RS.isFallback = true;
+    window._rsPendingPayload = null;
+    window._rsFbPendingPayload = payload;
+    if (rsRequestTsToken('rs-btn-fb-submit')) return;
     rsDoSubmit(payload, true);
 };
 
