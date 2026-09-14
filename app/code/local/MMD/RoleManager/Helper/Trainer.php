@@ -20,14 +20,18 @@ class MMD_RoleManager_Helper_Trainer extends Mage_Core_Helper_Abstract
         $rows = $read->fetchAll(
             "SELECT u.user_id,
                     TRIM(CONCAT(COALESCE(u.firstname,''),' ',COALESCE(u.lastname,''))) AS name,
-                    u.email
+                    u.email, u.tel
                FROM `$au` u
                JOIN `$rm` r ON r.user_id = u.user_id AND r.role_code = 'trainer'
               WHERE u.is_active = 1 AND u.email IS NOT NULL AND u.email <> ''
               GROUP BY u.user_id
               ORDER BY name ASC"
         );
-        foreach ($rows as &$r) { $r['user_id'] = (int)$r['user_id']; $r['name'] = trim($r['name']) ?: $r['email']; }
+        foreach ($rows as &$r) {
+            $r['user_id'] = (int)$r['user_id'];
+            $r['name'] = trim($r['name']) ?: $r['email'];
+            $r['tel']  = (string)$r['tel'];
+        }
         return $rows;
     }
 
@@ -41,14 +45,18 @@ class MMD_RoleManager_Helper_Trainer extends Mage_Core_Helper_Abstract
         $rows = $read->fetchAll(
             "SELECT pt.user_id,
                     TRIM(CONCAT(COALESCE(u.firstname,''),' ',COALESCE(u.lastname,''))) AS name,
-                    u.email, pt.sort_order
+                    u.email, u.tel, pt.sort_order
                FROM `$pt` pt
                JOIN `$au` u ON u.user_id = pt.user_id
               WHERE pt.product_id = ?
               ORDER BY pt.sort_order ASC, name ASC",
             array((int)$productId)
         );
-        foreach ($rows as &$r) { $r['user_id'] = (int)$r['user_id']; $r['name'] = trim($r['name']) ?: $r['email']; }
+        foreach ($rows as &$r) {
+            $r['user_id'] = (int)$r['user_id'];
+            $r['name'] = trim($r['name']) ?: $r['email'];
+            $r['tel']  = (string)$r['tel'];
+        }
         return $rows;
     }
 

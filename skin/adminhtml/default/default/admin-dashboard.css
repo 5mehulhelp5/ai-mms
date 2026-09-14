@@ -1052,6 +1052,41 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 .tr-picker-tag-x{color:#60a5fa;cursor:pointer;font-weight:700;font-size:15px;line-height:1}
                 .tr-picker-tag-x:hover{color:#fb7185}
 
+                /* Assigned-trainer roster table (Edit Course -> Trainer Details).
+                   Mirrors the AI-LMS-TMS "Approved Trainers" layout: numbered
+                   rows, Trainer / Telephone / Email, drag + arrow reorder.
+                   Row order IS the invite precedence (row 1 = primary), so no
+                   separate star column. Inherits the global *-table net (§27):
+                   transparent cells, hairline separators, flat uppercase head. */
+                .tr-assigned-table{width:100%;border-collapse:collapse;margin:0 0 2px}
+                .tr-assigned-table th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:#64748b;text-align:left;padding:6px 10px;border-bottom:1px solid #334155;white-space:nowrap}
+                .tr-assigned-table td{padding:8px 10px;font-size:12px;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0}
+                .tr-assigned-table tbody tr + tr td{border-top:1px solid #1e293b}
+                .tr-assigned-table tbody tr:hover{background:rgba(96,165,250,.06)}
+                .tr-assigned-table .tr-col-num{width:64px;max-width:none;color:#64748b;font-variant-numeric:tabular-nums;white-space:nowrap}
+                .tr-assigned-table .tr-cell-name{color:#f1f5f9;font-weight:500;width:32%}
+                .tr-assigned-table .tr-cell-tel{color:#94a3b8;font-variant-numeric:tabular-nums;width:22%}
+                .tr-assigned-table .tr-cell-email{color:#94a3b8;width:34%}
+                .tr-assigned-table .tr-col-act{width:96px;max-width:none;text-align:right;white-space:nowrap}
+                .tr-grip{display:inline-flex;align-items:center;color:#475569;cursor:grab;margin-right:6px;vertical-align:-2px}
+                .tr-grip:active{cursor:grabbing}
+                .tr-assigned-table tbody tr.tr-dragging{opacity:.4}
+                .tr-assigned-table tbody tr.tr-drop-before td{box-shadow:inset 0 2px 0 #2563eb}
+                .tr-assigned-table tbody tr.tr-drop-after td{box-shadow:inset 0 -2px 0 #2563eb}
+                /* 26x26 ghost icon buttons (backend-design icon pattern). */
+                .admin-main .tr-act{width:26px!important;height:26px!important;min-width:0!important;min-height:0!important;padding:0!important;margin:0 0 0 4px!important;display:inline-flex!important;align-items:center;justify-content:center;background:transparent!important;background-image:none!important;border:1px solid #334155!important;border-radius:5px!important;box-shadow:none!important;text-shadow:none!important;color:#94a3b8!important;cursor:pointer;line-height:1!important;font-size:0!important;-webkit-appearance:none!important;appearance:none!important;transition:color .15s ease,border-color .15s ease}
+                .admin-main .tr-act > svg{width:14px;height:14px;display:block;flex:0 0 auto;pointer-events:none}
+                .admin-main .tr-act:hover:not(:disabled){color:#60a5fa!important;border-color:#60a5fa!important;background:transparent!important}
+                .admin-main .tr-act:disabled{opacity:.35;cursor:not-allowed}
+                .admin-main .tr-act-del:hover:not(:disabled){color:#f87171!important;border-color:#f87171!important}
+                .admin-main .tr-act:focus-visible{outline:2px solid rgba(96,165,250,.5);outline-offset:2px}
+                .tr-assigned-empty{color:#64748b;font-size:12px;padding:10px 0 0}
+                .tr-add-head{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin:14px 0 8px}
+                .tr-add-hint{font-weight:400;text-transform:none;letter-spacing:0;color:#475569}
+                /* An already-added trainer reads as added, so the toggle-to-remove
+                   click isn't a surprise under the "Add a trainer" heading. */
+                .tr-picker-item.selected .tr-picker-name::after{content:"Added";margin-left:8px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#60a5fa;border:1px solid rgba(96,165,250,.45);border-radius:3px;padding:1px 5px;vertical-align:1px}
+
 /* --- Block 10 (template line 4032) --- */
                     /* Course Schedule editor — collapsible per-option sections */
                     .cs-opt{background:transparent;border-top:1px solid var(--b1,#384a60);padding:0}
@@ -3617,6 +3652,23 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .tr-picker-item:hover { background:#f1f5f9 !important }
 :root[data-theme="light"] .tr-picker-item.selected { background:rgba(37,99,235,0.10) !important; color:#1d4ed8 !important }
 :root[data-theme="light"] .tr-picker-count { color:#64748b !important }
+/* Assigned-trainer roster table */
+:root[data-theme="light"] .tr-assigned-table th { color:#475569 !important; border-bottom-color:#cbd5e1 !important }
+:root[data-theme="light"] .tr-assigned-table td { color:#0f172a !important }
+:root[data-theme="light"] .tr-assigned-table tbody tr + tr td { border-top-color:#e2e8f0 !important }
+:root[data-theme="light"] .tr-assigned-table tbody tr:hover { background:#f1f5f9 !important }
+:root[data-theme="light"] .tr-assigned-table .tr-col-num { color:#64748b !important }
+:root[data-theme="light"] .tr-assigned-table .tr-cell-name { color:#0f172a !important }
+:root[data-theme="light"] .tr-assigned-table .tr-cell-tel,
+:root[data-theme="light"] .tr-assigned-table .tr-cell-email { color:#475569 !important }
+:root[data-theme="light"] .admin-main .tr-act { border-color:#cbd5e1 !important; color:#475569 !important }
+:root[data-theme="light"] .admin-main .tr-act:hover:not(:disabled) { color:#2563eb !important; border-color:#2563eb !important }
+:root[data-theme="light"] .admin-main .tr-act-del:hover:not(:disabled) { color:#dc2626 !important; border-color:#dc2626 !important }
+:root[data-theme="light"] .tr-grip { color:#94a3b8 !important }
+:root[data-theme="light"] .tr-assigned-empty,
+:root[data-theme="light"] .tr-add-head { color:#475569 !important }
+:root[data-theme="light"] .tr-add-hint { color:#64748b !important }
+:root[data-theme="light"] .tr-picker-item.selected .tr-picker-name::after { color:#1d4ed8 !important; border-color:rgba(37,99,235,.45) !important }
 
 /* DCF editor inline-styled tables (Media Gallery, Categories tree,
    Related Products, Up-sells, Cross-sells, Reviews). Each panel

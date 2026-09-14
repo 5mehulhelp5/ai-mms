@@ -1600,6 +1600,7 @@ if ($_editingMode) {
             // mmd_product_trainer; no EAV options are read or created here.
             $_allTrainers        = array(); // user_id => name
             $_allTrainerEmails   = array(); // user_id => email
+            $_allTrainerTels     = array(); // user_id => telephone (often blank)
             $_assignedIds        = array(); // user_ids in this course's pool
             $_trainerNames       = array(); // assigned trainer display names
             $_legacyTrainerNames = array(); // (unused in the account model)
@@ -1609,6 +1610,7 @@ if ($_editingMode) {
                     $_uid = (int) $_acc['user_id'];
                     $_allTrainers[$_uid]      = $_acc['name'];
                     $_allTrainerEmails[$_uid] = $_acc['email'];
+                    $_allTrainerTels[$_uid]   = isset($_acc['tel']) ? $_acc['tel'] : '';
                 }
                 foreach ($_trHelper->getProductTrainerAccounts($_selectedCourseId) as $_pa) {
                     $_uid = (int) $_pa['user_id'];
@@ -1642,6 +1644,7 @@ if ($_editingMode) {
                 'trainer_names'    => $_trainerNames,
                 'all_trainers'     => $_allTrainers,
                 'all_trainer_emails' => $_allTrainerEmails,
+                'all_trainer_tels' => $_allTrainerTels,
                 'assigned_ids'     => $_assignedIds,
                 'legacy_trainers'  => $_legacyTrainerNames,
                 'learning_outcomes' => $_editProd->getData('description') ?: '',
@@ -4278,14 +4281,35 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 <input type="hidden" name="legacy_trainer_remove" id="legacy-trainer-remove" value="" />
                 <div class="tr-picker-wrap">
                     <div class="tr-picker-label">Approved Trainers</div>
+                    <div style="color:#64748b;font-size:11px;margin:0 0 10px;">These are the course's <strong style="color:#94a3b8;">candidate</strong> trainers — they get invited (and confirmed on accept) per class. The order below is the invite precedence: <strong style="color:#94a3b8;">row 1 is the primary trainer</strong>. Drag a row, or use the arrows, to reorder.</div>
+
+                    <!-- Assigned roster — numbered table, drag/arrow reorder, remove. -->
+                    <table class="tr-assigned-table" id="trainer-assigned-table">
+                        <thead>
+                            <tr>
+                                <th class="tr-col-num">#</th>
+                                <th>Trainer</th>
+                                <th>Telephone</th>
+                                <th>Email</th>
+                                <th class="tr-col-act"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="trainer-assigned-body"></tbody>
+                    </table>
+                    <div class="tr-assigned-empty" id="trainer-assigned-empty" hidden>No trainers assigned yet — add one below.</div>
+
+                    <div class="tr-picker-count" id="trainer-count"></div>
+
+                    <!-- Add-a-trainer picker -->
+                    <div class="tr-add-head">Add a trainer <span class="tr-add-hint">— click to add; click an already-added trainer to remove</span></div>
                     <input type="text" class="tr-picker-search" id="trainer-search" placeholder="Search active trainer by name or email" oninput="trFilterList(this.value)" autocomplete="off" />
-                    <div style="color:#64748b;font-size:11px;margin:6px 0 0;">These are the course's <strong style="color:#94a3b8;">candidate</strong> trainers — they get invited (and confirmed on accept) per class. Only trainers with an account appear here; sync accounts on the <strong style="color:#94a3b8;">Users</strong> page.</div>
                     <div class="tr-picker-list" id="trainer-list">
                         <?php foreach ($_editCourseData['all_trainers'] as $_tid => $_tnm):
                             $_temail = isset($_editCourseData['all_trainer_emails'][$_tid]) ? $_editCourseData['all_trainer_emails'][$_tid] : '';
+                            $_ttel   = isset($_editCourseData['all_trainer_tels'][$_tid]) ? $_editCourseData['all_trainer_tels'][$_tid] : '';
                             $_isSel = in_array($_tid, $_editCourseData['assigned_ids']);
                         ?>
-                        <div class="tr-picker-item<?php echo $_isSel ? ' selected' : '' ?>" data-id="<?php echo (int)$_tid ?>" data-name="<?php echo htmlspecialchars($_tnm) ?>" data-search="<?php echo strtolower($_tnm . ' ' . $_temail) ?>" onclick="trToggle(this)">
+                        <div class="tr-picker-item<?php echo $_isSel ? ' selected' : '' ?>" data-id="<?php echo (int)$_tid ?>" data-name="<?php echo htmlspecialchars($_tnm) ?>" data-tel="<?php echo htmlspecialchars($_ttel) ?>" data-email="<?php echo htmlspecialchars($_temail) ?>" data-search="<?php echo strtolower($_tnm . ' ' . $_temail) ?>" onclick="trToggle(this)">
                             <span class="tr-picker-name"><?php echo htmlspecialchars($_tnm) ?></span>
                             <span class="tr-picker-email"><?php echo htmlspecialchars($_temail) ?></span>
                             <?php if ($_isSel): ?>
@@ -4294,12 +4318,8 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                         </div>
                         <?php endforeach; ?>
                     </div>
-                    <?php $_totalAssigned = count($_editCourseData['assigned_ids']) + count($_editCourseData['legacy_trainers']); ?>
-                    <div class="tr-picker-count" id="trainer-count"><?php echo $_totalAssigned ?> assigned trainer<?php echo $_totalAssigned === 1 ? '' : 's' ?></div>
-                    <div class="tr-picker-tags" id="trainer-tags">
-                        <?php foreach ($_editCourseData['assigned_ids'] as $_aid): if (isset($_editCourseData['all_trainers'][$_aid])): ?>
-                        <span class="tr-picker-tag" data-id="<?php echo (int)$_aid ?>"><?php echo htmlspecialchars($_editCourseData['all_trainers'][$_aid]) ?> <span class="tr-picker-tag-x" onclick="trRemove(<?php echo (int)$_aid ?>)">&times;</span></span>
-                        <?php endif; endforeach; ?>
+
+                    <div class="tr-picker-tags" id="trainer-tags"<?php echo empty($_editCourseData['legacy_trainers']) ? ' hidden' : '' ?>>
                         <?php foreach ($_editCourseData['legacy_trainers'] as $_lt): ?>
                         <span class="tr-picker-tag" data-legacy="<?php echo htmlspecialchars($_lt) ?>"><?php echo htmlspecialchars($_lt) ?> <span class="tr-picker-tag-x" onclick="trRemoveLegacy('<?php echo htmlspecialchars(addslashes($_lt), ENT_QUOTES) ?>', this)">&times;</span></span>
                         <?php endforeach; ?>
@@ -4316,26 +4336,137 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                             items[i].classList.toggle('hidden', q && hay.indexOf(q) === -1);
                         }
                     };
+                    // The hidden field's comma ORDER is the persisted sort_order
+                    // (see _persistProductTrainerPool) — so reordering rows is
+                    // just rewriting this string. Single source of truth.
+                    function getIds() { return (hidden.value || '').split(',').filter(Boolean); }
+                    function setIds(ids) { hidden.value = ids.join(','); rebuildTags(); }
+
+                    function esc(s) {
+                        return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+                            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];
+                        });
+                    }
+
+                    var ICON_UP   = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>';
+                    var ICON_DOWN = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+                    var ICON_DEL  = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+                    var ICON_GRIP = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+
                     function rebuildTags() {
-                        var ids = (hidden.value || '').split(',').filter(Boolean);
-                        var tags = document.getElementById('trainer-tags');
-                        var legacyTags = Array.prototype.slice.call(tags.querySelectorAll('.tr-picker-tag[data-legacy]'));
+                        var ids   = getIds();
+                        var body  = document.getElementById('trainer-assigned-body');
+                        var table = document.getElementById('trainer-assigned-table');
+                        var empty = document.getElementById('trainer-assigned-empty');
                         var count = document.getElementById('trainer-count');
-                        tags.innerHTML = '';
-                        ids.forEach(function(id){
+                        var legacyCount = document.querySelectorAll('#trainer-tags .tr-picker-tag[data-legacy]').length;
+                        if (!body) return;
+
+                        body.innerHTML = '';
+                        ids.forEach(function(id, idx){
                             var item = document.querySelector('#trainer-list .tr-picker-item[data-id="' + id + '"]');
                             if (!item) return;
-                            var span = document.createElement('span');
-                            span.className = 'tr-picker-tag';
-                            span.setAttribute('data-id', id);
-                            span.innerHTML = (item.querySelector('.tr-picker-name') || item).textContent.trim() + ' <span class="tr-picker-tag-x">&times;</span>';
-                            span.querySelector('.tr-picker-tag-x').onclick = function(){ trRemove(parseInt(id, 10)); };
-                            tags.appendChild(span);
+                            var nm  = (item.querySelector('.tr-picker-name') || item).textContent.trim();
+                            var tel = item.getAttribute('data-tel') || '';
+                            var em  = item.getAttribute('data-email') || '';
+                            var tr  = document.createElement('tr');
+                            tr.setAttribute('data-id', id);
+                            tr.setAttribute('draggable', 'true');
+                            tr.innerHTML =
+                                '<td class="tr-col-num"><span class="tr-grip" title="Drag to reorder">' + ICON_GRIP + '</span>' + (idx + 1) + '.</td>' +
+                                '<td class="tr-cell-name">' + esc(nm) + '</td>' +
+                                '<td class="tr-cell-tel">' + esc(tel) + '</td>' +
+                                '<td class="tr-cell-email">' + esc(em) + '</td>' +
+                                '<td class="tr-col-act">' +
+                                  '<button type="button" class="tr-act" data-act="up" title="Move up" aria-label="Move up"' + (idx === 0 ? ' disabled' : '') + '>' + ICON_UP + '</button>' +
+                                  '<button type="button" class="tr-act" data-act="down" title="Move down" aria-label="Move down"' + (idx === ids.length - 1 ? ' disabled' : '') + '>' + ICON_DOWN + '</button>' +
+                                  '<button type="button" class="tr-act tr-act-del" data-act="del" title="Remove trainer" aria-label="Remove trainer">' + ICON_DEL + '</button>' +
+                                '</td>';
+                            body.appendChild(tr);
                         });
-                        legacyTags.forEach(function(t){ tags.appendChild(t); });
-                        var total = ids.length + legacyTags.length;
+
+                        if (table) table.hidden = ids.length === 0;
+                        if (empty) empty.hidden = ids.length > 0;
+                        var total = ids.length + legacyCount;
                         count.textContent = total + ' assigned trainer' + (total === 1 ? '' : 's');
                     }
+
+                    // Arrow + delete (event-delegated, survives re-render).
+                    document.getElementById('trainer-assigned-body').addEventListener('click', function(e){
+                        var btn = e.target.closest ? e.target.closest('.tr-act') : null;
+                        if (!btn || btn.disabled) return;
+                        var row = btn.closest('tr');
+                        if (!row) return;
+                        var id  = row.getAttribute('data-id');
+                        var ids = getIds();
+                        var i   = ids.indexOf(id);
+                        if (i < 0) return;
+                        var act = btn.getAttribute('data-act');
+                        if (act === 'up' && i > 0) {
+                            ids[i - 1] = ids.splice(i, 1, ids[i - 1])[0];
+                            setIds(ids);
+                        } else if (act === 'down' && i < ids.length - 1) {
+                            ids[i + 1] = ids.splice(i, 1, ids[i + 1])[0];
+                            setIds(ids);
+                        } else if (act === 'del') {
+                            var item = document.querySelector('#trainer-list .tr-picker-item[data-id="' + id + '"]');
+                            if (item) trToggle(item); else { ids.splice(i, 1); setIds(ids); }
+                        }
+                    });
+
+                    // Drag-and-drop reorder.
+                    (function(){
+                        var body = document.getElementById('trainer-assigned-body');
+                        var dragId = null;
+                        body.addEventListener('dragstart', function(e){
+                            var row = e.target.closest ? e.target.closest('tr[data-id]') : null;
+                            if (!row) return;
+                            dragId = row.getAttribute('data-id');
+                            row.classList.add('tr-dragging');
+                            try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragId); } catch (ex) {}
+                        });
+                        body.addEventListener('dragend', function(){
+                            dragId = null;
+                            var d = body.querySelector('.tr-dragging');
+                            if (d) d.classList.remove('tr-dragging');
+                            Array.prototype.forEach.call(body.querySelectorAll('.tr-drop-before,.tr-drop-after'), function(r){
+                                r.classList.remove('tr-drop-before'); r.classList.remove('tr-drop-after');
+                            });
+                        });
+                        body.addEventListener('dragover', function(e){
+                            if (dragId === null) return;
+                            e.preventDefault();
+                            var row = e.target.closest ? e.target.closest('tr[data-id]') : null;
+                            Array.prototype.forEach.call(body.querySelectorAll('.tr-drop-before,.tr-drop-after'), function(r){
+                                r.classList.remove('tr-drop-before'); r.classList.remove('tr-drop-after');
+                            });
+                            if (!row || row.getAttribute('data-id') === dragId) return;
+                            var box = row.getBoundingClientRect();
+                            row.classList.add(e.clientY < box.top + box.height / 2 ? 'tr-drop-before' : 'tr-drop-after');
+                        });
+                        body.addEventListener('drop', function(e){
+                            if (dragId === null) return;
+                            e.preventDefault();
+                            var row = e.target.closest ? e.target.closest('tr[data-id]') : null;
+                            if (!row) return;
+                            var targetId = row.getAttribute('data-id');
+                            if (targetId === dragId) return;
+                            var box    = row.getBoundingClientRect();
+                            var before = e.clientY < box.top + box.height / 2;
+                            var ids    = getIds();
+                            var from   = ids.indexOf(dragId);
+                            // Resolve the insertion point BEFORE removing the
+                            // dragged id — splicing first shifts every later
+                            // index down one and drops the row a slot early.
+                            var at     = ids.indexOf(targetId);
+                            if (from < 0 || at < 0) return;
+                            var insert = before ? at : at + 1;
+                            if (from < insert) insert--;   // account for the removal
+                            ids.splice(from, 1);
+                            ids.splice(insert, 0, dragId);
+                            setIds(ids);
+                        });
+                    })();
                     window.trToggle = function(el) {
                         var id = el.getAttribute('data-id');
                         var ids = (hidden.value || '').split(',').filter(Boolean);
@@ -4366,12 +4497,12 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                         rm.value = cur.join('|');
                         var tag = el.closest('.tr-picker-tag');
                         if (tag) tag.remove();
-                        var count = document.getElementById('trainer-count');
-                        var ids = (document.getElementById('trainer-ids').value || '').split(',').filter(Boolean);
-                        var legacyCount = document.querySelectorAll('.tr-picker-tag[data-legacy]').length;
-                        var total = ids.length + legacyCount;
-                        count.textContent = total + ' assigned trainer' + (total === 1 ? '' : 's');
+                        rebuildTags();
                     };
+
+                    // Initial paint — the roster table is JS-rendered so the
+                    // server-side order in the hidden field is the seed.
+                    rebuildTags();
                 })();
                 </script>
             </div>
