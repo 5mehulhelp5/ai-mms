@@ -87,6 +87,7 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
             'SFEC',
             'Absentee Payroll',
             'MCES',
+            'Free AI Tools Subscription',
         ];
     }
 
@@ -158,7 +159,7 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
     public function getApplicableBadgesForWebsite(string $websiteCode): array
     {
         $map = [
-            'base'     => ['WSQ', 'CASL', 'SkillsFuture Credit', 'PSEA', 'UTAP', 'IBF', 'SFEC', 'Absentee Payroll', 'MCES'],
+            'base'     => ['WSQ', 'CASL', 'SkillsFuture Credit', 'PSEA', 'UTAP', 'IBF', 'SFEC', 'Absentee Payroll', 'MCES', 'Free AI Tools Subscription'],
             // Nigeria has no government funding
             // schemes we model — explicit empty list so HRDF/WSQ never bleed
             // through from a shared product.
@@ -580,6 +581,7 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
             'SFEC'                => 'sfec',
             'Absentee Payroll'   => 'ap',
             'MCES'                => 'mces',
+            'Free AI Tools Subscription' => 'aitools',
         ];
         return $map[$badgeName] ?? 'default';
     }
@@ -593,7 +595,11 @@ class MMD_CourseImage_Helper_Data extends Mage_Core_Helper_Abstract
     public function getBadgeDisplayLabel(string $badgeName): string
     {
         $map = [
-            'SkillsFuture Credit' => 'SFC',
+            'SkillsFuture Credit'        => 'SFC',
+            // Full name is far too long for the one-row pill strip under the
+            // course title; the promotional card above WSQ Funding carries the
+            // full "6 Months Free AI Tools Subscription" wording.
+            'Free AI Tools Subscription' => 'Free AI Tools',
         ];
         return $map[$badgeName] ?? $badgeName;
     }
