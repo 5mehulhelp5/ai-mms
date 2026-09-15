@@ -1,4 +1,4 @@
--- 1408: Follow-up to 1407 — carve the remaining courses whose PRODUCTION
+-- 1409: Follow-up to 1407 — carve the remaining courses whose PRODUCTION
 --       description differed from the local snapshot 1407 was generated from.
 --
 -- 1407 guards each description UPDATE on CHAR_LENGTH(value) = <pre-migration
@@ -25,6 +25,11 @@
 -- INSERT ... WHERE NOT EXISTS on identifier, CHAR_LENGTH-guarded UPDATEs
 -- (idempotent — after the rewrite the row is shorter and matches nothing),
 -- SG-only via @mms_instance, verified valid UTF-8.
+--
+-- Numbered 1409, not 1408: a concurrent session claimed 1408 for
+-- 1408-search-redirect-agentic-ai-for-video-creation.sql in the same window.
+-- Two files sharing a number make apply.php ordering depend on the rest of the
+-- filename, so this one was renumbered rather than left ambiguous.
 
 SET @is_sg := IF(@mms_instance = 'SG', 1, 0);
 SET @sd_attr := (SELECT attribute_id FROM eav_attribute WHERE attribute_code = 'short_description' AND entity_type_id = 4);
