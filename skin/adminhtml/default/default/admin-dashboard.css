@@ -1083,9 +1083,12 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                 .tr-assigned-empty{color:#64748b;font-size:12px;padding:10px 0 0}
                 .tr-add-head{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin:14px 0 8px}
                 .tr-add-hint{font-weight:400;text-transform:none;letter-spacing:0;color:#475569}
-                /* An already-added trainer reads as added, so the toggle-to-remove
-                   click isn't a surprise under the "Add a trainer" heading. */
-                .tr-picker-item.selected .tr-picker-name::after{content:"Added";margin-left:8px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#60a5fa;border:1px solid rgba(96,165,250,.45);border-radius:3px;padding:1px 5px;vertical-align:1px}
+                /* Search results read as a dropdown under the box, not a
+                   permanently-open directory of ~260 names. */
+                .tr-picker-list[hidden]{display:none}
+                .tr-assigned-table + .tr-picker-count{margin-top:12px}
+                .tr-no-match{color:#64748b;font-size:12px;margin-top:8px}
+                .tr-no-match strong{color:#94a3b8}
 
 /* --- Block 10 (template line 4032) --- */
                     /* Course Schedule editor — collapsible per-option sections */
@@ -3668,7 +3671,8 @@ button.hsp-btn-submit{
 :root[data-theme="light"] .tr-assigned-empty,
 :root[data-theme="light"] .tr-add-head { color:#475569 !important }
 :root[data-theme="light"] .tr-add-hint { color:#64748b !important }
-:root[data-theme="light"] .tr-picker-item.selected .tr-picker-name::after { color:#1d4ed8 !important; border-color:rgba(37,99,235,.45) !important }
+:root[data-theme="light"] .tr-no-match { color:#475569 !important }
+:root[data-theme="light"] .tr-no-match strong { color:#0f172a !important }
 
 /* DCF editor inline-styled tables (Media Gallery, Categories tree,
    Related Products, Up-sells, Cross-sells, Reviews). Each panel

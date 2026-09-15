@@ -4300,10 +4300,13 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
 
                     <div class="tr-picker-count" id="trainer-count"></div>
 
-                    <!-- Add-a-trainer picker -->
-                    <div class="tr-add-head">Add a trainer <span class="tr-add-hint">— click to add; click an already-added trainer to remove</span></div>
-                    <input type="text" class="tr-picker-search" id="trainer-search" placeholder="Search active trainer by name or email" oninput="trFilterList(this.value)" autocomplete="off" />
-                    <div class="tr-picker-list" id="trainer-list">
+                    <!-- Add-a-trainer picker. The full directory is ~260 rows,
+                         so it stays COLLAPSED (see .tr-picker-list[hidden]) and
+                         only surfaces as type-to-search results — otherwise the
+                         roster is buried under a wall of names. -->
+                    <div class="tr-add-head">Add Trainer</div>
+                    <input type="text" class="tr-picker-search" id="trainer-search" placeholder="Type a trainer name or email to search..." oninput="trFilterList(this.value)" autocomplete="off" />
+                    <div class="tr-picker-list" id="trainer-list" hidden>
                         <?php foreach ($_editCourseData['all_trainers'] as $_tid => $_tnm):
                             $_temail = isset($_editCourseData['all_trainer_emails'][$_tid]) ? $_editCourseData['all_trainer_emails'][$_tid] : '';
                             $_ttel   = isset($_editCourseData['all_trainer_tels'][$_tid]) ? $_editCourseData['all_trainer_tels'][$_tid] : '';
@@ -4318,6 +4321,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                         </div>
                         <?php endforeach; ?>
                     </div>
+                    <div class="tr-no-match" id="trainer-no-match" hidden>No matching trainer. Only trainers with an account appear here — sync accounts on the <strong>Users</strong> page.</div>
 
                     <div class="tr-picker-tags" id="trainer-tags"<?php echo empty($_editCourseData['legacy_trainers']) ? ' hidden' : '' ?>>
                         <?php foreach ($_editCourseData['legacy_trainers'] as $_lt): ?>
@@ -4328,13 +4332,23 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 <script>
                 (function(){
                     var hidden = document.getElementById('trainer-ids');
+                    // Type-to-search: the list is hidden until the query matches,
+                    // and already-assigned trainers are filtered out (they're
+                    // removed from the roster table above, not from here).
                     window.trFilterList = function(q) {
-                        q = q.toLowerCase();
+                        q = (q || '').trim().toLowerCase();
+                        var list  = document.getElementById('trainer-list');
                         var items = document.querySelectorAll('#trainer-list .tr-picker-item');
+                        var shown = 0;
                         for (var i = 0; i < items.length; i++) {
                             var hay = items[i].getAttribute('data-search') || items[i].getAttribute('data-name').toLowerCase();
-                            items[i].classList.toggle('hidden', q && hay.indexOf(q) === -1);
+                            var hit = q !== '' && hay.indexOf(q) !== -1 && !items[i].classList.contains('selected');
+                            items[i].classList.toggle('hidden', !hit);
+                            if (hit) shown++;
                         }
+                        list.hidden = (q === '');
+                        var none = document.getElementById('trainer-no-match');
+                        if (none) none.hidden = (q === '' || shown > 0);
                     };
                     // The hidden field's comma ORDER is the persisted sort_order
                     // (see _persistProductTrainerPool) — so reordering rows is
@@ -4485,6 +4499,10 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                         }
                         hidden.value = ids.join(',');
                         rebuildTags();
+                        // Collapse the search back down after a pick, so the
+                        // panel returns to "roster + empty search box".
+                        var box = document.getElementById('trainer-search');
+                        if (box) { box.value = ''; trFilterList(''); }
                     };
                     window.trRemove = function(id) {
                         var el = document.querySelector('#trainer-list .tr-picker-item[data-id="' + id + '"]');
