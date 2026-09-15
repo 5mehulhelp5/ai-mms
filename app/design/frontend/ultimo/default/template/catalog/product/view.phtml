@@ -584,8 +584,20 @@
 	// on SG and in the primary (center) column, right after the "About" card,
 	// on the partner stores (MY/GH). Built once here; echoed per store below.
 	$_isSgStore = (Mage::app()->getStore()->getCode() === 'singapore');
+	// Body source: the per-course cms/block wins so ops can tailor the copy per
+	// course; the canonical wording below is the fallback when no block exists
+	// (which is the normal case — only courses needing bespoke copy get one).
+	// The cert-prep/strip gate above still decides WHETHER the card renders at
+	// all: the "free practice exams" claim is only true for courses under the
+	// cert-prep tree, so a block must never be able to surface it on its own.
 	$_practiceExamCardHtml = '';
 	if ($_hasPracticeExams) {
+		$_practiceExamBody = $_courseSectionHtml('practice_exams');
+		if ($_practiceExamBody === '') {
+			$_practiceExamBody =
+				'<p>Get exam-ready on our <strong>Practice Exam Portal</strong> &mdash; train in realistic <strong>Practice Mode</strong> and timed <strong>Exam Mode</strong>, then retake them as many times as you like before the real exam.</p>'
+				. '<p><a class="practice-exam-cta" href="https://exams.tertiaryinfotech.com/" target="_blank" rel="noopener">Start Practising &rarr;</a></p>';
+		}
 		$_practiceExamCardHtml =
 			'<section class="course-policy-card course-policy-card--practice">'
 			. '<header class="course-policy-card__header">'
@@ -595,8 +607,7 @@
 			. '<h3 class="course-policy-card__title">Bonus: Free Practice Exams</h3>'
 			. '</header>'
 			. '<div class="course-policy-card__body std">'
-			. '<p>Get exam-ready on our <strong>Practice Exam Portal</strong> &mdash; train in realistic <strong>Practice Mode</strong> and timed <strong>Exam Mode</strong>, then retake them as many times as you like before the real exam.</p>'
-			. '<p><a class="practice-exam-cta" href="https://exams.tertiaryinfotech.com/" target="_blank" rel="noopener">Start Practising &rarr;</a></p>'
+			. $_practiceExamBody
 			. '</div>'
 			. '</section>';
 	}
@@ -638,6 +649,31 @@
 		}
 	} catch (Exception $e) {
 		$_atcCardsHtml = '';
+	}
+
+	// NOTE (2026-09): the partner accreditation card is deliberately NOT
+	// per-course-block driven. Migration 1407 strips the inline "… Learning
+	// Partner" blurb out of every description, and the card above rebuilds it
+	// from the atc_partners checkboxes — every affected course already has the
+	// checkbox set, and the canonical copy is cleaner than the inline text it
+	// replaces (some of which had duplicated sentences). Adding a
+	// course_<SKU>_partner block would only reintroduce that drift.
+
+	// Certification-exam venue card (migration 1407) — "Certification Exam at
+	// Pearson Vue" / "Register for Google Cloud Certification" and friends,
+	// carved out of the description into course_<SKU>_certification_exam.
+	$_certExamCardHtml = '';
+	$_certExamBlockHtml = $_courseSectionHtml('certification_exam');
+	if ($_certExamBlockHtml !== '') {
+		$_certExamCardHtml = '<section class="course-policy-card course-policy-card--cert-exam">'
+			. '<header class="course-policy-card__header">'
+			. '<span class="course-policy-card__icon" aria-hidden="true">'
+			. '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/></svg>'
+			. '</span>'
+			. '<h3 class="course-policy-card__title">Certification Exam</h3>'
+			. '</header>'
+			. '<div class="course-policy-card__body std">' . $_certExamBlockHtml . '</div>'
+			. '</section>';
 	}
 
 	// (6) Funding and Grant. Per-course cms/block first, regex fallback
@@ -1267,12 +1303,16 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 			          atc_partners key, directly below the course description
 			          (after the Bonus card when present), on ALL stores. */ ?>
 			<?php echo $_atcCardsHtml; ?>
+
+			<?php /* Certification-exam venue card — directly after the partner
+			          accreditation it belongs with. */ ?>
+			<?php echo $_certExamCardHtml; ?>
 			<?php if (!$_isSgStore): /* MY/GH only: the HRD Corp funding card is
 			          injected by JS right after the About card, which would push
 			          these server-rendered Bonus/ATC cards below it. Re-seat them
 			          directly under the About card so they stay ABOVE the HRD
 			          Corp card. Runs on DOMContentLoaded after the injector. */ ?>
-			<script>(function(){function seat(){var a=document.querySelector('.course-policy-card--about');if(!a||!a.parentNode)return;var p=document.querySelector('.course-policy-card--practice');if(p)a.parentNode.insertBefore(p,a.nextSibling);var ref=p||a,atc=document.querySelectorAll('.course-policy-card--atc');for(var i=0;i<atc.length;i++){ref.parentNode.insertBefore(atc[i],ref.nextSibling);ref=atc[i];}}if(document.readyState!=='loading')seat();else document.addEventListener('DOMContentLoaded',seat);})();</script>
+			<script>(function(){function seat(){var a=document.querySelector('.course-policy-card--about');if(!a||!a.parentNode)return;var p=document.querySelector('.course-policy-card--practice');if(p)a.parentNode.insertBefore(p,a.nextSibling);var ref=p||a,atc=document.querySelectorAll('.course-policy-card--atc,.course-policy-card--cert-exam');for(var i=0;i<atc.length;i++){ref.parentNode.insertBefore(atc[i],ref.nextSibling);ref=atc[i];}}if(document.readyState!=='loading')seat();else document.addEventListener('DOMContentLoaded',seat);})();</script>
 			<?php endif; ?>
 
 			<?php

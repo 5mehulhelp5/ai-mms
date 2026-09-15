@@ -860,6 +860,9 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--ibf           .course-policy-card__icon { background: #2563eb; }
 /* ATC / partner-accreditation cards (atc_partners attribute) — slate award icon. */
 .course-policy-card--atc           .course-policy-card__icon { background: #475569; }
+/* Certification-exam venue card (course_<SKU>_certification_exam block) — same
+   slate as the partner card it renders beside, since the two are one topic. */
+.course-policy-card--cert-exam     .course-policy-card__icon { background: #475569; }
 /* "Complimentary Exam Voucher" card — amber ticket, ringed like the practice
    card so it reads as an included perk rather than a policy notice. Kept off
    the practice card's green so the two perks stay visually distinct when a
