@@ -22,6 +22,13 @@ class MMD_CourseImage_Model_Cover
     public const HEIGHT = 900;
     private const PADDING_X = 80;
     private const PADDING_Y = 80;
+    /**
+     * Canonical badge name for the promotional AI-tools perk. Matches
+     * MMD_CourseImage_Helper_Data::getAllBadges() — the same tag that drives
+     * the storefront pill and the perk card above the WSQ Funding section.
+     */
+    private const AI_TOOLS_BADGE = 'Free AI Tools Subscription';
+
     private const MAX_TITLE_LINES = 4;
     private const TITLE_MIN_PX = 36;
     private const TITLE_MAX_PX = 86;
@@ -72,6 +79,13 @@ class MMD_CourseImage_Model_Cover
 
         $this->drawAccentBar($im);
         $this->drawBrandHeader($im, $h, $fontPath);
+        // "Free AI Tools Subscription" is a promotional perk, not a funding
+        // scheme — it renders as a red pill at the top-right of the brand row
+        // rather than joining the cyan FUNDING AVAILABLE chips at the bottom.
+        $hasAiTools = in_array(self::AI_TOOLS_BADGE, $badges, true);
+        if ($hasAiTools) {
+            $this->drawAiToolsChip($im, $semiBoldFontPath);
+        }
         if ($kicker !== null) {
             $this->drawKicker($im, $kicker, $semiBoldFontPath);
         }
@@ -81,7 +95,9 @@ class MMD_CourseImage_Model_Cover
         // $badges. Fallback to the WSQ default trio if the caller didn't pass
         // anything but the SKU is WSQ-funded — preserves the prior behavior
         // for the preview endpoint / legacy callers.
-        $chipNames = $badges;
+        // Drawn separately as the top-right red pill above — keep it out of
+        // the bottom funding row so it isn't shown as a funding scheme.
+        $chipNames = array_values(array_diff($badges, [self::AI_TOOLS_BADGE]));
         if (!$chipNames && $isWsq) {
             $chipNames = ['WSQ', 'SkillsFuture Credit', 'PSEA'];
         }
@@ -354,6 +370,56 @@ class MMD_CourseImage_Model_Cover
             imagearc($im, $x1 + $r, $y2 - $r, $d, $d, 90, 180, $color);
             imagearc($im, $x2 - $r, $y2 - $r, $d, $d, 0, 90, $color);
         }
+    }
+
+    /**
+     * Promotional "Free AI Tools Subscription" pill — top-right of the cover,
+     * on the same row as the brand lockup.
+     *
+     * Deliberately RED (not the cyan of the funding chips): this is a
+     * marketing perk, not a government funding scheme, and the colour break
+     * is what stops a reader parsing it as one. Vertically centred against
+     * the 88px brand mark so the row reads as a single band, and right-edged
+     * to PADDING_X so it lines up with the cover's other margins.
+     */
+    private function drawAiToolsChip(\GdImage $im, string $fontPath): void
+    {
+        $label = 'Free AI Tools Subscription';
+
+        $white  = imagecolorallocate($im, 255, 255, 255);
+        $red    = imagecolorallocate($im, 0xDC, 0x26, 0x26); // Tailwind red-600
+        $redDim = imagecolorallocatealpha($im, 0xDC, 0x26, 0x26, 75);
+
+        $fontSize = 22;
+        $padX     = 26;
+        $padY     = 14;
+
+        $b  = imagettfbbox($fontSize, 0, $fontPath, $label);
+        $tw = $b[2] - $b[0];
+        $th = $b[1] - $b[7];
+
+        $chipW = $tw + 2 * $padX;
+        $chipH = $th + 2 * $padY;
+
+        // Right-aligned; vertically centred on the 88px brand mark that
+        // drawBrandHeader() places at (PADDING_X, PADDING_Y).
+        $markSize = 88;
+        $x2 = self::WIDTH - self::PADDING_X;
+        $x1 = $x2 - $chipW;
+        $y1 = self::PADDING_Y + (int) round(($markSize - $chipH) / 2);
+        $y2 = $y1 + $chipH;
+        $radius = (int) ($chipH / 2);
+
+        // Soft outer glow, mirroring the funding chips' "lifted" treatment.
+        $this->strokeRoundedRect($im, $x1 - 2, $y1 - 2, $x2 + 2, $y2 + 2, $radius + 2, $redDim);
+
+        // Solid red fill — a filled pill reads as a promotional flag, where
+        // the outlined/frosted funding chips read as eligibility metadata.
+        $this->filledRoundedRect($im, $x1, $y1, $x2, $y2, $radius, $red);
+
+        $textX = $x1 + $padX;
+        $textY = $y2 - $padY - 4;
+        imagettftext($im, $fontSize, 0, $textX, $textY, $white, $fontPath, $label);
     }
 
     private function drawBrandHeader(\GdImage $im, MMD_CourseImage_Helper_Data $h, string $fontPath): void
