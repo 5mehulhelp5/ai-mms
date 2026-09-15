@@ -2167,6 +2167,40 @@ $_devWebsiteId = $_devCountryMap[$_devCountry];
 // course_runs.class_id (the canonical C###### identifier): product_id →
 // next upcoming run's class_id. Courses with no scheduled class show "—".
 $_devRunIdMap = $_lmcRunMap;
+
+// Course Schedule codes — product_id => "B19", the schedule template the
+// course sits on (custom_options_group.title via custom_options_relation).
+// The course cards show this INSTEAD of a Course Run ID: a run id identifies
+// one scheduled CLASS, so it is meaningless on a permanent course record
+// (the Course Details view already gates run-level fields behind
+// $_courseManagerActive for the same reason). The WSQ catalogue prefixes its
+// titles "(SG) WSQ-" and the non-WSQ one uses the bare code, so both sides of
+// a course pair render the same code — e.g. "(SG) WSQ-B19 …" and "B19 …"
+// both show "B19". Titles carrying no code (e.g. "(SG) Custom WSQ",
+// "Subscriptoin") yield '' and the card falls back to "—".
+$_devScheduleMap = array();
+try {
+    $_schRead = Mage::getSingleton('core/resource')->getConnection('core_read');
+    $_schRows = $_schRead->fetchAll(
+        'SELECT r.product_id, g.title'
+        . ' FROM ' . $_schRead->getTableName('custom_options_relation') . ' r'
+        . ' JOIN ' . $_schRead->getTableName('custom_options_group') . ' g'
+        . '   ON g.group_id = r.group_id'
+        . ' GROUP BY r.product_id, g.title'
+    );
+    foreach ($_schRows as $_sr) {
+        // Strip the WSQ catalogue prefix, then take the leading letter+digits
+        // code. MySQL 5.7 has no REGEXP_SUBSTR, so extract in PHP.
+        $_schTitle = trim(str_replace('(SG) WSQ-', '', (string) $_sr['title']));
+        if (!preg_match('/^([A-Z][0-9]{2})\b/', $_schTitle, $_schM)) continue;
+        $_schPid = (int) $_sr['product_id'];
+        // A course sits on one template; keep the first code deterministically
+        // if data ever carries more.
+        if (!isset($_devScheduleMap[$_schPid])) $_devScheduleMap[$_schPid] = $_schM[1];
+    }
+} catch (Exception $e) {
+    // custom_options tables not present (fresh install before migrations)
+}
 $_devTotalCount = 0;
 // Heavy block — paginated catalog product collection with multiple EAV
 // attributes selected, plus filtering, plus an iteration that resolves
@@ -2649,8 +2683,8 @@ function courseSyncSaveConfig() {
                 </span></div>
                 <?php endif; ?>
                 <div class="dev-card-row"><span class="dev-card-lbl">Course Code:</span><span class="dev-card-val"><?php echo $_dcRef ? htmlspecialchars($_dcRef) : '—' ?></span></div>
-                <?php $_runClassId = isset($_devRunIdMap[(int)$_dc['id']]) ? $_devRunIdMap[(int)$_dc['id']] : ''; ?>
-                <div class="dev-card-row"><span class="dev-card-lbl">Course Run ID:</span><span class="dev-card-val"><?php echo $_runClassId ? htmlspecialchars($_runClassId) : '&mdash;' ?></span></div>
+                <?php $_schedCode = isset($_devScheduleMap[(int)$_dc['id']]) ? $_devScheduleMap[(int)$_dc['id']] : ''; ?>
+                <div class="dev-card-row"><span class="dev-card-lbl">Course Schedule:</span><span class="dev-card-val"><?php echo $_schedCode ? htmlspecialchars($_schedCode) : '&mdash;' ?></span></div>
                 <?php
                 $_dcActive = ((int)$_dc['status'] === Mage_Catalog_Model_Product_Status::STATUS_ENABLED);
                 $_dcFunded = strtolower((string)$_dc['course_type']) === 'funded';
