@@ -6267,10 +6267,14 @@ try {
 // Approved trainers — the per-course pool in mmd_product_trainer, same source
 // the editor's trainer picker reads (~1568).
 $_lcdTrainerNames = array();
+$_lcdTrainerRows  = array();   // full rows (name/tel/email) for the right-column table
 try {
     $_lcdTrHelper = Mage::helper('mmd_rolemanager/trainer');
     foreach ($_lcdTrHelper->getProductTrainerAccounts($_lcdCourseId) as $_lcdAcc) {
-        if (!empty($_lcdAcc['name'])) $_lcdTrainerNames[] = $_lcdAcc['name'];
+        if (!empty($_lcdAcc['name'])) {
+            $_lcdTrainerNames[] = $_lcdAcc['name'];
+            $_lcdTrainerRows[]  = $_lcdAcc;
+        }
     }
 } catch (Exception $e) {}
 
@@ -6434,16 +6438,10 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
             <div style="height:1px;background:#1e293b;margin:4px 0;"></div>
             <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff;font-weight:700;"><span>Total Duration:</span><strong><?php echo $_totalDur ?></strong></div>
         </div>
-        <?php if (!empty($_lcdTrainerNames)): ?>
-        <div class="lcd-detail-img">
-            <div class="lcd-detail-label" style="margin-bottom:6px;">Approved Trainers</div>
-            <ul class="lcd-trainer-list">
-                <?php foreach ($_lcdTrainerNames as $_tn): ?>
-                <li><?php echo htmlspecialchars($_tn) ?></li>
-                <?php endforeach; ?>
-            </ul>
-        </div>
-        <?php endif; ?>
+        <?php /* Approved Trainers moved out of this sidebar card into a
+                 full-width card in the right column (see "Approved Trainers"
+                 below) so it can show Telephone + Email like AI-LMS-TMS,
+                 instead of a cramped name-only list under Total Duration. */ ?>
         <nav style="margin-top:14px;padding-top:14px;border-top:1px solid #1e293b;display:flex;flex-direction:column;gap:2px;">
             <?php echo $_eAttendanceNavHtml; ?>
             <?php if ($_courseManagerActive): /* Google Meet nav link removed — not shown in developer view */ ?>
@@ -6468,6 +6466,38 @@ if ($_lcdRunId > 0 && in_array($activeRole, array('trainer', 'learner'), true)) 
     <a href="<?php echo $_backUrl ?><?php echo $_fromPage > 1 ? '#page' . $_fromPage : '' ?>" class="lcd-back">
         Back to Dashboard
     </a>
+    <?php endif; ?>
+
+    <?php /* Approved Trainers — full-width card in the right column,
+             mirroring the AI-LMS-TMS layout (# / Trainer / Telephone /
+             Email). Read-only here; the editable version with add/remove/
+             reorder lives in Edit Course → Trainer Details. Sits OUTSIDE the
+             per-role branch chain below so every role that reaches the course
+             detail view gets it. */ ?>
+    <?php if (!empty($_lcdTrainerRows)): ?>
+    <div class="lcd-section" id="approved-trainers">
+        <div class="lcd-section-title">Approved Trainers</div>
+        <table class="tr-assigned-table lcd-trainer-table">
+            <thead>
+                <tr>
+                    <th class="tr-col-num">#</th>
+                    <th>Trainer</th>
+                    <th>Telephone</th>
+                    <th>Email</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($_lcdTrainerRows as $_i => $_tr): ?>
+                <tr>
+                    <td class="tr-col-num"><?php echo ($_i + 1) ?>.</td>
+                    <td class="tr-cell-name"><?php echo htmlspecialchars($_tr['name']) ?></td>
+                    <td class="tr-cell-tel"><?php echo htmlspecialchars(isset($_tr['tel']) ? $_tr['tel'] : '') ?></td>
+                    <td class="tr-cell-email"><?php echo htmlspecialchars(isset($_tr['email']) ? $_tr['email'] : '') ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
     <?php endif; ?>
 
     <?php if ($_courseManagerActive): ?>

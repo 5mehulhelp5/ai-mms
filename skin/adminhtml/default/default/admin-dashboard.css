@@ -1088,6 +1088,11 @@ textarea.dcf-textarea.dcf-textarea-rich{min-height:250px !important;height:250px
                    permanently-open directory of ~260 names. */
                 .tr-picker-list[hidden]{display:none}
                 .tr-assigned-table + .tr-picker-count{margin-top:12px}
+                /* Read-only variant on the course VIEW page — same table, no
+                   action column, so the columns get the freed width back. */
+                .lcd-trainer-table .tr-cell-name{width:34%}
+                .lcd-trainer-table .tr-cell-tel{width:22%}
+                .lcd-trainer-table .tr-cell-email{width:40%}
                 .tr-no-match{color:#64748b;font-size:12px;margin-top:8px}
                 .tr-no-match strong{color:#94a3b8}
 
@@ -1290,9 +1295,6 @@ button.lcd-card-head:hover{color:#60a5fa !important}
 .lcd-detail-img img{display:block;width:100%;height:auto;border:1px solid var(--b1,#1e293b);border-radius:8px}
 .lcd-detail-url{display:block;font-size:12px;color:#60a5fa;text-decoration:none;word-break:break-all;line-height:1.5}
 .lcd-detail-url:hover{color:#93c5fd;text-decoration:underline}
-.lcd-trainer-list{list-style:none;margin:0;padding:0;border:1px solid var(--b1,#1e293b);border-radius:8px}
-.lcd-trainer-list li{padding:7px 12px;font-size:13px;color:#e2e8f0;line-height:1.4}
-.lcd-trainer-list li+li{border-top:1px solid var(--b1,#1e293b)}
 .lcd-badge{padding:3px 12px;border-radius:5px;font-size:12px;font-weight:600;flex-shrink:0}
 .lcd-badge-neutral{background:rgba(107,114,128,.2);color:#d1d5db}
 .lcd-badge-virtual{background:rgba(59,130,246,.18);color:#93c5fd;border:1px solid rgba(59,130,246,.3)}
