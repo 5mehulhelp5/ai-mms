@@ -4275,12 +4275,11 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
             <div class="dcf-section" style="margin-top:14px;">
                 <div class="dcf-section-title">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    Assigned Trainers
+                    Approved Trainers
                 </div>
                 <input type="hidden" name="trainer_user_ids" id="trainer-ids" value="<?php echo htmlspecialchars(implode(',', $_editCourseData['assigned_ids'])) ?>" />
                 <input type="hidden" name="legacy_trainer_remove" id="legacy-trainer-remove" value="" />
                 <div class="tr-picker-wrap">
-                    <div class="tr-picker-label">Approved Trainers</div>
                     <div style="color:#64748b;font-size:11px;margin:0 0 10px;">These are the course's <strong style="color:#94a3b8;">candidate</strong> trainers — they get invited (and confirmed on accept) per class. The order below is the invite precedence: <strong style="color:#94a3b8;">row 1 is the primary trainer</strong>. Drag a row, or use the arrows, to reorder.</div>
 
                     <!-- Assigned roster — numbered table, drag/arrow reorder, remove. -->
