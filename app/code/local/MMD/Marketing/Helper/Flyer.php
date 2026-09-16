@@ -926,7 +926,10 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
                 . '<td style="padding:16px 18px;">'
                 .   '<div style="font:800 11px ' . $sans . ';text-transform:uppercase;letter-spacing:.9px;color:#8b2fc9;">Included with this course</div>'
                 .   '<div style="font:800 17px ' . $sans . ';color:#4a1063;margin-top:7px;">6 Months Free AI Subscription</div>'
-                .   '<div style="font:400 13px/1.55 ' . $sans . ';color:#5b4a68;margin-top:6px;">Every learner on this course gets a six-month premium AI subscription at no extra cost &mdash; so you can keep building your agents long after class ends.</div>'
+                .   '<div style="font:400 13px/1.55 ' . $sans . ';color:#5b4a68;margin-top:6px;">A six-month premium AI subscription at no extra cost &mdash; so you can keep building your agents long after class ends.</div>'
+                    // Eligibility is a real restriction, so it is stated on the perk
+                    // itself rather than buried in small print elsewhere.
+                .   '<div style="font:700 12px/1.5 ' . $sans . ';color:#8b2fc9;margin-top:9px;">Open to Singaporeans only.</div>'
                 . '</td></tr></table>'
                 . '</td></tr>';
         }
@@ -1040,7 +1043,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
                   // Free AI subscription called out in the HERO, beside the brand
                   // logo — the perk is a headline selling point, not just a band
                   // further down the flyer.
-                  . (!empty($c['ai_tools']) ? '<span style="display:inline-block;font:800 12.5px ' . $sans . ';color:#ffffff;background:#8b2fc9;padding:8px 14px;border-radius:999px;letter-spacing:.2px;vertical-align:middle;margin-left:9px;">6 Months FREE AI Subscription</span>' : '')
+                  . (!empty($c['ai_tools']) ? '<span style="display:inline-block;font:800 12.5px ' . $sans . ';color:#ffffff;background:#8b2fc9;padding:8px 14px;border-radius:999px;letter-spacing:.2px;vertical-align:middle;margin-left:9px;">6 Months FREE AI Subscription &middot; SG only</span>' : '')
                   . '</div>'
                 : '')
         .   '<div style="font:700 11px ' . $sans . ';letter-spacing:1.6px;text-transform:uppercase;color:' . $eyebrow . ';margin-bottom:14px;">Hands-on Workshop &middot; ' . ((int) (isset($c['days']) ? $c['days'] : 1)) . ' Day' . (((int) (isset($c['days']) ? $c['days'] : 1)) > 1 ? 's' : '') . ($c['is_wsq'] ? ' &middot; Up to 70% Funded' : '') . '</div>'

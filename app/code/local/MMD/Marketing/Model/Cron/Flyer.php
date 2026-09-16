@@ -484,13 +484,13 @@ class MMD_Marketing_Model_Cron_Flyer
         // too — it is the strongest differentiator we have and the hero pill alone is
         // only seen AFTER the open.
         if (!empty($c['ai_tools'])) {
-            $subject .= ' + 6 months FREE AI subscription';
+            $subject .= ' + 6 months FREE AI subscription (SG only)';
         }
         $preview = $c['is_wsq']
             ? 'Check your SkillsFuture/WSQ funding + get the free syllabus. Seats are limited.'
             : 'Get the free course syllabus and secure your seat before it fills up.';
         if (!empty($c['ai_tools'])) {
-            $preview = 'Includes 6 months of premium AI tools, free. ' . $preview;
+            $preview = 'Includes 6 months of premium AI tools, free (Singaporeans only). ' . $preview;
         }
         $conn = $this->_write();
         $conn->insert($this->_tbl(), array(
