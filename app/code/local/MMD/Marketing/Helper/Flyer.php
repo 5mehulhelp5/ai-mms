@@ -1034,7 +1034,15 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         // hero — headline, hook, the OFFER (price drop) and a first CTA: the funnel
         // opens with the full value story instead of burying the price at the bottom
         . '<tr><td class="fl-hero" style="background:' . $ink . ';padding:34px 30px 30px;">'
-        .   (!empty($c['logo']) ? '<div style="margin-bottom:16px;"><span style="display:inline-block;font:800 20px ' . $sans . ';color:' . $accent . ';background:#ffffff;padding:6px 13px;border-radius:9px;letter-spacing:-.5px;">' . $h($c['logo']) . '</span></div>' : '')
+        .   (!empty($c['logo']) || !empty($c['ai_tools'])
+                ? '<div style="margin-bottom:16px;">'
+                  . (!empty($c['logo']) ? '<span style="display:inline-block;font:800 20px ' . $sans . ';color:' . $accent . ';background:#ffffff;padding:6px 13px;border-radius:9px;letter-spacing:-.5px;vertical-align:middle;">' . $h($c['logo']) . '</span>' : '')
+                  // Free AI subscription called out in the HERO, beside the brand
+                  // logo — the perk is a headline selling point, not just a band
+                  // further down the flyer.
+                  . (!empty($c['ai_tools']) ? '<span style="display:inline-block;font:800 12.5px ' . $sans . ';color:#ffffff;background:#8b2fc9;padding:8px 14px;border-radius:999px;letter-spacing:.2px;vertical-align:middle;margin-left:9px;">6 Months FREE AI Subscription</span>' : '')
+                  . '</div>'
+                : '')
         .   '<div style="font:700 11px ' . $sans . ';letter-spacing:1.6px;text-transform:uppercase;color:' . $eyebrow . ';margin-bottom:14px;">Hands-on Workshop &middot; ' . ((int) (isset($c['days']) ? $c['days'] : 1)) . ' Day' . (((int) (isset($c['days']) ? $c['days'] : 1)) > 1 ? 's' : '') . ($c['is_wsq'] ? ' &middot; Up to 70% Funded' : '') . '</div>'
         .   '<h1 class="fl-h1" style="margin:0;font:800 31px/1.12 ' . $sans . ';color:#ffffff;letter-spacing:-.6px;">' . $h($c['name']) . '</h1>'
         .   ($hook ? '<div style="margin:16px 0 0;font:400 14.5px/1.55 ' . $sans . ';color:#b7c4e0;max-width:54ch;">' . $h($hook) . '</div>' : '')
