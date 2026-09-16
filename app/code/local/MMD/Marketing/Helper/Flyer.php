@@ -43,6 +43,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
 
         // funding badges are Magento tags on the product (memory: funding_badges_via_tags)
         $badges = array();
+        $hasAiTools = false;
         try {
             $res  = Mage::getSingleton('core/resource');
             $conn = $res->getConnection('core_read');
@@ -55,6 +56,10 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             // so outbound flyers/newsletters must not advertise UTAP funding.
             $allowed = array('WSQ','SkillsFuture Credit','PSEA','SFEC','MCES','Absentee Payroll','IBF','HRDF');
             foreach ($rows as $n) { if (in_array($n, $allowed, true)) $badges[] = $n; }
+            // The 6-month free AI tools subscription is a BONUS, not funding — it must
+            // not sit in the "Offset your fee with" strip, so it gets its own flag and
+            // its own band. Same tag that drives the storefront pill + perk card.
+            $hasAiTools = in_array('Free AI Tools Subscription', $rows, true);
         } catch (Exception $e) { /* badges are optional */ }
 
         // Persuasive "why take this" blurb — real per-course marketing copy, not
@@ -129,6 +134,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             'days'      => $days,
             'url'       => $courseUrl,
             'badges'    => $badges,
+            'ai_tools'  => $hasAiTools,
             'blurb'     => $blurb,
             'is_wsq'    => (stripos($sku, 'TGS-') === 0) || in_array('WSQ', $badges, true),
             'runs'      => $runs,
@@ -594,19 +600,22 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
                 // n8n brand pink/red.
                 'accent' => array('#ea4b71', '#fdeaef', '#f7c9d5'),
                 'logo'   => 'n8n',
-                'hook' => 'Wire up real agentic AI with n8n — use webhooks and RAG to build assistants and automations that act on your own data, no heavy coding.',
+                'hook' => 'Hands-on, practical agentic AI with n8n — build AI Agents wired to webhooks and HTTP requests that run real business tasks, no heavy coding.',
                 'outcomes' => array(
-                    'Trigger AI workflows from anything with webhooks &mdash; a form, a chat, an app, an incoming email.',
-                    'Ground your AI in your own documents with RAG, so it answers from your data, not guesswork.',
-                    'Build a working agentic app end-to-end in class &mdash; not a slide, a running workflow.',
-                    'Automate real business tasks &mdash; lead capture, support replies, report generation &mdash; while you sleep.',
-                    'Leave with an n8n workflow you can plug into your own tools the very next day.',
+                    'Build real AI Agents in class that decide and act on their own &mdash; not a chatbot that only replies.',
+                    'Trigger a workflow from anything with webhooks &mdash; a form, a chat, an app, an incoming email.',
+                    'Call any external service with HTTP Request nodes, so your agent works with the tools you already use.',
+                    'Work through realistic use cases &mdash; lead capture, support replies, report generation &mdash; end to end.',
+                    'Leave with working n8n workflows you can plug into your own tools the very next day.',
                 ),
+                // duration = 24h -> 3 days -> 6 journey steps (2 per day).
                 'journey' => array(
-                    array('Trigger', 'Set up n8n and fire your first webhook from a form, chat or app.'),
-                    array('Ground', 'Connect an LLM and feed it your own documents with RAG.'),
-                    array('Automate', 'Chain the steps into an agent that takes real actions on its own.'),
-                    array('Deploy', 'Publish the workflow and hand it a real task to run while you sleep.'),
+                    array('Day 1 &middot; AM', 'Set up n8n and fire your first webhook from a form, chat or app.'),
+                    array('Day 1 &middot; PM', 'Chain nodes into a working automation and watch it run on real data.'),
+                    array('Day 2 &middot; AM', 'Pull in any external service with HTTP Request nodes.'),
+                    array('Day 2 &middot; PM', 'Connect an LLM and build your first AI Agent that takes actions.'),
+                    array('Day 3 &middot; AM', 'Build realistic use cases &mdash; lead capture, support replies, reports.'),
+                    array('Day 3 &middot; PM', 'Deploy your agent and hand it a real task to run while you sleep.'),
                 ),
             ),
             // WSQ Build Full Stack React Web App with Vibe Coding — real React, deployed.
@@ -907,6 +916,21 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             'UTAP'=>'#7c3aed;#efe7fe','SFEC'=>'#047857;#d8f5e7','MCES'=>'#b91c1c;#fde5e5',
             'Absentee Payroll'=>'#475569;#eef2f7','IBF'=>'#1d4ed8;#e6edff','HRDF'=>'#a15c00;#fdf0da',
         );
+        // "6 Months Free AI Tools Subscription" bonus band — violet/pink to echo the
+        // storefront perk card, and deliberately OUTSIDE the funding badge strip so a
+        // free perk is never mistaken for a government subsidy.
+        $aiToolsHtml = '';
+        if (!empty($c['ai_tools'])) {
+            $aiToolsHtml = '<tr><td style="padding:16px 30px 4px;">'
+                . '<table role="presentation" width="100%" style="background:#faf0ff;border:1px solid #e9ccfa;border-radius:12px;"><tr>'
+                . '<td style="padding:16px 18px;">'
+                .   '<div style="font:800 11px ' . $sans . ';text-transform:uppercase;letter-spacing:.9px;color:#8b2fc9;">Included with this course</div>'
+                .   '<div style="font:800 17px ' . $sans . ';color:#4a1063;margin-top:7px;">6 Months Free AI Tools Subscription</div>'
+                .   '<div style="font:400 13px/1.55 ' . $sans . ';color:#5b4a68;margin-top:6px;">Every learner on this course gets six months of premium AI tools at no extra cost &mdash; so you can keep building your agents long after class ends.</div>'
+                . '</td></tr></table>'
+                . '</td></tr>';
+        }
+
         $badgesHtml = '';
         foreach ($c['badges'] as $b) {
             list($fg,$bg) = array_pad(explode(';', isset($badgeColors[$b]) ? $badgeColors[$b] : '#475569;#eef2f7'), 2, '#eef2f7');
@@ -1036,6 +1060,8 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         . $stepsHtml
         // fee-after-funding breakdown (WSQ)
         . $fundingHtml
+        // 6-month free AI tools subscription (bonus, above the funding strip)
+        . $aiToolsHtml
         // funding badges
         . ($badgesHtml ? '<tr><td style="padding:14px 30px 8px;"><div style="font:700 12px ' . $sans . ';text-transform:uppercase;letter-spacing:.7px;color:#7c8aa3;margin-bottom:12px;">Offset your fee with</div><table role="presentation"><tr>' . $badgesHtml . '</tr></table></td></tr>' : '')
         // CTA + QR
