@@ -27,7 +27,7 @@ class MMD_CourseImage_Model_Cover
      * MMD_CourseImage_Helper_Data::getAllBadges() — the same tag that drives
      * the storefront pill and the perk card above the WSQ Funding section.
      */
-    private const AI_TOOLS_BADGE = 'Free AI Tools Subscription';
+    private const AI_TOOLS_BADGE = 'Free AI Subscription';
 
     private const MAX_TITLE_LINES = 4;
     private const TITLE_MIN_PX = 36;
@@ -79,7 +79,7 @@ class MMD_CourseImage_Model_Cover
 
         $this->drawAccentBar($im);
         $this->drawBrandHeader($im, $h, $fontPath);
-        // "Free AI Tools Subscription" is a promotional perk, not a funding
+        // "Free AI Subscription" is a promotional perk, not a funding
         // scheme — it renders as a red pill at the top-right of the brand row
         // rather than joining the cyan FUNDING AVAILABLE chips at the bottom.
         $hasAiTools = in_array(self::AI_TOOLS_BADGE, $badges, true);
@@ -373,7 +373,7 @@ class MMD_CourseImage_Model_Cover
     }
 
     /**
-     * Promotional "Free AI Tools Subscription" pill — top-right of the cover,
+     * Promotional "Free AI Subscription" pill — top-right of the cover,
      * on the same row as the brand lockup.
      *
      * Deliberately RED (not the cyan of the funding chips): this is a
@@ -384,7 +384,7 @@ class MMD_CourseImage_Model_Cover
      */
     private function drawAiToolsChip(\GdImage $im, string $fontPath): void
     {
-        $label = 'Free AI Tools Subscription';
+        $label = 'Free AI Subscription';
 
         $white  = imagecolorallocate($im, 255, 255, 255);
         $red    = imagecolorallocate($im, 0xDC, 0x26, 0x26); // Tailwind red-600

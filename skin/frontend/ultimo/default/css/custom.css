@@ -373,7 +373,7 @@ li.level2 > a > span > .cat-label,
 .course-badge--sfec    { background: #ca8a04; } /* SFEC gold */
 .course-badge--ap      { background: #475569; } /* Absentee Payroll slate */
 .course-badge--mces    { background: #7c3aed; } /* MCES purple */
-/* Free AI Tools Subscription — a perk, not a funding scheme, so it gets a
+/* Free AI Subscription — a perk, not a funding scheme, so it gets a
    gradient instead of a flat scheme colour and reads as promotional next to
    the government-funding pills. */
 .course-badge--aitools { background: linear-gradient(135deg, #db2777 0%, #7c3aed 100%); }
@@ -876,7 +876,7 @@ li.level2 > a > span > .cat-label,
 .course-policy-card--voucher       .course-policy-card__title { color: #92400e; }
 .course-policy-card--voucher       .course-policy-card__body p { margin: 0 0 10px; }
 .course-policy-card--voucher       .course-policy-card__body p:last-child { margin-bottom: 0; }
-/* "6 Months Free AI Tools Subscription" card — sits directly above WSQ Funding.
+/* "6 Months Free AI Subscription" card — sits directly above WSQ Funding.
    A violet/pink ring + gradient header so it reads as a promotional perk and
    stays distinct from the amber voucher and green practice-exam cards when a
    course carries more than one. Matches the .course-badge--aitools pill. */

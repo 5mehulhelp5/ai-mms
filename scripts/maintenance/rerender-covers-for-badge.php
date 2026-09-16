@@ -4,7 +4,7 @@
  * Re-render AI course covers for products carrying a given funding/perk badge.
  *
  * Why this exists: covers are pre-rendered PNGs on R2, so a change to the
- * cover RENDERER (e.g. adding the red "Free AI Tools Subscription" chip)
+ * cover RENDERER (e.g. adding the red "Free AI Subscription" chip)
  * does not affect any course until its cover is regenerated. The admin Bulk
  * AI Covers screen posts ONE badge set for the whole batch, which would
  * flatten per-course differences (some of these courses carry UTAP, some
@@ -19,14 +19,14 @@
  * Usage (inside the web container):
  *   php scripts/maintenance/rerender-covers-for-badge.php --dry-run
  *   php scripts/maintenance/rerender-covers-for-badge.php --apply
- *   php scripts/maintenance/rerender-covers-for-badge.php --apply --badge="Free AI Tools Subscription"
+ *   php scripts/maintenance/rerender-covers-for-badge.php --apply --badge="Free AI Subscription"
  */
 
 $opts = getopt('', ['apply', 'dry-run', 'badge::']);
 $apply = isset($opts['apply']);
 $badgeName = isset($opts['badge']) && $opts['badge'] !== false
     ? (string) $opts['badge']
-    : 'Free AI Tools Subscription';
+    : 'Free AI Subscription';
 
 require_once dirname(__DIR__, 2) . '/app/Mage.php';
 Mage::app('admin');

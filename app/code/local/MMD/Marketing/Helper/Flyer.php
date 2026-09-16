@@ -59,7 +59,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             // The 6-month free AI tools subscription is a BONUS, not funding — it must
             // not sit in the "Offset your fee with" strip, so it gets its own flag and
             // its own band. Same tag that drives the storefront pill + perk card.
-            $hasAiTools = in_array('Free AI Tools Subscription', $rows, true);
+            $hasAiTools = in_array('Free AI Subscription', $rows, true);
         } catch (Exception $e) { /* badges are optional */ }
 
         // Persuasive "why take this" blurb — real per-course marketing copy, not
@@ -916,7 +916,7 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             'UTAP'=>'#7c3aed;#efe7fe','SFEC'=>'#047857;#d8f5e7','MCES'=>'#b91c1c;#fde5e5',
             'Absentee Payroll'=>'#475569;#eef2f7','IBF'=>'#1d4ed8;#e6edff','HRDF'=>'#a15c00;#fdf0da',
         );
-        // "6 Months Free AI Tools Subscription" bonus band — violet/pink to echo the
+        // "6 Months Free AI Subscription" bonus band — violet/pink to echo the
         // storefront perk card, and deliberately OUTSIDE the funding badge strip so a
         // free perk is never mistaken for a government subsidy.
         $aiToolsHtml = '';
@@ -925,8 +925,8 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
                 . '<table role="presentation" width="100%" style="background:#faf0ff;border:1px solid #e9ccfa;border-radius:12px;"><tr>'
                 . '<td style="padding:16px 18px;">'
                 .   '<div style="font:800 11px ' . $sans . ';text-transform:uppercase;letter-spacing:.9px;color:#8b2fc9;">Included with this course</div>'
-                .   '<div style="font:800 17px ' . $sans . ';color:#4a1063;margin-top:7px;">6 Months Free AI Tools Subscription</div>'
-                .   '<div style="font:400 13px/1.55 ' . $sans . ';color:#5b4a68;margin-top:6px;">Every learner on this course gets six months of premium AI tools at no extra cost &mdash; so you can keep building your agents long after class ends.</div>'
+                .   '<div style="font:800 17px ' . $sans . ';color:#4a1063;margin-top:7px;">6 Months Free AI Subscription</div>'
+                .   '<div style="font:400 13px/1.55 ' . $sans . ';color:#5b4a68;margin-top:6px;">Every learner on this course gets a six-month premium AI subscription at no extra cost &mdash; so you can keep building your agents long after class ends.</div>'
                 . '</td></tr></table>'
                 . '</td></tr>';
         }

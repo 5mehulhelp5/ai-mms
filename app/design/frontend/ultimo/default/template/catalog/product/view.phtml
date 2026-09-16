@@ -1317,9 +1317,9 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 			<?php endif; ?>
 
 			<?php
-			// "6 Months Free AI Tools Subscription" promotional card — sits
+			// "6 Months Free AI Subscription" promotional card — sits
 			// directly ABOVE the WSQ Funding card. Gated on the same
-			// "Free AI Tools Subscription" badge tag that drives the pill under
+			// "Free AI Subscription" badge tag that drives the pill under
 			// the course title, so ticking the checkbox in Edit Course turns
 			// both on together and they can never drift apart.
 			try {
@@ -1327,17 +1327,17 @@ $_simpleProdPrice = (float) Mage::helper('core')->currency($_simpleProdPrice, fa
 			} catch (Exception $_e) {
 				$_aiToolsBadges = array();
 			}
-			if (in_array('Free AI Tools Subscription', $_aiToolsBadges, true)):
+			if (in_array('Free AI Subscription', $_aiToolsBadges, true)):
 			?>
 				<section class="course-policy-card course-policy-card--aitools course-policy-card--wsq-in-primary">
 					<header class="course-policy-card__header">
 						<span class="course-policy-card__icon" aria-hidden="true">
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
 						</span>
-						<h3 class="course-policy-card__title">6 Months Free AI Tools Subscription</h3>
+						<h3 class="course-policy-card__title">6 Months Free AI Subscription</h3>
 					</header>
 					<div class="course-policy-card__body">
-						<p class="aitools-perk__lead">Enrol in this course and get <strong>6 months of free access to selected AI tools</strong> &mdash; so you can keep practising everything you learn long after the class ends.</p>
+						<p class="aitools-perk__lead">Enrol in this course and get a <strong>6-month free AI subscription</strong> &mdash; so you can keep practising everything you learn long after the class ends.</p>
 						<p class="aitools-perk__note">Included with your registration at no extra cost. Our team will share the activation details with you after the course.</p>
 					</div>
 				</section>
