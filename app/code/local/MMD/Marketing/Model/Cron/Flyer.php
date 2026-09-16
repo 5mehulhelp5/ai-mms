@@ -480,9 +480,18 @@ class MMD_Marketing_Model_Cron_Flyer
         $subject = $c['is_wsq']
             ? $c['name'] . ' — up to 70% SkillsFuture funded'
             : $c['name'] . ' — enrol now, limited seats';
+        // Courses carrying the free-AI-subscription perk lead with it in the subject
+        // too — it is the strongest differentiator we have and the hero pill alone is
+        // only seen AFTER the open.
+        if (!empty($c['ai_tools'])) {
+            $subject .= ' + 6 months FREE AI subscription';
+        }
         $preview = $c['is_wsq']
             ? 'Check your SkillsFuture/WSQ funding + get the free syllabus. Seats are limited.'
             : 'Get the free course syllabus and secure your seat before it fills up.';
+        if (!empty($c['ai_tools'])) {
+            $preview = 'Includes 6 months of premium AI tools, free. ' . $preview;
+        }
         $conn = $this->_write();
         $conn->insert($this->_tbl(), array(
             'country_code'  => 'SG',
