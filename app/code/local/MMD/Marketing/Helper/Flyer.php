@@ -140,6 +140,8 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             'runs'      => $runs,
             'outcomes'  => $outcomes,
             'journey'   => $journey,
+            // Closing half of the certificate line, per SKU (see the $cert build).
+            'cert_tail' => isset($pitch[$key]['cert_tail']) ? $pitch[$key]['cert_tail'] : '',
             'accent'    => $accent[0],
             'accent_bg' => $accent[1],
             'accent_br' => $accent[2],
@@ -846,9 +848,13 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
                     . '<td style="font:600 14px/1.5 ' . $sans . ';color:#0a1020;padding-bottom:13px;">' . $line . '</td>'
                     . '</tr>';
             }
+            // The closing half ("and an app you actually built") only fits a
+            // build-an-app course; a video / design / management course walks out
+            // with something else entirely. Curated `cert_tail` overrides it per SKU.
+            $tail = trim((string) $c['cert_tail']) !== '' ? $c['cert_tail'] : 'something you actually built';
             $cert = $c['is_wsq']
-                ? 'Finish the day and walk away with a <b style="color:#0a1020;">WSQ Statement of Attainment</b> &mdash; and an app you actually built.'
-                : 'Finish the day and walk away with a certificate &mdash; and something you actually built.';
+                ? 'Finish the course and walk away with a <b style="color:#0a1020;">WSQ Statement of Attainment</b> &mdash; and ' . $tail . '.'
+                : 'Finish the course and walk away with a certificate &mdash; and ' . $tail . '.';
             $learnHtml = '<tr><td style="padding:24px 30px 8px;">'
                 . '<div style="font:800 13px ' . $sans . ';text-transform:uppercase;letter-spacing:.8px;color:' . $accent . ';margin-bottom:16px;">What you&rsquo;ll walk out able to do</div>'
                 . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' . $lrows . '</table>'
