@@ -184,6 +184,16 @@ class MMD_SearchFallback_ResultController extends Mage_CatalogSearch_ResultContr
 
         $storeId = (int) Mage::app()->getStore()->getId();
 
+        // Blog post — /blog/<url_key> is served by MMD_Blog_Controller_Router,
+        // which mints no core_url_rewrite row and is not a cms_page, so both
+        // lookups below miss and an otherwise-live post would be treated as a
+        // stale target (redirect silently cleared on the first search). Mirror
+        // the router's own contract: one path segment under blog/, published.
+        if (preg_match('#^blog/([^/]+)$#', $path, $m)) {
+            $post = Mage::getModel('mmd_blog/post')->loadByUrlKey($m[1]);
+            return (bool) ($post->getId() && $post->isPublished());
+        }
+
         // core_url_rewrite covers product, category, and arbitrary
         // request_path → target_path rows. Validate that the row's
         // target_path itself isn't also a missing-page (chase one hop
