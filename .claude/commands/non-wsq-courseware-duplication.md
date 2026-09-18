@@ -48,6 +48,19 @@ Copy from the WSQ source: the **slide deck (PPT)**, the **Lesson Plan (LP)**, th
 A non-WSQ course has no assessment. If `assessment/` exists in the source, leave it
 behind; it must never reach the new repo, Drive or the LMS.
 
+**Drop ALL funding content — no exceptions.** A non-WSQ course carries no funding, so
+the courseware must contain none: no SkillsFuture, WSQ funding, subsidy, grant or
+scheme names, and no funding *placeholders* either. This catches people out because
+the funding often sits in ordinary teaching material rather than in a WSQ-branded
+slide — a marketing course's prompt template with
+`Funding: [E.G. UP TO 70% WSQ FUNDING, SKILLSFUTURE CREDIT ELIGIBLE]`, or a "verify
+your funding claims" note. Remove the funding field, rule or sentence and keep the
+surrounding lesson; genericise only where the teaching point is about regulated claims
+generally (`trust signal`, `credential`), never by swapping one scheme name for
+another. The `scan_prohibited.py` scan flags every one of these and will block the
+push until they are gone. The **only** place funding may appear is the storefront
+Funding block, which redirects to the WSQ twin — see §8.
+
 The WSQ repo is **read-only input**. Clone it to `source-wsq/`, add `source-wsq/` to
 the new repo's `.gitignore`, never commit/edit inside it, and confirm
 `git -C source-wsq status --short` prints nothing before and after the run.
