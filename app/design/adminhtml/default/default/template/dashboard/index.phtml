@@ -1728,6 +1728,154 @@ if ($_selectedCourseId) {
         <td style="padding:0;"><h3 class="head-dashboard" style="margin:0;padding:0;font-size:0;line-height:0;">&nbsp;</h3></td>
     </tr></table>
 </div>
+<style>
+.dcf-save-popup-backdrop{
+    position:fixed;inset:0;z-index:100040;background:rgba(2,6,23,.54);
+    backdrop-filter:blur(2px);
+}
+.dcf-save-popup{
+    position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:100050;
+    display:grid;grid-template-columns:44px minmax(0,1fr);gap:14px;width:min(460px,calc(100vw - 44px));
+    padding:20px;border:1px solid rgba(148,163,184,.22);
+    border-radius:12px;background:#111827;color:#f1f5f9;
+    box-shadow:0 24px 70px rgba(0,0,0,.58);font-size:14px;line-height:1.45;
+}
+.dcf-save-popup-dot{
+    width:44px;height:44px;border-radius:999px;background:rgba(52,211,153,.12);
+    display:flex;align-items:center;justify-content:center;color:#34d399;
+}
+.dcf-save-popup-dot:before{content:"";width:12px;height:7px;border:solid currentColor;border-width:0 0 2px 2px;transform:rotate(-45deg);margin-top:-2px;}
+.dcf-save-popup-error .dcf-save-popup-dot{background:rgba(248,113,113,.12);color:#f87171;}
+.dcf-save-popup-error .dcf-save-popup-dot:before{content:"!";width:auto;height:auto;border:0;transform:none;margin:0;font-weight:800;font-size:22px;line-height:1;}
+.dcf-save-popup-title{font-size:16px;font-weight:700;color:#f8fafc;margin:1px 34px 4px 0;}
+.dcf-save-popup-error .dcf-save-popup-title{color:#fecaca;}
+.dcf-save-popup-text{min-width:0;color:#cbd5e1;}
+.dcf-save-popup-actions{grid-column:2;display:flex;justify-content:flex-end;margin-top:14px;}
+.dcf-save-popup-done{
+    min-width:86px;border:1px solid rgba(96,165,250,.55);border-radius:7px;
+    background:rgba(96,165,250,.12);color:#bfdbfe;padding:8px 14px;
+    font-weight:700;font-size:13px;cursor:pointer;
+}
+.dcf-save-popup-done:hover{background:rgba(96,165,250,.2);color:#eff6ff;}
+.dcf-save-popup .dcf-save-popup-close{
+    position:absolute;right:14px;top:14px;width:28px;height:28px;min-width:28px;padding:0;border:0;border-radius:6px;
+    background:transparent !important;background-image:none !important;color:#94a3b8;
+    font-size:20px;line-height:20px;cursor:pointer;box-shadow:none !important;text-shadow:none !important;
+    display:flex;align-items:center;justify-content:center;
+}
+.dcf-save-popup .dcf-save-popup-close:hover{color:#e2e8f0;background:rgba(148,163,184,.12) !important;}
+</style>
+<script>
+function dcfClearSaveLoadingState(){
+    var navBar = document.getElementById('instant-nav-bar');
+    if (navBar) {
+        navBar.style.transition = 'none';
+        navBar.style.opacity = '0';
+        navBar.style.width = '0%';
+    }
+    if (window.Varien && typeof Varien.hideLoading === 'function') {
+        try { Varien.hideLoading(); } catch (e) {}
+    }
+    ['loading-process', 'loading-mask'].forEach(function(id){
+        var el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+}
+function dcfDismissSaveDialog(){
+    var p = document.getElementById('dcf-save-popup');
+    var b = document.querySelector('.dcf-save-popup-backdrop');
+    if (p) p.remove();
+    if (b) b.remove();
+    dcfClearSaveLoadingState();
+}
+function dcfShowSaveDialog(kind, message){
+    dcfDismissSaveDialog();
+    kind = kind === 'error' ? 'error' : 'success';
+    var backdrop = document.createElement('div');
+    backdrop.className = 'dcf-save-popup-backdrop';
+    backdrop.onclick = dcfDismissSaveDialog;
+    var modal = document.createElement('div');
+    modal.id = 'dcf-save-popup';
+    modal.className = 'dcf-save-popup dcf-save-popup-' + kind;
+    modal.setAttribute('role', 'status');
+    modal.setAttribute('aria-live', 'polite');
+    modal.innerHTML =
+        '<span class="dcf-save-popup-dot"></span>' +
+        '<div><div class="dcf-save-popup-title">' + (kind === 'error' ? 'Save failed' : 'Changes saved') + '</div>' +
+        '<div class="dcf-save-popup-text"></div></div>' +
+        '<button type="button" class="dcf-save-popup-close" onclick="dcfDismissSaveDialog()" aria-label="Dismiss">&times;</button>' +
+        '<div class="dcf-save-popup-actions"><button type="button" class="dcf-save-popup-done" onclick="dcfDismissSaveDialog()">Done</button></div>';
+    modal.querySelector('.dcf-save-popup-text').textContent = message || (kind === 'error' ? 'Could not save changes.' : 'Course changes saved successfully.');
+    document.body.appendChild(backdrop);
+    document.body.appendChild(modal);
+}
+function dcfAjaxSaveCourse(btn){
+    var form = document.getElementById('dcf-form');
+    if (!form || !form.action) {
+        dcfShowSaveDialog('error', 'Could not find the course edit form.');
+        return false;
+    }
+    try {
+        var ev = document.createEvent('Event');
+        ev.initEvent('submit', true, true);
+        form.dispatchEvent(ev);
+    } catch (e) {}
+    dcfClearSaveLoadingState();
+    var fd = new FormData(form);
+    fd.set('ajax_save', '1');
+    fd.set('continue_edit', '');
+
+    var original = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.style.opacity = '.72';
+        btn.innerHTML = 'Saving...';
+    }
+    fetch(form.action, {
+        method: 'POST',
+        body: fd,
+        credentials: 'same-origin',
+        headers: {'X-Requested-With': 'XMLHttpRequest'}
+    }).then(function(resp){
+        return resp.json().catch(function(){
+            throw new Error('The server returned an unreadable response.');
+        });
+    }).then(function(data){
+        if (!data || !data.success) {
+            dcfShowSaveDialog('error', (data && data.message) || 'Could not save course changes.');
+            return;
+        }
+        dcfShowSaveDialog('success', data.message || 'Course changes saved successfully.');
+    }).catch(function(err){
+        dcfShowSaveDialog('error', 'Could not save course changes: ' + (err && err.message ? err.message : err));
+    }).finally(function(){
+        if (btn) {
+            btn.disabled = false;
+            btn.style.opacity = '';
+            btn.innerHTML = original;
+        }
+        dcfClearSaveLoadingState();
+    });
+    return false;
+}
+</script>
+<?php
+$_dcfSaveNotice = Mage::getSingleton('adminhtml/session')->getData('dcf_course_save_notice');
+Mage::getSingleton('adminhtml/session')->unsetData('dcf_course_save_notice');
+if (is_array($_dcfSaveNotice) && !empty($_dcfSaveNotice['message'])):
+    $_dcfNoticeType = ((string) $_dcfSaveNotice['type'] === 'error') ? 'error' : 'success';
+?>
+<div class="dcf-save-popup-backdrop" onclick="dcfDismissSaveDialog()"></div>
+<div id="dcf-save-popup" class="dcf-save-popup dcf-save-popup-<?php echo $_dcfNoticeType ?>" role="status" aria-live="polite">
+    <span class="dcf-save-popup-dot"></span>
+    <div>
+        <div class="dcf-save-popup-title"><?php echo $_dcfNoticeType === 'error' ? 'Save failed' : 'Changes saved' ?></div>
+        <div class="dcf-save-popup-text"><?php echo htmlspecialchars((string) $_dcfSaveNotice['message']) ?></div>
+    </div>
+    <button type="button" class="dcf-save-popup-close" onclick="dcfDismissSaveDialog()" aria-label="Dismiss">&times;</button>
+    <div class="dcf-save-popup-actions"><button type="button" class="dcf-save-popup-done" onclick="dcfDismissSaveDialog()">Done</button></div>
+</div>
+<?php endif; ?>
 
 <?php /* ===== PANEL 1: Admin — Course Schedule ===== */ ?>
 <div id="dash-panel-admin" style="display:none;">
@@ -2984,9 +3132,7 @@ $_dcfScopeLabel = '[' . strtoupper($_seoActiveCountry) . ' STORE]';
                 'type="button" onclick="window.location.href=\'' . $_devBackUrl . '\'"');
             $_mmsActionBtn('Exit Edit', '', 'ghost2',
                 'type="button" onclick="window.location.href=\'' . Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array('course_id' => $_selectedCourse['id'])) . $_devBackSuffix . '\'"');
-            $_mmsActionBtn('Save & Continue', '', 'strong',
-                'type="button" onclick="document.getElementById(\'dcf-continue-edit\').value=\'1\';document.getElementById(\'dcf-form\').submit();"');
-            $_mmsActionBtn('Save Changes', 'save', 'primary', 'type="submit"');
+            $_mmsActionBtn('Save Changes', 'save', 'primary', 'type="button" onclick="dcfAjaxSaveCourse(this)"');
             ?>
             </div>
         </div>

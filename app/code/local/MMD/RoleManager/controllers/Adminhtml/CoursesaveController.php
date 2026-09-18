@@ -507,6 +507,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $_optTypeTable = $_resource->getTableName('catalog/product_option_type_value');
                 $_optTypeTitle = $_resource->getTableName('catalog/product_option_type_title');
                 $_optTypePrice = $_resource->getTableName('catalog/product_option_type_price');
+                $_scheduleTouched = false;
 
                 // Build the set of option_ids that belong to this product — we'll
                 // reject any POSTed value/option_id outside this set.
@@ -534,6 +535,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                     if ($_flag !== '1' || $_vid <= 0) continue;
                     if (!in_array($_vid, $_ownedValueIds, true)) continue;
                     $_write->delete($_optTypeTable, array('option_type_id = ?' => $_vid));
+                    $_scheduleTouched = true;
                 }
 
                 // 2. Update existing rows (title / price / sort_order). We re-fetch
@@ -631,10 +633,39 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                             ));
                         }
                     }
+                    $_scheduleTouched = true;
                 }
 
                 // 3. Insert new rows queued by the "+ Add session" button.
                 $_newMap = (array) $req->getParam('schedule_new', array());
+                $_maxValueIgi = (int) $_read->fetchOne(
+                    "SELECT MAX(tv.in_group_id)
+                       FROM {$_optTypeTable} tv
+                       JOIN {$_optTable} o ON o.option_id = tv.option_id
+                      WHERE o.product_id = ?",
+                    array($courseId)
+                );
+                $_courseTimeRows = $_read->fetchAll(
+                    "SELECT tv.in_group_id, tv.option_type_id
+                       FROM {$_optTypeTable} tv
+                       JOIN {$_optTable} o ON o.option_id = tv.option_id
+                       JOIN " . $_resource->getTableName('catalog/product_option_title') . " ot
+                         ON ot.option_id = o.option_id AND ot.store_id = 0
+                      WHERE o.product_id = ? AND LOWER(TRIM(ot.title)) = 'course time'
+                      ORDER BY tv.sort_order, tv.option_type_id",
+                    array($courseId)
+                );
+                $_optionTitleMap = array();
+                if (!empty($_ownedOptionIds)) {
+                    $_optionTitleRows = $_read->fetchAll(
+                        "SELECT option_id, title
+                           FROM " . $_resource->getTableName('catalog/product_option_title') . "
+                          WHERE store_id = 0 AND option_id IN (" . implode(',', $_ownedOptionIds) . ")"
+                    );
+                    foreach ($_optionTitleRows as $_otr) {
+                        $_optionTitleMap[(int) $_otr['option_id']] = strtolower(trim((string) $_otr['title']));
+                    }
+                }
                 foreach ($_newMap as $_optId => $_rows) {
                     $_optId = (int) $_optId;
                     if (!in_array($_optId, $_ownedOptionIds, true)) continue;
@@ -652,12 +683,30 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                             $_dt = DateTime::createFromFormat('Y-m-d', $_regIso);
                             if ($_dt instanceof DateTime) $_regOut = $_dt->format('n/j/y');
                         }
+                        $_depId = '';
+                        if (isset($_optionTitleMap[$_optId])
+                            && $_optionTitleMap[$_optId] === 'course date'
+                            && !empty($_courseTimeRows)
+                        ) {
+                            $_timePick = (stripos($_title, 'evening') !== false)
+                                ? end($_courseTimeRows)
+                                : reset($_courseTimeRows);
+                            if ($_timePick) {
+                                $_depId = (string) (
+                                    $_timePick['in_group_id'] !== null && $_timePick['in_group_id'] !== ''
+                                        ? $_timePick['in_group_id']
+                                        : $_timePick['option_type_id']
+                                );
+                            }
+                        }
 
                         $_write->insert($_optTypeTable, array(
-                            'option_id'  => $_optId,
-                            'sku'        => '',
-                            'sort_order' => $_sort,
-                            'reg_course' => $_regOut,
+                            'option_id'     => $_optId,
+                            'sku'           => '',
+                            'sort_order'    => $_sort,
+                            'reg_course'    => $_regOut,
+                            'in_group_id'   => ++$_maxValueIgi,
+                            'dependent_ids' => $_depId,
                             // Admin-added date (case-by-case confirmation) - flag it so a
                             // later schedule-template Apply never removes it.
                             'admin_managed' => 1,
@@ -676,6 +725,7 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                                 'price_type'     => 'fixed',
                             ));
                         }
+                        $_scheduleTouched = true;
                     }
                 }
 
@@ -690,6 +740,9 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                     count($_newMap)
                 ), null, 'mmd_schedule_save.log', true);
 
+                if ($_scheduleTouched) {
+                    Mage::getResourceModel('catalog/product_indexer_price')->reindexProductIds(array($courseId));
+                }
                 Mage::app()->cleanCache();
             }
 
@@ -772,6 +825,22 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             $devBack = trim((string) $req->getParam('dev_back', ''));
             $devBackSuffix = $devBack !== '' ? '?dev_back=' . urlencode($devBack) : '';
             $dashboardUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard');
+            $ajaxSave = (int) $req->getParam('ajax_save') === 1;
+            Mage::getSingleton('adminhtml/session')->setData('dcf_course_save_notice', array(
+                'type' => 'success',
+                'message' => 'Course changes saved successfully.',
+            ));
+
+            if ($ajaxSave) {
+                Mage::getSingleton('adminhtml/session')->unsetData('dcf_course_save_notice');
+                $this->getResponse()
+                    ->setHeader('Content-Type', 'application/json', true)
+                    ->setBody(json_encode(array(
+                        'success' => true,
+                        'message' => 'Course changes saved successfully.',
+                    )));
+                return;
+            }
 
             if ($continueEdit) {
                 // Save & Continue — stay in editor, preserve back-state
@@ -782,12 +851,16 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
                 $this->_redirectUrl($editUrl);
             } elseif ($devBack !== '') {
                 // Save Changes with back-state — drop back on the filtered list
-                $this->_redirectUrl($dashboardUrl . '?' . $devBack . '#courses');
+                $editUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array(
+                    'course_id' => $courseId,
+                    'mode' => 'editing',
+                )) . $devBackSuffix;
+                $this->_redirectUrl($editUrl);
             } else {
                 // Save Changes without back-state (legacy entry) — read-only view
                 $viewUrl = Mage::helper('adminhtml')->getUrl('adminhtml/dashboard', array(
                     'course_id' => $courseId,
-                    'mode' => 'edit',
+                    'mode' => 'editing',
                 ));
                 $this->_redirectUrl($viewUrl);
             }
@@ -799,7 +872,20 @@ class MMD_RoleManager_Adminhtml_CoursesaveController extends Mage_Adminhtml_Cont
             // with no clue what went wrong (reported 2026-07-19 saving a
             // Courseware Link). Only fall back to the dashboard when we never
             // resolved a course to return to.
+            if ((int) $this->getRequest()->getParam('ajax_save') === 1) {
+                $this->getResponse()
+                    ->setHeader('Content-Type', 'application/json', true)
+                    ->setBody(json_encode(array(
+                        'success' => false,
+                        'message' => 'Could not save course changes: ' . $e->getMessage(),
+                    )));
+                return;
+            }
             Mage::getSingleton('adminhtml/session')->addError($e->getMessage());
+            Mage::getSingleton('adminhtml/session')->setData('dcf_course_save_notice', array(
+                'type' => 'error',
+                'message' => 'Could not save course changes: ' . $e->getMessage(),
+            ));
             $courseId = (int) $this->getRequest()->getParam('course_id');
             if ($courseId) {
                 $devBack = trim((string) $this->getRequest()->getParam('dev_back', ''));
