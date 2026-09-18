@@ -87,6 +87,25 @@ Then retitle/recode, renumber the static footer page numbers, and re-verify.
 
 ## 3. The LP and LG — retime to 9:30am – 5:30pm
 
+**First confirm the non-WSQ course's DURATION against the storefront — it is often
+shorter than the WSQ parent.** The WSQ course is usually 2 days; its non-WSQ twin is
+frequently **1 day** at a lower fee. Read the live product page before retiming:
+
+```bash
+curl -sS "https://www.tertiarycourses.com.sg/<slug>.html" \
+  | grep -oE "[0-9]+-day|[0-9]+ day|\$[0-9,]+\.[0-9]{2}" | sort -u
+```
+
+A `$350` fee at the standard `$350/day` rate means **one day**, whatever the WSQ
+source says. Ask the user which topics the shorter day covers (compress all of them,
+or drop the later topics) — don't silently ship the WSQ day count. When it collapses
+to one day, the LP loses its second schedule table, its `Day 2` heading **and** the
+`Day 2` TOC entry, the deck's outline slide becomes `Course Outline — 1 Day` with the
+Day 1 / Day 2 cards rebuilt as **Morning / Afternoon**, and every "two-day" phrase in
+the LP overview and the repo README becomes "one-day". Incident: C11 (2026-09-19)
+shipped a 2-day LP for a 1-day course because the WSQ parent's structure was inherited
+unquestioned.
+
 Copy both, then apply:
 
 1. **Retime every schedule row and heading to a 9:30am–5:30pm day.** The WSQ day runs
