@@ -120,6 +120,23 @@ Copy both, then apply:
    Grep the source LP/LG for every time literal first (`grep -o '[0-9]\{1,2\}[:.][0-9]\{2\} *[APap][Mm]'`)
    and cover each form you find — including the table cells, which are separate from
    the prose.
+
+   **If that grep returns nothing, the LP is hour-based, not clock-based** — newer
+   generators schedule by duration (`4 hours`, `Day total: 8 hours`, a `Time` column
+   whose cells read `4 hours` / `Guided practice`) and contain no `6:30pm` to
+   substitute. `--sub` retiming then silently does nothing. Handle it directly:
+   - **Every non-WSQ LP is presented as 9:30am – 5:30pm regardless**, so rewrite the
+     day headings to `Day N · 9:30am – 5:30pm` and each `Day total:` line to
+     `N instructional hours (9:30am – 5:30pm).` even though the source never stated
+     a clock time.
+   - **Reconcile the hours against the storefront**, which is the authority: scrape
+     `Duration` and the class time from the non-WSQ product page
+     (`Duration 15 hrs`, `9:30am - 5:30pm`). The WSQ topic hours will exceed it by
+     roughly the assessment block. Adjust the per-topic `Time` cells until they sum
+     to the storefront figure, and make the day totals agree.
+   - **Which topic gives up the time is a judgement call — ask.** Topics are usually
+     equal-weight (same mechanism and lab counts), so there is no correct answer in
+     the data. Offer concrete splits with their day totals and let the user pick.
 2. **Remove the assessment** — the assessment rows in the schedule table, the
    Assessment and Evidence Plan section, marking guides, and sentence-level
    references buried inside otherwise-useful paragraphs (drop the sentence, keep the
@@ -138,6 +155,23 @@ Copy the `labs/` tree. Rewrite the course name, the course code, the repo URL an
 any lab that cites them. The WSQ product URL (`/wsq-<slug>.html`) must be repointed at
 the non-WSQ product page — ask for that URL, don't invent the slug.
 
+**Rebuild every lab PDF that sits beside a rewritten `.md`.** Lab folders commonly ship
+a `.pdf` next to each `.md` (README, prompts, evidence-template, story-assets). Editing
+only the Markdown leaves those PDFs carrying the **WSQ course code**, and they are what
+the learner actually opens. `verify.py` reads Markdown, so the stale PDFs pass the scan
+silently. Regenerate each one and re-check:
+
+```bash
+for md in $(find labs -name '*.md'); do
+  [ -f "${md%.md}.pdf" ] || continue
+  soffice --headless --convert-to pdf:writer_pdf_Export "$md" --outdir "$(dirname "$md")" >/dev/null 2>&1
+done
+for f in $(find labs -name '*.pdf'); do pdftotext "$f" - | grep -l 'TGS-' >/dev/null && echo "STALE: $f"; done
+```
+
+Also fix the **version string inside the labs** (`· <code> · v2.0`) before rebuilding —
+it is not the course code, so the code rewrite misses it.
+
 ## 5. Verify before publishing — both scans must pass
 
 ```bash
@@ -145,6 +179,20 @@ python3 ~/.claude/skills/wsq-to-non-wsq/scripts/verify.py \
   --old-code <TGS-code> --old-title "<WSQ title>"
 python3 ~/.claude/skills/non-wsq-courseware-qa/scan_prohibited.py .
 ```
+
+**Scan the repo README too — the QA scan does not.** `scan_prohibited.py` reads
+courseware artifacts, so a root `README.md` copied from the WSQ repo keeps its
+`| Programme | WSQ |` row, its `16 hours, plus 2 hours of assessment` duration and,
+worst of all, a `| Funding | Up to 70% course-fee funding… |` row — the funding content
+§1 forbids. Strip those rows and set the duration to the storefront figure before
+committing.
+
+**Verify the feedback slide by its shapes, not the converter's exit code.**
+`--feedback-slide` may rewrite only the subtitle and leave the eyebrow (`TRAQOM`) and
+all three card bodies (`AM` / `PM` / `ASSESSMENT` → "Record assessment attendance")
+intact. Dump the slide's shapes after converting and rewrite each remaining one in
+place, writing through `paragraph.runs[0]` and blanking the trailing runs so the card
+fonts survive.
 
 Then export PDFs (**one `soffice` invocation per file** — a mixed Impress/Writer run
 converts only some) and **look at the pixels** — render the cover, the rewritten
