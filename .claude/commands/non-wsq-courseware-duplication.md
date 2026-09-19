@@ -87,7 +87,16 @@ Then retitle/recode, renumber the static footer page numbers, and re-verify.
 
 ## 3. The LP and LG — retime to 9:30am – 5:30pm
 
-**First confirm the non-WSQ course's DURATION against the storefront — it is often
+**The house figure is fixed: 9:30am – 5:30pm, 7.5 instructional hours per day — so
+7.5 hrs for a 1-day course and 15 hrs for a 2-day course.** Do not derive a different
+daily total from the WSQ parent or from break arithmetic; set the day headings,
+`Day total:` lines and the repo README to this figure and make the schedule rows fit
+it. 7.5 teaching hours inside a 480-minute day leaves only **30 minutes of break** —
+one 30-minute lunch and no separate tea breaks — so the WSQ parent's 60-min lunch plus
+two 15-min teas must be rewritten, not carried over. Carrying them over silently
+yields 6.5 h/day (13 hrs over two days) and contradicts the storefront.
+
+**Then confirm the non-WSQ course's DAY COUNT against the storefront — it is often
 shorter than the WSQ parent.** The WSQ course is usually 2 days; its non-WSQ twin is
 frequently **1 day** at a lower fee. Read the live product page before retiming:
 
@@ -127,13 +136,13 @@ Copy both, then apply:
    substitute. `--sub` retiming then silently does nothing. Handle it directly:
    - **Every non-WSQ LP is presented as 9:30am – 5:30pm regardless**, so rewrite the
      day headings to `Day N · 9:30am – 5:30pm` and each `Day total:` line to
-     `N instructional hours (9:30am – 5:30pm).` even though the source never stated
+     `7.5 instructional hours (9:30am – 5:30pm).` even though the source never stated
      a clock time.
-   - **Reconcile the hours against the storefront**, which is the authority: scrape
-     `Duration` and the class time from the non-WSQ product page
-     (`Duration 15 hrs`, `9:30am - 5:30pm`). The WSQ topic hours will exceed it by
-     roughly the assessment block. Adjust the per-topic `Time` cells until they sum
-     to the storefront figure, and make the day totals agree.
+   - **Reconcile the hours against the 7.5 h/day house figure** (the storefront should
+     already agree — `Duration 15 hrs`, `9:30am - 5:30pm` for a 2-day course; if it
+     does not, flag the product page rather than bending the LP). The WSQ topic hours
+     will exceed it by roughly the assessment block. Adjust the per-topic `Time` cells
+     until they sum to 450 min/day, and make the day totals agree.
    - **Which topic gives up the time is a judgement call — ask.** Topics are usually
      equal-weight (same mechanism and lab counts), so there is no correct answer in
      the data. Offer concrete splits with their day totals and let the user pick.
@@ -214,8 +223,9 @@ Do not proceed to §6 on a failing scan.
 - A slide mixing course content with funding content.
 - **"Learning Outcomes"** — remove from the **deck**, keep in the **Lesson Plan**.
 - The schedule not closing on 5:30pm after the assessment block is removed.
-- The destination GitHub repo already holding a different course (never force-push on
-  your own judgement).
+
+The destination GitHub repo holding a different course is **not** a judgement call —
+the conversion always replaces `main`. See §7.1.
 
 ## 7. Publish — in this order
 
@@ -225,8 +235,17 @@ Run each only after the previous one succeeds.
    (hero + registration link, outcomes, topics/labs, repo structure), sets the repo
    About, and excludes `assessment/` and `source-wsq/`. Point `origin` at the
    **non-WSQ repo**, confirm with `git remote -v` — never the TGS remote — before the
-   first push. If the remote is non-empty and holds a different course, stop and ask;
-   never force-push on your own judgement.
+   first push.
+
+   **Always replace `main`.** This conversion is the authoritative courseware for the
+   course, so whatever is on `main` — an older copy, or a different course built
+   independently by `non-wsq-courseware-build` under the same code — is superseded.
+   Don't branch, don't ask which wins, don't open a PR. Read the remote first
+   (`git log --oneline origin/main`, `git ls-tree -r --name-only origin/main`) so the
+   swap is recorded and the lease has a SHA, then push with
+   `--force-with-lease=main:<verified-remote-sha>` — never a bare `--force`, so a
+   concurrent push aborts instead of being clobbered. Say in the final report what was
+   replaced.
 2. **`/non-wsq-gdrive-push <Drive courseware folder link>`** — dry-run first, then push.
 
    **All five folders must exist, and every one must have an `archive/`.** The five are
@@ -291,6 +310,37 @@ Run each only after the previous one succeeds.
    resolves) — do **not** push a short record. A field whose Drive file does not exist
    must be **reported**, never written blank over a good value.
 
+4. **`/non-wsq-schedule <C-code>`** — put the course on the **counterpart schedule
+   option template** of its WSQ parent, so both intakes sit on the same slot in the
+   training calendar. **Run this on every conversion, never only on request** — read
+   both templates from the DB and confirm the codes match even when you have no
+   reason to suspect a mismatch. A recycled product entity keeps the *retired*
+   course's template, so a freshly converted course routinely starts on the wrong
+   one while looking completely finished.
+
+   **The non-WSQ course's schedule option template must match the WSQ course's
+   schedule option template.** These are the storefront custom-option templates that
+   carry the class dates — the WSQ catalogue prefixes every template `(SG) WSQ-`, the
+   non-WSQ catalogue uses the bare code:
+
+   ```
+   WSQ course on  "(SG) WSQ-A08 Wed/Sat 2nd wk"
+   non-WSQ goes on          "A08 Wed/Sun 2nd wk"
+   ```
+
+   **Match on the template CODE, never the weekday names** — `WSQ-A08` is Wed/**Sat**
+   while non-WSQ `A08` is Wed/**Sun**, deliberately, so matching on days lands the
+   course on the wrong template. The `non-wsq-schedule` skill owns the full rule, the
+   code table and the switching mechanics; follow it rather than editing options here.
+
+   **Never do this in SQL.** `custom_options_relation` is per-`option_id`, so a
+   DELETE+INSERT wipes the schedule and leaves duplicate orphan options — it is a
+   CODE path only. See memory `feedback_schedule_template_switch_never_in_sql`.
+
+   A conversion that ships courseware but leaves the course on its old (or a
+   mismatched) template is incomplete — the learner sees class dates that do not line
+   up with the WSQ intake.
+
 ## 8. Point the course's Funding block at the WSQ twin
 
 A non-WSQ course carries **no funding of its own**, but the learner reading its page is
@@ -321,5 +371,6 @@ Follow the repo `CLAUDE.md` pre-push verification (migration dry-run via the rea
 `apply.php`) before pushing.
 
 Report at the end: the four artifacts produced, the WSQ content removed, the retiming
-applied, both scan results, the three publish targets with their links, and the funding
-block's redirect target.
+applied, both scan results, the four publish targets with their links (GitHub, Drive,
+LMS, schedule template), the schedule option template the course now sits on and the
+WSQ template it matches, and the funding block's redirect target.
