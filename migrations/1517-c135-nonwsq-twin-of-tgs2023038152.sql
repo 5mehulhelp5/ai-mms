@@ -1,4 +1,4 @@
--- 1515: C135 Basic Accounting for Non-Finance Managers -> 2-day non-WSQ twin of TGS-2023038152
+-- 1517: C135 Basic Accounting for Non-Finance Managers -> 2-day non-WSQ twin of TGS-2023038152
 --
 -- Converted from the WSQ parent (TGS-2023038152) by /non-wsq-courseware-duplication.
 -- SG only. Idempotent: every UPDATE is value-setting and guarded on the C135 entity.
