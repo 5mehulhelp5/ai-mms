@@ -32,6 +32,8 @@ class MMD_CourseImage_Model_Cover
     private const MAX_TITLE_LINES = 4;
     private const TITLE_MIN_PX = 36;
     private const TITLE_MAX_PX = 86;
+    /** Multiplier from font POINT size to baseline-to-baseline spacing. */
+    private const TITLE_LINE_HEIGHT = 1.35;
 
     // Brand palette — richer "shaded blue": darker navy at the top corners,
     // mid-blue body, brand blue at the bottom. A radial highlight sits behind
@@ -499,7 +501,12 @@ class MMD_CourseImage_Model_Cover
 
         [$fontSize, $lines] = $this->fitTitle($title, $fontPath, $maxWidth, $bandH);
 
-        $lineHeight = (int) round($fontSize * 1.25);
+        // 1.35, not 1.25: imagettftext() sizes in POINTS, so a line's ink
+        // height (ascender..descender) is ~1.27x the point size for Inter-Bold.
+        // At 1.25 a two-line title overlaps -- the second line's capitals
+        // collide with the first line's descenders (seen on
+        // "WSQ - CompTIA Server+ Training" at size 86: ink 109px vs 108px).
+        $lineHeight = (int) round($fontSize * self::TITLE_LINE_HEIGHT);
         $blockH = $lineHeight * count($lines);
         $startY  = $bandTop + (int) round(($bandH - $blockH) / 2);
 
@@ -530,7 +537,7 @@ class MMD_CourseImage_Model_Cover
     {
         for ($size = self::TITLE_MAX_PX; $size >= self::TITLE_MIN_PX; $size -= 2) {
             $lines = $this->wrap($title, $fontPath, $size, $maxWidth);
-            $blockH = (int) round($size * 1.25) * count($lines);
+            $blockH = (int) round($size * self::TITLE_LINE_HEIGHT) * count($lines);
             if (count($lines) <= self::MAX_TITLE_LINES && $blockH <= $maxBlockH) {
                 return [$size, $lines];
             }
