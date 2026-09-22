@@ -1,4 +1,4 @@
--- 1534: C841 -> "AI Vibe Coding for Web Design" (AI Vibe Coding Series)
+-- 1542: C841 -> "AI Vibe Coding for Web Design" (AI Vibe Coding Series)
 --
 -- Repurposes C841 off its Unity Game Development life onto Web Design, and
 -- brings it onto the AI Vibe Coding Series standard: 2 days / 15 hrs / $700 /
@@ -252,7 +252,7 @@ SELECT @sid,
        CONCAT('c841-ai-vibe-web-', t.slot, '-', @pid),
        CONCAT(t.prefix, 'ai-vibe-coding-for-unity-game-development.html'),
        CONCAT(IF(t.keep = 1, t.prefix, ''), 'ai-vibe-coding-for-web-design.html'),
-       0, 'RP', '1534: C841 repurposed to AI Vibe Coding for Web Design'
+       0, 'RP', '1542: C841 repurposed to AI Vibe Coding for Web Design'
   FROM (
         SELECT 'bare'   AS slot, ''                                             AS prefix, 1 AS keep
   UNION SELECT 'cat3',           'adult-training-courses/',                         1
