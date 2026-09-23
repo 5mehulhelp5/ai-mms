@@ -368,8 +368,7 @@
 	// each courseware Brochure folder. Never fall back to a generated local
 	// media PDF or an older URL embedded in the brochure CMS block.
 	$_brochureStoreId = (int) Mage::app()->getStore()->getId();
-	$_isSingaporeCourse = $_brochureStoreId === 1
-		&& (strpos($_courseSku, 'TGS-') === 0 || strpos($_courseSku, 'C') === 0);
+	$_isSingaporeCourse = $_isSgWsqCourse || $_isNonWsqSgCourse;
 	if ($_isSingaporeCourse) {
 		$_courseBrochureUrl = Mage::helper('courses')->getPublishedBrochureUrl($_product->getId());
 		if ($_courseBrochureUrl === '') {
