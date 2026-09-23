@@ -70,6 +70,31 @@ class MMD_Courses_Helper_Data extends Mage_Core_Helper_Abstract
 	}
 
     /**
+     * Return the brochure published from the courseware Brochure folder.
+     *
+     * @param int $productId
+     * @return string
+     */
+    public function getPublishedBrochureUrl($productId)
+    {
+        $productId = (int) $productId;
+        if ($productId <= 0) {
+            return '';
+        }
+
+        $resource = Mage::getSingleton('core/resource');
+        $read     = $resource->getConnection('core_read');
+        $url      = trim((string) $read->fetchOne(
+            $read->select()
+                ->from($resource->getTableName('course_courseware'), 'brochure_link')
+                ->where('product_id = ?', $productId)
+                ->limit(1)
+        ));
+
+        return preg_match('#^https://#i', $url) ? $url : '';
+    }
+
+    /**
      * Share targets for a course page as circular icon buttons — key (for CSS
      * colour), label, href and an inline brand SVG. Mirrors the blog share row
      * (MMD_Blog_Block_View::getShareIcons).
