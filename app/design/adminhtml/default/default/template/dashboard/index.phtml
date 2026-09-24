@@ -15951,10 +15951,15 @@ window.mnFlyerQueueBrief = function(row, tr) {
     td.setAttribute('colspan', '8');
     td.style.cssText = 'padding:10px 12px 12px;';
     td.innerHTML =
-        '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' +
-        '  <input type="text" class="mn-input mn-fq-brief-instr" maxlength="1000" style="flex:1 1 320px;height:28px;font-size:12px;" ' +
-        '         placeholder="Special instructions for this flyer — e.g. green colour scheme, lead with SkillsFuture Credit, punchier hook..." />' +
-        '  <select class="mn-input mn-fq-brief-date" style="flex:0 0 auto;height:28px;font-size:12px;padding:2px 8px;">' +
+        // Multi-line textarea: a real brief ("green scheme, lead with SkillsFuture
+        // Credit, punchier hook") does not fit a 28px single-line input, and the
+        // admin could not see what they had typed past ~60 characters.
+        '<textarea class="mn-input mn-fq-brief-instr" maxlength="1000" rows="4" ' +
+        '          style="display:block;width:100%;box-sizing:border-box;min-height:88px;' +
+        'font:400 12px/1.6 -apple-system,Segoe UI,Arial,sans-serif;padding:8px 10px;resize:vertical;" ' +
+        '          placeholder="Special instructions for this flyer &#10;e.g. green colour scheme, lead with SkillsFuture Credit, punchier hook..."></textarea>' +
+        '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;">' +
+        '  <select class="mn-input mn-fq-brief-date" style="flex:1 1 220px;height:28px;font-size:12px;padding:2px 8px;">' +
         '    <option value="">Lead intake: soonest (default)</option>' +
         '  </select>' +
         '  <button type="button" class="mm-btn mm-btn-primary mm-btn-sm mn-fq-brief-save">Save brief</button>' +

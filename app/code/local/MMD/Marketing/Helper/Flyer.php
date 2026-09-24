@@ -433,6 +433,25 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
     }
 
     /**
+     * Merge a refinement fragment into the per-SKU design_refinements store and
+     * flush config so render() sees it on the very next call. Split out of
+     * regenerateCopy() so a COLOUR-only brief can be persisted independently of
+     * the AI copy step — a failed copy generation must not swallow the palette.
+     */
+    protected function _persistRefinement($sku, array $fragment)
+    {
+        $sku = trim((string) $sku);
+        if ($sku === '' || !$fragment) { return; }
+        $all = $this->_designRefinements();
+        $all[$sku] = array_merge(
+            isset($all[$sku]) && is_array($all[$sku]) ? $all[$sku] : array(),
+            $fragment
+        );
+        Mage::getModel('core/config')->saveConfig('mmd_marketing/newsletter/design_refinements', json_encode($all));
+        Mage::app()->getCacheInstance()->cleanType('config');
+    }
+
+    /**
      * AI-REGENERATE the flyer copy for one course — hook, outcomes and learning
      * journey — from the course's OWN content, the manager's feedback and what past
      * blasts have taught us. This is the fix for "the text cannot be templated": the
@@ -521,6 +540,13 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
             . "}\n"
             . "journey MUST have " . ($days > 1 ? ($days * 2) . " steps (2 per day)" : "3-4 steps") . ", in order, each concrete to this course. Use plain ASCII punctuation.";
 
+        // A colour ask must survive a copy-generation failure: the palette is
+        // derived from the brief text alone and needs no AI. Persist it FIRST so
+        // "make it green" repaints the design even if the words step fails
+        // (otherwise the early returns below drop the colour on the floor).
+        $palette = $this->detectColorRequest($fb0);
+        if ($palette) { $this->_persistRefinement($sku, $palette); }
+
         $out = $this->_callClaude($prompt);
         if ($out === '') { return null; }
 
@@ -560,14 +586,10 @@ class MMD_Marketing_Helper_Flyer extends Mage_Core_Helper_Abstract
         // colour was never persisted and the dark bands were hardcoded). Detect a
         // colour ask in the feedback/instruction and persist the full palette so
         // render() repaints every surface on the very next build.
-        $palette = $this->detectColorRequest($fb0);
         if ($palette) { $copy = array_merge($copy, $palette); }
 
         // Persist into the per-SKU refinements store so _mergedPitch() overlays it.
-        $all = $this->_designRefinements();
-        $all[$sku] = array_merge(isset($all[$sku]) && is_array($all[$sku]) ? $all[$sku] : array(), $copy);
-        Mage::getModel('core/config')->saveConfig('mmd_marketing/newsletter/design_refinements', json_encode($all));
-        Mage::app()->getCacheInstance()->cleanType('config');
+        $this->_persistRefinement($sku, $copy);
         return $copy;
     }
 

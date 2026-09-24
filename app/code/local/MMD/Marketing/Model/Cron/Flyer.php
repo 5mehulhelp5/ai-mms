@@ -81,7 +81,16 @@ class MMD_Marketing_Model_Cron_Flyer
             $this->_log('propose: skipped — flyer queue empty and no popular upcoming class found');
             return;
         }
-        $newsletterId = $this->createProposal($productId, $this->_poppedBrief['instructions'], $this->_poppedBrief['run_date']);
+        // popFlyerQueue() already DELETED the row, so a failure here would destroy
+        // the admin's brief. Put the row back on failure and let the next run retry.
+        try {
+            $newsletterId = $this->createProposal($productId, $this->_poppedBrief['instructions'], $this->_poppedBrief['run_date']);
+        } catch (Exception $e) {
+            $this->restoreFlyerQueueRow($productId);
+            $this->_log('propose: failed for product ' . $productId . ' — ' . $e->getMessage()
+                . '; queue row restored (brief preserved)');
+            return;
+        }
         if ($newsletterId) {
             $this->sendForReview($newsletterId);
             $this->_log('propose: proposal #' . $newsletterId . ' for product ' . $productId . ' sent for review');
@@ -123,6 +132,27 @@ class MMD_Marketing_Model_Cron_Flyer
                 $this->_write()->delete('mmd_marketing_flyer_queue', array('queue_id = ?' => (int) $row['queue_id']));
                 return (int) $row['product_id'];
             } catch (Exception $e2) { return null; }
+        }
+    }
+
+    /**
+     * Re-insert a queue row that popFlyerQueue() consumed, after the design run
+     * for it failed. The brief travels in $_poppedBrief, so the admin's special
+     * instructions + pinned intake survive a failed run instead of being lost
+     * with the deleted row. Goes back to the HEAD (position 0) so the retry is
+     * the next thing the pipeline picks up. INSERT IGNORE: if the admin re-added
+     * the course meanwhile, their row wins.
+     */
+    public function restoreFlyerQueueRow($productId)
+    {
+        try {
+            $this->_write()->query(
+                'INSERT IGNORE INTO mmd_marketing_flyer_queue (product_id, position, instructions, run_date)'
+              . ' VALUES (?, 0, ?, ?)',
+                array((int) $productId, $this->_poppedBrief['instructions'], $this->_poppedBrief['run_date']));
+        } catch (Exception $e) {
+            $this->_log('restoreFlyerQueueRow: could not restore product ' . (int) $productId
+                . ' — ' . $e->getMessage());
         }
     }
 
@@ -467,8 +497,28 @@ class MMD_Marketing_Model_Cron_Flyer
         // regenerateOnChanges passes the manager's feedback so a rework always differs.
         // Special instructions act exactly like feedback: non-empty forces a fresh
         // AI generation (and colour detection); empty reuses prior copy (no API burn).
-        try { $this->_flyer()->regenerateCopy($productId, (string) $instructions); }
-        catch (Exception $e) { $this->_log('createProposal: regenerateCopy failed — ' . $e->getMessage()); }
+        // A brief MUST be honoured or the run MUST fail loudly. regenerateCopy()
+        // returns null on any failure (API error, unparseable JSON, too few
+        // outcomes) and render() then silently falls back to the PREVIOUS stored
+        // copy for this SKU — shipping a flyer that ignores the admin's
+        // instructions while the queue row (the only copy of the brief) has
+        // already been popped and deleted. Abort instead, so the caller reports
+        // the failure and the brief can be re-run. No brief = old behaviour
+        // (best-effort; curated/derived copy is a legitimate result).
+        $briefGiven = trim((string) $instructions) !== '';
+        try {
+            $copy = $this->_flyer()->regenerateCopy($productId, (string) $instructions);
+            if ($briefGiven && $copy === null) {
+                throw new Exception('the AI copy step returned nothing');
+            }
+        } catch (Exception $e) {
+            $this->_log('createProposal: regenerateCopy failed — ' . $e->getMessage());
+            if ($briefGiven) {
+                throw new Exception('Could not apply the special instructions to this flyer ('
+                    . $e->getMessage() . '). The design was NOT created, so the brief is not lost — '
+                    . 're-run the row to try again.');
+            }
+        }
         $flyerHtml = $this->_flyer()->render($productId, $runDate);
         if ($flyerHtml === '') {
             return null;
@@ -758,7 +808,16 @@ class MMD_Marketing_Model_Cron_Flyer
         $pid = $this->popFlyerQueue();
         if (!$pid) { $pid = $this->pickPopularUpcomingClass(); }
         if (!$pid) { $this->_log('autoStartNext: no queued or popular course — nothing to auto-start'); return null; }
-        $nid = $this->createProposal($pid, $this->_poppedBrief['instructions'], $this->_poppedBrief['run_date']);
+        // Same contract as propose(): the queue row is already gone, so restore it
+        // rather than silently losing the brief it carried.
+        try {
+            $nid = $this->createProposal($pid, $this->_poppedBrief['instructions'], $this->_poppedBrief['run_date']);
+        } catch (Exception $e) {
+            $this->restoreFlyerQueueRow($pid);
+            $this->_log('autoStartNext: failed for product ' . $pid . ' — ' . $e->getMessage()
+                . '; queue row restored (brief preserved)');
+            return null;
+        }
         if ($nid) {
             $this->sendForReview($nid);
             $this->_log('autoStartNext: proposal #' . $nid . ' (product ' . $pid . ') auto-started + sent for review');
